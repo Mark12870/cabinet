@@ -24,6 +24,7 @@ public sealed class Doctor(Layout layout)
         var checks = new List<Check>
         {
             ExportedYabridge(),
+            YabridgectlCanFindIt(),
             Shim(),
             SocketDirectory(),
             SharedMemory(),
@@ -46,6 +47,22 @@ public sealed class Doctor(Layout layout)
         }
 
         return new Check("yabridge exported", Status.Ok, layout.YabridgeDir);
+    }
+
+    /// <summary>
+    /// yabridgectl searches its own <c>$XDG_DATA_HOME/yabridge</c>, which inside
+    /// Cabinet's sandbox is not where <c>setup</c> exported to. Without the link every
+    /// <c>cabinet sync</c> fails, and it is not obvious from the message why.
+    /// </summary>
+    private Check YabridgectlCanFindIt()
+    {
+        var link = layout.SandboxYabridgeLink;
+        var chainloader = Path.Combine(link, "libyabridge-chainloader-vst3.so");
+
+        return File.Exists(chainloader)
+            ? new Check("yabridgectl path", Status.Ok, $"{link} -> {layout.YabridgeDir}")
+            : new Check("yabridgectl path", Status.Fail,
+                $"{link} does not reach {layout.YabridgeDir} — run `cabinet setup`");
     }
 
     private Check Shim()
@@ -90,6 +107,12 @@ public sealed class Doctor(Layout layout)
                 "Cabinet lacks --device=shm; audio buffers cannot cross the boundary");
     }
 
+    /// <summary>
+    /// The remedy names a systemd drop-in and not <c>limits.conf</c> on purpose:
+    /// <c>pam_limits</c> does not reach anything the systemd user manager starts, which
+    /// is every Flatpak DAW launched from a desktop. A <c>limits.d</c> entry looks
+    /// applied and changes nothing.
+    /// </summary>
     private static Check MemoryLock()
     {
         var limit = ReadMemlockLimit();
@@ -103,8 +126,11 @@ public sealed class Doctor(Layout layout)
         return limit >= comfortable
             ? new Check("memlock limit", Status.Ok, $"{limit / 1024 / 1024} MB")
             : new Check("memlock limit", Status.Warn,
-                $"{limit / 1024 / 1024} MB — yabridge may not lock its audio buffers; "
-                + "raise RLIMIT_MEMLOCK for your user");
+                $"{limit / 1024 / 1024} MB — yabridge may not lock its audio buffers. "
+                + "Put `[Manager]` and `DefaultLimitMEMLOCK=1G` in "
+                + "/etc/systemd/user.conf.d/60-memlock.conf (and in system.conf.d/ for a "
+                + "DAW started outside the user session), then log out and back in. "
+                + "Not limits.conf: pam_limits does not reach a systemd-started app.");
     }
 
     /// <summary>

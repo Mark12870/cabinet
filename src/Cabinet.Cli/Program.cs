@@ -54,7 +54,7 @@ internal static class Program
 
         return args[0] switch
         {
-            "setup" => Setup(layout, runner),
+            "setup" => Setup(layout),
             "enrol" or "enroll" => Enrol(layout, Require(args, 1, "a DAW flatpak id")),
             "new" => New(layout, runner, Require(args, 1, "a prefix name")),
             "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
@@ -68,10 +68,9 @@ internal static class Program
         };
     }
 
-    private static int Setup(Layout layout, IProcessRunner runner)
+    private static int Setup(Layout layout)
     {
         var report = Core.Setup.Run(layout);
-        new Yabridgectl(layout, runner).SetPath();
 
         Console.WriteLine($"yabridge      {report.YabridgeDir}");
         Console.WriteLine($"shim          {report.ShimPath}");
@@ -116,6 +115,11 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("It is not applied automatically: --talk-name=org.freedesktop.Flatpak");
         Console.WriteLine($"lets {dawId} run commands on the host, which is yours to decide.");
+        Console.WriteLine();
+        Console.WriteLine("Then check the shim loads inside that DAW's runtime, which is older");
+        Console.WriteLine("than the one it was built against on some DAWs:");
+        Console.WriteLine();
+        Console.WriteLine("  " + Enrolment.SelfTestCommand(dawId, layout));
         return 0;
     }
 
@@ -132,10 +136,7 @@ internal static class Program
         var prefixes = new Prefixes(layout, runner);
         prefixes.Create(name);
 
-        var result = prefixes.Install(name, installer);
-        Console.Write(result.Stdout);
-        Console.Error.Write(result.Stderr);
-
+        var result = prefixes.Install(name, installer, inherit: true);
         if (!result.Ok)
         {
             return result.ExitCode;
@@ -183,10 +184,8 @@ internal static class Program
     private static int Run(
         Layout layout, IProcessRunner runner, string name, string command, string[] arguments)
     {
-        var result = new Prefixes(layout, runner).Run(name, command, arguments);
-        Console.Write(result.Stdout);
-        Console.Error.Write(result.Stderr);
-        return result.ExitCode;
+        // winecfg and regedit are interactive, so stream rather than capture.
+        return new Prefixes(layout, runner).Run(name, command, arguments, inherit: true).ExitCode;
     }
 
     private static int RunDoctor(Layout layout, bool json)

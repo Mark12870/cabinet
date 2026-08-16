@@ -31,6 +31,18 @@ public static class Enrolment
     public static string OverrideCommand(string dawId, Layout layout) =>
         "flatpak " + string.Join(' ', OverrideArguments(dawId, layout).Select(Quote));
 
+    /// <summary>
+    /// Runs the shim's self-test inside the DAW's own sandbox.
+    /// </summary>
+    /// <remarks>
+    /// The shim is dynamically linked against freedesktop 25.08 but is exec'd in whatever
+    /// runtime the DAW uses, which may be older. Nothing Cabinet can run from its own
+    /// sandbox proves it loads over there, so this is printed for the user to run instead.
+    /// It resolves because the shim lives under <c>$HOME</c>, which a bridged DAW can read.
+    /// </remarks>
+    public static string SelfTestCommand(string dawId, Layout layout) =>
+        $"flatpak run --command={Quote(layout.ShimPath)} {dawId} --cabinet-self-test";
+
     private static string Quote(string argument) =>
         argument.Any(char.IsWhiteSpace) ? $"'{argument}'" : argument;
 }

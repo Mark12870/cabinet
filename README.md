@@ -47,7 +47,9 @@ flatpak run $cabinet doctor                                 # check both sides
 
 Plugins that ship as a plain folder rather than an installer can be unpacked straight into
 `~/.local/share/cabinet/prefixes/<name>/drive_c/Program Files/Common Files/VST3`, then
-`sync`.
+`sync`. `new` creates the conventional locations for VST3, VST2 and CLAP under both
+`Program Files` and `Program Files (x86)`, and `sync` registers whichever ones exist — a
+32-bit plugin belongs in the `(x86)` half.
 
 `cabinet run <name> winecfg` (or `regedit`, or any command) is the escape hatch when a
 plugin needs a DLL override or a registry key.
@@ -113,7 +115,10 @@ Everything is bundled in the commit, so any version still listed is still instal
 - **32-bit plugins** need the `org.freedesktop.Platform.Compat.i386` runtime, which the
   manifest declares; it is pulled in on install.
 - **`RLIMIT_MEMLOCK`** is 8 MB on many systems, below what yabridge wants for locking its
-  audio buffers into RAM. `doctor` warns about it.
+  audio buffers into RAM. `doctor` warns about it and prints the fix: `DefaultLimitMEMLOCK=1G`
+  under `[Manager]` in `/etc/systemd/user.conf.d/60-memlock.conf`. Not `limits.conf` —
+  `pam_limits` does not reach anything the systemd user manager starts, which is every
+  Flatpak DAW you launch from the desktop.
 - Upstream yabridge does not support Flatpak DAWs. Cabinet makes it work, but that
   configuration is Cabinet's problem, not upstream's — please do not report it there.
 
