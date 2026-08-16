@@ -17,6 +17,9 @@ Languages are split on purpose: **Rust only for `shim/`**, C# for everything els
 any future GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
 sandboxes; nothing else has that constraint.
 
+`TODO.md` is the live list of what is unverified, untested or deferred — read it before
+picking up work, and tick things off there rather than rediscovering them.
+
 ## Layout
 
 - `shim/` — `cabinet-wine`, the `$WINELOADER` shim. Std-only, no dependencies.
@@ -67,6 +70,14 @@ These were all found by something failing, not by reading documentation.
   are lost the same way and are *not* re-declared — they are extensions of another app.
 - **`org.winehq.Wine` bakes `WINEPREFIX=/var/data/wine` into its metadata.** Always pass an
   explicit prefix rather than assuming an unset one.
+- **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
+  taking a value and then read as a flag, so clap aborts. `--path` is therefore unreachable,
+  and `setup` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` at the export instead. Re-check
+  on the next yabridge bump before reaching for `set` again.
+- **`setup` writes `WINELOADER` into the login session, and `flatpak run` hands it straight
+  back to Cabinet.** Anything Cabinet starts would then exec the shim and try to re-enter its
+  own sandbox. Every Wine invocation pins `WINELOADER=/app/bin/wine`; "Cabinet *is* the Wine
+  sandbox" only holds if it is written down.
 - **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
   which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
 - **The shim is not statically linked**, though it should be: the freedesktop SDK ships no

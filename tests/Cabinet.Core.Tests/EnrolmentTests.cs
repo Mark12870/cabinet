@@ -37,4 +37,17 @@ public class EnrolmentTests
         Assert.DoesNotContain("~", command);
         Assert.StartsWith("flatpak override --user fm.reaper.Reaper", command);
     }
+
+    /// <summary>
+    /// The self-test has to run in the DAW's sandbox, not Cabinet's — that is the whole
+    /// point of it, so the app id must be the DAW's.
+    /// </summary>
+    [Fact]
+    public void TheSelfTestRunsTheShimInsideTheDaw()
+    {
+        Assert.Equal(
+            "flatpak run --command=/home/u/.local/bin/cabinet-wine fm.reaper.Reaper "
+            + "--cabinet-self-test",
+            Enrolment.SelfTestCommand("fm.reaper.Reaper", Layout));
+    }
 }

@@ -44,6 +44,8 @@ public static class Setup
             File.SetUnixFileMode(destination, ExecutableMode(source));
         }
 
+        LinkYabridgeForYabridgectl(layout);
+
         var written = WriteEnvironmentD(layout);
         return new SetupReport(
             layout.YabridgeDir,
@@ -51,6 +53,27 @@ public static class Setup
             layout.SocketDir,
             layout.EnvironmentDFile,
             written);
+    }
+
+    /// <summary>
+    /// Points <c>yabridgectl</c> at the files just exported.
+    /// </summary>
+    /// <remarks>
+    /// It searches its own <c>$XDG_DATA_HOME/yabridge</c>, which inside Cabinet's
+    /// sandbox is not where the files went, so without this every <c>sync</c> fails
+    /// with "could not find libyabridge-chainloader-vst2.so". See
+    /// <see cref="Layout.SandboxYabridgeLink"/> for why this is a link rather than
+    /// <c>yabridgectl set --path=</c>.
+    /// </remarks>
+    private static void LinkYabridgeForYabridgectl(Layout layout)
+    {
+        var link = layout.SandboxYabridgeLink;
+        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+
+        // Unconditional: a no-op when nothing is there, and it clears a dangling link,
+        // which the usual Path.Exists guard would report as absent.
+        File.Delete(link);
+        File.CreateSymbolicLink(link, layout.YabridgeDir);
     }
 
     /// <summary>
