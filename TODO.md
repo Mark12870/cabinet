@@ -10,9 +10,6 @@ each item is something that was skipped, deferred, or left untested.
 The probe used during bring-up instantiates a plugin and reads its factory, but never
 processes audio and never opens an editor. So three things remain unobserved:
 
-- [ ] **Editor embedding.** The plugin window must be embedded in the DAW's window, not
-      floating. This crosses two sandboxes via XEmbed and is the most likely thing to be
-      subtly broken.
 - [ ] **Audio renders without xruns** at a normal buffer size.
 - [ ] **`/dev/shm` populated during processing.** `ls /dev/shm | grep -i yabridge` should be
       non-empty while a plugin runs. The whole `--device=shm` requirement rests on this, and
