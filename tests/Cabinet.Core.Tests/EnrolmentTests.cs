@@ -12,11 +12,8 @@ public class EnrolmentTests
     [InlineData("--filesystem=xdg-run/yabridge:create")]
     [InlineData("--talk-name=org.freedesktop.Flatpak")]
     [InlineData("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge")]
-    // Without this the DAW cannot read the chainloader: ~/.local/share/flatpak is masked
-    // even under --filesystem=home.
     [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files:ro")]
-    // The bundles yabridgectl writes symlink into the prefix, and the DAW follows them.
     [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
     [InlineData("--env=WINELOADER=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files/lib/yabridge/cabinet-wine")]
@@ -45,10 +42,6 @@ public class EnrolmentTests
         Assert.StartsWith("flatpak override --user fm.reaper.Reaper", command);
     }
 
-    /// <summary>
-    /// The self-test has to run in the DAW's sandbox, not Cabinet's — that is the whole
-    /// point of it, so the app id must be the DAW's.
-    /// </summary>
     [Fact]
     public void TheSelfTestRunsTheShimInsideTheDaw()
     {

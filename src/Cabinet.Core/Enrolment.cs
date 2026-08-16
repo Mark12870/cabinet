@@ -5,8 +5,7 @@ namespace Cabinet.Core;
 /// </summary>
 /// <remarks>
 /// The override is <em>printed</em>, never applied. <c>--talk-name=org.freedesktop.Flatpak</c>
-/// lets the DAW run arbitrary commands on the host, which is a real weakening of its
-/// sandbox and the user's decision to make — not a side effect of running enrol.
+/// lets the DAW run arbitrary commands on the host, which is the user's decision to make.
 /// </remarks>
 public static class Enrolment
 {
@@ -17,18 +16,14 @@ public static class Enrolment
         dawId,
         // yabridge's audio buffers are shm_open(), and `--device=all` does not cover this.
         "--device=shm",
-        // The socket directory, at the same path on both sides of the boundary.
         "--filesystem=xdg-run/yabridge:create",
-        // Read the chainloader and the shim out of Cabinet's install directory. A scoped
-        // grant instead of a copy on the host -- and required rather than tidy, because
-        // flatpak masks ~/.local/share/flatpak even under --filesystem=home.
+        // The chainloader and the shim. Both grants are needed because flatpak masks
+        // ~/.local/share/flatpak and another app's ~/.var/app even under --filesystem=home.
         $"--filesystem={layout.HostAppFiles}:ro",
-        // The plugins themselves. yabridgectl's bundles symlink into the prefix, and
-        // libyabridge walks up from the .dll looking for `dosdevices` -- both of which
-        // happen in the DAW's process, and ~/.var/app/<other-app> is masked without this.
-        // Read-only is enough: Wine does the writing, from inside Cabinet's own sandbox.
+        // The plugins: yabridgectl's bundles symlink into the prefix, and libyabridge walks
+        // up from the .dll for `dosdevices`, both in the DAW's process. Wine does the
+        // writing from Cabinet's own sandbox, so read-only is enough.
         $"--filesystem={layout.PrefixesDir}:ro",
-        // So the shim can reach the host to start the Wine sandbox.
         "--talk-name=org.freedesktop.Flatpak",
         $"--env=WINELOADER={layout.ShimPath}",
         // Spelled out: `flatpak override` does no variable expansion.
@@ -36,18 +31,13 @@ public static class Enrolment
         "--env=YABRIDGE_NO_WATCHDOG=1",
     ];
 
-    /// <summary>The same thing as one pasteable line.</summary>
     public static string OverrideCommand(string dawId, Layout layout) =>
         "flatpak " + string.Join(' ', OverrideArguments(dawId, layout).Select(Quote));
 
     /// <summary>
-    /// Runs the shim's self-test inside the DAW's own sandbox.
+    /// Runs the shim's self-test inside the DAW's own sandbox, which may be an older
+    /// runtime than the shim was built against and is not otherwise checkable from here.
     /// </summary>
-    /// <remarks>
-    /// The shim is dynamically linked against freedesktop 25.08 but is exec'd in whatever
-    /// runtime the DAW uses, which may be older. Nothing Cabinet can run from its own
-    /// sandbox proves it loads over there, so this is printed for the user to run instead.
-    /// </remarks>
     public static string SelfTestCommand(string dawId, Layout layout) =>
         $"flatpak run --command={Quote(layout.ShimPath)} {dawId} --cabinet-self-test";
 

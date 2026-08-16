@@ -21,9 +21,7 @@ command: cabinet
 # `/lib/ld-linux.so.2: could not open`. These re-declare what org.winehq.Wine
 # declares, and are what makes 32-bit plugin hosting work at all.
 add-extensions:
-  # Wine's .NET and HTML replacements. Also lost with `base:`, and re-declarable exactly
-  # like the i386 compat layer above -- Bottles does the same against the same base app.
-  # They are extensions, so they cost nothing in the image.
+  # Also lost with `base:`, and re-declarable despite belonging to another app.
   org.winehq.Wine.gecko:
     directory: share/wine/gecko
     version: stable-25.08
@@ -65,36 +63,28 @@ finish-args:
   # NOT include /dev/shm -- verified: a sandbox without this sees an empty one.
   - --device=shm
   - --allow=multiarch                      # 32-bit plugin hosts
-  # Prefixes live in Cabinet's own data directory, so $HOME is needed only to *read* an
-  # installer the user points at. Every write below is a named directory.
+  # Read-only: $HOME is needed only to read an installer. Every write is a named dir.
   - --filesystem=home:ro
-  # yabridgectl's output: the bridged plugins, where a DAW scans for them.
+  # yabridgectl's output, where a DAW scans for plugins.
   - --filesystem=~/.vst3:create
   - --filesystem=~/.vst:create
   - --filesystem=~/.clap:create
-  # Flatpak masks ~/.var/app/<other-app> under `home`, but honours an explicit
-  # request. `enrol` needs it to link yabridge into a DAW's XDG_DATA_HOME, which is
-  # the only place that DAW's chainloader looks.
+  # Masked under `home`, but honoured explicitly. `enrol` links yabridge into a DAW's
+  # XDG_DATA_HOME here, the only place that DAW's chainloader looks.
   - --filesystem=~/.var/app
-  # Cabinet's own installed files, which it reads back through their *host* path: the
-  # chainloader hands those paths to the shim, which hands them here. ~/.local/share/flatpak
-  # is masked even under `home`, so this has to be explicit. Both roots, because a system
-  # install lands outside $HOME.
+  # Cabinet's own files, read back through their host path because the chainloader hands
+  # those to the shim. Masked under `home`. Both roots: a system install is outside $HOME.
   - --filesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet:ro
   - --filesystem=/var/lib/flatpak/app/io.github.mark12870.cabinet:ro
-  # Read-only, and only this one directory: `doctor` verifies an enrolled DAW by
-  # reading its override file. Cheaper than asking flatpak, which Cabinet cannot do
-  # from inside its own sandbox anyway.
+  # `doctor` reads an enrolled DAW's override file; it cannot ask flatpak from in here.
   - --filesystem=~/.local/share/flatpak/overrides:ro
   # The socket directory, shared with the DAW on the other side of the boundary.
   - --filesystem=xdg-run/yabridge:create
   - --env=YABRIDGE_NO_WATCHDOG=1
 
 modules:
-  # Delivery only: nothing here is executed inside the sandbox. `cabinet setup`
-  # copies this directory out to ~/.local/share/yabridge, because the halves that
-  # matter -- the chainloader and libyabridge -- are loaded by the DAW, which
-  # lives outside. Only Wine runs in here.
+  # Delivery only. The chainloader and libyabridge are loaded by the DAW, which reads
+  # them from here through their host path; only Wine runs inside.
   - name: yabridge
     buildsystem: simple
     build-commands:
@@ -121,7 +111,7 @@ modules:
         CARGO_HOME: /run/build/cabinet-wine/cargo
     build-commands:
       - cargo build --offline --release
-      # Not in bin/: exported to the host by `cabinet setup`, never run in here.
+      # Not in bin/: exec'd by the DAW, never run in here.
       - install -Dm755 target/release/cabinet-wine ${FLATPAK_DEST}/lib/yabridge/cabinet-wine
     sources:
       - type: dir

@@ -46,19 +46,17 @@ flatpak install --user cabinet-local io.github.mark12870.cabinet   # remote: fil
 ## The architecture, in one paragraph
 
 yabridge's DAW-side halves cannot live in the sandbox, because the DAW does not — but they
-are not copied out either. The DAW reads them from the installed Flatpak's own
-`current/active/files`, granted read-only by `enrol`'s override; only Wine runs inside. There
-is **no `setup` command**: `Bootstrap.Ensure` makes the one link Cabinet needs in its own data
-directory on every invocation. The crossing happens at `$WINELOADER`, which yabridge's winegcc
-wrapper execs — upstream supports this explicitly through `YABRIDGE_TEMP_DIR` and
-`YABRIDGE_NO_WATCHDOG`. Prefixes need no registration: yabridge walks up from the plugin
-`.dll` for a `dosdevices` directory.
+are not copied out either: the DAW reads them from the installed Flatpak's own
+`current/active/files`, granted read-only by `enrol`'s override. Only Wine runs inside. There
+is **no `setup` command**; `Bootstrap.Ensure` makes the one link Cabinet needs on every
+invocation. The crossing happens at `$WINELOADER`, which yabridge's winegcc wrapper execs —
+upstream supports this through `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. Prefixes need
+no registration: yabridge walks up from the plugin `.dll` for a `dosdevices` directory.
 
 **Everything Cabinet owns stays in `~/.var/app/io.github.mark12870.cabinet/`, prefixes
-included** — the Bottles model, and the standard to hold new code to. Exactly two paths
-outside it are unavoidable, both forced by yabridge: `~/.vst3/yabridge/…` (where DAWs scan)
-and `~/.var/app/<daw>/data/yabridge` (the chainloader's compiled-in search path). Anything
-else appearing in `$HOME` is a bug.
+included** — the Bottles model, and the standard to hold new code to. Two paths outside it
+are unavoidable: `~/.vst3/yabridge/…` (where DAWs scan) and `~/.var/app/<daw>/data/yabridge`
+(the chainloader's compiled-in search path). Anything else in `$HOME` is a bug.
 
 ## Gotchas
 
@@ -68,54 +66,45 @@ These were all found by something failing, not by reading documentation.
   so `--device=shm` is required on Cabinet *and* on every bridged DAW. A sandbox without it
   sees an empty `/dev/shm` while the host has entries — that is the check `doctor` makes.
 - **Flatpak masks `~/.var/app/<other-app>` even under `--filesystem=home`.** The chainloader
-  resolves yabridge through the DAW's `$XDG_DATA_HOME`, which for a Flatpak DAW is exactly
-  that masked path, so Wine gets handed a path that does not exist on its side and fails with
-  `failed to open …yabridge-host.exe.so`. **The shim `realpath`s everything it forwards.**
-  Do not "simplify" that away. An explicit `--filesystem=~/.var/app` is honoured, which is
-  how `enrol` writes the link at all.
+  resolves yabridge through the DAW's `$XDG_DATA_HOME`, which is exactly that masked path, so
+  Wine is handed a path that does not exist on its side and fails with
+  `failed to open …yabridge-host.exe.so`. **The shim `realpath`s everything it forwards** — do
+  not "simplify" that away. An explicit `--filesystem=~/.var/app` is honoured.
 - **`~/.local/share/flatpak` is masked too**, so `doctor` reads override files through an
   explicit `--filesystem=~/.local/share/flatpak/overrides:ro`.
-- **Prefixes living in `~/.var/app/<cabinet>` means the DAW cannot reach them by default.**
-  yabridgectl's bundles symlink into the prefix and libyabridge walks up from the `.dll` for
-  `dosdevices` — both in the *DAW's* process, where that path is masked. REAPER reported
-  "failed to scan" with nothing else to go on. `enrol` grants
-  `--filesystem=<prefixes>:ro`; read-only is enough, because Wine does the writing from
-  inside Cabinet's own sandbox. Anything that moves the prefixes must move that grant too.
+- **A DAW cannot reach prefixes in `~/.var/app/<cabinet>` by default.** yabridgectl's bundles
+  symlink into the prefix and libyabridge walks up for `dosdevices`, both in the *DAW's*
+  process. REAPER reported only "failed to scan". `enrol` grants `--filesystem=<prefixes>:ro`;
+  anything that moves the prefixes must move that grant too.
 - **`base:` copies the base app's files but not its extension declarations.** Inheriting
-  multilib Wine this way loses `org.freedesktop.Platform.Compat.i386` and it dies on
-  `/lib/ld-linux.so.2: could not open`. The manifest re-declares them — *including*
-  `org.winehq.Wine.gecko` and `.mono`, which belong to another app and are re-declarable
-  anyway. Bottles does exactly this against the same base; check what it does before
-  concluding something inherited from Wine cannot be recovered.
+  multilib Wine loses `org.freedesktop.Platform.Compat.i386` and it dies on
+  `/lib/ld-linux.so.2: could not open`. The manifest re-declares them, *including*
+  `org.winehq.Wine.gecko` and `.mono` — another app's extensions are re-declarable, as
+  Bottles does against the same base.
 - **`org.winehq.Wine` bakes `WINEPREFIX=/var/data/wine` into its metadata.** Always pass an
   explicit prefix rather than assuming an unset one.
 - **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
-  taking a value and then read as a flag, so clap aborts. `--path` is therefore unreachable,
-  and `setup` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` at the export instead. Re-check
-  on the next yabridge bump before reaching for `set` again.
-- **A DAW's `WINELOADER` reaches Cabinet through `flatpak run`.** Anything Cabinet starts
-  would then exec the shim and try to re-enter its own sandbox. Every Wine invocation pins
-  `WINELOADER=/app/bin/wine`; "Cabinet *is* the Wine sandbox" only holds if it is written down.
-- **`app-path` in `/.flatpak-info` is content-addressed** — it carries the commit hash and
-  changes on every update, so it must never be baked into a DAW's `flatpak override`.
-  `Layout.StableAlias` rewrites it to the `current/active` alias flatpak repoints instead.
-- **`--filesystem=home:ro` combined with `--filesystem=~/.vst3:create` does what you want**:
-  the specific grant wins, so Cabinet reads anywhere in `$HOME` and writes only where listed.
-  Verified, not assumed.
-- **`File.ResolveLinkTarget` throws when the path does not exist**, which is the normal state
-  on a first run. `new DirectoryInfo(p).LinkTarget` answers `null` for both "absent" and "not
-  a link" and is the one to use.
+  taking a value and then read as a flag, so clap aborts and `--path` is unreachable.
+  `Bootstrap` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` instead. Re-check on the next
+  yabridge bump.
+- **A DAW's `WINELOADER` reaches Cabinet through `flatpak run`**, so anything Cabinet starts
+  would exec the shim and re-enter its own sandbox. Every Wine invocation pins
+  `WINELOADER=/app/bin/wine`.
+- **`app-path` in `/.flatpak-info` is content-addressed**, so it must never be baked into a
+  DAW's override. `Layout.StableAlias` rewrites it to the `current/active` alias.
+- **`--filesystem=home:ro` plus `--filesystem=~/.vst3:create` works**: the specific grant
+  wins. Verified, not assumed.
+- **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
+  `new DirectoryInfo(p).LinkTarget` answers `null` instead.
 - **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
   which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
 - **The shim is not statically linked**, though it should be: the freedesktop SDK ships no
-  static libc and the rust-stable extension carries only gnu targets, which flatpak-builder
-  cannot extend offline. `--cabinet-self-test` exists so a DAW on an older runtime produces a
-  legible error instead of a plugin that silently will not scan.
+  static libc and rust-stable carries only gnu targets. `--cabinet-self-test` exists so a DAW
+  on an older runtime gives a legible error instead of a plugin that will not scan.
 - **`nuget-sources.json` must be regenerated whenever the C# packages move**, with
   `flatpak-dotnet-generator.py` from `flatpak/flatpak-builder-tools` (the `flatpak` org, not
-  `flathub`). It is required even with zero third-party packages, because NativeAOT pulls
-  ILCompiler from NuGet. The Rust side deliberately has no equivalent: keep the shim
-  dependency-free and there is nothing to vendor.
+  `flathub`). Required even with zero third-party packages: NativeAOT pulls ILCompiler from
+  NuGet. Keep the shim dependency-free and the Rust side needs no equivalent.
 - **Never use `flatpak-builder --install`**, and never re-add `--generate-static-deltas` — see
   `../beeper-flatpak/CLAUDE.md`, whose publishing gotchas all apply here unchanged.
 - Fedora's system `flathub` remote is filtered; add a user-scoped one to install SDKs.

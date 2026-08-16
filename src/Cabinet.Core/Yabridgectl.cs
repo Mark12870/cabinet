@@ -4,9 +4,8 @@ namespace Cabinet.Core;
 /// Drives upstream's <c>yabridgectl</c> through its own subcommands.
 /// </summary>
 /// <remarks>
-/// Deliberately not by editing <c>config.toml</c>: going through the CLI keeps Cabinet
-/// out of a file format it does not own, and removes the only reason to take a TOML
-/// dependency into a NativeAOT build.
+/// Through the CLI rather than by editing <c>config.toml</c>, which keeps a TOML
+/// dependency out of a NativeAOT build.
 /// </remarks>
 public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 {
@@ -44,9 +43,8 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
                 $"{Binary} is missing — run this from inside the Cabinet Flatpak");
         }
 
-        // Pinned to Wine, not the shim. yabridgectl probes `$WINELOADER --version`, and
-        // the shim inherited from the login session would send that back out of the
-        // sandbox that is already the one meant to run it.
+        // Pinned to Wine, not the shim: yabridgectl probes `$WINELOADER --version`, and
+        // an inherited shim would bounce that back out of the sandbox meant to run it.
         return runner.Run(Binary, arguments, new Dictionary<string, string>
         {
             ["YABRIDGE_TEMP_DIR"] = layout.SocketDir,
