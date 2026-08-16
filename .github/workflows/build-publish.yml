@@ -1,0 +1,248 @@
+name: Build and publish the Flatpak repo
+
+on:
+  push:
+    branches: [main]
+    # Only the package's own inputs. Docs and scripts/ cannot change what gets built,
+    # and a rebuild exports fresh commits that every installed client sees as an
+    # update -- burning a slot of rollback history for nothing.
+    paths:
+      - 'io.github.mark12870.cabinet.*'   # manifest, metainfo
+      - 'src/**'
+      - 'shim/**'
+      - 'nuget-sources.json'
+      - '.github/workflows/build-publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  APP_ID: io.github.mark12870.cabinet
+  # Parents kept behind each head when pruning, so `flatpak update --commit=` has
+  # somewhere to go. Lower than beeper-flatpak's 100 on purpose: Cabinet bundles
+  # Wine, so a retained commit is tens of megabytes rather than a few kilobytes.
+  HISTORY_DEPTH: 10
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      # bwrap needs to set up its own namespaces to build inside a container.
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the runtime, SDK, Wine and the build toolchains
+        run: |
+          flatpak install -y --noninteractive flathub \
+            org.freedesktop.Platform//25.08 \
+            org.freedesktop.Sdk//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08 \
+            org.freedesktop.Sdk.Extension.dotnet10//25.08 \
+            org.freedesktop.Sdk.Extension.llvm20//25.08 \
+            org.winehq.Wine//stable-25.08
+
+      # Without this the repo starts empty every run and each export is a parentless
+      # root: nothing to roll back to. Seeding it first makes the new commit a child
+      # of the published one.
+      - name: Seed the repo from the published history
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
+
+          # Branch on the status itself, not on curl's exit: -f collapses every 4xx
+          # and 5xx into exit 22, so a 403 or a down Pages would read as "nothing
+          # published yet" and silently re-root the history.
+          code="$(curl -sSI -o /dev/null -w '%{http_code}' \
+                  --retry 3 --retry-all-errors "${url}summary")" || code=000
+          case "${code}" in
+            200) ;;
+            404|410)
+              echo "::notice::nothing published at ${url} yet; starting a fresh history"
+              exit 0 ;;
+            *)
+              echo "::error::cannot reach ${url} (HTTP ${code})"
+              exit 1 ;;
+          esac
+
+          ostree --repo=repo init --mode=archive-z2
+          ostree --repo=repo remote add --no-gpg-verify published "${url}"
+          # Signatures ride along with the commits and clients re-verify them, so
+          # verifying our own upload here would buy nothing. Depth -1 is safe past
+          # the pruned end: ostree stops there rather than failing.
+          ostree --repo=repo pull --mirror --depth=-1 published
+          # --mirror wrote plain local refs, so the remote is spent -- and it would
+          # otherwise be published inside repo/config.
+          ostree --repo=repo remote delete published
+
+      - name: Build
+        run: |
+          flatpak-builder \
+            --repo=repo \
+            --force-clean \
+            --disable-rofiles-fuse \
+            --default-branch=stable \
+            build "${APP_ID}.yml"
+
+      # Tarred because upload-artifact does not preserve the symlinks an OSTree
+      # repository is built out of.
+      - name: Pack the repo
+        run: tar -cf repo.tar repo
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: repo
+          path: repo.tar
+          retention-days: 1
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      # Only for scripts/ and site/ -- the repo itself comes from the artifact.
+      - uses: actions/checkout@v7
+
+      - name: Install flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak ostree
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repo
+
+      - name: Unpack the built repo
+        run: |
+          # flatpak-builder already wrote it as archive-z2, which is what Pages
+          # needs to serve; the tar lands as _site/repo.
+          mkdir -p _site
+          tar -xf repo.tar -C _site
+
+      - uses: actions/configure-pages@v6
+        id: pages
+
+      - name: Import the signing key
+        id: gpg
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          # Hard failure rather than a quiet unsigned publish: clients that added the
+          # remote while it was signed break on an unsigned update, and a green build
+          # should never silently downgrade that.
+          if [ -z "${GPG_PRIVATE_KEY}" ]; then
+            echo "::error::GPG_PRIVATE_KEY is missing or empty. Add it under" \
+                 "Settings > Secrets and variables > Actions > Repository secrets."
+            exit 1
+          fi
+
+          GNUPGHOME="${RUNNER_TEMP}/gnupg"
+          mkdir -p "${GNUPGHOME}" && chmod 700 "${GNUPGHOME}"
+          export GNUPGHOME
+
+          # A runner has no terminal, so the agent must never reach for pinentry --
+          # it would die with "Inappropriate ioctl for device".
+          printf 'pinentry-mode loopback\n' > "${GNUPGHOME}/gpg.conf"
+          printf 'allow-loopback-pinentry\ndefault-cache-ttl 7200\nmax-cache-ttl 7200\n' \
+            > "${GNUPGHOME}/gpg-agent.conf"
+          gpgconf --kill gpg-agent || true
+
+          printf '%s\n' "${GPG_PRIVATE_KEY}" | gpg --batch --import
+          keyid="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')"
+          if [ -z "${keyid}" ]; then
+            echo "::error::the secret imported no usable secret key"
+            exit 1
+          fi
+
+          pass=()
+          if [ -n "${GPG_PASSPHRASE}" ]; then
+            printf '%s' "${GPG_PASSPHRASE}" > "${GNUPGHOME}/pp"
+            pass=(--passphrase-file "${GNUPGHOME}/pp")
+          fi
+
+          # Sign once here: proves the key is usable and primes the agent cache so
+          # ostree's GPGME signing does not prompt later.
+          if ! err="$(echo smoke | gpg --batch --yes --pinentry-mode loopback \
+                       ${pass[@]+"${pass[@]}"} --local-user "${keyid}" \
+                       --sign --output /dev/null 2>&1)"; then
+            echo "::error::cannot sign with ${keyid}: ${err//$'\n'/ } ::" \
+                 "if the key has a passphrase, add it as the GPG_PASSPHRASE secret"
+            exit 1
+          fi
+
+          echo "signing with ${keyid}"
+          {
+            echo "keyid=${keyid}"
+            echo "gnupghome=${GNUPGHOME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update and sign the repo
+        run: |
+          # The build job exports commits unsigned, and a client with gpg-verify=true
+          # refuses those.
+          for ref in $(ostree --repo=_site/repo refs); do
+            c="$(ostree --repo=_site/repo rev-parse "${ref}")"
+            # Heads carried in from the published history are signed already, and
+            # gpg-sign errors out rather than no-opping on those.
+            [ -f "_site/repo/objects/${c:0:2}/${c:2}.commitmeta" ] && continue
+            ostree --repo=_site/repo gpg-sign \
+              --gpg-homedir="${{ steps.gpg.outputs.gnupghome }}" \
+              "${c}" "${{ steps.gpg.outputs.keyid }}"
+          done
+
+          # No --generate-static-deltas: ostree prefers a delta over plain objects on
+          # an HTTP remote, and a delta does not carry the commit's detached
+          # signature, so every install would fail gpg-verify.
+          if ! err="$(flatpak build-update-repo --prune \
+                       --prune-depth="${HISTORY_DEPTH}" \
+                       --gpg-sign="${{ steps.gpg.outputs.keyid }}" \
+                       --gpg-homedir="${{ steps.gpg.outputs.gnupghome }}" \
+                       _site/repo 2>&1 >/dev/null)"; then
+            echo "::error::build-update-repo failed: ${err//$'\n'/ }"
+            exit 1
+          fi
+
+          test -f _site/repo/summary.sig
+          for ref in $(ostree --repo=_site/repo refs); do
+            c="$(ostree --repo=_site/repo rev-parse "${ref}")"
+            if [ ! -f "_site/repo/objects/${c:0:2}/${c:2}.commitmeta" ]; then
+              echo "::error::commit for ${ref} is unsigned"
+              exit 1
+            fi
+          done
+
+      - name: Render the site
+        env:
+          BASE: ${{ steps.pages.outputs.base_url }}
+        run: |
+          python3 scripts/render-site.py \
+            --repo _site/repo \
+            --out _site \
+            --base-url "${BASE}" \
+            --homepage "https://github.com/${GITHUB_REPOSITORY}" \
+            --gpg-fingerprint "${{ steps.gpg.outputs.keyid }}" \
+            --gpg-key "$(gpg --homedir "${{ steps.gpg.outputs.gnupghome }}" \
+              --export "${{ steps.gpg.outputs.keyid }}" | base64 -w0)"
+
+          # Stop Pages from running the upload through Jekyll.
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+          # .nojekyll would otherwise be dropped.
+          include-hidden-files: true
+
+      - uses: actions/deploy-pages@v5
+        id: deploy

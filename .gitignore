@@ -1,0 +1,19 @@
+# flatpak-builder
+/.flatpak-builder/
+/build/
+/repo/
+/publish/
+/nuget-sources/
+
+# rust
+/shim/target/
+
+# dotnet
+[Bb]in/
+[Oo]bj/
+
+# jetbrains
+/.idea/
+
+# python
+__pycache__/

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cabinet — Windows VSTs on Linux</title>
+<meta name="description" content="Wine packaged as a Flatpak, bridging Windows VST plugins into a Linux DAW, one prefix per plugin.">
+<style>
+:root {
+  --bg: #fbfbfc;
+  --panel: #ffffff;
+  --ink: #16181d;
+  --muted: #61656e;
+  --line: #e3e5ea;
+  --accent: #2f5bd8;
+  --code-bg: #f2f3f6;
+  --ok: #1a7f45;
+  --gone: #a3341f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131519;
+    --panel: #1a1d23;
+    --ink: #e8eaee;
+    --muted: #9aa0ab;
+    --line: #2b2f38;
+    --accent: #8aa9ff;
+    --code-bg: #21252d;
+    --ok: #62c78d;
+    --gone: #ef8a72;
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0 1.25rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 47rem; margin: 0 auto; }
+header { padding: 3.5rem 0 2rem; border-bottom: 1px solid var(--line); }
+h1 { margin: 0; font-size: 2.1rem; letter-spacing: -0.02em; }
+h1 small {
+  display: block; margin-top: 0.3rem;
+  font-size: 0.95rem; font-weight: 400; color: var(--muted); letter-spacing: 0;
+}
+h2 { margin: 2.75rem 0 0.75rem; font-size: 1.15rem; letter-spacing: -0.01em; }
+p { margin: 0.75rem 0; }
+a { color: var(--accent); }
+.disclaimer { margin-top: 1rem; font-size: 0.9rem; color: var(--muted); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; }
+p code, td code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+pre {
+  margin: 0.75rem 0; padding: 0.9rem 1rem; overflow-x: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+pre code { font-size: 0.85rem; line-height: 1.55; }
+.current {
+  display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: baseline;
+  margin-top: 0.75rem; padding: 0.9rem 1rem;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+}
+.current b { font-size: 1.35rem; font-weight: 600; }
+.current span { color: var(--muted); font-size: 0.9rem; }
+.table-scroll { overflow-x: auto; margin: 1rem 0; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.5rem 0.75rem 0.5rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+td.commit code { word-break: break-all; color: var(--muted); font-size: 0.78rem; }
+tr.is-current td { font-weight: 600; }
+footer {
+  margin-top: 3.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
+  font-size: 0.85rem; color: var(--muted);
+}
+footer a { margin-right: 1rem; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Cabinet<small>Windows VST plugins in per-plugin Wine prefixes — x86_64</small></h1>
+  <p class="disclaimer">
+    Packaging only. Wine and <a href="https://github.com/robbert-vdh/yabridge">yabridge</a> are
+    other people's work; Cabinet bundles them and wires them to your DAW.
+  </p>
+</header>
+
+<h2>Install</h2>
+<pre><code>flatpak remote-add --if-not-exists cabinet \
+  $flatpakrepo_url
+flatpak install cabinet $app_id
+flatpak run $app_id setup</code></pre>
+
+<div class="current">
+  <b>yabridge $current_version</b>
+  <span>published $current_date</span>
+</div>
+
+<h2>How it fits together</h2>
+<p>
+  Only Wine runs inside the sandbox. <code>setup</code> exports the halves your DAW loads —
+  yabridge's chainloader and <code>libyabridge-*.so</code> — to
+  <code>~/.local/share/yabridge</code>, because they are loaded by the DAW, which lives
+  outside. A shim at <code>$$WINELOADER</code> is the whole boundary between the two.
+</p>
+<p>
+  Each plugin gets its own Wine prefix under
+  <code>~/.local/share/cabinet/prefixes</code> — its own C: drive, registry and
+  dependencies. yabridge detects which prefix a plugin lives in on its own, so several
+  run side by side.
+</p>
+<pre><code>flatpak run $app_id new serum
+flatpak run $app_id install serum ~/Downloads/Serum.exe
+flatpak run $app_id sync</code></pre>
+<p>
+  For a Flatpak DAW, run <code>enrol &lt;daw-flatpak-id&gt;</code> first and read what it
+  prints: bridging into a sandboxed DAW needs permissions that are yours to grant, not
+  Cabinet's to assume. <code>doctor</code> checks both sides afterwards.
+</p>
+
+<h2>Rolling back</h2>
+<p>
+  The last $history_depth releases stay listed. Pick a commit from the table and:
+</p>
+<pre><code>flatpak update --commit=&lt;COMMIT&gt; $app_id</code></pre>
+<p>
+  A plain <code>flatpak update</code> moves you forward again; <code>flatpak mask $app_id</code>
+  makes the rollback stick until you unmask it. Everything is bundled in the commit, so any
+  version still listed is still installable.
+</p>
+
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr><th>yabridge</th><th>Published</th><th>Commit</th></tr>
+  </thead>
+  <tbody>
+$rows
+  </tbody>
+</table>
+</div>
+
+<h2>Signing key</h2>
+<p>
+  Commits and the repo summary are signed. The remote pins this key when you add it, so a
+  later unsigned publish is refused rather than installed.
+</p>
+<pre><code>$gpg_fingerprint</code></pre>
+
+<footer>
+  <a href="$homepage">Source and issues</a>
+  <a href="$flatpakrepo_url">.flatpakrepo</a>
+  <div style="margin-top:0.75rem">Generated $generated. GPL-3.0-or-later.</div>
+</footer>
+
+</main>
+</body>
+</html>
