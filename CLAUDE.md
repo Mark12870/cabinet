@@ -18,7 +18,9 @@ any future GUI. The shim is Rust because it is exec'd on the plugin-load path in
 sandboxes; nothing else has that constraint.
 
 `TODO.md` is the live list of what is unverified, untested or deferred — read it before
-picking up work, and tick things off there rather than rediscovering them.
+picking up work. **It only ever shrinks.** Remove what is finished; do not add items, and do
+not keep a "done" section. What was learned on the way belongs in the commit message, or here
+under Gotchas if it will bite again.
 
 ## Layout
 
