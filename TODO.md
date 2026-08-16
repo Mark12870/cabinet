@@ -22,19 +22,24 @@ processes audio and never opens an editor. So three things remain unobserved:
       `~/.vst3/yabridge`; nothing has yet confirmed REAPER scans it and that
       `yabridge-host-32.exe` is what starts.
 
-## Unverified — needs CI
-
-- [ ] **Install from the published remote**, to confirm signing works over real HTTPS rather
-      than the local rehearsal. Best done against a *second* published commit, so it also
-      proves the repo-seeding step preserved history rather than re-rooting it.
-
 ## Untested code
 
-- [ ] **`cabinet install` has not been completed once.** It gets as far as running the
-      installer — the prefix is created, Wine starts the `.exe`, and Inno Setup unpacks into
-      the prefix's own `C:\users\…\Temp` — but no wizard has been clicked through to the end.
-      It also takes no trailing arguments, so a silent install (`/VERYSILENT`, `/S`) is not
-      expressible; worth adding if driving installers non-interactively ever matters.
+- [ ] **`cabinet install` has not been completed once.** It gets as far as drawing the
+      wizard — the prefix is created, Wine starts the `.exe`, and Inno Setup unpacks into the
+      prefix's own `C:\users\…\Temp` and builds its UI — but the window then processed no
+      input at all (0.4 s of CPU in ten minutes, nothing written to the prefix). Wine was
+      healthy throughout: `explorer.exe /desktop` and `services.exe` up, and `winecfg` opened
+      in the same prefix on demand.
+
+      The suspicion is the launch context, not Cabinet: it was started from a detached
+      background shell, and GNOME's focus-stealing prevention left the window
+      `_NET_WM_STATE_HIDDEN` while a `winecfg` started the same way came up
+      `_NET_WM_STATE_DEMANDS_ATTENTION` — neither ever got focus. **Unconfirmed.** Settle it
+      by running `cabinet install` from an ordinary interactive terminal; if the wizard is
+      still dead, the X11 input path into the sandbox is a real bug.
+
+      `install` also takes no trailing arguments, so a silent install (`/VERYSILENT`, `/S`)
+      is not expressible — which is why this could not simply be driven headlessly instead.
 
 ## Decisions deferred
 
@@ -53,6 +58,9 @@ processes audio and never opens an editor. So three things remain unobserved:
 
 - **First `build-publish.yml` run**, and Pages enabled by hand. The site is live, the repo
   serves `config`, `summary` and a signed app ref, and the `.flatpakrepo` carries `GPGKey=`.
+- **Install from the published remote**, over HTTPS with `gpg-verify` on — and against a
+  *second* published commit, so the repo-seeding step is proven too: `c52bcb71` carries
+  `Parent: 69c4d1d7`, and `remote-info --log` offers both, so a rollback has somewhere to go.
 - **`cabinet new` and `sync`**, including a 32-bit VST3 unpacked into
   `Program Files (x86)\Common Files\VST3` and bridged. Closing this needed three fixes found
   by running it:
