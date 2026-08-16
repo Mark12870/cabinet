@@ -1,0 +1,24 @@
+[package]
+name = "cabinet-wine"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.74"
+license = "GPL-3.0-or-later"
+description = "WINELOADER shim that runs Wine inside the Cabinet Flatpak on behalf of a DAW outside it"
+
+# No dependencies, deliberately. This binary is exec'd on the plugin-load path and
+# built offline inside flatpak-builder; staying on std means there is no
+# cargo-sources.json to keep in sync with Cargo.lock.
+[dependencies]
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+strip = true
+
+# Not statically linked, though it would be the better answer: the freedesktop SDK
+# ships no static libc, and the rust-stable extension carries only the gnu targets --
+# adding musl needs network access that flatpak-builder does not have. So this links
+# against the runtime it is built on, and `--cabinet-self-test` exists to prove it
+# still loads inside whatever sandbox a DAW gives it.

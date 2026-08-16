@@ -1,0 +1,129 @@
+app-id: io.github.mark12870.cabinet
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.dotnet10
+  # NativeAOT links with clang/lld, which the SDK alone does not carry.
+  - org.freedesktop.Sdk.Extension.llvm20
+
+# Wine comes from Flathub rather than being built here. `stable-25.08`, not
+# `wow64-25.08`: yabridge's 32-bit host is a 32-bit *winelib* binary, which new
+# WoW64 cannot run, and that is most of the older VST2 catalogue.
+base: org.winehq.Wine
+base-version: stable-25.08
+
+command: cabinet
+
+# `base:` copies the base app's files but NOT its extension declarations, so the
+# multilib Wine we just inherited arrives with no 32-bit runtime and dies on
+# `/lib/ld-linux.so.2: could not open`. These re-declare what org.winehq.Wine
+# declares, and are what makes 32-bit plugin hosting work at all.
+add-extensions:
+  org.freedesktop.Platform.Compat.i386:
+    directory: lib/i386-linux-gnu
+    version: '25.08'
+
+  org.freedesktop.Platform.Compat.i386.Debug:
+    directory: lib/debug/lib/i386-linux-gnu
+    version: '25.08'
+    no-autodownload: true
+
+  org.freedesktop.Platform.GL32:
+    directory: lib/i386-linux-gnu/GL
+    version: '1.4'
+    versions: 25.08;25.08-extra;1.4
+    subdirectories: true
+    no-autodownload: true
+    add-ld-path: lib
+    merge-dirs: vulkan/icd.d;glvnd/egl_vendor.d;egl/egl_external_platform.d;OpenCL/vendors;lib/dri;lib/d3d;lib/gbm;vulkan/explicit_layer.d;vulkan/implicit_layer.d;vdpau
+    download-if: active-gl-driver
+    enable-if: active-gl-driver
+    autoprune-unless: active-gl-driver
+
+finish-args:
+  - --share=ipc                            # X11 MIT-SHM, for editor embedding
+  - --share=network                        # plugin activation / licence servers
+  # Not wayland: yabridge unsets WAYLAND_DISPLAY so Wine keeps using X11, which is
+  # what its editor embedding and drag-and-drop handling are built on.
+  - --socket=x11
+  - --socket=pulseaudio
+  - --device=dri
+  # Load-bearing. yabridge's audio buffers are shm_open(), and `--device=all` does
+  # NOT include /dev/shm -- verified: a sandbox without this sees an empty one.
+  - --device=shm
+  - --allow=multiarch                      # 32-bit plugin hosts
+  # Prefixes, ~/.local/share/yabridge and plugin installers all live under $HOME.
+  - --filesystem=home
+  # Flatpak masks ~/.var/app/<other-app> under `home`, but honours an explicit
+  # request. `enrol` needs it to link yabridge into a DAW's XDG_DATA_HOME, which is
+  # the only place that DAW's chainloader looks. Not an escalation: `home` above
+  # already covers strictly more.
+  - --filesystem=~/.var/app
+  # Read-only, and only this one directory: `doctor` verifies an enrolled DAW by
+  # reading its override file. Cheaper than asking flatpak, which Cabinet cannot do
+  # from inside its own sandbox anyway.
+  - --filesystem=~/.local/share/flatpak/overrides:ro
+  # The socket directory, shared with the DAW on the other side of the boundary.
+  - --filesystem=xdg-run/yabridge:create
+  - --env=YABRIDGE_NO_WATCHDOG=1
+
+modules:
+  # Delivery only: nothing here is executed inside the sandbox. `cabinet setup`
+  # copies this directory out to ~/.local/share/yabridge, because the halves that
+  # matter -- the chainloader and libyabridge -- are loaded by the DAW, which
+  # lives outside. Only Wine runs in here.
+  - name: yabridge
+    buildsystem: simple
+    build-commands:
+      # Mount points for the extensions declared above; flatpak needs them to exist.
+      - install -d ${FLATPAK_DEST}/lib/i386-linux-gnu/GL
+      - install -d ${FLATPAK_DEST}/lib/debug/lib/i386-linux-gnu
+      - install -d ${FLATPAK_DEST}/lib/yabridge
+      - cp -a . ${FLATPAK_DEST}/lib/yabridge/
+    sources:
+      - type: archive
+        # Bumped in place by scripts/update-version.py.
+        url: https://github.com/robbert-vdh/yabridge/releases/download/5.1.1/yabridge-5.1.1.tar.gz
+        sha256: d11f0307412b5566b09a75ed4aa191266db56d22f4de4d20e4fbde6296cd1a47
+
+  # No cargo-sources.json: the shim depends on nothing but std, so an offline
+  # build needs nothing vendored. Keep it that way.
+  - name: cabinet-wine
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/cabinet-wine/cargo
+    build-commands:
+      - cargo build --offline --release
+      # Not in bin/: exported to the host by `cabinet setup`, never run in here.
+      - install -Dm755 target/release/cabinet-wine ${FLATPAK_DEST}/lib/yabridge/cabinet-wine
+    sources:
+      - type: dir
+        path: shim
+
+  - name: cabinet
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/dotnet10/bin:/usr/lib/sdk/llvm20/bin
+      prepend-ld-library-path: /usr/lib/sdk/llvm20/lib
+      env:
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+        DOTNET_NOLOGO: '1'
+    build-commands:
+      - dotnet publish src/Cabinet.Cli -c Release --source ./nuget-sources -o publish
+      - install -Dm755 publish/cabinet ${FLATPAK_DEST}/bin/cabinet
+      - install -Dm644 ${FLATPAK_ID}.metainfo.xml
+        ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+    sources:
+      - type: dir
+        path: src
+        dest: src
+      - type: file
+        path: io.github.mark12870.cabinet.metainfo.xml
+      # Generated by flatpak-dotnet-generator.py; required even with no
+      # third-party packages, because NativeAOT pulls ILCompiler from NuGet.
+      - nuget-sources.json

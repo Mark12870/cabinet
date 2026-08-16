@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+  <id>io.github.mark12870.cabinet</id>
+
+  <name>Cabinet</name>
+  <summary>Windows VST plugins in per-plugin Wine prefixes</summary>
+
+  <metadata_license>FSFAP</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <developer id="io.github.mark12870">
+    <name>Marek Ryšavý</name>
+  </developer>
+
+  <description>
+    <p>
+      Cabinet packages Wine as a Flatpak so Windows VST2, VST3 and CLAP plugins can run
+      on an immutable Linux system, giving every plugin its own Wine prefix — its own
+      C: drive, registry and dependencies — instead of one shared prefix that every
+      installer fights over.
+    </p>
+    <p>
+      Bridging is done by upstream yabridge. Only Wine runs inside the sandbox: the
+      halves the DAW loads are exported to the host, so plugins appear in a native or
+      Flatpak DAW as ordinary Linux plugins.
+    </p>
+  </description>
+
+  <url type="homepage">https://github.com/Mark12870/cabinet</url>
+  <url type="bugtracker">https://github.com/Mark12870/cabinet/issues</url>
+
+  <provides>
+    <binary>cabinet</binary>
+  </provides>
+
+  <content_rating type="oars-1.1" />
+
+  <!-- A release is named after the yabridge it carries; scripts/update-version.py
+       prepends an entry per bump, and render-site.py reads it back out of each
+       published commit to build the version table. -->
+  <releases>
+    <release version="5.1.1" date="2026-08-16">
+      <description>
+        <p>First release: Wine 11 with yabridge 5.1.1, per-plugin prefixes, and
+        enrolment for Flatpak DAWs.</p>
+      </description>
+    </release>
+  </releases>
+</component>
