@@ -10,7 +10,8 @@ namespace Cabinet.Core;
 /// </remarks>
 public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 {
-    private string Binary => Path.Combine(layout.YabridgeDir, "yabridgectl");
+    // The in-sandbox copy: yabridgectl runs here, not on the host.
+    private static string Binary => Path.Combine(Layout.BundledYabridgeDir, "yabridgectl");
 
     public ProcessResult Add(string pluginDirectory) => Run(["add", pluginDirectory]);
 
@@ -39,7 +40,8 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
     {
         if (!File.Exists(Binary))
         {
-            throw new InvalidOperationException($"{Binary} is missing — run `cabinet setup`");
+            throw new InvalidOperationException(
+                $"{Binary} is missing — run this from inside the Cabinet Flatpak");
         }
 
         // Pinned to Wine, not the shim. yabridgectl probes `$WINELOADER --version`, and

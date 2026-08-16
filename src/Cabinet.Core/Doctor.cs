@@ -23,7 +23,7 @@ public sealed class Doctor(Layout layout)
     {
         var checks = new List<Check>
         {
-            ExportedYabridge(),
+            BundledYabridge(),
             YabridgectlCanFindIt(),
             Shim(),
             SocketDirectory(),
@@ -35,24 +35,28 @@ public sealed class Doctor(Layout layout)
         return checks;
     }
 
-    private Check ExportedYabridge()
+    /// <summary>
+    /// Cabinet copies nothing onto the host, so this checks the install tree itself is
+    /// where <c>/.flatpak-info</c> said and still holds what a DAW has to load.
+    /// </summary>
+    private Check BundledYabridge()
     {
-        var host = Path.Combine(layout.YabridgeDir, "yabridge-host.exe");
-        var library = Path.Combine(layout.YabridgeDir, "libyabridge-vst3.so");
+        var host = Path.Combine(layout.HostYabridgeDir, "yabridge-host.exe");
+        var library = Path.Combine(layout.HostYabridgeDir, "libyabridge-vst3.so");
 
         if (!File.Exists(host) || !File.Exists(library))
         {
-            return new Check("yabridge exported", Status.Fail,
-                $"{layout.YabridgeDir} is incomplete — run `cabinet setup`");
+            return new Check("yabridge readable", Status.Fail,
+                $"{layout.HostYabridgeDir} is incomplete — reinstall Cabinet");
         }
 
-        return new Check("yabridge exported", Status.Ok, layout.YabridgeDir);
+        return new Check("yabridge readable", Status.Ok, layout.HostYabridgeDir);
     }
 
     /// <summary>
-    /// yabridgectl searches its own <c>$XDG_DATA_HOME/yabridge</c>, which inside
-    /// Cabinet's sandbox is not where <c>setup</c> exported to. Without the link every
-    /// <c>cabinet sync</c> fails, and it is not obvious from the message why.
+    /// yabridgectl searches its own <c>$XDG_DATA_HOME/yabridge</c> and nowhere Cabinet
+    /// keeps anything. Without the link every <c>cabinet sync</c> fails, and the message
+    /// it fails with does not say why.
     /// </summary>
     private Check YabridgectlCanFindIt()
     {
@@ -60,32 +64,33 @@ public sealed class Doctor(Layout layout)
         var chainloader = Path.Combine(link, "libyabridge-chainloader-vst3.so");
 
         return File.Exists(chainloader)
-            ? new Check("yabridgectl path", Status.Ok, $"{link} -> {layout.YabridgeDir}")
+            ? new Check("yabridgectl path", Status.Ok, $"{link} -> {layout.HostYabridgeDir}")
             : new Check("yabridgectl path", Status.Fail,
-                $"{link} does not reach {layout.YabridgeDir} — run `cabinet setup`");
+                $"{link} does not reach {layout.HostYabridgeDir}");
     }
 
     private Check Shim()
     {
         if (!File.Exists(layout.ShimPath))
         {
-            return new Check("shim installed", Status.Fail,
-                $"{layout.ShimPath} is missing — run `cabinet setup`");
+            return new Check("shim readable", Status.Fail,
+                $"{layout.ShimPath} is missing — reinstall Cabinet");
         }
 
         // yabridge's winegcc wrapper falls back to plain `wine` when $WINELOADER is
         // not an executable file, which on a host without Wine means silence.
         var executable = (File.GetUnixFileMode(layout.ShimPath) & UnixFileMode.UserExecute) != 0;
         return executable
-            ? new Check("shim installed", Status.Ok, layout.ShimPath)
-            : new Check("shim installed", Status.Fail, $"{layout.ShimPath} is not executable");
+            ? new Check("shim readable", Status.Ok, layout.ShimPath)
+            : new Check("shim readable", Status.Fail, $"{layout.ShimPath} is not executable");
     }
 
     private Check SocketDirectory() =>
         Directory.Exists(layout.SocketDir)
             ? new Check("socket directory", Status.Ok, layout.SocketDir)
             : new Check("socket directory", Status.Fail,
-                $"{layout.SocketDir} is missing — run `cabinet setup`");
+                $"{layout.SocketDir} is missing — Cabinet lacks "
+                + "--filesystem=xdg-run/yabridge:create");
 
     /// <summary>
     /// yabridge's audio buffers are <c>shm_open()</c>. Flatpak's <c>--device=all</c>
@@ -177,9 +182,18 @@ public sealed class Doctor(Layout layout)
             missing.Add("--device=shm");
         }
 
-        if (!(ini.Get("Context", "filesystems")?.Contains("xdg-run/yabridge") ?? false))
+        var filesystems = ini.Get("Context", "filesystems");
+
+        if (!(filesystems?.Contains("xdg-run/yabridge") ?? false))
         {
             missing.Add("--filesystem=xdg-run/yabridge:create");
+        }
+
+        // Without this the DAW cannot read the chainloader at all: flatpak masks
+        // ~/.local/share/flatpak even under --filesystem=home.
+        if (!(filesystems?.Contains(layout.HostAppFiles) ?? false))
+        {
+            missing.Add($"--filesystem={layout.HostAppFiles}:ro");
         }
 
         if (ini.Get("Session Bus Policy", "org.freedesktop.Flatpak") != "talk")

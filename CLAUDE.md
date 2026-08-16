@@ -45,11 +45,20 @@ flatpak install --user cabinet-local io.github.mark12870.cabinet   # remote: fil
 
 ## The architecture, in one paragraph
 
-yabridge's DAW-side halves cannot live in the sandbox, because the DAW does not. `cabinet
-setup` exports them to `~/.local/share/yabridge`; only Wine stays inside. The crossing
-happens at `$WINELOADER`, which yabridge's winegcc wrapper execs — upstream supports this
-explicitly through `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. Prefixes need no
-registration: yabridge walks up from the plugin `.dll` for a `dosdevices` directory.
+yabridge's DAW-side halves cannot live in the sandbox, because the DAW does not — but they
+are not copied out either. The DAW reads them from the installed Flatpak's own
+`current/active/files`, granted read-only by `enrol`'s override; only Wine runs inside. There
+is **no `setup` command**: `Bootstrap.Ensure` makes the one link Cabinet needs in its own data
+directory on every invocation. The crossing happens at `$WINELOADER`, which yabridge's winegcc
+wrapper execs — upstream supports this explicitly through `YABRIDGE_TEMP_DIR` and
+`YABRIDGE_NO_WATCHDOG`. Prefixes need no registration: yabridge walks up from the plugin
+`.dll` for a `dosdevices` directory.
+
+**Everything Cabinet owns stays in `~/.var/app/io.github.mark12870.cabinet/`, prefixes
+included** — the Bottles model, and the standard to hold new code to. Exactly two paths
+outside it are unavoidable, both forced by yabridge: `~/.vst3/yabridge/…` (where DAWs scan)
+and `~/.var/app/<daw>/data/yabridge` (the chainloader's compiled-in search path). Anything
+else appearing in `$HOME` is a bug.
 
 ## Gotchas
 
@@ -68,18 +77,28 @@ These were all found by something failing, not by reading documentation.
   explicit `--filesystem=~/.local/share/flatpak/overrides:ro`.
 - **`base:` copies the base app's files but not its extension declarations.** Inheriting
   multilib Wine this way loses `org.freedesktop.Platform.Compat.i386` and it dies on
-  `/lib/ld-linux.so.2: could not open`. The manifest re-declares them. Wine's Mono and Gecko
-  are lost the same way and are *not* re-declared — they are extensions of another app.
+  `/lib/ld-linux.so.2: could not open`. The manifest re-declares them — *including*
+  `org.winehq.Wine.gecko` and `.mono`, which belong to another app and are re-declarable
+  anyway. Bottles does exactly this against the same base; check what it does before
+  concluding something inherited from Wine cannot be recovered.
 - **`org.winehq.Wine` bakes `WINEPREFIX=/var/data/wine` into its metadata.** Always pass an
   explicit prefix rather than assuming an unset one.
 - **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
   taking a value and then read as a flag, so clap aborts. `--path` is therefore unreachable,
   and `setup` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` at the export instead. Re-check
   on the next yabridge bump before reaching for `set` again.
-- **`setup` writes `WINELOADER` into the login session, and `flatpak run` hands it straight
-  back to Cabinet.** Anything Cabinet starts would then exec the shim and try to re-enter its
-  own sandbox. Every Wine invocation pins `WINELOADER=/app/bin/wine`; "Cabinet *is* the Wine
-  sandbox" only holds if it is written down.
+- **A DAW's `WINELOADER` reaches Cabinet through `flatpak run`.** Anything Cabinet starts
+  would then exec the shim and try to re-enter its own sandbox. Every Wine invocation pins
+  `WINELOADER=/app/bin/wine`; "Cabinet *is* the Wine sandbox" only holds if it is written down.
+- **`app-path` in `/.flatpak-info` is content-addressed** — it carries the commit hash and
+  changes on every update, so it must never be baked into a DAW's `flatpak override`.
+  `Layout.StableAlias` rewrites it to the `current/active` alias flatpak repoints instead.
+- **`--filesystem=home:ro` combined with `--filesystem=~/.vst3:create` does what you want**:
+  the specific grant wins, so Cabinet reads anywhere in `$HOME` and writes only where listed.
+  Verified, not assumed.
+- **`File.ResolveLinkTarget` throws when the path does not exist**, which is the normal state
+  on a first run. `new DirectoryInfo(p).LinkTarget` answers `null` for both "absent" and "not
+  a link" and is the one to use.
 - **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
   which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
 - **The shim is not statically linked**, though it should be: the freedesktop SDK ships no

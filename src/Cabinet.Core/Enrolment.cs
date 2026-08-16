@@ -19,6 +19,10 @@ public static class Enrolment
         "--device=shm",
         // The socket directory, at the same path on both sides of the boundary.
         "--filesystem=xdg-run/yabridge:create",
+        // Read the chainloader and the shim out of Cabinet's install directory. A scoped
+        // grant instead of a copy on the host -- and required rather than tidy, because
+        // flatpak masks ~/.local/share/flatpak even under --filesystem=home.
+        $"--filesystem={layout.HostAppFiles}:ro",
         // So the shim can reach the host to start the Wine sandbox.
         "--talk-name=org.freedesktop.Flatpak",
         $"--env=WINELOADER={layout.ShimPath}",
@@ -38,7 +42,6 @@ public static class Enrolment
     /// The shim is dynamically linked against freedesktop 25.08 but is exec'd in whatever
     /// runtime the DAW uses, which may be older. Nothing Cabinet can run from its own
     /// sandbox proves it loads over there, so this is printed for the user to run instead.
-    /// It resolves because the shim lives under <c>$HOME</c>, which a bridged DAW can read.
     /// </remarks>
     public static string SelfTestCommand(string dawId, Layout layout) =>
         $"flatpak run --command={Quote(layout.ShimPath)} {dawId} --cabinet-self-test";

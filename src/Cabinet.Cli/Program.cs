@@ -12,7 +12,6 @@ internal static class Program
         Cabinet — Windows VST plugins in per-plugin Wine prefixes
 
         Usage:
-          cabinet setup                        export yabridge and the shim to the host
           cabinet enrol <daw-flatpak-id>       prepare a Flatpak DAW (prints the override)
           cabinet new <name>                   create a Wine prefix
           cabinet install <name> <installer>   run a Windows installer in that prefix
@@ -52,9 +51,12 @@ internal static class Program
         var layout = Layout.FromEnvironment();
         var runner = new ProcessRunner();
 
+        // Idempotent and cheap, so it happens here rather than in a `setup` command the
+        // user has to remember after every update.
+        Bootstrap.Ensure(layout);
+
         return args[0] switch
         {
-            "setup" => Setup(layout),
             "enrol" or "enroll" => Enrol(layout, Require(args, 1, "a DAW flatpak id")),
             "new" => New(layout, runner, Require(args, 1, "a prefix name")),
             "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
@@ -66,26 +68,6 @@ internal static class Program
             "doctor" => RunDoctor(layout, json),
             _ => Unknown(args[0]),
         };
-    }
-
-    private static int Setup(Layout layout)
-    {
-        var report = Core.Setup.Run(layout);
-
-        Console.WriteLine($"yabridge      {report.YabridgeDir}");
-        Console.WriteLine($"shim          {report.ShimPath}");
-        Console.WriteLine($"sockets       {report.SocketDir}");
-        Console.WriteLine($"prefixes      {layout.PrefixesDir}");
-        Console.WriteLine();
-
-        if (report.EnvironmentDWritten)
-        {
-            Console.WriteLine($"Wrote {report.EnvironmentDFile} for natively installed DAWs.");
-            Console.WriteLine("systemd reads it at login, so log out and back in before using one.");
-        }
-
-        Console.WriteLine("For a Flatpak DAW, run `cabinet enrol <daw-flatpak-id>` instead.");
-        return 0;
     }
 
     private static int Enrol(Layout layout, string dawId)
@@ -106,8 +88,8 @@ internal static class Program
             File.Delete(link);
         }
 
-        File.CreateSymbolicLink(link, layout.YabridgeDir);
-        Console.WriteLine($"Linked {link} -> {layout.YabridgeDir}");
+        File.CreateSymbolicLink(link, layout.HostYabridgeDir);
+        Console.WriteLine($"Linked {link} -> {layout.HostYabridgeDir}");
         Console.WriteLine();
         Console.WriteLine("Now run this yourself:");
         Console.WriteLine();

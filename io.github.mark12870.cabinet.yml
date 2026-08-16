@@ -21,6 +21,17 @@ command: cabinet
 # `/lib/ld-linux.so.2: could not open`. These re-declare what org.winehq.Wine
 # declares, and are what makes 32-bit plugin hosting work at all.
 add-extensions:
+  # Wine's .NET and HTML replacements. Also lost with `base:`, and re-declarable exactly
+  # like the i386 compat layer above -- Bottles does the same against the same base app.
+  # They are extensions, so they cost nothing in the image.
+  org.winehq.Wine.gecko:
+    directory: share/wine/gecko
+    version: stable-25.08
+
+  org.winehq.Wine.mono:
+    directory: share/wine/mono
+    version: stable-25.08
+
   org.freedesktop.Platform.Compat.i386:
     directory: lib/i386-linux-gnu
     version: '25.08'
@@ -54,13 +65,23 @@ finish-args:
   # NOT include /dev/shm -- verified: a sandbox without this sees an empty one.
   - --device=shm
   - --allow=multiarch                      # 32-bit plugin hosts
-  # Prefixes, ~/.local/share/yabridge and plugin installers all live under $HOME.
-  - --filesystem=home
+  # Prefixes live in Cabinet's own data directory, so $HOME is needed only to *read* an
+  # installer the user points at. Every write below is a named directory.
+  - --filesystem=home:ro
+  # yabridgectl's output: the bridged plugins, where a DAW scans for them.
+  - --filesystem=~/.vst3:create
+  - --filesystem=~/.vst:create
+  - --filesystem=~/.clap:create
   # Flatpak masks ~/.var/app/<other-app> under `home`, but honours an explicit
   # request. `enrol` needs it to link yabridge into a DAW's XDG_DATA_HOME, which is
-  # the only place that DAW's chainloader looks. Not an escalation: `home` above
-  # already covers strictly more.
+  # the only place that DAW's chainloader looks.
   - --filesystem=~/.var/app
+  # Cabinet's own installed files, which it reads back through their *host* path: the
+  # chainloader hands those paths to the shim, which hands them here. ~/.local/share/flatpak
+  # is masked even under `home`, so this has to be explicit. Both roots, because a system
+  # install lands outside $HOME.
+  - --filesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet:ro
+  - --filesystem=/var/lib/flatpak/app/io.github.mark12870.cabinet:ro
   # Read-only, and only this one directory: `doctor` verifies an enrolled DAW by
   # reading its override file. Cheaper than asking flatpak, which Cabinet cannot do
   # from inside its own sandbox anyway.
@@ -80,6 +101,8 @@ modules:
       # Mount points for the extensions declared above; flatpak needs them to exist.
       - install -d ${FLATPAK_DEST}/lib/i386-linux-gnu/GL
       - install -d ${FLATPAK_DEST}/lib/debug/lib/i386-linux-gnu
+      - install -d ${FLATPAK_DEST}/share/wine/gecko
+      - install -d ${FLATPAK_DEST}/share/wine/mono
       - install -d ${FLATPAK_DEST}/lib/yabridge
       - cp -a . ${FLATPAK_DEST}/lib/yabridge/
     sources:

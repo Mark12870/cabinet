@@ -17,22 +17,16 @@ installed the ordinary way. `x86_64` only.
 flatpak remote-add --if-not-exists cabinet \
   https://mark12870.github.io/cabinet/io.github.mark12870.cabinet.flatpakrepo
 flatpak install cabinet io.github.mark12870.cabinet
-flatpak run io.github.mark12870.cabinet setup
-```
-
-`setup` exports the parts your DAW loads to `~/.local/share/yabridge` and installs the shim
-to `~/.local/bin/cabinet-wine`. For a natively installed DAW it also writes
-`~/.config/environment.d/50-cabinet.conf` — systemd reads that at login, so log out and back
-in before the first use.
-
-For a Flatpak DAW, enrol it:
-
-```sh
 flatpak run io.github.mark12870.cabinet enrol fm.reaper.Reaper
 ```
 
-That links yabridge into the DAW's data directory and then **prints** a `flatpak override`
-command for you to run. It is not applied automatically — see [Permissions](#permissions).
+There is no setup step. Cabinet copies nothing onto your system — your DAW reads yabridge
+straight out of the installed Flatpak — so updating Cabinet updates yabridge with nothing
+further to run.
+
+`enrol` links yabridge into the DAW's data directory, which is the one place that DAW's
+chainloader looks, and then **prints** a `flatpak override` command for you to run. It is not
+applied automatically — see [Permissions](#permissions).
 
 ## Use
 
@@ -46,8 +40,8 @@ flatpak run $cabinet doctor                                 # check both sides
 ```
 
 Plugins that ship as a plain folder rather than an installer can be unpacked straight into
-`~/.local/share/cabinet/prefixes/<name>/drive_c/Program Files/Common Files/VST3`, then
-`sync`. `new` creates the conventional locations for VST3, VST2 and CLAP under both
+`~/.var/app/io.github.mark12870.cabinet/data/prefixes/<name>/drive_c/Program Files/Common Files/VST3`,
+then `sync`. `new` creates the conventional locations for VST3, VST2 and CLAP under both
 `Program Files` and `Program Files (x86)`, and `sync` registers whichever ones exist — a
 32-bit plugin belongs in the `(x86)` half.
 
@@ -62,16 +56,23 @@ Wine runs inside.
 
 ```
 DAW  →  ~/.vst3/yabridge/Plugin.vst3        chainloader
-     →  ~/.local/share/yabridge/…so         yabridge, in the DAW's process
-     →  ~/.local/bin/cabinet-wine           the shim, at $WINELOADER
+     →  <cabinet>/files/lib/yabridge/…so    yabridge, in the DAW's process
+     →  <cabinet>/files/…/cabinet-wine      the shim, at $WINELOADER
      →  flatpak run … cabinet → wine        the sandbox
      →  plugin.dll, in its own prefix
 ```
 
+`<cabinet>` is the installed Flatpak itself —
+`~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active`. Nothing is copied
+out of it: `current/active` is an alias flatpak repoints on update, so the DAW always loads
+the yabridge that shipped with the Cabinet you have. That is also why the DAW needs a
+read-only grant on that directory — Flatpak masks `~/.local/share/flatpak` even under
+`--filesystem=home`.
+
 The shim is the whole boundary. `flatpak run` starts the sandbox with a clean environment
 and a different mount namespace, so the shim forwards an explicit list of variables and
-resolves every path with `realpath` first — Flatpak masks `~/.var/app/<other-app>` even
-under `--filesystem=home`, and that is exactly where a Flatpak DAW's `XDG_DATA_HOME` points.
+resolves every path with `realpath` first — Flatpak masks `~/.var/app/<other-app>` too, and
+that is exactly where a Flatpak DAW's `XDG_DATA_HOME` points.
 
 Prefixes are found by yabridge itself: it walks up from the plugin's `.dll` looking for a
 `dosdevices` directory. Nothing has to be registered anywhere, and several prefixes work at
@@ -79,16 +80,25 @@ once.
 
 ## Permissions
 
-Prefixes live in `~/.local/share/cabinet/prefixes`, not `~/.var/app`, so
-`flatpak uninstall --delete-data` cannot take your plugin library with it.
+Cabinet keeps everything it owns inside `~/.var/app/io.github.mark12870.cabinet/`, prefixes
+included, and holds `--filesystem=home:ro` — it can read an installer you point it at, but
+the only places it can write are `~/.vst3`, `~/.vst`, `~/.clap` and `~/.var/app`. The
+trade-off is worth knowing: because prefixes are in its data directory,
+`flatpak uninstall --delete-data` **will** take your plugin library with it.
 
-Bridging into a **Flatpak DAW** needs three things granted to that DAW, and one of them is
+Exactly two things end up outside that directory, and neither is avoidable:
+`~/.vst3/yabridge/…`, because that is where DAWs scan for plugins; and a symlink at
+`~/.var/app/<daw>/data/yabridge`, because the chainloader's search path is compiled in and
+`$XDG_DATA_HOME/yabridge` is the only entry a sandboxed DAW can reach.
+
+Bridging into a **Flatpak DAW** needs four things granted to that DAW, and one of them is
 significant:
 
 | Permission | Why |
 | --- | --- |
 | `--device=shm` | yabridge's audio buffers are `shm_open`. `--device=all` does *not* include `/dev/shm`. |
 | `--filesystem=xdg-run/yabridge:create` | the socket directory, at the same path on both sides |
+| `--filesystem=<cabinet>/files:ro` | read the chainloader out of Cabinet's install directory, which `home` does not cover |
 | `--talk-name=org.freedesktop.Flatpak` | lets the shim reach the host to start Wine — **and lets that DAW run any command on your host** |
 
 The last one is a real weakening of that DAW's sandbox. `enrol` prints it rather than
@@ -109,11 +119,11 @@ Everything is bundled in the commit, so any version still listed is still instal
 
 ## Known limitations
 
-- **Wine's Mono and Gecko are not bundled.** They are extensions of the upstream Wine
-  Flatpak, and `base:` does not inherit extension declarations. Installers that need .NET or
-  an embedded browser may fail.
 - **32-bit plugins** need the `org.freedesktop.Platform.Compat.i386` runtime, which the
-  manifest declares; it is pulled in on install.
+  manifest declares; it is pulled in on install. Wine's Mono and Gecko are re-declared the
+  same way, so installers needing .NET or an embedded browser work.
+- **Uninstalling with `--delete-data` deletes your prefixes**, since they live in Cabinet's
+  own data directory. Plain `flatpak uninstall` leaves them alone.
 - **`RLIMIT_MEMLOCK`** is 8 MB on many systems, below what yabridge wants for locking its
   audio buffers into RAM. `doctor` warns about it and prints the fix: `DefaultLimitMEMLOCK=1G`
   under `[Manager]` in `/etc/systemd/user.conf.d/60-memlock.conf`. Not `limits.conf` —

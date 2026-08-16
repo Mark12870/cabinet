@@ -11,8 +11,13 @@ public class EnrolmentTests
     [InlineData("--device=shm")]
     [InlineData("--filesystem=xdg-run/yabridge:create")]
     [InlineData("--talk-name=org.freedesktop.Flatpak")]
-    [InlineData("--env=WINELOADER=/home/u/.local/bin/cabinet-wine")]
     [InlineData("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge")]
+    // Without this the DAW cannot read the chainloader: ~/.local/share/flatpak is masked
+    // even under --filesystem=home.
+    [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
+                + "io.github.mark12870.cabinet/current/active/files:ro")]
+    [InlineData("--env=WINELOADER=/home/u/.local/share/flatpak/app/"
+                + "io.github.mark12870.cabinet/current/active/files/lib/yabridge/cabinet-wine")]
     public void TheOverrideCarriesEverythingTheBoundaryNeeds(string expected)
     {
         Assert.Contains(expected, Enrolment.OverrideArguments("fm.reaper.Reaper", Layout));
@@ -46,7 +51,8 @@ public class EnrolmentTests
     public void TheSelfTestRunsTheShimInsideTheDaw()
     {
         Assert.Equal(
-            "flatpak run --command=/home/u/.local/bin/cabinet-wine fm.reaper.Reaper "
+            "flatpak run --command=/home/u/.local/share/flatpak/app/io.github.mark12870.cabinet"
+            + "/current/active/files/lib/yabridge/cabinet-wine fm.reaper.Reaper "
             + "--cabinet-self-test",
             Enrolment.SelfTestCommand("fm.reaper.Reaper", Layout));
     }
