@@ -51,8 +51,7 @@ internal static class Program
         var layout = Layout.FromEnvironment();
         var runner = new ProcessRunner();
 
-        // Idempotent and cheap, so it happens here rather than in a `setup` command the
-        // user has to remember after every update.
+        // Here rather than in a `setup` command the user must remember after an update.
         Bootstrap.Ensure(layout);
 
         return args[0] switch
@@ -81,8 +80,7 @@ internal static class Program
             return 1;
         }
 
-        // The chainloader resolves yabridge through the DAW's own XDG_DATA_HOME, which
-        // for a Flatpak DAW is this directory and nowhere else.
+        // The DAW's own XDG_DATA_HOME is the only place its chainloader looks.
         if (Path.Exists(link))
         {
             File.Delete(link);

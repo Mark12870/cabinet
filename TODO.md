@@ -26,7 +26,3 @@ processes audio and never opens an editor. So three things remain unobserved:
       input at all — cause unresolved, and Wine is healthy in that prefix (`winecfg` opens on
       demand). Suspect the launch context rather than the sandbox: it was started from a
       detached background shell and never got focus. Rerun from an interactive terminal.
-- [ ] **The 32-bit path has not been loaded.** `stable-25.08` was chosen over `wow64-25.08`
-      specifically so 32-bit VST2 plugins keep working, and `Compat.i386` is declared for it.
-      `Surge XT (32-bit).vst3` is now bridged into `~/.vst3/yabridge`, but nothing has
-      confirmed a DAW scans it and starts `yabridge-host-32.exe`.

@@ -20,13 +20,10 @@ flatpak install cabinet io.github.mark12870.cabinet
 flatpak run io.github.mark12870.cabinet enrol fm.reaper.Reaper
 ```
 
-There is no setup step. Cabinet copies nothing onto your system — your DAW reads yabridge
-straight out of the installed Flatpak — so updating Cabinet updates yabridge with nothing
-further to run.
-
-`enrol` links yabridge into the DAW's data directory, which is the one place that DAW's
-chainloader looks, and then **prints** a `flatpak override` command for you to run. It is not
-applied automatically — see [Permissions](#permissions).
+There is no setup step: Cabinet copies nothing onto your system, so updating it updates
+yabridge too. `enrol` links yabridge into the DAW's data directory and **prints** a
+`flatpak override` command for you to run — it is not applied automatically, see
+[Permissions](#permissions).
 
 ## Use
 
@@ -41,9 +38,8 @@ flatpak run $cabinet doctor                                 # check both sides
 
 Plugins that ship as a plain folder rather than an installer can be unpacked straight into
 `~/.var/app/io.github.mark12870.cabinet/data/prefixes/<name>/drive_c/Program Files/Common Files/VST3`,
-then `sync`. `new` creates the conventional locations for VST3, VST2 and CLAP under both
-`Program Files` and `Program Files (x86)`, and `sync` registers whichever ones exist — a
-32-bit plugin belongs in the `(x86)` half.
+then `sync`. `new` creates the conventional VST3, VST2 and CLAP locations under both
+`Program Files` and `Program Files (x86)`; a 32-bit plugin belongs in the `(x86)` half.
 
 `cabinet run <name> winecfg` (or `regedit`, or any command) is the escape hatch when a
 plugin needs a DLL override or a registry key.
@@ -62,17 +58,13 @@ DAW  →  ~/.vst3/yabridge/Plugin.vst3        chainloader
      →  plugin.dll, in its own prefix
 ```
 
-`<cabinet>` is the installed Flatpak itself —
-`~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active`. Nothing is copied
-out of it: `current/active` is an alias flatpak repoints on update, so the DAW always loads
-the yabridge that shipped with the Cabinet you have. That is also why the DAW needs a
-read-only grant on that directory — Flatpak masks `~/.local/share/flatpak` even under
-`--filesystem=home`.
+`<cabinet>` is the installed Flatpak itself, reached through `current/active` — an alias
+flatpak repoints on update, so the DAW always loads the yabridge that shipped with the
+Cabinet you have.
 
 The shim is the whole boundary. `flatpak run` starts the sandbox with a clean environment
 and a different mount namespace, so the shim forwards an explicit list of variables and
-resolves every path with `realpath` first — Flatpak masks `~/.var/app/<other-app>` too, and
-that is exactly where a Flatpak DAW's `XDG_DATA_HOME` points.
+resolves every path with `realpath` first.
 
 Prefixes are found by yabridge itself: it walks up from the plugin's `.dll` looking for a
 `dosdevices` directory. Nothing has to be registered anywhere, and several prefixes work at
@@ -81,24 +73,23 @@ once.
 ## Permissions
 
 Cabinet keeps everything it owns inside `~/.var/app/io.github.mark12870.cabinet/`, prefixes
-included, and holds `--filesystem=home:ro` — it can read an installer you point it at, but
-the only places it can write are `~/.vst3`, `~/.vst`, `~/.clap` and `~/.var/app`. The
-trade-off is worth knowing: because prefixes are in its data directory,
-`flatpak uninstall --delete-data` **will** take your plugin library with it.
+included, and holds `--filesystem=home:ro`: it can read an installer you point it at, but
+writes only to `~/.vst3`, `~/.vst`, `~/.clap` and `~/.var/app`. Because prefixes live in its
+data directory, `flatpak uninstall --delete-data` **will** take your plugin library with it.
 
-Exactly two things end up outside that directory, and neither is avoidable:
-`~/.vst3/yabridge/…`, because that is where DAWs scan for plugins; and a symlink at
-`~/.var/app/<daw>/data/yabridge`, because the chainloader's search path is compiled in and
-`$XDG_DATA_HOME/yabridge` is the only entry a sandboxed DAW can reach.
+Two things end up outside it, neither avoidable: `~/.vst3/yabridge/…`, where DAWs scan; and
+a symlink at `~/.var/app/<daw>/data/yabridge`, the only search-path entry a sandboxed DAW
+can reach.
 
-Bridging into a **Flatpak DAW** needs four things granted to that DAW, and one of them is
+Bridging into a **Flatpak DAW** needs five things granted to that DAW, one of them
 significant:
 
 | Permission | Why |
 | --- | --- |
 | `--device=shm` | yabridge's audio buffers are `shm_open`. `--device=all` does *not* include `/dev/shm`. |
 | `--filesystem=xdg-run/yabridge:create` | the socket directory, at the same path on both sides |
-| `--filesystem=<cabinet>/files:ro` | read the chainloader out of Cabinet's install directory, which `home` does not cover |
+| `--filesystem=<cabinet>/files:ro` | read the chainloader and the shim; `home` does not cover this |
+| `--filesystem=<prefixes>:ro` | read the plugins themselves; `home` does not cover this either |
 | `--talk-name=org.freedesktop.Flatpak` | lets the shim reach the host to start Wine — **and lets that DAW run any command on your host** |
 
 The last one is a real weakening of that DAW's sandbox. `enrol` prints it rather than

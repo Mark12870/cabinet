@@ -35,10 +35,6 @@ public sealed class Doctor(Layout layout)
         return checks;
     }
 
-    /// <summary>
-    /// Cabinet copies nothing onto the host, so this checks the install tree itself is
-    /// where <c>/.flatpak-info</c> said and still holds what a DAW has to load.
-    /// </summary>
     private Check BundledYabridge()
     {
         var host = Path.Combine(layout.HostYabridgeDir, "yabridge-host.exe");
@@ -53,11 +49,6 @@ public sealed class Doctor(Layout layout)
         return new Check("yabridge readable", Status.Ok, layout.HostYabridgeDir);
     }
 
-    /// <summary>
-    /// yabridgectl searches its own <c>$XDG_DATA_HOME/yabridge</c> and nowhere Cabinet
-    /// keeps anything. Without the link every <c>cabinet sync</c> fails, and the message
-    /// it fails with does not say why.
-    /// </summary>
     private Check YabridgectlCanFindIt()
     {
         var link = layout.SandboxYabridgeLink;
@@ -92,11 +83,10 @@ public sealed class Doctor(Layout layout)
                 $"{layout.SocketDir} is missing — Cabinet lacks "
                 + "--filesystem=xdg-run/yabridge:create");
 
-    /// <summary>
-    /// yabridge's audio buffers are <c>shm_open()</c>. Flatpak's <c>--device=all</c>
-    /// does <em>not</em> include <c>/dev/shm</c>; without <c>--device=shm</c> each
-    /// sandbox gets a private one and no buffer is ever shared.
-    /// </summary>
+    /// <remarks>
+    /// Flatpak's <c>--device=all</c> does <em>not</em> include <c>/dev/shm</c>, and
+    /// yabridge's audio buffers are <c>shm_open()</c>.
+    /// </remarks>
     private Check SharedMemory()
     {
         var devices = FlatpakInfo.Value.Get("Context", "devices");
@@ -112,12 +102,6 @@ public sealed class Doctor(Layout layout)
                 "Cabinet lacks --device=shm; audio buffers cannot cross the boundary");
     }
 
-    /// <summary>
-    /// The remedy names a systemd drop-in and not <c>limits.conf</c> on purpose:
-    /// <c>pam_limits</c> does not reach anything the systemd user manager starts, which
-    /// is every Flatpak DAW launched from a desktop. A <c>limits.d</c> entry looks
-    /// applied and changes nothing.
-    /// </summary>
     private static Check MemoryLock()
     {
         var limit = ReadMemlockLimit();
@@ -138,11 +122,10 @@ public sealed class Doctor(Layout layout)
                 + "Not limits.conf: pam_limits does not reach a systemd-started app.");
     }
 
-    /// <summary>
-    /// Verifies each enrolled DAW by reading its user override file directly. Cheaper
-    /// and less privileged than asking flatpak, which Cabinet cannot do from inside
-    /// its own sandbox anyway.
-    /// </summary>
+    /// <remarks>
+    /// Reads each override file directly; Cabinet cannot ask flatpak from inside its own
+    /// sandbox anyway.
+    /// </remarks>
     private IEnumerable<Check> EnrolledDaws()
     {
         var appsDir = Path.Combine(layout.Home, ".var", "app");
@@ -189,9 +172,7 @@ public sealed class Doctor(Layout layout)
             missing.Add("--filesystem=xdg-run/yabridge:create");
         }
 
-        // Without these the DAW cannot read the chainloader, nor the plugin the bundle
-        // symlinks to: flatpak masks both ~/.local/share/flatpak and another app's
-        // ~/.var/app even under --filesystem=home.
+        // Both are masked for the DAW even under --filesystem=home.
         if (!(filesystems?.Contains(layout.HostAppFiles) ?? false))
         {
             missing.Add($"--filesystem={layout.HostAppFiles}:ro");
