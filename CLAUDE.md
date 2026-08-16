@@ -96,14 +96,15 @@ These were all found by something failing, not by reading documentation.
   wins. Verified, not assumed.
 - **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
   `new DirectoryInfo(p).LinkTarget` answers `null` instead.
-- **VST3 editor embedding into REAPER is broken, and it is not Cabinet's fault.** Audio, MIDI
-  and the embedding handshake all work (`Reparenting … succeeded`); REAPER then shrinks the
-  plugin window unprompted, step by step, while yabridge defers its coordinate fix for the
-  whole burst because a mouse button is held. Clicks never land, so the editor looks frozen.
-  Evidence in `~/cabinet-editor-embedding-evidence.log`. Ruled out by measurement, not
-  argument: GNOME focus-stealing, broken embedding, Wine's spinning `mmdevapi_midi_n` thread,
-  and fractional display scaling — the failure is identical at 100%. Reproduce with
-  `YABRIDGE_DEBUG_LEVEL=2+editor`; read that log *first* next time.
+- **Surge XT's editor does not repaint under Wine — it is a Surge bug, not ours.**
+  [surge#7636](https://github.com/surge-synthesizer/surge/issues/7636), open since May 2024,
+  reproduces in FL Studio and in Surge's *standalone* build, so neither yabridge nor a DAW is
+  involved. It repaints only when something external pokes it. **Do not test editor embedding
+  with Surge XT**; Dexed is bridged for that. A long investigation blamed GNOME
+  focus-stealing, the embedding handshake, Wine's spinning `mmdevapi_midi_n` thread and
+  fractional scaling in turn, and all four were wrong — read a
+  `YABRIDGE_DEBUG_LEVEL=2+editor` log before theorising, and check upstream's issue tracker
+  for the *plugin* early. Evidence in `~/cabinet-editor-embedding-evidence.log`.
 - **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
   which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
 - **The shim is not statically linked**, though it should be: the freedesktop SDK ships no
