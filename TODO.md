@@ -8,7 +8,7 @@ each item is something that was skipped, deferred, or left untested.
 ## Unverified — needs a running DAW
 
 The probe used during bring-up instantiates a plugin and reads its factory, but never
-processes audio and never opens an editor. So three things remain unobserved:
+processes audio and never opens an editor. So two things remain unobserved:
 
 - [ ] **Audio renders without xruns** at a normal buffer size.
 - [ ] **`/dev/shm` populated during processing.** `ls /dev/shm | grep -i yabridge` should be
@@ -19,7 +19,6 @@ processes audio and never opens an editor. So three things remain unobserved:
 ## Untested code
 
 - [ ] **`cabinet install` has never been completed.** `new` and `sync` have now run. `install`
-      creates the prefix and Inno Setup draws its wizard, but the window then processes no
-      input at all — cause unresolved, and Wine is healthy in that prefix (`winecfg` opens on
-      demand). Suspect the launch context rather than the sandbox: it was started from a
-      detached background shell and never got focus. Rerun from an interactive terminal.
+      draws the Inno Setup wizard, which then takes no input — the same signature as the
+      frozen plugin editor, and probably the same cause. The launch-context theory was
+      tested and dropped.

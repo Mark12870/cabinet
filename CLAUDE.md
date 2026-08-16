@@ -96,6 +96,14 @@ These were all found by something failing, not by reading documentation.
   wins. Verified, not assumed.
 - **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
   `new DirectoryInfo(p).LinkTarget` answers `null` instead.
+- **VST3 editor embedding into REAPER is broken, and it is not Cabinet's fault.** Audio, MIDI
+  and the embedding handshake all work (`Reparenting … succeeded`); REAPER then shrinks the
+  plugin window unprompted, step by step, while yabridge defers its coordinate fix for the
+  whole burst because a mouse button is held. Clicks never land, so the editor looks frozen.
+  Evidence in `~/cabinet-editor-embedding-evidence.log`. Ruled out by measurement, not
+  argument: GNOME focus-stealing, broken embedding, Wine's spinning `mmdevapi_midi_n` thread,
+  and fractional display scaling — the failure is identical at 100%. Reproduce with
+  `YABRIDGE_DEBUG_LEVEL=2+editor`; read that log *first* next time.
 - **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
   which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
 - **The shim is not statically linked**, though it should be: the freedesktop SDK ships no
