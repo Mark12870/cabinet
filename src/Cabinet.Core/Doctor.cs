@@ -189,11 +189,17 @@ public sealed class Doctor(Layout layout)
             missing.Add("--filesystem=xdg-run/yabridge:create");
         }
 
-        // Without this the DAW cannot read the chainloader at all: flatpak masks
-        // ~/.local/share/flatpak even under --filesystem=home.
+        // Without these the DAW cannot read the chainloader, nor the plugin the bundle
+        // symlinks to: flatpak masks both ~/.local/share/flatpak and another app's
+        // ~/.var/app even under --filesystem=home.
         if (!(filesystems?.Contains(layout.HostAppFiles) ?? false))
         {
             missing.Add($"--filesystem={layout.HostAppFiles}:ro");
+        }
+
+        if (!(filesystems?.Contains(layout.PrefixesDir) ?? false))
+        {
+            missing.Add($"--filesystem={layout.PrefixesDir}:ro");
         }
 
         if (ini.Get("Session Bus Policy", "org.freedesktop.Flatpak") != "talk")
