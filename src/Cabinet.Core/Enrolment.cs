@@ -23,6 +23,11 @@ public static class Enrolment
         // grant instead of a copy on the host -- and required rather than tidy, because
         // flatpak masks ~/.local/share/flatpak even under --filesystem=home.
         $"--filesystem={layout.HostAppFiles}:ro",
+        // The plugins themselves. yabridgectl's bundles symlink into the prefix, and
+        // libyabridge walks up from the .dll looking for `dosdevices` -- both of which
+        // happen in the DAW's process, and ~/.var/app/<other-app> is masked without this.
+        // Read-only is enough: Wine does the writing, from inside Cabinet's own sandbox.
+        $"--filesystem={layout.PrefixesDir}:ro",
         // So the shim can reach the host to start the Wine sandbox.
         "--talk-name=org.freedesktop.Flatpak",
         $"--env=WINELOADER={layout.ShimPath}",

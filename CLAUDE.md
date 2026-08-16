@@ -11,7 +11,7 @@ daily version-bump workflow, same publishing gotchas.
 
 Keep it minimal and readable — no dead config, no scaffolding that isn't used. Comment only
 what is non-obvious, and say *why*, not *what*. The same goes for prose: a doc fix should not
-come out longer than what it replaced.
+come out longer than what it replaced. Follow the basic Clean Code rules.
 
 Languages are split on purpose: **Rust only for `shim/`**, C# for everything else including
 any future GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
@@ -75,6 +75,12 @@ These were all found by something failing, not by reading documentation.
   how `enrol` writes the link at all.
 - **`~/.local/share/flatpak` is masked too**, so `doctor` reads override files through an
   explicit `--filesystem=~/.local/share/flatpak/overrides:ro`.
+- **Prefixes living in `~/.var/app/<cabinet>` means the DAW cannot reach them by default.**
+  yabridgectl's bundles symlink into the prefix and libyabridge walks up from the `.dll` for
+  `dosdevices` — both in the *DAW's* process, where that path is masked. REAPER reported
+  "failed to scan" with nothing else to go on. `enrol` grants
+  `--filesystem=<prefixes>:ro`; read-only is enough, because Wine does the writing from
+  inside Cabinet's own sandbox. Anything that moves the prefixes must move that grant too.
 - **`base:` copies the base app's files but not its extension declarations.** Inheriting
   multilib Wine this way loses `org.freedesktop.Platform.Compat.i386` and it dies on
   `/lib/ld-linux.so.2: could not open`. The manifest re-declares them — *including*
