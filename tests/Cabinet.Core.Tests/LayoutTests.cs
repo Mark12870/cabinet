@@ -6,27 +6,42 @@ public class LayoutTests
 {
     private static readonly Layout Layout = new("/home/u", "/run/user/1000");
 
+    /// <summary>
+    /// Everything Cabinet owns stays inside its own Flatpak directory — the point of
+    /// the layout, and what stops `cabinet` from scattering files across $HOME.
+    /// </summary>
     [Fact]
-    public void HostPathsIgnoreXdgDataHome()
+    public void EverythingCabinetOwnsLivesInItsOwnDataDirectory()
     {
-        // Cabinet runs inside its own Flatpak, where XDG_DATA_HOME points at
-        // ~/.var/app/io.github.mark12870.cabinet/data. Exporting there would put the
-        // DAW-side halves somewhere no DAW looks.
-        Assert.Equal("/home/u/.local/share/yabridge", Layout.YabridgeDir);
-        Assert.Equal("/home/u/.local/share/cabinet/prefixes", Layout.PrefixesDir);
+        Assert.Equal(
+            "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes", Layout.PrefixesDir);
     }
 
     /// <summary>
-    /// The one path that is deliberately sandbox-local: yabridgectl searches its own
-    /// XDG_DATA_HOME, so `setup` links that at the host directory it exported to.
+    /// Nothing is copied onto the host: the shim and the libraries a DAW loads are read
+    /// out of the installed Flatpak, through the alias flatpak repoints on update rather
+    /// than the content-addressed path that changes with every commit.
     /// </summary>
     [Fact]
-    public void YabridgectlIsPointedAtTheExportedFilesFromInsideTheSandbox()
+    public void TheDawSideFilesAreReadOutOfTheInstalledFlatpak()
+    {
+        var files = "/home/u/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files";
+
+        Assert.Equal($"{files}/lib/yabridge", Layout.HostYabridgeDir);
+        Assert.Equal($"{files}/lib/yabridge/cabinet-wine", Layout.ShimPath);
+    }
+
+    /// <summary>
+    /// yabridgectl searches its own XDG_DATA_HOME, so that has to link to the install
+    /// tree — and to the *host* path, because the chainloader hands those back to the shim.
+    /// </summary>
+    [Fact]
+    public void YabridgectlIsPointedAtTheInstallTree()
     {
         var layout = new Layout("/home/u", "/run/user/1000", "/home/u/.var/app/cab/data");
 
         Assert.Equal("/home/u/.var/app/cab/data/yabridge", layout.SandboxYabridgeLink);
-        Assert.NotEqual(layout.YabridgeDir, layout.SandboxYabridgeLink);
+        Assert.NotEqual(layout.HostYabridgeDir, layout.SandboxYabridgeLink);
     }
 
     [Fact]
@@ -48,7 +63,7 @@ public class LayoutTests
     public void PrefixesGetTheConventionalWindowsVst3Directory()
     {
         Assert.Equal(
-            "/home/u/.local/share/cabinet/prefixes/serum/drive_c/Program Files/Common Files/VST3",
+            "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/serum/drive_c/Program Files/Common Files/VST3",
             Layout.PrefixVst3Dir("serum"));
     }
 
@@ -60,7 +75,7 @@ public class LayoutTests
     [Fact]
     public void PluginDirectoriesCoverBothBitnesses()
     {
-        var prefix = "/home/u/.local/share/cabinet/prefixes/serum/drive_c";
+        var prefix = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/serum/drive_c";
 
         Assert.Equal(
             [

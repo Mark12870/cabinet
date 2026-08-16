@@ -30,18 +30,3 @@ processes audio and never opens an editor. So three things remain unobserved:
       specifically so 32-bit VST2 plugins keep working, and `Compat.i386` is declared for it.
       `Surge XT (32-bit).vst3` is now bridged into `~/.vst3/yabridge`, but nothing has
       confirmed a DAW scans it and starts `yabridge-host-32.exe`.
-
-## Decisions deferred
-
-- [ ] **Wine's Mono and Gecko are not bundled.** They are extensions of the upstream Wine
-      Flatpak and `base:` does not inherit extension declarations. Installers needing .NET or
-      an embedded browser will fail. Fixable by adding the MSIs as `archive` sources into
-      `share/wine/{gecko,mono}`, at roughly 150 MB. Worth doing when a real plugin needs it,
-      not before.
-
-## Out of scope for v1
-
-Not scheduled, listed so the boundary stays explicit: portal-based isolation (the point here
-is packaging, not sandboxing), prefix templates and reproducible prefix manifests, Bottles
-integration, arm64, and the Avalonia GUI. `Cabinet.Core` is a library and the CLI has
-`--json` precisely so the GUI stays cheap to add later.
