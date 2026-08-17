@@ -4,10 +4,6 @@ using Cabinet.Core;
 
 namespace Cabinet.Cli;
 
-/// <summary>
-/// Written with <see cref="Utf8JsonWriter"/> rather than the serializer: there are two
-/// shapes, and this way NativeAOT needs no source-generated context to trim against.
-/// </summary>
 internal static class Json
 {
     public static string Checks(IReadOnlyList<Check> checks) =>
@@ -36,6 +32,7 @@ internal static class Json
                 writer.WriteString("name", prefix.Name);
                 writer.WriteString("path", prefix.Path);
                 writer.WriteBoolean("initialised", prefix.Initialised);
+                writer.WriteString("runner", prefix.Runner);
                 writer.WriteEndObject();
             }
 

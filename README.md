@@ -33,14 +33,30 @@ flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer 
 flatpak run $cabinet sync                                   # bridge what it installed
 flatpak run $cabinet doctor                                 # check both sides
 
-flatpak run $cabinet list                                   # prefixes and their paths
+flatpak run $cabinet list                                   # prefixes, runners and paths
 flatpak run $cabinet run serum winecfg                      # winecfg, regedit, anything
 flatpak run $cabinet delete serum                           # prefix and plugins, gone
+
+flatpak run $cabinet runners                                # Wine builds you can use
+flatpak run $cabinet new serum wine-9.21                    # a prefix on one of them
+flatpak run $cabinet use serum wine-9.21                    # move an existing prefix
 ```
 
 The first four are the whole workflow. `run` is the escape hatch when a plugin needs a DLL
 override or a registry key; `delete` asks before it does anything, and wants a `sync` after
 it to unbridge what it held.
+
+## Wine per plugin
+
+Each prefix picks its own Wine, so a plugin that needs an old one does not hold the rest
+back. Unpack any Wine build into
+`~/.var/app/io.github.mark12870.cabinet/data/runners/<name>/` — anything with `bin/wine` in
+it — and `cabinet runners` will list it. Prefixes that name none use the Wine in the Flatpak.
+
+You will want this: **plugin editors are unusable on the bundled Wine 11.** Clicks land
+offset by however far the window sits from the top-left of the screen, which is
+[yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382) and needs **Wine 9.21 or
+older**. Give such a plugin a prefix on an older runner and its editor behaves.
 
 A plugin shipping as a plain folder skips the installer: unpack it into the VST3 directory
 `new` printed — or the `Program Files (x86)` half of the prefix, if it is 32-bit — and `sync`.

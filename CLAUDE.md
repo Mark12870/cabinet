@@ -9,9 +9,15 @@ daily version-bump workflow, same publishing gotchas.
 
 ## Code style
 
-Keep it minimal and readable — no dead config, no scaffolding that isn't used. Comment only
-what is non-obvious, and say *why*, not *what*. The same goes for prose: a doc fix should not
-come out longer than what it replaced. Follow the basic Clean Code rules.
+Keep it minimal and readable — no dead config, no scaffolding that isn't used. The same goes
+for prose: a doc fix should not come out longer than what it replaced. Follow the basic Clean
+Code rules.
+
+**The code carries no comments.** Not XML doc tags, not a header on every member, and above
+all not a note arguing for why the code is written the way it is — that is a message to a
+reviewer, not to whoever maintains this next. Say it in the name or the structure instead.
+Anything that genuinely will not fit there is a *gotcha*, and gotchas live under Gotchas
+below, where they are findable; what was learned on the way belongs in the commit message.
 
 Languages are split on purpose: **Rust only for `shim/`**, C# for everything else including
 any future GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
@@ -83,6 +89,21 @@ These were all found by something failing, not by reading documentation.
   Bottles does against the same base.
 - **`org.winehq.Wine` bakes `WINEPREFIX=/var/data/wine` into its metadata.** Always pass an
   explicit prefix rather than assuming an unset one.
+- **A prefix picks its own Wine, and the shim resolves it from `WINEPREFIX` alone.** `runners/`
+  is a *sibling* of `prefixes/`, so `<prefix>/../../runners/<name>/bin/wine` is the entire
+  lookup — moving either directory breaks the plugin-load path. The choice lives in
+  `<prefix>/.cabinet-runner` rather than a config file of Cabinet's because an enrolled DAW is
+  granted the prefixes directory and nothing else, and for the same reason the shim never
+  stats the result: that would fail for a runner which works fine on the other side. A runner
+  is just a directory with `bin/wine` in it, so unpacking a tarball is the whole install, and
+  its `wineboot`/`winecfg` must be run from that same `bin/` — `PATH` still points at the
+  bundled Wine. Create a prefix on the runner it will keep; `wineboot` writes a registry the
+  next Wine inherits.
+- **yabridge 5.1.1's plugin editors need Wine 9.21 or older.** From 9.22 on, clicks land offset
+  by the window's distance from the screen origin —
+  [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382), which upstream
+  acknowledged and has not fixed. The bundled Wine is 11.0, so a prefix whose plugin has a
+  usable editor wants a runner. `stable-23.08` of `org.winehq.Wine` carries Wine 9.0.
 - **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
   taking a value and then read as a flag, so clap aborts and `--path` is unreachable.
   `Bootstrap` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` instead. Re-check on the next

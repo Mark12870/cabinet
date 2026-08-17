@@ -1,16 +1,11 @@
 namespace Cabinet.Core;
 
-public sealed record Prefix(string Name, string Path, bool Initialised);
+public sealed record Prefix(string Name, string Path, bool Initialised, string Runner);
 
-/// <summary>
-/// One Wine prefix per plugin — the "bottle per VST" the project exists for.
-/// </summary>
-/// <remarks>
-/// Nothing registers prefixes with yabridge: it walks up from the plugin's <c>.dll</c>
-/// for a <c>dosdevices</c> directory and finds them itself.
-/// </remarks>
 public sealed class Prefixes(Layout layout, IProcessRunner runner)
 {
+    private readonly Runners runners = new(layout);
+
     public IReadOnlyList<Prefix> List()
     {
         if (!Directory.Exists(layout.PrefixesDir))
@@ -20,22 +15,57 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
         return Directory.EnumerateDirectories(layout.PrefixesDir)
             .OrderBy(path => path, StringComparer.Ordinal)
-            .Select(path => new Prefix(
-                Path.GetFileName(path),
-                path,
-                // What yabridge keys on, so it is also what "initialised" means here.
-                Directory.Exists(Path.Combine(path, "dosdevices"))))
+            .Select(path => Path.GetFileName(path))
+            .Select(name => new Prefix(
+                name,
+                layout.PrefixPath(name),
+                Directory.Exists(Path.Combine(layout.PrefixPath(name), "dosdevices")),
+                RunnerOf(name)))
             .ToList();
     }
 
-    public Prefix Create(string name)
+    public string RunnerOf(string name)
+    {
+        var marker = layout.PrefixRunnerFile(name);
+
+        return File.Exists(marker)
+            ? File.ReadAllText(marker).Trim() is { Length: > 0 } recorded
+                ? recorded
+                : Layout.BundledRunner
+            : Layout.BundledRunner;
+    }
+
+    public void SetRunner(string name, string runnerName)
+    {
+        if (!Directory.Exists(layout.PrefixPath(name)))
+        {
+            throw new DirectoryNotFoundException($"no such prefix: {name}");
+        }
+
+        var resolved = runners.Resolve(runnerName);
+        var marker = layout.PrefixRunnerFile(name);
+
+        if (resolved.Bundled)
+        {
+            File.Delete(marker);
+            return;
+        }
+
+        File.WriteAllText(marker, resolved.Name + Environment.NewLine);
+    }
+
+    public Prefix Create(string name, string? runnerName = null)
     {
         var path = layout.PrefixPath(name);
+        Directory.CreateDirectory(path);
+
+        if (runnerName is not null)
+        {
+            SetRunner(name, runnerName);
+        }
 
         if (!Directory.Exists(Path.Combine(path, "dosdevices")))
         {
-            Directory.CreateDirectory(path);
-            // Inherited: a first init is slow enough that silence reads as a hang.
             var result = Wine(name, "wineboot", ["--init"], inherit: true);
             if (!result.Ok)
             {
@@ -44,21 +74,14 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             }
         }
 
-        // Unconditional, so an older prefix gains a location added later.
         foreach (var directory in layout.PrefixPluginDirs(name))
         {
             Directory.CreateDirectory(directory);
         }
 
-        return new Prefix(name, path, true);
+        return new Prefix(name, path, true, RunnerOf(name));
     }
 
-    /// <summary>Deletes a prefix and everything installed in it.</summary>
-    /// <remarks>
-    /// The name is resolved and checked to sit directly under the prefixes directory: this
-    /// deletes recursively, and <c>Path.Combine</c> would otherwise let a name containing
-    /// <c>..</c> walk out of it.
-    /// </remarks>
     public void Delete(string name)
     {
         var path = Path.GetFullPath(layout.PrefixPath(name));
@@ -94,14 +117,20 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
     private ProcessResult Wine(
         string prefix, string command, IReadOnlyList<string> arguments, bool inherit)
     {
+        var selected = runners.Resolve(RunnerOf(prefix));
+
         var environment = new Dictionary<string, string>
         {
-            // Explicit: org.winehq.Wine bakes WINEPREFIX=/var/data/wine into its metadata.
             ["WINEPREFIX"] = layout.PrefixPath(prefix),
             ["YABRIDGE_TEMP_DIR"] = layout.SocketDir,
-            ["WINELOADER"] = Layout.Wine,
+            ["WINELOADER"] = selected.Wine,
         };
 
-        return runner.Run(command, arguments, environment, inherit);
+        return runner.Run(Executable(selected, command), arguments, environment, inherit);
     }
+
+    private static string Executable(Runner selected, string command) =>
+        selected.Bundled || command.Contains('/')
+            ? command
+            : Path.Combine(Path.GetDirectoryName(selected.Wine)!, command);
 }
