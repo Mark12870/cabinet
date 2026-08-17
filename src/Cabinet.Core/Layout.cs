@@ -92,6 +92,10 @@ public sealed class Layout
 
         foreach (var programFiles in new[] { ProgramFiles64, ProgramFiles32 })
         {
+            // `VstPlugins` is not the only VST2 convention: Aalto installs to
+            // `Common Files\VST2`, and an unregistered location fails silently — `sync`
+            // reports success and the plugin simply never appears.
+            yield return Path.Combine(driveC, programFiles, "Common Files", "VST2");
             yield return Path.Combine(driveC, programFiles, "Common Files", "VST3");
             yield return Path.Combine(driveC, programFiles, "Common Files", "CLAP");
             yield return Path.Combine(driveC, programFiles, "VstPlugins");

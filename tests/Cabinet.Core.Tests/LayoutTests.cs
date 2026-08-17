@@ -61,9 +61,11 @@ public class LayoutTests
 
         Assert.Equal(
             [
+                $"{prefix}/Program Files/Common Files/VST2",
                 $"{prefix}/Program Files/Common Files/VST3",
                 $"{prefix}/Program Files/Common Files/CLAP",
                 $"{prefix}/Program Files/VstPlugins",
+                $"{prefix}/Program Files (x86)/Common Files/VST2",
                 $"{prefix}/Program Files (x86)/Common Files/VST3",
                 $"{prefix}/Program Files (x86)/Common Files/CLAP",
                 $"{prefix}/Program Files (x86)/VstPlugins",
