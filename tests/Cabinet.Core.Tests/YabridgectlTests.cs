@@ -26,8 +26,6 @@ public class YabridgectlTests
     [Fact]
     public void ADirectoryAddedByHandIsLeftAlone()
     {
-        // Outside the prefixes directory, so not Cabinet's to unregister even though
-        // nothing wants it.
         var stale = Subject.StaleRegistrations(
             ["/home/u/.wine/drive_c/Program Files/VstPlugins"], new HashSet<string>());
 

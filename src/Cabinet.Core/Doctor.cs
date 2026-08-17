@@ -9,14 +9,6 @@ public enum Status
 
 public sealed record Check(string Name, Status Status, string Detail);
 
-/// <summary>
-/// The checks that actually break this setup, in the order they break it.
-/// </summary>
-/// <remarks>
-/// Every item here corresponds to something that failed during bring-up. A DAW gives
-/// almost no diagnostics when a plugin fails to scan, so the point of doctor is to say
-/// which side of the boundary is wrong before you go looking in a plugin log.
-/// </remarks>
 public sealed class Doctor(Layout layout)
 {
     public IReadOnlyList<Check> Run()
@@ -68,8 +60,6 @@ public sealed class Doctor(Layout layout)
                 $"{layout.ShimPath} is missing — reinstall Cabinet");
         }
 
-        // yabridge's winegcc wrapper falls back to plain `wine` when $WINELOADER is
-        // not an executable file, which on a host without Wine means silence.
         var executable = (File.GetUnixFileMode(layout.ShimPath) & UnixFileMode.UserExecute) != 0;
         return executable
             ? new Check("shim readable", Status.Ok, layout.ShimPath)
@@ -83,10 +73,6 @@ public sealed class Doctor(Layout layout)
                 $"{layout.SocketDir} is missing — Cabinet lacks "
                 + "--filesystem=xdg-run/yabridge:create");
 
-    /// <remarks>
-    /// Flatpak's <c>--device=all</c> does <em>not</em> include <c>/dev/shm</c>, and
-    /// yabridge's audio buffers are <c>shm_open()</c>.
-    /// </remarks>
     private Check SharedMemory()
     {
         var devices = FlatpakInfo.Value.Get("Context", "devices");
@@ -110,7 +96,6 @@ public sealed class Doctor(Layout layout)
             return new Check("memlock limit", Status.Warn, "could not read /proc/self/limits");
         }
 
-        // yabridge warns below roughly this; it locks its audio buffers into RAM.
         const long comfortable = 64L * 1024 * 1024;
         return limit >= comfortable
             ? new Check("memlock limit", Status.Ok, $"{limit / 1024 / 1024} MB")
@@ -122,10 +107,6 @@ public sealed class Doctor(Layout layout)
                 + "Not limits.conf: pam_limits does not reach a systemd-started app.");
     }
 
-    /// <remarks>
-    /// Reads each override file directly; Cabinet cannot ask flatpak from inside its own
-    /// sandbox anyway.
-    /// </remarks>
     private IEnumerable<Check> EnrolledDaws()
     {
         var appsDir = Path.Combine(layout.Home, ".var", "app");
@@ -172,7 +153,6 @@ public sealed class Doctor(Layout layout)
             missing.Add("--filesystem=xdg-run/yabridge:create");
         }
 
-        // Both are masked for the DAW even under --filesystem=home.
         if (!(filesystems?.Contains(layout.HostAppFiles) ?? false))
         {
             missing.Add($"--filesystem={layout.HostAppFiles}:ro");

@@ -4,7 +4,6 @@ namespace Cabinet.Core.Tests;
 
 public class IniFileTests
 {
-    /// A real `flatpak override --user --show fm.reaper.Reaper`.
     private static readonly string[] ReaperOverride =
     [
         "[Context]",
@@ -42,7 +41,6 @@ public class IniFileTests
     [Fact]
     public void ValuesContainingEqualsSignsSurvive()
     {
-        // Real flatpak-info carries these, e.g. LD_LIBRARY_PATH-style settings.
         var ini = IniFile.Parse(["[Environment]", "WINEDLLOVERRIDES=mscoree=d;mshtml=d"]);
 
         Assert.Equal("mscoree=d;mshtml=d", ini.Get("Environment", "WINEDLLOVERRIDES"));

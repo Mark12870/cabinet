@@ -7,7 +7,6 @@ public class EnrolmentTests
     private static readonly Layout Layout = new("/home/u", "/run/user/1000");
 
     [Theory]
-    // Each of these was observed failing during bring-up when absent.
     [InlineData("--device=shm")]
     [InlineData("--filesystem=xdg-run/yabridge:create")]
     [InlineData("--talk-name=org.freedesktop.Flatpak")]

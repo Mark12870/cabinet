@@ -42,7 +42,6 @@ public class LayoutTests
     [Fact]
     public void TheSocketDirectoryIsUnderTheRuntimeDirectory()
     {
-        // Same path inside and outside every sandbox, which is what makes it shareable.
         Assert.Equal("/run/user/1000/yabridge", Layout.SocketDir);
     }
 
