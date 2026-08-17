@@ -32,14 +32,18 @@ flatpak run $cabinet new serum                              # a prefix of its ow
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
 flatpak run $cabinet sync                                   # bridge what it installed
 flatpak run $cabinet doctor                                 # check both sides
+
+flatpak run $cabinet list                                   # prefixes and their paths
+flatpak run $cabinet run serum winecfg                      # winecfg, regedit, anything
+flatpak run $cabinet delete serum                           # prefix and plugins, gone
 ```
 
-Plugins that ship as a plain folder rather than an installer can be unpacked straight into
-`~/.var/app/io.github.mark12870.cabinet/data/prefixes/<name>/drive_c/Program Files/Common Files/VST3`,
-then `sync`. A 32-bit plugin belongs in the `Program Files (x86)` half instead.
+The first four are the whole workflow. `run` is the escape hatch when a plugin needs a DLL
+override or a registry key; `delete` asks before it does anything, and wants a `sync` after
+it to unbridge what it held.
 
-`cabinet run <name> winecfg` (or `regedit`, or any command) is the escape hatch when a
-plugin needs a DLL override or a registry key.
+A plugin shipping as a plain folder skips the installer: unpack it into the VST3 directory
+`new` printed — or the `Program Files (x86)` half of the prefix, if it is 32-bit — and `sync`.
 
 If a plugin does not show up, run `doctor` first — it reports which side is wrong.
 
