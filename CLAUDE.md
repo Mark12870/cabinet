@@ -98,12 +98,29 @@ These were all found by something failing, not by reading documentation.
   is just a directory with `bin/wine` in it, so unpacking a tarball is the whole install, and
   its `wineboot`/`winecfg` must be run from that same `bin/` — `PATH` still points at the
   bundled Wine. Create a prefix on the runner it will keep; `wineboot` writes a registry the
-  next Wine inherits.
+  next Wine inherits, and Wine refuses a prefix another `wineserver` still holds, so close the
+  DAW before moving one.
+- **Runners carry no Mono or Gecko, and Wine will ask the user to download them.** Those come
+  from Flatpak extensions mounted at `/app/share/wine/{mono,gecko}`, which only the bundled
+  Wine has, so `Runners` symlinks them into every runner it unpacks. Cabinet's own `wineboot`
+  also runs with `WINEDLLOVERRIDES=mscoree=d;mshtml=d` so creating a prefix never blocks on a
+  dialog — scoped to `wineboot`, so an installer that really wants .NET still gets it.
+- **`wine-<v>-staging-amd64` has no fsync; `-staging-tkg-amd64` does.** Measured, not assumed:
+  `WINEDEBUG=+fsync` produced nothing on plain Staging and 4685 lines on a TkG build, and the
+  TkG one reports `( TkG Staging Esync Fsync )`. yabridge calls an fsync build *"the most
+  important thing you can do"* and `WINEFSYNC` is forwarded by the shim for it, so
+  `runners install` takes the TkG asset. Never `-wow64` or `-x86`: yabridge's 32-bit host is a
+  32-bit winelib binary that new WoW64 cannot run, which is why `Runners` rejects an archive
+  with no 32-bit tree.
 - **yabridge 5.1.1's plugin editors need Wine 9.21 or older.** From 9.22 on, clicks land offset
   by the window's distance from the screen origin —
   [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382), which upstream
-  acknowledged and has not fixed. The bundled Wine is 11.0, so a prefix whose plugin has a
-  usable editor wants a runner. `stable-23.08` of `org.winehq.Wine` carries Wine 9.0.
+  acknowledged and has not fixed. The bundled Wine is 11.0, so any prefix with a usable editor
+  wants `cabinet runners install 9.21`. That fixes VST2 outright. **VST3 needs two more
+  things**, neither of them Cabinet's: `editor_disable_host_scaling = true` in
+  `~/.vst3/yabridge/yabridge.toml` before clicks land at all, and even then the editor does not
+  repaint while you interact with it. Verified on Aalto (VST2, works), Dexed and Surge XT
+  (VST3, still do not repaint).
 - **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
   taking a value and then read as a flag, so clap aborts and `--path` is unreachable.
   `Bootstrap` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` instead. Re-check on the next

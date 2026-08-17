@@ -23,8 +23,45 @@ public sealed class Doctor(Layout layout)
             MemoryLock(),
         };
 
+        checks.AddRange(PrefixRunners());
         checks.AddRange(EnrolledDaws());
         return checks;
+    }
+
+    private IEnumerable<Check> PrefixRunners()
+    {
+        if (!Directory.Exists(layout.PrefixesDir))
+        {
+            yield break;
+        }
+
+        var broken = new List<string>();
+
+        foreach (var dir in Directory.EnumerateDirectories(layout.PrefixesDir)
+                     .OrderBy(d => d, StringComparer.Ordinal))
+        {
+            var prefix = Path.GetFileName(dir);
+            var marker = layout.PrefixRunnerFile(prefix);
+
+            if (!File.Exists(marker))
+            {
+                continue;
+            }
+
+            var name = File.ReadAllText(marker).Trim();
+
+            if (name.Length > 0 && name != Layout.BundledRunner
+                                && !File.Exists(layout.RunnerWine(name)))
+            {
+                broken.Add($"{prefix} -> {name}");
+            }
+        }
+
+        yield return broken.Count == 0
+            ? new Check("prefix runners", Status.Ok, "every prefix resolves to a Wine")
+            : new Check("prefix runners", Status.Fail,
+                $"missing runner for {string.Join(", ", broken)} — install it or move the "
+                + $"prefix with `cabinet use <prefix> {Layout.BundledRunner}`");
     }
 
     private Check BundledYabridge()

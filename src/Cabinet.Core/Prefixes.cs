@@ -4,7 +4,7 @@ public sealed record Prefix(string Name, string Path, bool Initialised, string R
 
 public sealed class Prefixes(Layout layout, IProcessRunner runner)
 {
-    private readonly Runners runners = new(layout);
+    private readonly Runners runners = new(layout, runner);
 
     public IReadOnlyList<Prefix> List()
     {
@@ -66,7 +66,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
         if (!Directory.Exists(Path.Combine(path, "dosdevices")))
         {
-            var result = Wine(name, "wineboot", ["--init"], inherit: true);
+            var result = Wine(name, "wineboot", ["--init"], inherit: true, Unattended);
             if (!result.Ok)
             {
                 throw new InvalidOperationException(
@@ -114,8 +114,14 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         string name, string command, IReadOnlyList<string> arguments, bool inherit = false) =>
         Wine(name, command, arguments, inherit);
 
+    private const string Unattended = "mscoree=d;mshtml=d";
+
     private ProcessResult Wine(
-        string prefix, string command, IReadOnlyList<string> arguments, bool inherit)
+        string prefix,
+        string command,
+        IReadOnlyList<string> arguments,
+        bool inherit,
+        string? dllOverrides = null)
     {
         var selected = runners.Resolve(RunnerOf(prefix));
 
@@ -125,6 +131,11 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             ["YABRIDGE_TEMP_DIR"] = layout.SocketDir,
             ["WINELOADER"] = selected.Wine,
         };
+
+        if (dllOverrides is not null)
+        {
+            environment["WINEDLLOVERRIDES"] = dllOverrides;
+        }
 
         return runner.Run(Executable(selected, command), arguments, environment, inherit);
     }
