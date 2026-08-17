@@ -1,10 +1,5 @@
 namespace Cabinet.Core;
 
-/// <summary>
-/// Just enough INI for the two files Cabinet reads: <c>/.flatpak-info</c> and a
-/// Flatpak user override. Both are written by flatpak itself, so there is no need
-/// to handle quoting, comments or continuations.
-/// </summary>
 public sealed class IniFile
 {
     public static readonly IniFile Empty = new([]);

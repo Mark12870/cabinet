@@ -7,10 +7,8 @@ public sealed record ProcessResult(int ExitCode, string Stdout, string Stderr)
     public bool Ok => ExitCode == 0;
 }
 
-/// <summary>Runs external commands. An interface so operations stay testable.</summary>
 public interface IProcessRunner
 {
-    /// <param name="inherit">Write straight to this process's stdio; no capture.</param>
     ProcessResult Run(
         string file,
         IReadOnlyList<string> args,
@@ -55,8 +53,6 @@ public sealed class ProcessRunner : IProcessRunner
             return new ProcessResult(process.ExitCode, "", "");
         }
 
-        // Drained concurrently: reading one to the end first deadlocks once the child
-        // fills the other's buffer, which Wine's fixme spam does during an install.
         var stderr = Task.Run(process.StandardError.ReadToEnd);
         var stdout = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
