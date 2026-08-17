@@ -53,6 +53,29 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         return new Prefix(name, path, true);
     }
 
+    /// <summary>Deletes a prefix and everything installed in it.</summary>
+    /// <remarks>
+    /// The name is resolved and checked to sit directly under the prefixes directory: this
+    /// deletes recursively, and <c>Path.Combine</c> would otherwise let a name containing
+    /// <c>..</c> walk out of it.
+    /// </remarks>
+    public void Delete(string name)
+    {
+        var path = Path.GetFullPath(layout.PrefixPath(name));
+
+        if (Path.GetDirectoryName(path) != layout.PrefixesDir)
+        {
+            throw new ArgumentException($"not a prefix name: '{name}'", nameof(name));
+        }
+
+        if (!Directory.Exists(path))
+        {
+            throw new DirectoryNotFoundException($"no such prefix: {name}");
+        }
+
+        Directory.Delete(path, recursive: true);
+    }
+
     public ProcessResult Install(string name, string installer, bool inherit = false)
     {
         var full = Path.GetFullPath(installer);

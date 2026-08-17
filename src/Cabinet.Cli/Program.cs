@@ -15,6 +15,7 @@ internal static class Program
           cabinet enrol <daw-flatpak-id>       prepare a Flatpak DAW (prints the override)
           cabinet new <name>                   create a Wine prefix
           cabinet install <name> <installer>   run a Windows installer in that prefix
+          cabinet delete <name>                delete a prefix and everything in it
           cabinet list                         list prefixes
           cabinet sync                         hand the prefixes to yabridgectl
           cabinet run <name> <cmd> [args...]   run a command in a prefix (winecfg, regedit)
@@ -60,6 +61,7 @@ internal static class Program
             "new" => New(layout, runner, Require(args, 1, "a prefix name")),
             "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "an installer path")),
+            "delete" => Delete(layout, runner, Require(args, 1, "a prefix name")),
             "list" => List(layout, runner, json),
             "sync" => Sync(layout, runner),
             "run" => Run(layout, runner, Require(args, 1, "a prefix name"),
@@ -124,6 +126,32 @@ internal static class Program
 
         Console.WriteLine();
         Console.WriteLine("Installer finished. Run `cabinet sync` to bridge what it installed.");
+        return 0;
+    }
+
+    private static int Delete(Layout layout, IProcessRunner runner, string name)
+    {
+        var prefixes = new Prefixes(layout, runner);
+        var prefix = prefixes.List().FirstOrDefault(candidate => candidate.Name == name);
+
+        if (prefix is null)
+        {
+            Console.Error.WriteLine($"cabinet: no such prefix '{name}'");
+            return 1;
+        }
+
+        // Irreversible, and it takes the installed plugins with it. A closed stdin reads as
+        // null, which is not "y", so an unattended run declines rather than deletes.
+        Console.Write($"Delete '{prefix.Name}' and every plugin installed in it? [y/N] ");
+        if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("Left alone.");
+            return 1;
+        }
+
+        prefixes.Delete(prefix.Name);
+        Console.WriteLine($"Deleted {prefix.Path}");
+        Console.WriteLine("Run `cabinet sync` to unbridge what it held.");
         return 0;
     }
 
