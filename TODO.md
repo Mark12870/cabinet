@@ -15,10 +15,3 @@ processes audio and never opens an editor. So two things remain unobserved:
       non-empty while a plugin runs. The whole `--device=shm` requirement rests on this, and
       it has been reasoned about but never watched. Buffers are allocated when processing
       starts, which is why the probe never triggered it.
-
-## Untested code
-
-- [ ] **`cabinet install` has never been completed.** `new` and `sync` have now run. `install`
-      draws the Inno Setup wizard, which then takes no input — the same signature as the
-      frozen plugin editor, and probably the same cause. The launch-context theory was
-      tested and dropped.
