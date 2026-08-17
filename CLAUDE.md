@@ -96,15 +96,27 @@ These were all found by something failing, not by reading documentation.
   wins. Verified, not assumed.
 - **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
   `new DirectoryInfo(p).LinkTarget` answers `null` instead.
-- **Surge XT's editor does not repaint under Wine — it is a Surge bug, not ours.**
-  [surge#7636](https://github.com/surge-synthesizer/surge/issues/7636), open since May 2024,
-  reproduces in FL Studio and in Surge's *standalone* build, so neither yabridge nor a DAW is
-  involved. It repaints only when something external pokes it. **Do not test editor embedding
-  with Surge XT**; Dexed is bridged for that. A long investigation blamed GNOME
-  focus-stealing, the embedding handshake, Wine's spinning `mmdevapi_midi_n` thread and
-  fractional scaling in turn, and all four were wrong — read a
-  `YABRIDGE_DEBUG_LEVEL=2+editor` log before theorising, and check upstream's issue tracker
-  for the *plugin* early. Evidence in `~/cabinet-editor-embedding-evidence.log`.
+- **Plugin editors get absolute screen coordinates where they expect client-relative ones.**
+  Clicks are delivered and dispatched correctly — they just land offset by exactly the plugin
+  window's distance from the screen origin. Measured by clicking one corner and moving the
+  window: reported `(642,254)` at screen `(641,253)`, `(0,66)` once dragged to the top left.
+  Reproduces on Aalto (VST2 x64), Dexed (VST3 x64) and Surge XT (VST3 x86), and
+  `editor_xembed = true` does not help. **Not Cabinet's**: the clicks cross the sandbox and
+  reach the right window, and it is not
+  [yabridge#506](https://github.com/robbert-vdh/yabridge/issues/506) either — there
+  `WM_LBUTTONDOWN` never reaches a window procedure, here it does with a wrong lParam.
+  Evidence in `~/cabinet-editor-coordinates-evidence.log`.
+
+  A static UI hides this completely: Dexed and Surge look frozen, while Aalto's animated
+  graphs make it obvious that drawing works and only input is misplaced. That is what made
+  this so hard to see — **an earlier investigation blamed Surge**
+  ([surge#7636](https://github.com/surge-synthesizer/surge/issues/7636), a real but separate
+  repaint bug, now closed) **and wrongly recorded that Dexed was unaffected.** Before that it
+  blamed GNOME focus-stealing, the embedding handshake, Wine's spinning `mmdevapi_midi_n`
+  thread and fractional scaling. Six wrong answers, all reached by theorising. What finally
+  worked was two commands: `YABRIDGE_DEBUG_LEVEL=1+editor` for the embedding, and
+  `WINEDEBUG=+msg,+event` to decode the lParam of the delivered click. Measure the coordinate
+  before proposing anything.
 - **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
   which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
 - **The shim is not statically linked**, though it should be: the freedesktop SDK ships no
