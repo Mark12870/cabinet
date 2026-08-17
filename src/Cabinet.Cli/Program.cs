@@ -13,8 +13,12 @@ internal static class Program
           cabinet install <name> <installer>   run a Windows installer in that prefix
           cabinet delete <name>                delete a prefix and everything in it
           cabinet list                         list prefixes
-          cabinet runners                      list available Wine runners
           cabinet use <name> <runner>          point a prefix at a runner
+          cabinet runners                      list installed Wine runners
+          cabinet runners available            list Wine versions you can install
+          cabinet runners install <version>    download and unpack one
+          cabinet runners add <archive>        unpack a Wine build you already have
+          cabinet runners rm <runner>          delete a runner no prefix uses
           cabinet sync                         hand the prefixes to yabridgectl
           cabinet run <name> <cmd> [args...]   run a command in a prefix (winecfg, regedit)
           cabinet doctor                       check the setup end to end
@@ -57,7 +61,7 @@ internal static class Program
             "enrol" or "enroll" => Enrol(layout, Require(args, 1, "a DAW flatpak id")),
             "new" => New(layout, runner, Require(args, 1, "a prefix name"),
                 args.Length > 2 ? args[2] : null),
-            "runners" => ListRunners(layout),
+            "runners" => Runners(layout, runner, args.Skip(1).ToArray()),
             "use" => Use(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "a runner name")),
             "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
@@ -114,16 +118,76 @@ internal static class Program
         return 0;
     }
 
-    private static int ListRunners(Layout layout)
-    {
-        foreach (var found in new Runners(layout).List())
+    private static int Runners(Layout layout, IProcessRunner runner, string[] args) =>
+        args.FirstOrDefault() switch
         {
-            Console.WriteLine($"{(found.Usable ? "ok  " : "FAIL")}  {found.Name,-24}  {found.Wine}");
+            null => ListRunners(layout, runner),
+            "available" => AvailableRunners(runner),
+            "install" => InstallRunner(layout, runner, Require(args, 1, "a Wine version")),
+            "add" => AddRunner(layout, runner, Require(args, 1, "an archive path")),
+            "rm" => RemoveRunner(layout, runner, Require(args, 1, "a runner name")),
+            var unknown => Unknown($"runners {unknown}"),
+        };
+
+    private static int ListRunners(Layout layout, IProcessRunner runner)
+    {
+        var runners = new Runners(layout, runner);
+
+        foreach (var found in runners.List())
+        {
+            var used = runners.InUseBy(found.Name);
+            var by = found.Bundled
+                ? string.Join(", ", runners.InUseBy(Layout.BundledRunner))
+                : string.Join(", ", used);
+
+            Console.WriteLine(
+                $"{(found.Usable ? "ok  " : "FAIL")}  {found.Name,-30}  "
+                + $"{(found.Multilib ? "32+64" : "64   ")}  {runners.Version(found),-34}  {by}");
+        }
+
+        return 0;
+    }
+
+    private static int AvailableRunners(IProcessRunner runner)
+    {
+        foreach (var release in new RunnerIndex(runner).Available())
+        {
+            Console.WriteLine(
+                $"{release.Version,-8}  "
+                + (release.BreaksEditors ? "breaks plugin editors (yabridge#382)" : "ok"));
         }
 
         Console.WriteLine();
-        Console.WriteLine($"A runner is a directory with bin/wine in it. Unpack one into");
-        Console.WriteLine($"{layout.RunnersDir} and it appears here.");
+        Console.WriteLine($"`cabinet runners install {RunnerIndex.Recommended}` is the one "
+                          + "yabridge is tested against.");
+        return 0;
+    }
+
+    private static int InstallRunner(Layout layout, IProcessRunner runner, string version)
+    {
+        var release = new RunnerIndex(runner).Find(version);
+        var installed = new Runners(layout, runner).Install(release);
+
+        Console.WriteLine();
+        Console.WriteLine($"{installed.Name}  {installed.Wine}");
+        Console.WriteLine($"Put a prefix on it with `cabinet use <prefix> {installed.Name}`.");
+        return 0;
+    }
+
+    private static int AddRunner(Layout layout, IProcessRunner runner, string archive)
+    {
+        var added = new Runners(layout, runner).Add(archive);
+
+        Console.WriteLine();
+        Console.WriteLine($"{added.Name}  {added.Wine}");
+        Console.WriteLine($"Put a prefix on it with `cabinet use <prefix> {added.Name}`.");
+        return 0;
+    }
+
+    private static int RemoveRunner(Layout layout, IProcessRunner runner, string name)
+    {
+        new Runners(layout, runner).Remove(name);
+        Console.WriteLine($"Deleted {layout.RunnerPath(name)}");
         return 0;
     }
 

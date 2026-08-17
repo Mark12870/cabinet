@@ -10,6 +10,8 @@ public sealed class Layout
 
     public const string BundledRunner = "bundled";
 
+    public const string BundledWineShare = "/app/share/wine";
+
     public const string RunnerMarker = ".cabinet-runner";
 
     public Layout(
