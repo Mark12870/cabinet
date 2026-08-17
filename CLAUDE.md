@@ -116,11 +116,17 @@ These were all found by something failing, not by reading documentation.
   by the window's distance from the screen origin —
   [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382), which upstream
   acknowledged and has not fixed. The bundled Wine is 11.0, so any prefix with a usable editor
-  wants `cabinet runners install 9.21`. That fixes VST2 outright. **VST3 needs two more
-  things**, neither of them Cabinet's: `editor_disable_host_scaling = true` in
-  `~/.vst3/yabridge/yabridge.toml` before clicks land at all, and even then the editor does not
-  repaint while you interact with it. Verified on Aalto (VST2, works), Dexed and Surge XT
-  (VST3, still do not repaint).
+  wants `cabinet runners install 9.21`. That fixes VST2 outright — verified on Aalto. **VST3
+  needs two more things**, neither of them Cabinet's: `editor_disable_host_scaling = true`
+  under `["*"]` in `~/.vst3/yabridge/yabridge.toml` before clicks land at all, and even then
+  the editor does not repaint while you interact with it. Verified on Dexed and Surge XT.
+- **Nothing in Cabinet writes `yabridge.toml`, and no experiment may leave one behind.** It is
+  the user's file, it is not tracked here, and a stale one is invisible: yabridge only mentions
+  it as `config from: …` deep in a debug log. One left over from an earlier debugging session
+  cost real time in the investigation that found
+  [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382) — checking for it was what
+  finally ruled it out. If a session writes one to test an option, delete it in the same
+  session and record the option here instead.
 - **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
   taking a value and then read as a flag, so clap aborts and `--path` is unreachable.
   `Bootstrap` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` instead. Re-check on the next
