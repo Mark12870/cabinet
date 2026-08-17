@@ -1,17 +1,3 @@
-//! `cabinet-wine` — the WINELOADER shim.
-//!
-//! yabridge's winegcc wrapper ends in
-//!
-//! ```sh
-//! exec "$WINELOADER" "$appdir/yabridge-host.exe.so" "$@"
-//! ```
-//!
-//! so pointing `WINELOADER` at this binary is the entire boundary between a DAW
-//! running outside the sandbox and the Wine that runs inside it. Everything here
-//! exists because `flatpak run` starts the sandbox from a clean environment and a
-//! different mount namespace: what is not forwarded is lost, and what is not
-//! resolved to a real path does not exist on the other side.
-
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStrExt;
@@ -21,7 +7,6 @@ use std::process::Command;
 
 const DEFAULT_APP: &str = "io.github.mark12870.cabinet";
 
-/// Forwarded into the sandbox when set and non-empty.
 const FORWARD: &[&str] = &[
     "WINEPREFIX",
     "WINEDLLPATH",
@@ -39,7 +24,6 @@ const FORWARD: &[&str] = &[
     "LC_ALL",
 ];
 
-/// Variables holding a single path.
 const CANON_VARS: &[&str] = &[
     "WINEPREFIX",
     "YABRIDGE_TEMP_DIR",
@@ -47,20 +31,42 @@ const CANON_VARS: &[&str] = &[
     "XAUTHORITY",
 ];
 
-/// Variables holding a colon-separated list of paths.
 const CANON_LIST_VARS: &[&str] = &["WINEDLLPATH"];
 
-/// Resolve a path for the far side of the boundary.
-///
-/// Flatpak masks `~/.var/app/<other-app>` even under `--filesystem=home`, and the
-/// chainloader finds yabridge through the DAW's `$XDG_DATA_HOME` — which for a
-/// Flatpak DAW is exactly that masked directory. Handing those paths across
-/// unresolved makes Wine fail with `failed to open ...yabridge-host.exe.so`.
-///
-/// Only absolute paths are resolved. yabridge passes every path absolutely, while
-/// its other arguments are bare words like `vst3` or `group`; resolving those
-/// would rewrite them the moment the working directory happened to contain a file
-/// of the same name.
+const RUNNER_MARKER: &str = ".cabinet-runner";
+const BUNDLED_RUNNER: &str = "bundled";
+
+fn wine_command<R>(prefix: Option<&OsStr>, read: &R) -> OsString
+where
+    R: Fn(&Path) -> Option<String>,
+{
+    let fallback = || OsString::from("wine");
+
+    let Some(prefix) = prefix else {
+        return fallback();
+    };
+    let prefix = Path::new(prefix);
+
+    let Some(name) = read(&prefix.join(RUNNER_MARKER)) else {
+        return fallback();
+    };
+    let name = name.trim();
+
+    if name.is_empty() || name == BUNDLED_RUNNER || name.contains('/') {
+        return fallback();
+    }
+
+    match prefix.parent().and_then(Path::parent) {
+        Some(data) => data
+            .join("runners")
+            .join(name)
+            .join("bin")
+            .join("wine")
+            .into_os_string(),
+        None => fallback(),
+    }
+}
+
 fn canonicalize<C>(value: &OsStr, canon: &C) -> OsString
 where
     C: Fn(&Path) -> Option<PathBuf>,
@@ -91,24 +97,21 @@ where
     out
 }
 
-/// Build the command that runs Wine inside the sandbox.
-///
-/// Split out from `main` so the translation can be tested without exec'ing
-/// anything or touching the filesystem.
-fn build_argv<E, C>(
+fn build_argv<E, C, R>(
     app: &str,
     in_sandbox: bool,
     args: &[OsString],
     getenv: E,
     canon: C,
+    read: R,
 ) -> Vec<OsString>
 where
     E: Fn(&str) -> Option<OsString>,
     C: Fn(&Path) -> Option<PathBuf>,
+    R: Fn(&Path) -> Option<String>,
 {
     let mut argv: Vec<OsString> = Vec::with_capacity(args.len() + FORWARD.len() + 5);
 
-    // The DAW is itself sandboxed, so hop out to the host before starting Wine.
     if in_sandbox {
         argv.push("flatpak-spawn".into());
         argv.push("--host".into());
@@ -116,7 +119,11 @@ where
 
     argv.push("flatpak".into());
     argv.push("run".into());
-    argv.push("--command=wine".into());
+
+    let prefix = getenv("WINEPREFIX").map(|value| canonicalize(&value, &canon));
+    let mut command = OsString::from("--command=");
+    command.push(wine_command(prefix.as_deref(), &read));
+    argv.push(command);
 
     for var in FORWARD {
         let Some(value) = getenv(var) else { continue };
@@ -152,9 +159,6 @@ fn main() {
     let app = env::var("CABINET_APP").unwrap_or_else(|_| DEFAULT_APP.to_string());
     let args: Vec<OsString> = env::args_os().skip(1).collect();
 
-    // This binary is exec'd inside whatever sandbox the DAW lives in, which may run an
-    // older runtime than the one it was built against. Running it here proves it loads
-    // there, turning "the plugin silently will not scan" into one legible check.
     if args.first().is_some_and(|arg| arg == "--cabinet-self-test") {
         println!("cabinet-wine {} ok", env!("CARGO_PKG_VERSION"));
         return;
@@ -166,6 +170,7 @@ fn main() {
         &args,
         |key| env::var_os(key),
         |path| std::fs::canonicalize(path).ok(),
+        |path| std::fs::read_to_string(path).ok(),
     );
 
     if let Some(path) = env::var_os("CABINET_SHIM_LOG") {
@@ -188,9 +193,6 @@ fn main() {
 mod tests {
     use super::*;
 
-    /// Stands in for the masking that motivates canonicalization at all: the DAW
-    /// reaches yabridge through a symlink in its own data directory, which the
-    /// Wine sandbox cannot see.
     fn fake_canon(path: &Path) -> Option<PathBuf> {
         let masked = "/home/u/.var/app/fm.reaper.Reaper/data/yabridge";
         let real = "/home/u/.local/share/yabridge";
@@ -204,11 +206,21 @@ mod tests {
     }
 
     fn build(env: &[(&str, &str)], args: &[&str], in_sandbox: bool) -> Vec<String> {
+        build_with_runner(env, args, in_sandbox, None)
+    }
+
+    fn build_with_runner(
+        env: &[(&str, &str)],
+        args: &[&str],
+        in_sandbox: bool,
+        runner: Option<&str>,
+    ) -> Vec<String> {
         let env: Vec<(String, String)> = env
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
         let args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        let runner = runner.map(str::to_string);
 
         build_argv(
             "io.github.mark12870.cabinet",
@@ -220,6 +232,12 @@ mod tests {
                     .map(|(_, v)| OsString::from(v))
             },
             fake_canon,
+            |path| {
+                path.file_name()
+                    .is_some_and(|n| n == RUNNER_MARKER)
+                    .then(|| runner.clone())
+                    .flatten()
+            },
         )
         .iter()
         .map(|a| a.to_string_lossy().into_owned())
@@ -290,9 +308,6 @@ mod tests {
             .any(|a| a == "--env=WINEDLLPATH=/home/u/.local/share/yabridge:/opt/wine"));
     }
 
-    /// yabridge's first argument is a bare word like `vst3` or `group`. Resolving
-    /// those would rewrite them whenever the working directory held a file of the
-    /// same name, so only absolute paths are touched.
     #[test]
     fn bare_words_are_never_treated_as_paths() {
         let argv = build(&[], &["vst3", "group", "./relative"], false);
@@ -320,11 +335,45 @@ mod tests {
 
     #[test]
     fn an_empty_environment_still_produces_a_runnable_command() {
-        let argv = build_argv("some.App", false, &[], no_env, fake_canon);
+        let argv = build_argv("some.App", false, &[], no_env, fake_canon, |_| None);
         let argv: Vec<String> = argv
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
         assert_eq!(argv, vec!["flatpak", "run", "--command=wine", "some.App"]);
+    }
+
+    const PREFIX: &str = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/serum";
+
+    #[test]
+    fn a_prefix_with_no_marker_uses_the_bundled_wine() {
+        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, None);
+        assert!(argv.iter().any(|a| a == "--command=wine"));
+    }
+
+    #[test]
+    fn a_prefix_naming_a_runner_starts_that_runners_wine() {
+        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, Some("wine-9.21\n"));
+        assert!(argv.iter().any(|a| a
+            == "--command=/home/u/.var/app/io.github.mark12870.cabinet/data/runners/wine-9.21/bin/wine"));
+    }
+
+    #[test]
+    fn the_runner_is_found_beside_the_prefixes_directory() {
+        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, Some("r"));
+        let command = argv.iter().find(|a| a.starts_with("--command=")).unwrap();
+        assert!(command.contains("/data/runners/r/bin/wine"));
+        assert!(!command.contains("/prefixes/"));
+    }
+
+    #[test]
+    fn the_bundled_name_and_a_path_are_both_refused() {
+        for marker in ["bundled", "", "  ", "../../escape"] {
+            let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, Some(marker));
+            assert!(
+                argv.iter().any(|a| a == "--command=wine"),
+                "marker {marker:?} should fall back"
+            );
+        }
     }
 }
