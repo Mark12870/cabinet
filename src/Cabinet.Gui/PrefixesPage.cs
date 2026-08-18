@@ -38,45 +38,89 @@ internal sealed class PrefixesPage
             return;
         }
 
+        var names = new Runners(layout, runner).List().Select(found => found.Name).ToList();
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Prefixes");
 
         foreach (var prefix in prefixes)
         {
-            group.Add(Row(prefix));
+            group.Add(Row(prefix, names));
         }
 
         list.Append(group);
     }
 
-    private Adw.ActionRow Row(Prefix prefix)
+    private Adw.ExpanderRow Row(Prefix prefix, IReadOnlyList<string> runnerNames)
     {
-        var row = Adw.ActionRow.New();
+        var row = Adw.ExpanderRow.New();
         row.SetTitle(prefix.Name);
         row.SetSubtitle(Subtitle(prefix));
+        row.AddPrefix(Gtk.Image.NewFromIconName(Icons.Prefixes));
 
-        var icon = Gtk.Image.NewFromIconName(Icons.Prefixes);
-        row.AddPrefix(icon);
+        row.AddRow(RunnerRow(prefix, runnerNames));
+        row.AddRow(Action(
+            "Windows installer", "Run an installer inside this prefix",
+            Icons.Install, () => ChooseInstaller(prefix.Name)));
+        row.AddRow(Action(
+            "DXVK", prefix.Dxvk is null ? "JUCE editors need this" : $"installed, {prefix.Dxvk}",
+            Icons.Dxvk, () => InstallDxvk(prefix.Name)));
+        row.AddRow(Action(
+            "Wine configuration", "winecfg", Icons.Configure,
+            () => Run(prefix.Name, "winecfg", [])));
+        row.AddRow(Action(
+            "Run a command", "regedit, or wine reg add …", Icons.Command,
+            () => AskForCommand(prefix.Name)));
+        row.AddRow(Action(
+            "Delete", "The prefix and every plugin in it", Icons.Delete,
+            () => ConfirmDelete(prefix), destructive: true));
 
-        var dxvk = Ui.IconButton(Icons.Dxvk, "Install DXVK");
-        dxvk.OnClicked += (_, _) => InstallDxvk(prefix.Name);
-        dxvk.SetValign(Gtk.Align.Center);
-        row.AddSuffix(dxvk);
+        return row;
+    }
 
-        var install = Ui.IconButton(Icons.Install, "Run a Windows installer");
-        install.OnClicked += (_, _) => ChooseInstaller(prefix.Name);
-        install.SetValign(Gtk.Align.Center);
-        row.AddSuffix(install);
+    private Adw.ComboRow RunnerRow(Prefix prefix, IReadOnlyList<string> runnerNames)
+    {
+        var row = Adw.ComboRow.New();
+        row.SetTitle("Wine");
+        row.SetSubtitle("The runner this prefix starts on");
+        row.SetModel(Gtk.StringList.New([.. runnerNames]));
 
-        var configure = Ui.IconButton(Icons.Configure, "winecfg");
-        configure.OnClicked += (_, _) => Run(prefix.Name, "winecfg");
-        configure.SetValign(Gtk.Align.Center);
-        row.AddSuffix(configure);
+        var current = runnerNames.ToList().IndexOf(prefix.Runner);
 
-        var delete = Ui.IconButton(Icons.Delete, "Delete this prefix");
-        delete.OnClicked += (_, _) => ConfirmDelete(prefix);
-        delete.SetValign(Gtk.Align.Center);
-        row.AddSuffix(delete);
+        if (current >= 0)
+        {
+            row.SetSelected((uint)current);
+        }
+
+        row.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() != "selected")
+            {
+                return;
+            }
+
+            var chosen = runnerNames[(int)row.GetSelected()];
+
+            if (chosen != prefix.Runner)
+            {
+                UseRunner(prefix.Name, chosen);
+            }
+        };
+
+        return row;
+    }
+
+    private static Adw.ActionRow Action(
+        string title, string subtitle, string iconName, Action clicked,
+        bool destructive = false)
+    {
+        var row = Adw.ActionRow.New();
+        row.SetTitle(title);
+        row.SetSubtitle(subtitle);
+
+        var button = Ui.RowButton(iconName, title, destructive);
+        button.OnClicked += (_, _) => clicked();
+        row.AddSuffix(button);
+        row.SetActivatableWidget(button);
 
         return row;
     }
@@ -87,14 +131,24 @@ internal sealed class PrefixesPage
         return prefix.Dxvk is null ? state : $"{state}  ·  DXVK {prefix.Dxvk}";
     }
 
-    public void CreatePrefix(string name, string? runnerName)
-    {
+    public void CreatePrefix(string name, string? runnerName) =>
         Operation.Run(
             window,
             $"Creating {name}",
             output => new Prefixes(layout, runner).Create(name, runnerName, output),
             Refresh);
-    }
+
+    private void UseRunner(string name, string runnerName) =>
+        Operation.Run(
+            window,
+            $"Moving {name} to {runnerName}",
+            output =>
+            {
+                var prefixes = new Prefixes(layout, runner);
+                prefixes.SetRunner(name, runnerName);
+                prefixes.Run(name, "wineboot", ["-u"], output);
+            },
+            Refresh);
 
     private void InstallDxvk(string name) =>
         Operation.Run(
@@ -103,31 +157,31 @@ internal sealed class PrefixesPage
             _ => new Dxvk(layout, runner).Install(name),
             Refresh);
 
-    private void Run(string name, string command) =>
+    private void Run(string name, string command, IReadOnlyList<string> arguments) =>
         Operation.Run(
             window,
             $"{command} in {name}",
-            output => new Prefixes(layout, runner).Run(name, command, [], output));
+            output => new Prefixes(layout, runner).Run(name, command, arguments, output));
 
-    private void ChooseInstaller(string name)
-    {
-        var chooser = Gtk.FileDialog.New();
-        chooser.SetTitle("Choose a Windows installer");
-
-        chooser.OpenAsync(window).ContinueWith(task =>
-        {
-            if (task.IsFaulted || task.Result?.GetPath() is not { Length: > 0 } path)
+    private void AskForCommand(string name) =>
+        Ui.Prompt(
+            window,
+            $"Run a command in {name}",
+            "It runs against this prefix's own Wine, the way `cabinet run` does.",
+            "regedit",
+            entered =>
             {
-                return;
-            }
+                var parts = entered.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                Run(name, parts[0], parts[1..]);
+            });
 
-            Ui.OnMainLoop(() => Operation.Run(
+    private void ChooseInstaller(string name) =>
+        Ui.ChooseFile(window, "Choose a Windows installer", path =>
+            Operation.Run(
                 window,
                 $"Installing into {name}",
                 output => new Prefixes(layout, runner).Install(name, path, output),
                 Refresh));
-        });
-    }
 
     private void ConfirmDelete(Prefix prefix)
     {

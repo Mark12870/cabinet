@@ -30,6 +30,10 @@ internal sealed class RunnersPage
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Installed");
 
+        var add = Ui.RowButton(Icons.Archive, "Unpack a Wine build you already have");
+        add.OnClicked += (_, _) => ChooseArchive();
+        group.SetHeaderSuffix(add);
+
         foreach (var installed in runners.List())
         {
             var row = Adw.ActionRow.New();
@@ -125,6 +129,14 @@ internal sealed class RunnersPage
         row.AddSuffix(install);
         return row;
     }
+
+    private void ChooseArchive() =>
+        Ui.ChooseFile(window, "Choose a Wine archive", path =>
+            Operation.Run(
+                window,
+                $"Unpacking {Path.GetFileName(path)}",
+                output => new Runners(layout, runner).Add(path, onOutput: output),
+                Refresh));
 
     private void Remove(string name) =>
         Operation.Run(

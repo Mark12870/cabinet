@@ -16,4 +16,6 @@ internal static class Icons
     public const string Fail = "dialog-error-symbolic";
     public const string Install = "document-open-symbolic";
     public const string Configure = "preferences-system-symbolic";
+    public const string Command = "utilities-terminal-symbolic";
+    public const string Archive = "package-x-generic-symbolic";
 }
