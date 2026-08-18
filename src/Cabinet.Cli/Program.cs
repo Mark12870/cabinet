@@ -25,6 +25,7 @@ internal static class Program
           cabinet sync                         hand the prefixes to yabridgectl
           cabinet run <name> <cmd> [args...]   run a command in a prefix (winecfg, regedit)
           cabinet doctor                       check the setup end to end
+          cabinet about                        which Cabinet this is, and what it bundles
 
         Options:
           --json                               machine-readable output where it applies
@@ -85,6 +86,7 @@ internal static class Program
             "run" => Run(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "a command"), args.Skip(3).ToArray()),
             "doctor" => RunDoctor(layout, json),
+            "about" => ShowAbout(layout, runner, json),
             _ => Unknown(args[0]),
         };
     }
@@ -321,6 +323,46 @@ internal static class Program
 
         return checks.Any(check => check.Status == Status.Fail) ? 1 : 0;
     }
+
+    private static int ShowAbout(Layout layout, IProcessRunner runner, bool json)
+    {
+        var build = new About(layout, runner).Read();
+
+        if (json)
+        {
+            Console.WriteLine(Json.Build(build));
+            return 0;
+        }
+
+        Console.WriteLine($"{"version",-16}  {build.Version}");
+        Console.WriteLine($"{"installed from",-16}  {Describe(build)}");
+        Console.WriteLine($"{"commit",-16}  {build.Commit}");
+        Console.WriteLine($"{"yabridge",-16}  {build.Yabridge}");
+        Console.WriteLine($"{"wine",-16}  {build.Wine}");
+        Console.WriteLine($"{"prefixes",-16}  {layout.PrefixesDir}");
+        Console.WriteLine($"{"runners",-16}  {layout.RunnersDir}");
+        Console.WriteLine($"{"sockets",-16}  {layout.SocketDir}");
+        Console.WriteLine($"{"yabridge dir",-16}  {layout.HostYabridgeDir}");
+
+        if (build.Homepage is { } homepage)
+        {
+            Console.WriteLine($"{"homepage",-16}  {homepage}");
+        }
+
+        if (build.BugTracker is { } tracker)
+        {
+            Console.WriteLine($"{"issues",-16}  {tracker}");
+        }
+
+        return 0;
+    }
+
+    private static string Describe(Build build) => build.Origin switch
+    {
+        Origin.Published => $"{build.Remote}  ({build.Url}) — published build",
+        Origin.Local => $"{build.Remote}  ({build.Url}) — local build",
+        _ => $"{build.Remote} — cannot tell whether it is published",
+    };
 
     private static string Require(string[] args, int index, string what)
     {

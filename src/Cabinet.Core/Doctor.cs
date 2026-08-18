@@ -112,7 +112,7 @@ public sealed class Doctor(Layout layout)
 
     private Check SharedMemory()
     {
-        var devices = FlatpakInfo.Value.Get("Context", "devices");
+        var devices = Layout.FlatpakInfo.Get("Context", "devices");
         if (devices is null)
         {
             return new Check("/dev/shm shared", Status.Warn,
@@ -219,11 +219,6 @@ public sealed class Doctor(Layout layout)
             ? new Check($"DAW {dawId}", Status.Ok, "enrolled")
             : new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));
     }
-
-    private static readonly Lazy<IniFile> FlatpakInfo = new(() =>
-        File.Exists("/.flatpak-info")
-            ? IniFile.Parse(File.ReadAllLines("/.flatpak-info"))
-            : IniFile.Empty);
 
     private static long? ReadMemlockLimit()
     {

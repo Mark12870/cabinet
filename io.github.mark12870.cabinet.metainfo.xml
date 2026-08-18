@@ -51,6 +51,15 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.3.0" date="2026-08-18">
+      <description>
+        <p>An About page names the running build: its version, the remote it was installed
+        from and whether that remote is the published repository or a local one, the bundled
+        yabridge and Wine, and where Cabinet keeps its prefixes, runners and sockets. The
+        same is printed by `cabinet about`.</p>
+      </description>
+    </release>
+
     <release version="0.2.1" date="2026-08-18">
       <description>
         <p>The Wine versions list reads the component index Bottles reads instead of

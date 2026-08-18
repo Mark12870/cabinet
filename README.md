@@ -35,6 +35,7 @@ flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer 
 flatpak run $cabinet dxvk serum                             # JUCE editors need this
 flatpak run $cabinet sync                                   # bridge what it installed
 flatpak run $cabinet doctor                                 # check both sides
+flatpak run $cabinet about                                  # version, and where it came from
 
 flatpak run $cabinet list                                   # prefixes, runners and paths
 flatpak run $cabinet run serum winecfg                      # winecfg, regedit, anything

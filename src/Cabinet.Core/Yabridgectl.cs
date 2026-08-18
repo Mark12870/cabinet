@@ -13,6 +13,19 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 
     public ProcessResult Status() => Run(["status"]);
 
+    public string Version()
+    {
+        if (!File.Exists(Binary))
+        {
+            return "unknown";
+        }
+
+        var result = Run(["--version"]);
+        var line = result.Ok ? result.Stdout.Split('\n').FirstOrDefault()?.Trim() : null;
+
+        return line?.Split(' ').LastOrDefault() is { Length: > 0 } version ? version : "unknown";
+    }
+
     public IReadOnlyList<string> Registered() =>
         Run(["list"]).Stdout
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)

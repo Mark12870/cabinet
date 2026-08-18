@@ -12,6 +12,7 @@ internal sealed class MainWindow
     private readonly PrefixesPage prefixes;
     private readonly RunnersPage runners;
     private readonly DoctorPage doctor;
+    private readonly AboutPage about;
 
     public MainWindow(Adw.Application application, Layout layout, IProcessRunner runner)
     {
@@ -25,10 +26,12 @@ internal sealed class MainWindow
         prefixes = new PrefixesPage(layout, runner, window);
         runners = new RunnersPage(layout, runner, window);
         doctor = new DoctorPage(layout);
+        about = new AboutPage(layout, runner, window);
 
         stack.AddTitledWithIcon(prefixes.Widget, "prefixes", "Prefixes", Icons.Prefixes);
         stack.AddTitledWithIcon(runners.Widget, "runners", "Runners", Icons.Runners);
         stack.AddTitledWithIcon(doctor.Widget, "doctor", "Doctor", Icons.Doctor);
+        stack.AddTitledWithIcon(about.Widget, "about", "About", Icons.About);
 
         var view = Adw.ToolbarView.New();
         view.AddTopBar(Header());
@@ -77,6 +80,7 @@ internal sealed class MainWindow
         prefixes.Refresh();
         runners.Refresh();
         doctor.Refresh();
+        about.Refresh();
     }
 
     private void Sync() =>
