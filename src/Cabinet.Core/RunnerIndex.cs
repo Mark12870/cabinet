@@ -116,8 +116,8 @@ public sealed class RunnerIndex(IProcessRunner runner)
     public static IReadOnlyList<RunnerRelease> ReleasesFrom(
         RunnerFamily family, IReadOnlyList<ComponentEntry> entries) =>
         entries
-            .Where(entry => entry is
-                { Category: "runners", SubCategory: "wine", Channel: "stable" })
+            .Where(entry =>
+                entry is { Category: "runners", SubCategory: "wine", Channel: "stable" })
             .Select(entry => (entry, version: family.VersionOf(entry.Name)))
             .Where(found => found.version is not null)
             .OrderByDescending(found => found.entry.Date)
