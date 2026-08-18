@@ -42,4 +42,75 @@ internal static class Ui
         button.AddCssClass("flat");
         return button;
     }
+
+    public static Gtk.Button RowButton(string iconName, string tooltip, bool destructive = false)
+    {
+        var button = IconButton(iconName, tooltip);
+        button.SetValign(Gtk.Align.Center);
+
+        if (destructive)
+        {
+            button.AddCssClass("destructive-action");
+            button.RemoveCssClass("flat");
+        }
+
+        return button;
+    }
+
+    public static void Prompt(
+        Gtk.Widget parent,
+        string heading,
+        string body,
+        string placeholder,
+        Action<string> accepted)
+    {
+        var dialog = Adw.AlertDialog.New(heading, body);
+        var entry = Gtk.Entry.New();
+        entry.SetPlaceholderText(placeholder);
+        entry.SetMarginTop(12);
+        dialog.SetExtraChild(entry);
+
+        dialog.AddResponse("cancel", "Cancel");
+        dialog.AddResponse("ok", "Continue");
+        dialog.SetResponseAppearance("ok", Adw.ResponseAppearance.Suggested);
+        dialog.SetDefaultResponse("ok");
+        dialog.SetCloseResponse("cancel");
+
+        dialog.OnResponse += (_, args) =>
+        {
+            var text = entry.GetText().Trim();
+
+            if (args.Response == "ok" && text.Length > 0)
+            {
+                accepted(text);
+            }
+        };
+
+        dialog.Present(parent);
+    }
+
+    public static void Report(Gtk.Widget parent, string heading, string body)
+    {
+        var dialog = Adw.AlertDialog.New(heading, body);
+        dialog.AddResponse("ok", "Close");
+        dialog.SetDefaultResponse("ok");
+        dialog.SetCloseResponse("ok");
+        dialog.Present(parent);
+    }
+
+    public static void ChooseFile(Gtk.Window parent, string title, Action<string> chosen)
+    {
+        var chooser = Gtk.FileDialog.New();
+        chooser.SetTitle(title);
+
+        chooser.OpenAsync(parent).ContinueWith(task =>
+        {
+            if (task.IsFaulted || task.Result?.GetPath() is not { Length: > 0 } path)
+            {
+                return;
+            }
+
+            OnMainLoop(() => chosen(path));
+        });
+    }
 }

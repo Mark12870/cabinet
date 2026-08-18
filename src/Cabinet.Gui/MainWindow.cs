@@ -100,16 +100,21 @@ internal sealed class MainWindow
             },
             RefreshAll);
 
-    private void AskForName()
-    {
-        Prompt("New prefix", "A name for the prefix, such as the plugin it will hold.", name =>
-            prefixes.CreatePrefix(name, null));
-    }
+    private void AskForName() =>
+        Ui.Prompt(
+            window,
+            "New prefix",
+            "A name for the prefix, such as the plugin it will hold.",
+            "serum",
+            name => prefixes.CreatePrefix(name, null));
 
-    private void AskForDaw()
-    {
-        Prompt("Enrol a DAW", "The Flatpak id of the DAW, such as fm.reaper.Reaper.", EnrolDaw);
-    }
+    private void AskForDaw() =>
+        Ui.Prompt(
+            window,
+            "Enrol a DAW",
+            "The Flatpak id of the DAW it should bridge plugins into.",
+            "fm.reaper.Reaper",
+            EnrolDaw);
 
     private void EnrolDaw(string dawId)
     {
@@ -121,50 +126,16 @@ internal sealed class MainWindow
         }
         catch (Exception exception)
         {
-            Report("Could not enrol", exception.Message);
+            Ui.Report(window, "Could not enrol", exception.Message);
             return;
         }
 
-        Report(
+        Ui.Report(
+            window,
             $"Linked {link}",
             "Now run this yourself:\n\n"
             + Enrolment.OverrideCommand(dawId, layout)
             + "\n\nIt is not applied automatically: --talk-name=org.freedesktop.Flatpak lets "
             + $"{dawId} run commands on the host, which is yours to decide.");
-    }
-
-    private void Prompt(string heading, string body, Action<string> accepted)
-    {
-        var dialog = Adw.AlertDialog.New(heading, body);
-        var entry = Gtk.Entry.New();
-        entry.SetMarginTop(12);
-        dialog.SetExtraChild(entry);
-
-        dialog.AddResponse("cancel", "Cancel");
-        dialog.AddResponse("ok", "Continue");
-        dialog.SetResponseAppearance("ok", Adw.ResponseAppearance.Suggested);
-        dialog.SetDefaultResponse("ok");
-        dialog.SetCloseResponse("cancel");
-
-        dialog.OnResponse += (_, args) =>
-        {
-            var text = entry.GetText().Trim();
-
-            if (args.Response == "ok" && text.Length > 0)
-            {
-                accepted(text);
-            }
-        };
-
-        dialog.Present(window);
-    }
-
-    private void Report(string heading, string body)
-    {
-        var dialog = Adw.AlertDialog.New(heading, body);
-        dialog.AddResponse("ok", "Close");
-        dialog.SetDefaultResponse("ok");
-        dialog.SetCloseResponse("ok");
-        dialog.Present(window);
     }
 }
