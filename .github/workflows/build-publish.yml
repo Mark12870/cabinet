@@ -33,22 +33,14 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.gate.outputs.publish }}
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       # bwrap needs to set up its own namespaces to build inside a container.
       options: --privileged
     steps:
       - uses: actions/checkout@v7
-
-      - name: Install the runtime, SDK, Wine and the build toolchains
-        run: |
-          flatpak install -y --noninteractive flathub \
-            org.gnome.Platform//50 \
-            org.gnome.Sdk//50 \
-            org.freedesktop.Sdk.Extension.rust-stable//25.08 \
-            org.freedesktop.Sdk.Extension.dotnet10//25.08 \
-            org.freedesktop.Sdk.Extension.llvm20//25.08 \
-            org.winehq.Wine//stable-25.08
 
       # Without this the repo starts empty every run and each export is a parentless
       # root: nothing to roll back to. Seeding it first makes the new commit a child
@@ -83,7 +75,44 @@ jobs:
           # otherwise be published inside repo/config.
           ostree --repo=repo remote delete published
 
+      - name: Decide whether to publish
+        id: gate
+        run: |
+          newest() { grep -oE '<release[[:space:]]+version="[^"]+"' | head -1 | cut -d'"' -f2; }
+
+          version="$(newest < "${APP_ID}.metainfo.xml")"
+          [ -n "${version}" ] || {
+            echo "::error::no <release> version in ${APP_ID}.metainfo.xml"; exit 1; }
+
+          # No repo means the seed found nothing published -- a first run, or the seed
+          # step deleted for a deliberate re-root. Both want the build to go ahead.
+          ref="$(ostree --repo=repo refs 2>/dev/null | grep '^app/' || true)"
+          published=""
+          [ -n "${ref}" ] && published="$(ostree --repo=repo cat \
+            "$(ostree --repo=repo rev-parse "${ref}")" \
+            "/files/share/metainfo/${APP_ID}.metainfo.xml" | newest)"
+
+          if [ "${version}" = "${published}" ]; then
+            echo "::notice::${version} is already published; nothing to release"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::releasing ${version}${published:+ over ${published}}"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the runtime, SDK, Wine and the build toolchains
+        if: steps.gate.outputs.publish == 'true'
+        run: |
+          flatpak install -y --noninteractive flathub \
+            org.gnome.Platform//50 \
+            org.gnome.Sdk//50 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08 \
+            org.freedesktop.Sdk.Extension.dotnet10//25.08 \
+            org.freedesktop.Sdk.Extension.llvm20//25.08 \
+            org.winehq.Wine//stable-25.08
+
       - name: Build
+        if: steps.gate.outputs.publish == 'true'
         run: |
           flatpak-builder \
             --repo=repo \
@@ -95,9 +124,11 @@ jobs:
       # Tarred because upload-artifact does not preserve the symlinks an OSTree
       # repository is built out of.
       - name: Pack the repo
+        if: steps.gate.outputs.publish == 'true'
         run: tar -cf repo.tar repo
 
       - uses: actions/upload-artifact@v7
+        if: steps.gate.outputs.publish == 'true'
         with:
           name: repo
           path: repo.tar
@@ -105,6 +136,9 @@ jobs:
 
   publish:
     needs: build
+    # Without this the job runs on a skipped build and dies
+    # on download-artifact, which has nothing to fetch.
+    if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-latest
     # Backstop: every step here is seconds to a minute, so anything that stalls is
     # wedged, and a wedged job sits on the `pages` group for the six-hour limit.
