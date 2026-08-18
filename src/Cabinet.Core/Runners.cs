@@ -78,7 +78,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
 
         try
         {
-            var tarball = new RunnerIndex(runner).Download(release, staging);
+            var tarball = new RunnerIndex(runner).Download(release, staging, onOutput);
             return Unpack(tarball, release.Name, onOutput);
         }
         finally

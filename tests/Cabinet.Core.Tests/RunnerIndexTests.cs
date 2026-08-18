@@ -4,7 +4,7 @@ namespace Cabinet.Core.Tests;
 
 public class RunnerIndexTests
 {
-    private const string Releases = """
+    private const string Kron4ekReleases = """
         [
           {
             "tag_name": "9.21",
@@ -32,10 +32,44 @@ public class RunnerIndexTests
         ]
         """;
 
+    private const string BottlesReleases = """
+        [
+          {
+            "tag_name": "mcsoda-11.0-4",
+            "assets": [
+              {"name": "mcsoda-11.0-4-x86_64.tar.xz", "browser_download_url": "https://b/mc"},
+              {"name": "mcsoda-11.0-4-x86_64.tar.xz.sha256", "browser_download_url": "https://b/mcs"}
+            ]
+          },
+          {
+            "tag_name": "soda-11.0-5",
+            "assets": [{"name": "soda-11.0-5-x86_64.tar.xz", "browser_download_url": "https://b/s"}]
+          },
+          {
+            "tag_name": "protosoda-11.0-1",
+            "assets": [{"name": "ProtoSoda-11.0-1.tar.gz", "browser_download_url": "https://b/p"}]
+          },
+          {
+            "tag_name": "caffe-10.0",
+            "assets": [{"name": "caffe-10.0-x86_64.tar.xz", "browser_download_url": "https://b/c"}]
+          },
+          {
+            "tag_name": "soda-9.0-1",
+            "assets": [{"name": "soda-9.0-1-x86_64.tar.xz", "browser_download_url": "https://b/o"}]
+          }
+        ]
+        """;
+
+    private static IReadOnlyList<RunnerRelease> Kron4ek =>
+        RunnerIndex.ParseReleases(RunnerFamily.Kron4ek, Kron4ekReleases);
+
+    private static IReadOnlyList<RunnerRelease> Soda =>
+        RunnerIndex.ParseReleases(RunnerFamily.Soda, BottlesReleases);
+
     [Fact]
     public void OnlyTheStagingTkgMultilibAssetIsOffered()
     {
-        var release = RunnerIndex.ParseReleases(Releases).Single(r => r.Version == "9.21");
+        var release = Kron4ek.Single(r => r.Version == "9.21");
 
         Assert.Equal("wine-9.21-staging-tkg-amd64.tar.xz", release.Asset);
         Assert.Equal("https://x/9.21/s", release.Url);
@@ -44,24 +78,23 @@ public class RunnerIndexTests
     [Fact]
     public void AReleaseWithoutThatAssetIsSkipped()
     {
-        Assert.DoesNotContain(RunnerIndex.ParseReleases(Releases), r => r.Version == "6.0");
+        Assert.DoesNotContain(Kron4ek, r => r.Version == "6.0");
     }
 
-    [Theory]
-    [InlineData("9.21", false)]
-    [InlineData("9.7", false)]
-    [InlineData("9.22", true)]
-    [InlineData("10.0", true)]
-    [InlineData("11.15", true)]
-    public void VersionsFromNineTwentyTwoOnAreFlagged(string version, bool breaks)
+    [Fact]
+    public void TheOtherBottlesFamiliesAreNotSoda()
     {
-        Assert.Equal(breaks, RunnerIndex.BreaksEditors(version));
+        Assert.Equal(["11.0-5", "9.0-1"], Soda.Select(release => release.Version));
+    }
 
-        var release = RunnerIndex.ParseReleases(Releases).FirstOrDefault(r => r.Version == version);
-        if (release is not null)
-        {
-            Assert.Equal(breaks, release.BreaksEditors);
-        }
+    [Fact]
+    public void ASodaTagLosesItsPrefixButTheRunnerKeepsIt()
+    {
+        var release = Soda.Single(r => r.Version == "11.0-5");
+
+        Assert.Equal("soda-11.0-5-x86_64.tar.xz", release.Asset);
+        Assert.Equal("soda-11.0-5", release.Name);
+        Assert.Null(release.Family.SumsFile);
     }
 
     [Fact]
@@ -80,9 +113,7 @@ public class RunnerIndexTests
     [Fact]
     public void TheRunnerIsNamedAfterTheAssetWithoutItsSuffix()
     {
-        var release = RunnerIndex.ParseReleases(Releases).Single(r => r.Version == "9.21");
-
-        Assert.Equal("wine-9.21-staging-tkg", release.Name);
+        Assert.Equal("wine-9.21-staging-tkg", Kron4ek.Single(r => r.Version == "9.21").Name);
     }
 
     [Theory]

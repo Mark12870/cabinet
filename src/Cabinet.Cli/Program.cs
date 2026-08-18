@@ -150,16 +150,20 @@ internal static class Program
 
     private static int AvailableRunners(IProcessRunner runner)
     {
-        foreach (var release in new RunnerIndex(runner).Available())
+        var families = new RunnerIndex(runner).Available().GroupBy(release => release.Family);
+
+        foreach (var family in families)
         {
-            Console.WriteLine(
-                $"{release.Version,-8}  "
-                + (release.BreaksEditors ? "breaks plugin editors (yabridge#382)" : "ok"));
+            Console.WriteLine($"{family.Key.Label} — {family.Key.Description}");
+
+            foreach (var release in family)
+            {
+                Console.WriteLine($"  {release.Version,-10}  {release.Name}");
+            }
+
+            Console.WriteLine();
         }
 
-        Console.WriteLine();
-        Console.WriteLine($"`cabinet runners install {RunnerIndex.Recommended}` is the one "
-                          + "yabridge is tested against.");
         return 0;
     }
 
