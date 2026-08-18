@@ -8,6 +8,8 @@ public sealed class Layout
 
     public const string Wine = "/app/bin/wine";
 
+    public const string Gui = "/app/bin/cabinet-gui";
+
     public const string BundledRunner = "bundled";
 
     public const string BundledWineShare = "/app/share/wine";

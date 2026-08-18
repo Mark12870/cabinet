@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Cabinet.Core;
 
 namespace Cabinet.Cli;
@@ -8,6 +9,7 @@ internal static class Program
         Cabinet — Windows VST plugins in per-plugin Wine prefixes
 
         Usage:
+          cabinet                              open the window
           cabinet enrol <daw-flatpak-id>       prepare a Flatpak DAW (prints the override)
           cabinet new <name> [runner]          create a Wine prefix, optionally on a runner
           cabinet install <name> <installer>   run a Windows installer in that prefix
@@ -33,21 +35,30 @@ internal static class Program
         var json = args.Contains("--json");
         var positional = args.Where(a => a != "--json").ToArray();
 
-        if (positional.Length == 0 || positional[0] is "-h" or "--help" or "help")
+        if (positional.Length > 0 && positional[0] is "-h" or "--help" or "help")
         {
             Console.WriteLine(Usage);
-            return positional.Length == 0 ? 2 : 0;
+            return 0;
         }
 
         try
         {
-            return Dispatch(positional, json);
+            return positional.Length == 0 ? LaunchGui() : Dispatch(positional, json);
         }
         catch (Exception exception)
         {
             Console.Error.WriteLine($"cabinet: {exception.Message}");
             return 1;
         }
+    }
+
+    private static int LaunchGui()
+    {
+        using var gui = Process.Start(Layout.Gui)
+            ?? throw new InvalidOperationException($"could not start {Layout.Gui}");
+
+        gui.WaitForExit();
+        return gui.ExitCode;
     }
 
     private static int Dispatch(string[] args, bool json)
