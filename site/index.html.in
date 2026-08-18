@@ -94,7 +94,7 @@ flatpak install cabinet $app_id
 flatpak run $app_id setup</code></pre>
 
 <div class="current">
-  <b>yabridge $current_version</b>
+  <b>Cabinet $current_version</b>
   <span>published $current_date</span>
 </div>
 
@@ -134,7 +134,7 @@ flatpak run $app_id sync</code></pre>
 <div class="table-scroll">
 <table>
   <thead>
-    <tr><th>yabridge</th><th>Published</th><th>Commit</th></tr>
+    <tr><th>Cabinet</th><th>Published</th><th>Commit</th></tr>
   </thead>
   <tbody>
 $rows
