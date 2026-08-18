@@ -57,28 +57,6 @@ Each prefix picks its own Wine, so a plugin that needs an old one does not hold 
 <archive>` takes a build you already have, from anywhere. Prefixes that name no runner use the
 Wine in the Flatpak.
 
-You will want this: **plugin editors are unusable on the bundled Wine 11.** Clicks land offset
-by however far the window sits from the top-left of the screen —
-[yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382) — and it needs **Wine 9.21
-or older**, which `cabinet runners available` marks for you.
-
-## Editors that never redraw
-
-A plugin whose GUI draws once and then only when you drag its window is missing DXVK.
-`cabinet dxvk <prefix>` fetches a pinned build, checks its SHA-256, unpacks it into that one
-prefix and points `d3d11`, `dxgi`, `d3d10core`, `d3d9` and `d3d8` at it. Most JUCE plugins
-need it — Surge XT and Dexed both do. It wants a working Vulkan driver, which you already have
-if games run.
-
-That is enough for VST2. **VST3 editors need more, and it is not Cabinet's to fix:** put
-`editor_disable_host_scaling = true` under `["*"]` in `~/.vst3/yabridge/yabridge.toml` before
-clicks land at all, and even then they do not repaint while you use them.
-
-A plugin shipping as a plain folder skips the installer: unpack it into the VST3 directory
-`new` printed — or the `Program Files (x86)` half of the prefix, if it is 32-bit — and `sync`.
-
-If a plugin does not show up, run `doctor` first — it reports which side is wrong.
-
 ## Permissions
 
 `enrol` prints the `flatpak override` rather than applying it, because one of the
