@@ -82,6 +82,10 @@ finish-args:
   - --filesystem=/var/lib/flatpak/app/io.github.mark12870.cabinet:ro
   # `doctor` reads an enrolled DAW's override file; it cannot ask flatpak from in here.
   - --filesystem=~/.local/share/flatpak/overrides:ro
+  # `about` reads the origin remote's url, to tell a published build from a local one.
+  # A single-file grant, honoured through the mask over ~/.local/share/flatpak.
+  - --filesystem=~/.local/share/flatpak/repo/config:ro
+  - --filesystem=/var/lib/flatpak/repo/config:ro
   # The socket directory, shared with the DAW on the other side of the boundary.
   - --filesystem=xdg-run/yabridge:create
   - --env=YABRIDGE_NO_WATCHDOG=1

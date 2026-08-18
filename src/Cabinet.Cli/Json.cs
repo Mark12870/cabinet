@@ -22,6 +22,22 @@ internal static class Json
             writer.WriteEndArray();
         });
 
+    public static string Build(Build build) =>
+        Write(writer =>
+        {
+            writer.WriteStartObject();
+            writer.WriteString("version", build.Version);
+            writer.WriteString("remote", build.Remote);
+            writer.WriteString("url", build.Url);
+            writer.WriteString("commit", build.Commit);
+            writer.WriteString("origin", build.Origin.ToString().ToLowerInvariant());
+            writer.WriteString("yabridge", build.Yabridge);
+            writer.WriteString("wine", build.Wine);
+            writer.WriteString("homepage", build.Homepage);
+            writer.WriteString("bugtracker", build.BugTracker);
+            writer.WriteEndObject();
+        });
+
     public static string Prefixes(IReadOnlyList<Prefix> prefixes) =>
         Write(writer =>
         {

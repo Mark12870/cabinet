@@ -192,6 +192,18 @@ These were all found by something failing, not by reading documentation.
   DAW's override. `Layout.StableAlias` rewrites it to the `current/active` alias.
 - **`--filesystem=home:ro` plus `--filesystem=~/.vst3:create` works**: the specific grant
   wins. Verified, not assumed.
+- **`/.flatpak-info` does not say which remote the app came from.** The origin is the first
+  NUL-terminated string of the deploy GVariant at `<app-dir>/current/active/deploy`, which the
+  existing `--filesystem=~/.local/share/flatpak/app/<id>:ro` already reaches. The name alone
+  cannot tell a published build from a local one — the user chooses it — so `about` also reads
+  the remote's `url` from `<install-root>/repo/config`, which needs its own
+  `--filesystem=…/repo/config:ro`. A **single-file** grant is honoured through the mask over
+  `~/.local/share/flatpak`; verified by reading it from inside, not assumed. `file://` is the
+  local build, any other scheme the published one, and a url that cannot be read is *unknown*
+  rather than local — an install predating the grant must not be mislabelled.
+- **The running build reads its own version back out of `/app/share/metainfo/`.** That keeps the
+  metainfo the one place the version lives; nothing goes into a csproj `Version`, which would be
+  a second copy that a `<release>` bump could not reach.
 - **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
   `new DirectoryInfo(p).LinkTarget` answers `null` instead.
 - **Plugin editors get absolute screen coordinates where they expect client-relative ones.**

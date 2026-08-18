@@ -14,6 +14,8 @@ public sealed class Layout
 
     public const string BundledWineShare = "/app/share/wine";
 
+    public const string MetainfoPath = "/app/share/metainfo/" + AppId + ".metainfo.xml";
+
     public const string RunnerMarker = ".cabinet-runner";
 
     public const string DxvkMarker = ".cabinet-dxvk";
@@ -45,6 +47,8 @@ public sealed class Layout
             HostAppFilesFromFlatpakInfo());
     }
 
+    public static IniFile FlatpakInfo => Info.Value;
+
     public string Home { get; }
     public string RuntimeDir { get; }
     public string SandboxDataHome { get; }
@@ -54,6 +58,12 @@ public sealed class Layout
     public string HostYabridgeDir => Path.Combine(HostAppFiles, "lib", "yabridge");
 
     public string ShimPath => Path.Combine(HostYabridgeDir, "cabinet-wine");
+
+    public string DeployFile =>
+        Path.Combine(Path.GetDirectoryName(HostAppFiles) ?? HostAppFiles, "deploy");
+
+    public string? RepoConfig =>
+        InstallRoot is { } root ? Path.Combine(root, "repo", "config") : null;
 
     public string SandboxYabridgeLink => Path.Combine(SandboxDataHome, "yabridge");
 
@@ -106,18 +116,33 @@ public sealed class Layout
     public string DawYabridgeLink(string flatpakId) =>
         Path.Combine(DawDataHome(flatpakId), "yabridge");
 
+    private string? InstallRoot
+    {
+        get
+        {
+            for (var dir = new DirectoryInfo(HostAppFiles); dir is not null; dir = dir.Parent)
+            {
+                if (dir.Name == "app" && dir.Parent is not null)
+                {
+                    return dir.Parent.FullName;
+                }
+            }
+
+            return null;
+        }
+    }
+
     private static string DefaultHostAppFiles(string home) => Path.Combine(
         home, ".local", "share", "flatpak", "app", AppId, "current", "active", "files");
 
+    private static readonly Lazy<IniFile> Info = new(() =>
+        File.Exists("/.flatpak-info")
+            ? IniFile.Parse(File.ReadAllLines("/.flatpak-info"))
+            : IniFile.Empty);
+
     private static string? HostAppFilesFromFlatpakInfo()
     {
-        if (!File.Exists("/.flatpak-info"))
-        {
-            return null;
-        }
-
-        var appPath = IniFile.Parse(File.ReadAllLines("/.flatpak-info"))
-            .Get("Instance", "app-path");
+        var appPath = FlatpakInfo.Get("Instance", "app-path");
 
         return appPath is null ? null : StableAlias(appPath) ?? appPath;
     }

@@ -8,6 +8,8 @@ internal static class Icons
     public const string Download = "folder-download-symbolic";
     public const string Runners = "emblem-system-symbolic";
     public const string Doctor = "dialog-information-symbolic";
+    public const string About = "help-about-symbolic";
+    public const string Link = "external-link-symbolic";
     public const string Sync = "view-refresh-symbolic";
     public const string Enrol = "insert-link-symbolic";
     public const string Dxvk = "applications-system-symbolic";
