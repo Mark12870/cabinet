@@ -10,10 +10,18 @@ public static class Checksum
         return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
     }
 
-    public static void Expect(string path, string expected)
+    public static string Md5(string path)
     {
-        var actual = Sha256(path);
+        using var stream = File.OpenRead(path);
+        return Convert.ToHexString(MD5.HashData(stream)).ToLowerInvariant();
+    }
 
+    public static void Expect(string path, string expected) => Match(path, Sha256(path), expected);
+
+    public static void ExpectMd5(string path, string expected) => Match(path, Md5(path), expected);
+
+    private static void Match(string path, string actual, string expected)
+    {
         if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
         {
             File.Delete(path);

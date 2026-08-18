@@ -51,6 +51,14 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.2.1" date="2026-08-18">
+      <description>
+        <p>The Wine versions list reads the component index Bottles reads instead of
+        GitHub's API, which rations unauthenticated callers and made the list fail with
+        a message about a host it had in fact reached. More builds are listed, a failure
+        says what actually went wrong, and Soda's downloads now carry a checksum.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-08-18">
       <description>
         <p>The Wine versions list is grouped into families the way Bottles groups its

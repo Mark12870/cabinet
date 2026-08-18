@@ -7,7 +7,17 @@ per plugin, bridged into a DAW by upstream yabridge. App ID `io.github.mark12870
 Packaging follows `../beeper-flatpak`: self-hosted GPG-signed OSTree repo on GitHub Pages,
 daily version-bump workflow, same publishing gotchas.
 
-## Code style
+## Important
+
+Don't create a new branch if not asked for that!
+
+**Every feature reaches both front ends.** An operation belongs to `Cabinet.Core`; the CLI
+and the GUI are two renderings of it, and one that lands in only one of them is unfinished.
+Neither front end may hold logic of its own — that is why enrolment's symlink lives in
+`Enrolment.Link` rather than in the CLI's `Enrol`, where it started. Adding a capability
+means a verb in `Cabinet.Cli` *and* an affordance in `Cabinet.Gui`, in the same change.
+
+### Code style
 
 Keep it minimal and readable — no dead config, no scaffolding that isn't used. The same goes
 for prose: a doc fix should not come out longer than what it replaced. Follow the basic Clean
@@ -22,17 +32,6 @@ below, where they are findable; what was learned on the way belongs in the commi
 Languages are split on purpose: **Rust only for `shim/`**, C# for everything else including
 the GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
 sandboxes; nothing else has that constraint.
-
-**Every feature reaches both front ends.** An operation belongs to `Cabinet.Core`; the CLI
-and the GUI are two renderings of it, and one that lands in only one of them is unfinished.
-Neither front end may hold logic of its own — that is why enrolment's symlink lives in
-`Enrolment.Link` rather than in the CLI's `Enrol`, where it started. Adding a capability
-means a verb in `Cabinet.Cli` *and* an affordance in `Cabinet.Gui`, in the same change.
-
-`TODO.md` is the live list of what is unverified, untested or deferred — read it before
-picking up work. **It only ever shrinks.** Remove what is finished; do not add items, and do
-not keep a "done" section. What was learned on the way belongs in the commit message, or here
-under Gotchas if it will bite again.
 
 ## Layout
 
@@ -53,6 +52,9 @@ flatpak run --share=network --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -
   . /usr/lib/sdk/dotnet10/enable.sh
   export PATH=/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin:$PATH
   dotnet test tests/Cabinet.Core.Tests && (cd shim && cargo test && cargo clippy -- -D warnings)'
+
+# The GUI needs the compiler server off, or every GirCore assembly comes back as CS0006.
+dotnet build src/Cabinet.Gui -p:UseSharedCompilation=false
 
 flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
   --default-branch=stable build io.github.mark12870.cabinet.yml
@@ -122,14 +124,27 @@ These were all found by something failing, not by reading documentation.
   `runners install` takes the TkG asset. Never `-wow64` or `-x86`: yabridge's 32-bit host is a
   32-bit winelib binary that new WoW64 cannot run, which is why `Runners` rejects an archive
   with no 32-bit tree.
-- **`bottlesdevs/wine` serves five families from one releases feed** — `soda`, `mcsoda`,
-  `protosoda`, `caffe`, `vaniglia` — so `RunnerFamily` filters it by tag prefix, which
-  `mcsoda-` and `protosoda-` correctly fail against `soda-`. Soda 11.0-5 is wine-tkg over
-  Valve's experimental Wine with a full old-style 32-bit tree, so it clears the same bar the
-  TkG asset does — except that **its fsync is assumed, not measured**, its `wine-tkg-config`
-  saying nothing either way. And **no `soda-` release publishes a checksum** — only `mcsoda-`
-  ships a `.sha256` — so `SumsFile` is nullable and `Download` says out loud when it has
-  nothing to verify against.
+- **The versions list must not touch `api.github.com`.** Unauthenticated callers get 60 requests
+  an hour *per address*, shared with everything else on the machine, and each dialog opening
+  spent two of them; the list then failed with `could not reach …`, which was a lie — GitHub
+  answered, with 403. The list now reads Bottles' own source, the generated index
+  `bottlesdevs/components/main/index.yml` over `raw.githubusercontent.com`, which has no such
+  cap, and `Fetch` reports the three cases apart: curl's exit for a transport failure, the
+  status off `-D /dev/stderr` for an HTTP one, the body otherwise. `scripts/update-yabridge.py`
+  stays on the API on purpose — one call, run by hand.
+- **That index names the family first, so a prefix alone no longer filters it.** `soda-` matches
+  `soda-mcsoda-11.0-4` and `soda-experimental_8.0`; what rejects them is `VersionOf` requiring
+  the remainder to start with a digit, and `ReleasesFrom` also drops the `unstable` channel.
+  Kron4ek needs its `-staging-tkg-amd64` suffix too, which is what keeps `kron4ek-wine-proton-*`
+  out. The list beats the feed it replaced — 114 Kron4ek builds against a 100-release page —
+  and reaches back far enough for `runners install 9.21`.
+- **`index.yml` carries no download URL; the per-runner manifest does.** `runners/wine/<name>.yml`
+  is fetched at install time only, for its `url` and its `file_checksum` — **MD5**, verified
+  against the real `soda-11.0-5` archive. Soda is checked now, where it used to be taken on the
+  strength of its https download alone; Kron4ek keeps its stronger `sha256sums.txt`. Soda 11.0-5
+  is wine-tkg over Valve's experimental Wine with a full old-style 32-bit tree, so it clears the
+  same bar the TkG asset does — except that **its fsync is assumed, not measured**, its
+  `wine-tkg-config` saying nothing either way.
 - **yabridge 5.1.1's plugin editors need Wine 9.21 or older.** From 9.22 on, clicks land offset
   by the window's distance from the screen origin —
   [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382), which upstream
