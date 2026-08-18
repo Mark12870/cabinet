@@ -45,14 +45,17 @@
 
   <content_rating type="oars-1.1" />
 
-  <!-- A release is named after the yabridge it carries; scripts/update-version.py
-       prepends an entry per bump, and render-site.py reads it back out of each
-       published commit to build the version table. -->
+  <!-- Cabinet's own version, and the only place it lives: flatpak reads Version:
+       from the newest entry here, and render-site.py reads it back out of each
+       published commit to build the table. Semver: major for breaking changes,
+       minor for features, patch for fixes. The yabridge it carries is a separate
+       number and belongs in the description, never in version. -->
   <releases>
-    <release version="5.1.1" date="2026-08-16">
+    <release version="0.1.0" date="2026-08-18">
       <description>
-        <p>First release: Wine 11 with yabridge 5.1.1, per-plugin prefixes, and
-        enrolment for Flatpak DAWs.</p>
+        <p>First release under Cabinet's own version. Wine 11 and yabridge 5.1.1,
+        per-plugin prefixes on downloadable Wine runners, DXVK, enrolment for
+        Flatpak DAWs, and a GTK4 window beside the command line.</p>
       </description>
     </release>
   </releases>

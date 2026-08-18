@@ -28,8 +28,9 @@ from string import Template
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "site" / "index.html.in"
 
-# update-version.py prepends a <release> per yabridge bump, so the newest entry in
-# the metainfo shipped inside a commit names the yabridge that commit carries.
+# The newest <release> in the metainfo shipped inside a commit is Cabinet's own
+# version at the time that commit was built. It is not yabridge's -- that is a
+# dependency, and update-yabridge.py deliberately leaves the metainfo alone.
 RELEASE_RE = re.compile(r'<release\s+version="([^"]+)"')
 
 
@@ -62,7 +63,7 @@ def history(repo: Path, ref: str) -> list[tuple[str, datetime]]:
     return commits
 
 
-def yabridge_version(repo: Path, commit: str, app_id: str) -> str:
+def cabinet_version(repo: Path, commit: str, app_id: str) -> str:
     path = f"/files/share/metainfo/{app_id}.metainfo.xml"
     try:
         match = RELEASE_RE.search(ostree(repo, "cat", commit, path))
@@ -120,7 +121,7 @@ def main() -> None:
     base = args.base_url.rstrip("/")
 
     versions = [
-        (yabridge_version(args.repo, commit, app_id), when, commit)
+        (cabinet_version(args.repo, commit, app_id), when, commit)
         for commit, when in history(args.repo, ref)
     ]
     if not versions:

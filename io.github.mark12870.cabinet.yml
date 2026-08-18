@@ -101,7 +101,7 @@ modules:
       - cp -a . ${FLATPAK_DEST}/lib/yabridge/
     sources:
       - type: archive
-        # Bumped in place by scripts/update-version.py.
+        # Bumped in place by scripts/update-yabridge.py.
         url: https://github.com/robbert-vdh/yabridge/releases/download/5.1.1/yabridge-5.1.1.tar.gz
         sha256: d11f0307412b5566b09a75ed4aa191266db56d22f4de4d20e4fbde6296cd1a47
 

@@ -286,18 +286,36 @@ accordingly.
 
 ## Versioning
 
-A release is named after the yabridge it carries, and `scripts/update-version.py` is what
-bumps it — it rewrites the manifest's url/sha256 and prepends a `<release>` to the metainfo.
-`render-site.py` reads that release back out of each published commit to build the table, so
-the two have to stay in step.
+**Cabinet has its own version, and yabridge's is not it.** Semver: major for a breaking
+change, minor for a feature, patch for a fix. It lives in exactly one place — the newest
+`<release>` in the metainfo, which is where flatpak reads `Version:` from and where
+`render-site.py` reads it back out of each published commit to build the table.
+
+Naming a release after the bundled yabridge was the original scheme and it was wrong: seven
+different builds published as `5.1.1`, indistinguishable in the table and in `flatpak info`,
+and no way to say that the GUI had landed. A new yabridge *is* a Cabinet release — usually a
+patch, a minor if it changes what Cabinet can do — so it gets an entry of its own like
+anything else.
+
+`scripts/update-yabridge.py` bumps the dependency and nothing else; it rewrites the
+manifest's url/sha256 and leaves the metainfo alone, because which release the bump amounts
+to is a judgement it cannot make. Add the `<release>` yourself:
+
+```sh
+python3 scripts/update-yabridge.py   # prints updated=true/false, yabridge=<tag>
+```
 
 **Bumping is manual, on purpose.** Unlike beeper-flatpak there is no daily workflow chasing
 upstream: yabridge releases rarely, and an unattended rebuild would publish a commit every
-installed client sees as an update. Run the script, check the diff, commit:
+installed client sees as an update.
 
-```sh
-python3 scripts/update-version.py   # prints updated=true/false
-```
+A push touching the manifest, `src/`, `shim/` or the metainfo triggers `build-publish.yml`;
+otherwise run it from the Actions tab via `workflow_dispatch`.
 
-A push touching the manifest triggers `build-publish.yml`; otherwise run it from the Actions
-tab via `workflow_dispatch`.
+**A published commit's version cannot be corrected.** The string lives in
+`files/share/metainfo/` *inside* the commit, and commits are content-addressed and signed —
+editing it produces a different checksum, breaking the parent chain and the signature. The
+only choices are to leave it or to re-root the published history — `build-publish.yml`
+takes a `reroot` input on `workflow_dispatch` that skips the seed step, so the build
+publishes as a parentless root and everything before it stops being reachable. That is
+how the seven commits published as `5.1.1` were dropped.
