@@ -1,10 +1,12 @@
 namespace Cabinet.Core;
 
-public sealed record Prefix(string Name, string Path, bool Initialised, string Runner);
+public sealed record Prefix(
+    string Name, string Path, bool Initialised, string Runner, string? Dxvk);
 
 public sealed class Prefixes(Layout layout, IProcessRunner runner)
 {
     private readonly Runners runners = new(layout, runner);
+    private readonly Dxvk dxvk = new(layout, runner);
 
     public IReadOnlyList<Prefix> List()
     {
@@ -20,7 +22,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
                 name,
                 layout.PrefixPath(name),
                 Directory.Exists(Path.Combine(layout.PrefixPath(name), "dosdevices")),
-                RunnerOf(name)))
+                RunnerOf(name),
+                dxvk.InstalledIn(name)))
             .ToList();
     }
 
@@ -79,7 +82,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             Directory.CreateDirectory(directory);
         }
 
-        return new Prefix(name, path, true, RunnerOf(name));
+        return new Prefix(name, path, true, RunnerOf(name), dxvk.InstalledIn(name));
     }
 
     public void Delete(string name)

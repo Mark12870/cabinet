@@ -118,8 +118,27 @@ These were all found by something failing, not by reading documentation.
   acknowledged and has not fixed. The bundled Wine is 11.0, so any prefix with a usable editor
   wants `cabinet runners install 9.21`. That fixes VST2 outright — verified on Aalto. **VST3
   needs two more things**, neither of them Cabinet's: `editor_disable_host_scaling = true`
-  under `["*"]` in `~/.vst3/yabridge/yabridge.toml` before clicks land at all, and even then
-  the editor does not repaint while you interact with it. Verified on Dexed and Surge XT.
+  under `["*"]` in `~/.vst3/yabridge/yabridge.toml` before clicks land at all. The repaint
+  failure seen alongside it was a separate fault with its own fix — DXVK, below.
+- **A JUCE editor that never repaints wants DXVK in its prefix.** Surge XT drew once and then
+  only when the window moved. The fix is DXVK's `d3d11`, `dxgi`, `d3d10core` and `d3d9` copied
+  into `system32` and `syswow64` and set to `native`, which is what `cabinet dxvk <prefix>`
+  does — measured working: `DXVK: v2.7.1`,
+  `Found device: AMD Radeon RX 5700 XT (RADV NAVI10)`, `D3D11InternalCreateDevice`. This is
+  yabridge's own answer to that symptom (yabridge#212, #270, #384) and it needs a Vulkan driver
+  reachable from inside the sandbox: `--device=dri` is already in the manifest, and the 32-bit
+  ICD arrives with `org.freedesktop.Platform.GL32.default`.
+- **surge#7636's recipe is wrong for a bridged plugin, in both directions.** It prescribes
+  `WINEDLLOVERRIDES="d3dcompiler_47=n;dxgi=n,b"` with Wine 10.8, and explicitly *no* DXVK. The
+  override does bite — `Library d3dcompiler_47.dll (which is needed by d2d1.dll) not found`,
+  so Direct2D cannot load — and the editor stays frozen on 9.21 and on 10.8 alike, frozen even
+  while a note sounds and nothing is being clicked. Worse, it blocks the very path DXVK
+  accelerates. Wine 10.8 also costs what yabridge#382 says it costs: the pointer arrives at
+  (2473, 443) in a 2077×1294 client area, past the right edge, so nothing is clickable at all.
+  That advice is for bare Wine; under yabridge, DXVK is the fix and 9.21 is still the runner.
+  Per-prefix overrides go in the prefix's own `HKCU\Software\Wine\DllOverrides`, written with
+  `cabinet run <prefix> wine reg add` — the environment variable the issue quotes would have to
+  be set on the DAW, which is every prefix at once.
 - **Nothing in Cabinet writes `yabridge.toml`, and no experiment may leave one behind.** It is
   the user's file, it is not tracked here, and a stale one is invisible: yabridge only mentions
   it as `config from: …` deep in a debug log. One left over from an earlier debugging session
@@ -151,13 +170,15 @@ These were all found by something failing, not by reading documentation.
   `WM_LBUTTONDOWN` never reaches a window procedure, here it does with a wrong lParam.
   Evidence in `~/cabinet-editor-coordinates-evidence.log`.
 
-  A static UI hides this completely: Dexed and Surge look frozen, while Aalto's animated
-  graphs make it obvious that drawing works and only input is misplaced. That is what made
+  A static UI hides this completely: Dexed and Surge look frozen — for their own reason, a
+  missing DXVK — while Aalto's animated graphs make it obvious that drawing works and only
+  input is misplaced. That is what made
   this so hard to see — **an earlier investigation blamed Surge**
   ([surge#7636](https://github.com/surge-synthesizer/surge/issues/7636), a real but separate
-  repaint bug, now closed) **and wrongly recorded that Dexed was unaffected.** Before that it
-  blamed GNOME focus-stealing, the embedding handshake, Wine's spinning `mmdevapi_midi_n`
-  thread and fractional scaling. Six wrong answers, all reached by theorising. What finally
+  repaint bug, closed upstream on a workaround that does not survive yabridge — above)
+  **and wrongly recorded that Dexed was unaffected.** Before that it blamed GNOME
+  focus-stealing, the embedding handshake, Wine's spinning `mmdevapi_midi_n` thread and
+  fractional scaling. Six wrong answers, all reached by theorising. What finally
   worked was two commands: `YABRIDGE_DEBUG_LEVEL=1+editor` for the embedding, and
   `WINEDEBUG=+msg,+event` to decode the lParam of the delivered click. Measure the coordinate
   before proposing anything.
