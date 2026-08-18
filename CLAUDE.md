@@ -315,7 +315,9 @@ otherwise run it from the Actions tab via `workflow_dispatch`.
 **A published commit's version cannot be corrected.** The string lives in
 `files/share/metainfo/` *inside* the commit, and commits are content-addressed and signed —
 editing it produces a different checksum, breaking the parent chain and the signature. The
-only choices are to leave it or to re-root the published history — `build-publish.yml`
-takes a `reroot` input on `workflow_dispatch` that skips the seed step, so the build
-publishes as a parentless root and everything before it stops being reachable. That is
-how the seven commits published as `5.1.1` were dropped.
+only choices are to leave it or to re-root: publish once with `build-publish.yml`'s
+*Seed the repo from the published history* step deleted, so the build exports a parentless
+root and everything before it stops being reachable. That is how the seven commits
+published as `5.1.1` were dropped, on 2026-08-18, leaving `0.1.0` as the only one. It is a
+hand edit on purpose — a permanent switch for it was tried and removed, because a control
+that discards published history should not sit one checkbox away in the Actions tab.

@@ -13,13 +13,6 @@ on:
       - 'nuget-sources.json'
       - '.github/workflows/build-publish.yml'
   workflow_dispatch:
-    inputs:
-      reroot:
-        description: >-
-          Discard the published history and start again from this build. Every
-          rollback target currently listed becomes unreachable. Irreversible.
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -57,17 +50,10 @@ jobs:
             org.freedesktop.Sdk.Extension.llvm20//25.08 \
             org.winehq.Wine//stable-25.08
 
-      # Re-rooting is the only way to drop a published commit: they are
-      # content-addressed and signed, so a version cannot be corrected in place.
-      - name: Warn that the published history is being discarded
-        if: ${{ inputs.reroot }}
-        run: echo "::warning::re-rooting; published rollback targets become unreachable"
-
       # Without this the repo starts empty every run and each export is a parentless
       # root: nothing to roll back to. Seeding it first makes the new commit a child
-      # of the published one. On a push `inputs.reroot` is null, so this runs.
+      # of the published one. Deleting this step is how you re-root deliberately.
       - name: Seed the repo from the published history
-        if: ${{ !inputs.reroot }}
         run: |
           owner="${GITHUB_REPOSITORY%%/*}"
           url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
