@@ -50,13 +50,6 @@ The first four are the whole workflow. `run` is the escape hatch when a plugin n
 override or a registry key; `delete` asks before it does anything, and wants a `sync` after
 it to unbridge what it held.
 
-## Wine per plugin
-
-Each prefix picks its own Wine, so a plugin that needs an old one does not hold the rest back.
-`cabinet runners install <version>` fetches one and checks its SHA-256; `cabinet runners add
-<archive>` takes a build you already have, from anywhere. Prefixes that name no runner use the
-Wine in the Flatpak.
-
 ## Permissions
 
 `enrol` prints the `flatpak override` rather than applying it, because one of the
