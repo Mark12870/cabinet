@@ -80,21 +80,8 @@ internal static class Program
 
     private static int Enrol(Layout layout, string dawId)
     {
-        var link = layout.DawYabridgeLink(dawId);
-        var dataHome = layout.DawDataHome(dawId);
+        var link = Enrolment.Link(dawId, layout);
 
-        if (!Directory.Exists(dataHome))
-        {
-            Console.Error.WriteLine($"cabinet: {dataHome} does not exist — is {dawId} installed?");
-            return 1;
-        }
-
-        if (Path.Exists(link))
-        {
-            File.Delete(link);
-        }
-
-        File.CreateSymbolicLink(link, layout.HostYabridgeDir);
         Console.WriteLine($"Linked {link} -> {layout.HostYabridgeDir}");
         Console.WriteLine();
         Console.WriteLine("Now run this yourself:");
@@ -114,7 +101,7 @@ internal static class Program
     private static int New(
         Layout layout, IProcessRunner runner, string name, string? runnerName)
     {
-        var prefix = new Prefixes(layout, runner).Create(name, runnerName);
+        var prefix = new Prefixes(layout, runner).Create(name, runnerName, Console.WriteLine);
         Console.WriteLine($"{prefix.Name}  {prefix.Path}  ({prefix.Runner})");
         Console.WriteLine($"Install plugins into {layout.PrefixVst3Dir(name)}, then `cabinet sync`.");
         return 0;
@@ -168,7 +155,7 @@ internal static class Program
     private static int InstallRunner(Layout layout, IProcessRunner runner, string version)
     {
         var release = new RunnerIndex(runner).Find(version);
-        var installed = new Runners(layout, runner).Install(release);
+        var installed = new Runners(layout, runner).Install(release, Console.WriteLine);
 
         Console.WriteLine();
         Console.WriteLine($"{installed.Name}  {installed.Wine}");
@@ -178,7 +165,7 @@ internal static class Program
 
     private static int AddRunner(Layout layout, IProcessRunner runner, string archive)
     {
-        var added = new Runners(layout, runner).Add(archive);
+        var added = new Runners(layout, runner).Add(archive, onOutput: Console.WriteLine);
 
         Console.WriteLine();
         Console.WriteLine($"{added.Name}  {added.Wine}");
@@ -215,7 +202,7 @@ internal static class Program
         var prefixes = new Prefixes(layout, runner);
         prefixes.Create(name);
 
-        var result = prefixes.Install(name, installer, inherit: true);
+        var result = prefixes.Install(name, installer, Console.WriteLine);
         if (!result.Ok)
         {
             return result.ExitCode;
@@ -290,7 +277,8 @@ internal static class Program
     private static int Run(
         Layout layout, IProcessRunner runner, string name, string command, string[] arguments)
     {
-        return new Prefixes(layout, runner).Run(name, command, arguments, inherit: true).ExitCode;
+        return new Prefixes(layout, runner)
+            .Run(name, command, arguments, Console.WriteLine).ExitCode;
     }
 
     private static int RunDoctor(Layout layout, bool json)

@@ -1,0 +1,135 @@
+using Cabinet.Core;
+
+namespace Cabinet.Gui;
+
+internal sealed class RunnersPage
+{
+    private readonly Layout layout;
+    private readonly IProcessRunner runner;
+    private readonly Gtk.Window window;
+    private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+
+    public RunnersPage(Layout layout, IProcessRunner runner, Gtk.Window window)
+    {
+        this.layout = layout;
+        this.runner = runner;
+        this.window = window;
+
+        var page = Ui.Page();
+        page.Append(Ui.Scrolled(list));
+        Widget = page;
+    }
+
+    public Gtk.Widget Widget { get; }
+
+    public void Refresh()
+    {
+        Ui.Clear(list);
+
+        var runners = new Runners(layout, runner);
+        var group = Adw.PreferencesGroup.New();
+        group.SetTitle("Installed");
+
+        foreach (var installed in runners.List())
+        {
+            var row = Adw.ActionRow.New();
+            row.SetTitle(installed.Name);
+            row.SetSubtitle(Describe(runners, installed));
+            row.AddPrefix(Gtk.Image.NewFromIconName(Icons.Runners));
+
+            if (!installed.Bundled)
+            {
+                var remove = Ui.IconButton(Icons.Delete, "Delete this runner");
+                remove.SetValign(Gtk.Align.Center);
+                remove.OnClicked += (_, _) => Remove(installed.Name);
+                row.AddSuffix(remove);
+            }
+
+            group.Add(row);
+        }
+
+        list.Append(group);
+    }
+
+    private static string Describe(Runners runners, Runner installed)
+    {
+        var used = runners.InUseBy(installed.Bundled ? Layout.BundledRunner : installed.Name);
+        var by = used.Count == 0 ? "unused" : "used by " + string.Join(", ", used);
+
+        return installed.Usable ? $"{by}  ·  {(installed.Multilib ? "32+64" : "64-bit only")}" : "broken";
+    }
+
+    public void ShowAvailable()
+    {
+        var dialog = Adw.Dialog.New();
+        dialog.SetTitle("Wine versions");
+        dialog.SetContentWidth(560);
+        dialog.SetContentHeight(520);
+
+        var body = Ui.Page();
+        var group = Adw.PreferencesGroup.New();
+        group.SetTitle("Available upstream");
+        group.SetDescription(
+            $"Wine {RunnerIndex.Recommended} is the one yabridge is tested against.");
+        body.Append(Ui.Scrolled(group));
+
+        var view = Adw.ToolbarView.New();
+        view.AddTopBar(Adw.HeaderBar.New());
+        view.SetContent(body);
+        dialog.SetChild(view);
+        dialog.Present(window);
+
+        Task.Run(() =>
+        {
+            try
+            {
+                var releases = new RunnerIndex(runner).Available();
+                Ui.OnMainLoop(() =>
+                {
+                    foreach (var release in releases)
+                    {
+                        group.Add(AvailableRow(release, dialog));
+                    }
+                });
+            }
+            catch (Exception exception)
+            {
+                Ui.OnMainLoop(() => group.SetDescription(exception.Message));
+            }
+        });
+    }
+
+    private Adw.ActionRow AvailableRow(RunnerRelease release, Adw.Dialog dialog)
+    {
+        var row = Adw.ActionRow.New();
+        row.SetTitle(release.Version);
+
+        if (release.BreaksEditors)
+        {
+            row.SetSubtitle("breaks plugin editors (yabridge#382)");
+            row.AddCssClass("warning");
+        }
+
+        var install = Ui.IconButton(Icons.Download, $"Install Wine {release.Version}");
+        install.SetValign(Gtk.Align.Center);
+        install.OnClicked += (_, _) =>
+        {
+            dialog.ForceClose();
+            Operation.Run(
+                window,
+                $"Installing Wine {release.Version}",
+                output => new Runners(layout, runner).Install(release, output),
+                Refresh);
+        };
+
+        row.AddSuffix(install);
+        return row;
+    }
+
+    private void Remove(string name) =>
+        Operation.Run(
+            window,
+            $"Deleting {name}",
+            _ => new Runners(layout, runner).Remove(name),
+            Refresh);
+}

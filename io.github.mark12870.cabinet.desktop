@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Cabinet
+GenericName=Wine Prefix Manager
+Comment=Manage Windows VSTs
+Exec=cabinet-gui
+Icon=io.github.mark12870.cabinet
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;
+Keywords=VST;VST3;CLAP;Wine;yabridge;plugin;DAW;
+StartupNotify=true

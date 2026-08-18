@@ -20,8 +20,14 @@ Anything that genuinely will not fit there is a *gotcha*, and gotchas live under
 below, where they are findable; what was learned on the way belongs in the commit message.
 
 Languages are split on purpose: **Rust only for `shim/`**, C# for everything else including
-any future GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
+the GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
 sandboxes; nothing else has that constraint.
+
+**Every feature reaches both front ends.** An operation belongs to `Cabinet.Core`; the CLI
+and the GUI are two renderings of it, and one that lands in only one of them is unfinished.
+Neither front end may hold logic of its own — that is why enrolment's symlink lives in
+`Enrolment.Link` rather than in the CLI's `Enrol`, where it started. Adding a capability
+means a verb in `Cabinet.Cli` *and* an affordance in `Cabinet.Gui`, in the same change.
 
 `TODO.md` is the live list of what is unverified, untested or deferred — read it before
 picking up work. **It only ever shrinks.** Remove what is finished; do not add items, and do
@@ -31,15 +37,19 @@ under Gotchas if it will bite again.
 ## Layout
 
 - `shim/` — `cabinet-wine`, the `$WINELOADER` shim. Std-only, no dependencies.
-- `src/Cabinet.Core/` — every operation, as a library. A future Avalonia GUI references this.
+- `src/Cabinet.Core/` — every operation, as a library. Both front ends reference this.
 - `src/Cabinet.Cli/` — argument parsing and rendering only, NativeAOT.
+- `src/Cabinet.Gui/` — GTK4 + libadwaita through GirCore. Trimmed, not NativeAOT.
+- `data/` — the app icon: Phosphor's *dresser* duotone, recoloured, MIT, keep the licence
+  beside it and the credit in the README.
 - `scripts/`, `site/`, `.github/workflows/` — packaging and publishing.
 
 ## Build and test
 
 ```sh
 # Neither toolchain exists on a Silverblue host; both come from SDK extensions.
-flatpak run --share=network --filesystem="$PWD" --command=sh org.freedesktop.Sdk//25.08 -c '
+# org.gnome.Sdk//50 carries the same org.freedesktop.Sdk.Extension branch (25.08).
+flatpak run --share=network --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c '
   . /usr/lib/sdk/dotnet10/enable.sh
   export PATH=/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin:$PATH
   dotnet test tests/Cabinet.Core.Tests && (cd shim && cargo test && cargo clippy -- -D warnings)'
@@ -182,6 +192,42 @@ These were all found by something failing, not by reading documentation.
   worked was two commands: `YABRIDGE_DEBUG_LEVEL=1+editor` for the embedding, and
   `WINEDEBUG=+msg,+event` to decode the lParam of the delivered click. Measure the coordinate
   before proposing anything.
+- **The runtime is GNOME, not freedesktop, and that is the GUI's doing.**
+  `org.freedesktop.Platform//25.08` carries GTK3 but no GTK4 and no libadwaita, so a native
+  GNOME app cannot be built on it. `org.gnome.Platform//50` carries both and keeps the
+  `lib/i386-linux-gnu` mount point Wine's 32-bit tree needs. This is safe because it is
+  exactly what Bottles ships — `runtime=org.gnome.Platform/x86_64/49` over
+  `base=app/org.winehq.Wine/x86_64/stable-25.08`, the same base Cabinet uses. The three SDK
+  extensions do **not** move: `org.gnome.Sdk//49` and `//50` both declare
+  `[Extension org.freedesktop.Sdk.Extension]` at `version = 25.08`, which is the branch
+  `dotnet10`, `llvm20` and `rust-stable` are already pinned to. Verified by running
+  `flatpak remote-info --show-metadata`, not by reading documentation.
+- **The GUI is GirCore, and it is deliberately not NativeAOT.** GirCore 0.8.1 binds GTK 4.22
+  and libadwaita 1.9 and never claims NativeAOT support, so `Cabinet.Gui` publishes
+  self-contained and trimmed while `Cabinet.Cli` keeps `PublishAot`. Measured, not assumed: a
+  trimmed hello-world `Adw.ApplicationWindow` built in `org.gnome.Sdk//50` and presented a
+  window under `org.gnome.Platform//50`, at 24 MB for the whole publish directory. Avalonia
+  was the alternative and was rejected because it draws its own widgets with Skia — it would
+  not inherit Adwaita's accent colour, font or dark-mode preference. GirCore's 14 packages are
+  managed P/Invoke wrappers with no native blobs, so `nuget-sources.json` went from 6 entries
+  to 20 rather than pulling in Skia and HarfBuzz binaries.
+- **Cabinet now holds a Wayland socket, and Wine must never see it.** The GUI is GTK4 and
+  wants Wayland; yabridge's editor embedding is built on X11. `Prefixes.Wine` therefore passes
+  `WAYLAND_DISPLAY` as an empty string, and **`ProcessRunner` removes any variable whose value
+  is empty** rather than setting it blank — blanking it would make Wine fail a connection to a
+  socket named `""` instead of skipping Wayland. Do not "simplify" that rule away; it is the
+  only thing keeping `--socket=wayland` from reaching Wine.
+- **`IProcessRunner` streams, and that replaced the old `inherit` flag.** `inherit: true` handed
+  the child the parent's stdout/stderr and returned an empty `ProcessResult` — invisible to a
+  GUI, which has no console. The interface now takes an `Action<string>? onOutput` sink that
+  is called per line while the process runs, and still collects the full output. The CLI
+  passes `Console.WriteLine`, so its behaviour is unchanged; the GUI appends to a text view.
+  One consequence: output is line-buffered now, so a child that draws progress with `\r` and
+  no newline will not render the same way it did.
+- **`Enrolment` creates the symlink; it did not used to.** The side effect lived inline in the
+  CLI's `Enrol`, which meant a second front end would have had to copy it. `Enrolment.Link`
+  now owns it and both call it. `Enrolment` still only *prints* the `flatpak override` — the
+  GUI must not run it either, for the reason the README gives.
 - **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
   which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
 - **The shim is not statically linked**, though it should be: the freedesktop SDK ships no
@@ -194,6 +240,25 @@ These were all found by something failing, not by reading documentation.
 - **Never use `flatpak-builder --install`**, and never re-add `--generate-static-deltas` — see
   `../beeper-flatpak/CLAUDE.md`, whose publishing gotchas all apply here unchanged.
 - Fedora's system `flathub` remote is filtered; add a user-scoped one to install SDKs.
+
+## Palette
+
+The preferred colours for anything that has to choose its own:
+
+```
+espresso      #663322      
+amber-flame   #ffbb00      
+jungle-teal   #227d66
+pale-sky      #bfdbf7      
+watermelon    #ee4266
+```
+
+**GNOME's colours win wherever GNOME has one.** The GUI follows the user's system accent,
+and `success`, `warning` and `error` are Adwaita style classes rather than hexes from here —
+a `data/style.css` mapping these onto `--accent-bg-color` was written and removed, because
+overriding the accent someone chose is the one case this rule excludes. Use the palette
+where there is no GNOME colour to inherit: the app icon (espresso and amber-flame today),
+the site, a diagram, anything drawn rather than themed.
 
 ## Signing
 
