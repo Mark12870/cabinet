@@ -4,97 +4,165 @@ namespace Cabinet.Core.Tests;
 
 public class RunnerIndexTests
 {
-    private const string Kron4ekReleases = """
-        [
-          {
-            "tag_name": "9.21",
-            "assets": [
-              {"name": "sha256sums.txt", "browser_download_url": "https://x/9.21/sha256sums.txt"},
-              {"name": "wine-9.21-amd64.tar.xz", "browser_download_url": "https://x/9.21/v"},
-              {"name": "wine-9.21-amd64-wow64.tar.xz", "browser_download_url": "https://x/9.21/w"},
-              {"name": "wine-9.21-staging-amd64-wow64.tar.xz", "browser_download_url": "https://x/9.21/sw"},
-              {"name": "wine-9.21-staging-amd64.tar.xz", "browser_download_url": "https://x/9.21/plain"},
-              {"name": "wine-9.21-staging-x86.tar.xz", "browser_download_url": "https://x/9.21/x"},
-              {"name": "wine-9.21-staging-tkg-amd64-wow64.tar.xz", "browser_download_url": "https://x/9.21/tw"},
-              {"name": "wine-9.21-staging-tkg-amd64.tar.xz", "browser_download_url": "https://x/9.21/s"}
-            ]
-          },
-          {
-            "tag_name": "9.22",
-            "assets": [
-              {"name": "wine-9.22-staging-tkg-amd64.tar.xz", "browser_download_url": "https://x/9.22/s"}
-            ]
-          },
-          {
-            "tag_name": "6.0",
-            "assets": [{"name": "wine-6.0-amd64.tar.xz", "browser_download_url": "https://x/6.0/v"}]
-          }
-        ]
+    private const string Index = """
+        # -----------------------
+        # THIS FILE HAS BEEN GENERATED AUTOMATICALLY
+        # -----------------------
+
+        # ./input_files/3-soda.yml
+        soda-mcsoda-11.0-4:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+          Date: '1786812163'
+        soda-11.0-5:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+          Date: '1786362735'
+        soda-experimental_8.0:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+        soda-12.0-1:
+          Category: runners
+          Sub-category: wine
+          Channel: unstable
+          Date: '1786912163'
+        soda-9.0-1:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+        kron4ek-wine-11.15-staging-tkg-amd64:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+          Date: '1786533303'
+        kron4ek-wine-9.21-staging-tkg-amd64:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+          Date: '1731238804'
+        kron4ek-wine-9.21-staging-amd64:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+          Date: '1731238804'
+        kron4ek-wine-proton-9.0-3-amd64:
+          Category: runners
+          Sub-category: wine
+          Channel: stable
+        dxvk-2.7.1:
+          Category: dxvk
+          Channel: stable
         """;
 
-    private const string BottlesReleases = """
-        [
-          {
-            "tag_name": "mcsoda-11.0-4",
-            "assets": [
-              {"name": "mcsoda-11.0-4-x86_64.tar.xz", "browser_download_url": "https://b/mc"},
-              {"name": "mcsoda-11.0-4-x86_64.tar.xz.sha256", "browser_download_url": "https://b/mcs"}
-            ]
-          },
-          {
-            "tag_name": "soda-11.0-5",
-            "assets": [{"name": "soda-11.0-5-x86_64.tar.xz", "browser_download_url": "https://b/s"}]
-          },
-          {
-            "tag_name": "protosoda-11.0-1",
-            "assets": [{"name": "ProtoSoda-11.0-1.tar.gz", "browser_download_url": "https://b/p"}]
-          },
-          {
-            "tag_name": "caffe-10.0",
-            "assets": [{"name": "caffe-10.0-x86_64.tar.xz", "browser_download_url": "https://b/c"}]
-          },
-          {
-            "tag_name": "soda-9.0-1",
-            "assets": [{"name": "soda-9.0-1-x86_64.tar.xz", "browser_download_url": "https://b/o"}]
-          }
-        ]
+    private const string Manifest = """
+        Name: soda-11.0-5
+        Provider: bottlesdevs
+        Channel: stable
+        File:
+        - file_name: soda-11.0-5-x86_64.tar.xz
+          url: https://github.com/bottlesdevs/wine/releases/download/soda-11.0-5/soda-11.0-5-x86_64.tar.xz
+          file_checksum: 2dfc9cc56cee4b0874269e6dbc91c2f2
+          file_size: 154580296
+          rename: soda-11.0-5-x86_64.tar.xz
+        Post:
+        - action: rename
         """;
 
-    private static IReadOnlyList<RunnerRelease> Kron4ek =>
-        RunnerIndex.ParseReleases(RunnerFamily.Kron4ek, Kron4ekReleases);
+    private static IReadOnlyList<RunnerRelease> Releases(RunnerFamily family) =>
+        RunnerIndex.ReleasesFrom(family, Components.Entries(Index));
 
-    private static IReadOnlyList<RunnerRelease> Soda =>
-        RunnerIndex.ParseReleases(RunnerFamily.Soda, BottlesReleases);
-
-    [Fact]
-    public void OnlyTheStagingTkgMultilibAssetIsOffered()
-    {
-        var release = Kron4ek.Single(r => r.Version == "9.21");
-
-        Assert.Equal("wine-9.21-staging-tkg-amd64.tar.xz", release.Asset);
-        Assert.Equal("https://x/9.21/s", release.Url);
-    }
-
-    [Fact]
-    public void AReleaseWithoutThatAssetIsSkipped()
-    {
-        Assert.DoesNotContain(Kron4ek, r => r.Version == "6.0");
-    }
+    private static RunnerIndex Answering(string status, string body) =>
+        new(new StubRunner(new ProcessResult(0, body, $"HTTP/2 {status} \ncontent-type: text/plain\n")));
 
     [Fact]
     public void TheOtherBottlesFamiliesAreNotSoda()
     {
-        Assert.Equal(["11.0-5", "9.0-1"], Soda.Select(release => release.Version));
+        Assert.Equal(["11.0-5", "9.0-1"], Releases(RunnerFamily.Soda).Select(release => release.Version));
     }
 
     [Fact]
-    public void ASodaTagLosesItsPrefixButTheRunnerKeepsIt()
+    public void OnlyTheStagingTkgMultilibBuildIsOffered()
     {
-        var release = Soda.Single(r => r.Version == "11.0-5");
+        Assert.Equal(
+            ["11.15", "9.21"],
+            Releases(RunnerFamily.Kron4ek).Select(release => release.Version));
+    }
+
+    [Fact]
+    public void AnUnstableChannelIsNotOffered()
+    {
+        Assert.DoesNotContain(Releases(RunnerFamily.Soda), release => release.Version == "12.0-1");
+    }
+
+    [Fact]
+    public void AReleaseKeepsTheNameItsArchiveGivesIt()
+    {
+        var release = Releases(RunnerFamily.Kron4ek).Single(found => found.Version == "9.21");
+
+        Assert.Equal("wine-9.21-staging-tkg-amd64.tar.xz", release.Asset);
+        Assert.Equal("wine-9.21-staging-tkg", release.Name);
+        Assert.Equal(
+            "https://raw.githubusercontent.com/bottlesdevs/components/main/runners/wine/"
+            + "kron4ek-wine-9.21-staging-tkg-amd64.yml",
+            release.ManifestUrl);
+    }
+
+    [Fact]
+    public void ASodaEntryKeepsItsPrefixInTheArchive()
+    {
+        var release = Releases(RunnerFamily.Soda).Single(found => found.Version == "11.0-5");
 
         Assert.Equal("soda-11.0-5-x86_64.tar.xz", release.Asset);
         Assert.Equal("soda-11.0-5", release.Name);
         Assert.Null(release.Family.SumsFile);
+    }
+
+    [Fact]
+    public void AManifestCarriesTheDownloadAndItsChecksum()
+    {
+        var listed = Components.Manifest(Manifest);
+
+        Assert.Equal("soda-11.0-5-x86_64.tar.xz", listed.FileName);
+        Assert.Equal(
+            "https://github.com/bottlesdevs/wine/releases/download/soda-11.0-5/soda-11.0-5-x86_64.tar.xz",
+            listed.Url);
+        Assert.Equal("2dfc9cc56cee4b0874269e6dbc91c2f2", listed.Checksum);
+    }
+
+    [Fact]
+    public void BothFamiliesComeFromOneRequest()
+    {
+        var available = Answering("200", Index).Available();
+
+        Assert.Equal(4, available.Count);
+        Assert.Equal("wine-9.21-staging-tkg", Answering("200", Index).Find("9.21").Name);
+    }
+
+    [Fact]
+    public void AnHttpFailureNamesTheStatusRatherThanTheUrl()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => Answering("429", "").Available());
+
+        Assert.Equal(
+            "raw.githubusercontent.com answered 429 for /bottlesdevs/components/main/index.yml",
+            refused.Message);
+    }
+
+    [Fact]
+    public void AnUnreachableHostSaysWhatCurlSaid()
+    {
+        var runner = new StubRunner(
+            new ProcessResult(6, "", "curl: (6) Could not resolve host: raw.githubusercontent.com\n"));
+
+        var offline = Assert.Throws<InvalidOperationException>(() => new RunnerIndex(runner).Available());
+
+        Assert.Equal(
+            "could not reach raw.githubusercontent.com — "
+            + "curl: (6) Could not resolve host: raw.githubusercontent.com",
+            offline.Message);
     }
 
     [Fact]
@@ -108,12 +176,6 @@ public class RunnerIndexTests
 
         Assert.Equal("bbb22", RunnerIndex.ChecksumFor(sums, "wine-9.21-staging-tkg-amd64.tar.xz"));
         Assert.Null(RunnerIndex.ChecksumFor(sums, "wine-9.99-staging-amd64.tar.xz"));
-    }
-
-    [Fact]
-    public void TheRunnerIsNamedAfterTheAssetWithoutItsSuffix()
-    {
-        Assert.Equal("wine-9.21-staging-tkg", Kron4ek.Single(r => r.Version == "9.21").Name);
     }
 
     [Theory]

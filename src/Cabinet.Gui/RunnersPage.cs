@@ -73,6 +73,7 @@ internal sealed class RunnersPage
         var body = Ui.Page();
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Available upstream");
+        group.SetDescription("Reading Bottles' component index…");
         body.Append(Ui.Scrolled(group));
 
         var view = Adw.ToolbarView.New();
@@ -89,6 +90,8 @@ internal sealed class RunnersPage
                     .GroupBy(release => release.Family);
                 Ui.OnMainLoop(() =>
                 {
+                    group.SetDescription(null);
+
                     foreach (var family in families)
                     {
                         group.Add(FamilyRow(family, dialog));
