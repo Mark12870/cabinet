@@ -28,6 +28,8 @@ command for you to run — see [Permissions](#permissions).
 ```sh
 cabinet=io.github.mark12870.cabinet
 
+flatpak run $cabinet                                        # the window, also in your launcher
+
 flatpak run $cabinet new serum                              # a prefix of its own
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
 flatpak run $cabinet dxvk serum                             # JUCE editors need this

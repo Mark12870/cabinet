@@ -192,6 +192,13 @@ These were all found by something failing, not by reading documentation.
   worked was two commands: `YABRIDGE_DEBUG_LEVEL=1+editor` for the embedding, and
   `WINEDEBUG=+msg,+event` to decode the lParam of the delivered click. Measure the coordinate
   before proposing anything.
+- **`command:` is `cabinet`, so the CLI with no arguments has to open the window.** A bare
+  `flatpak run io.github.mark12870.cabinet` runs the default command, and GNOME Software's
+  *Open* falls back to exactly that when its cached appstream predates the desktop entry —
+  so printing usage there means clicking Open does nothing at all, with no window and no
+  output. `Program.LaunchGui` execs `/app/bin/cabinet-gui`; usage moved to `--help`. The
+  alternative was `command: cabinet-gui`, which would have rewritten every `flatpak run
+  $cabinet <verb>` line in the README.
 - **The runtime is GNOME, not freedesktop, and that is the GUI's doing.**
   `org.freedesktop.Platform//25.08` carries GTK3 but no GTK4 and no libadwaita, so a native
   GNOME app cannot be built on it. `org.gnome.Platform//50` carries both and keeps the
