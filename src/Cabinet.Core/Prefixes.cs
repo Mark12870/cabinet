@@ -57,7 +57,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         File.WriteAllText(marker, resolved.Name + Environment.NewLine);
     }
 
-    public Prefix Create(string name, string? runnerName = null)
+    public Prefix Create(string name, string? runnerName = null, Action<string>? onOutput = null)
     {
         var path = layout.PrefixPath(name);
         Directory.CreateDirectory(path);
@@ -69,7 +69,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
         if (!Directory.Exists(Path.Combine(path, "dosdevices")))
         {
-            var result = Wine(name, "wineboot", ["--init"], inherit: true, Unattended);
+            var result = Wine(name, "wineboot", ["--init"], onOutput, Unattended);
             if (!result.Ok)
             {
                 throw new InvalidOperationException(
@@ -102,7 +102,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         Directory.Delete(path, recursive: true);
     }
 
-    public ProcessResult Install(string name, string installer, bool inherit = false)
+    public ProcessResult Install(string name, string installer, Action<string>? onOutput = null)
     {
         var full = Path.GetFullPath(installer);
         if (!File.Exists(full))
@@ -110,12 +110,13 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             throw new FileNotFoundException($"no such installer: {full}", full);
         }
 
-        return Wine(name, "wine", [full], inherit);
+        return Wine(name, "wine", [full], onOutput);
     }
 
     public ProcessResult Run(
-        string name, string command, IReadOnlyList<string> arguments, bool inherit = false) =>
-        Wine(name, command, arguments, inherit);
+        string name, string command, IReadOnlyList<string> arguments,
+        Action<string>? onOutput = null) =>
+        Wine(name, command, arguments, onOutput);
 
     private const string Unattended = "mscoree=d;mshtml=d";
 
@@ -123,7 +124,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         string prefix,
         string command,
         IReadOnlyList<string> arguments,
-        bool inherit,
+        Action<string>? onOutput,
         string? dllOverrides = null)
     {
         var selected = runners.Resolve(RunnerOf(prefix));
@@ -133,6 +134,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             ["WINEPREFIX"] = layout.PrefixPath(prefix),
             ["YABRIDGE_TEMP_DIR"] = layout.SocketDir,
             ["WINELOADER"] = selected.Wine,
+            ["WAYLAND_DISPLAY"] = "",
         };
 
         if (dllOverrides is not null)
@@ -140,7 +142,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             environment["WINEDLLOVERRIDES"] = dllOverrides;
         }
 
-        return runner.Run(Executable(selected, command), arguments, environment, inherit);
+        return runner.Run(Executable(selected, command), arguments, environment, onOutput);
     }
 
     private static string Executable(Runner selected, string command) =>

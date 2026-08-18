@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Cabinet.Cli/Cabinet.Cli.csproj" />
     <Project Path="src/Cabinet.Core/Cabinet.Core.csproj" />
+    <Project Path="src/Cabinet.Gui/Cabinet.Gui.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cabinet.Core.Tests/Cabinet.Core.Tests.csproj" />

@@ -23,6 +23,27 @@ public static class Enrolment
     public static string SelfTestCommand(string dawId, Layout layout) =>
         $"flatpak run --command={Quote(layout.ShimPath)} {dawId} --cabinet-self-test";
 
+    public static string Link(string dawId, Layout layout)
+    {
+        var dataHome = layout.DawDataHome(dawId);
+
+        if (!Directory.Exists(dataHome))
+        {
+            throw new DirectoryNotFoundException(
+                $"{dataHome} does not exist — is {dawId} installed?");
+        }
+
+        var link = layout.DawYabridgeLink(dawId);
+
+        if (Path.Exists(link))
+        {
+            File.Delete(link);
+        }
+
+        File.CreateSymbolicLink(link, layout.HostYabridgeDir);
+        return link;
+    }
+
     private static string Quote(string argument) =>
         argument.Any(char.IsWhiteSpace) ? $"'{argument}'" : argument;
 }

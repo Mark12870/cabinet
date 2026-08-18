@@ -50,4 +50,47 @@ public class EnrolmentTests
             + "--cabinet-self-test",
             Enrolment.SelfTestCommand("fm.reaper.Reaper", Layout));
     }
+
+    [Fact]
+    public void LinkingPointsTheDawAtTheYabridgeItMustRead()
+    {
+        using var home = new TempHome();
+        Directory.CreateDirectory(home.Layout.DawDataHome("fm.reaper.Reaper"));
+
+        var link = Enrolment.Link("fm.reaper.Reaper", home.Layout);
+
+        Assert.Equal(home.Layout.DawYabridgeLink("fm.reaper.Reaper"), link);
+        Assert.Equal(home.Layout.HostYabridgeDir, new DirectoryInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public void LinkingAgainReplacesAStaleLink()
+    {
+        using var home = new TempHome();
+        Directory.CreateDirectory(home.Layout.DawDataHome("fm.reaper.Reaper"));
+        File.CreateSymbolicLink(
+            home.Layout.DawYabridgeLink("fm.reaper.Reaper"), "/somewhere/else");
+
+        var link = Enrolment.Link("fm.reaper.Reaper", home.Layout);
+
+        Assert.Equal(home.Layout.HostYabridgeDir, new DirectoryInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public void ADawThatIsNotInstalledIsRefused()
+    {
+        using var home = new TempHome();
+
+        Assert.Throws<DirectoryNotFoundException>(
+            () => Enrolment.Link("fm.reaper.Reaper", home.Layout));
+    }
+
+    private sealed class TempHome : IDisposable
+    {
+        private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+
+        public Layout Layout => new(root, "/run/user/1000", Path.Combine(root, "data"));
+
+        public void Dispose() => Directory.Delete(root, recursive: true);
+    }
 }

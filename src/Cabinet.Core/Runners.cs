@@ -72,14 +72,14 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
             .Select(prefix => prefix.Name)
             .ToList();
 
-    public Runner Install(RunnerRelease release)
+    public Runner Install(RunnerRelease release, Action<string>? onOutput = null)
     {
         var staging = Path.Combine(Path.GetTempPath(), "cabinet-runner");
 
         try
         {
             var tarball = new RunnerIndex(runner).Download(release, staging);
-            return Unpack(tarball, release.Name);
+            return Unpack(tarball, release.Name, onOutput);
         }
         finally
         {
@@ -90,7 +90,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         }
     }
 
-    public Runner Add(string tarball, string? name = null)
+    public Runner Add(string tarball, string? name = null, Action<string>? onOutput = null)
     {
         var full = Path.GetFullPath(tarball);
 
@@ -99,7 +99,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
             throw new FileNotFoundException($"no such archive: {full}", full);
         }
 
-        return Unpack(full, name ?? DeriveName(full));
+        return Unpack(full, name ?? DeriveName(full), onOutput);
     }
 
     public void Remove(string name)
@@ -165,7 +165,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         }
     }
 
-    private Runner Unpack(string tarball, string name)
+    private Runner Unpack(string tarball, string name, Action<string>? onOutput)
     {
         var path = layout.RunnerPath(name);
 
@@ -180,7 +180,8 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         try
         {
             var result = runner.Run(
-                "tar", ["-xf", tarball, "--strip-components=1", "-C", path], inherit: true);
+                "tar", ["-xf", tarball, "--strip-components=1", "-C", path],
+                onOutput: onOutput);
 
             if (!result.Ok)
             {

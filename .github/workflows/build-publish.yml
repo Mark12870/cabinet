@@ -34,7 +34,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       # bwrap needs to set up its own namespaces to build inside a container.
       options: --privileged
     steps:
@@ -43,8 +43,8 @@ jobs:
       - name: Install the runtime, SDK, Wine and the build toolchains
         run: |
           flatpak install -y --noninteractive flathub \
-            org.freedesktop.Platform//25.08 \
-            org.freedesktop.Sdk//25.08 \
+            org.gnome.Platform//50 \
+            org.gnome.Sdk//50 \
             org.freedesktop.Sdk.Extension.rust-stable//25.08 \
             org.freedesktop.Sdk.Extension.dotnet10//25.08 \
             org.freedesktop.Sdk.Extension.llvm20//25.08 \
