@@ -235,6 +235,10 @@ jobs:
             --gpg-key "$(gpg --homedir "${{ steps.gpg.outputs.gnupghome }}" \
               --export "${{ steps.gpg.outputs.keyid }}" | base64 -w0)"
 
+          # The metainfo points at screenshots/ on this host, and appstream fetches
+          # them from there -- a missing one is a validation warning on every build.
+          cp -r site/screenshots _site/screenshots
+
           # Stop Pages from running the upload through Jekyll.
           touch _site/.nojekyll
 
