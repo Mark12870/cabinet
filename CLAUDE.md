@@ -45,21 +45,21 @@ sandboxes; nothing else has that constraint.
 
 ## Build and test
 
-**Run this before every commit.** It is exactly what `.github/workflows/checks.yml` runs, and
-the two formatters are the half that is easy to forget — `dotnet format` failed CI on a
-four-space overhang no test could catch. Keep the two lists identical: a check that only CI
-runs is a check that only fails after a push.
+`scripts/checks.sh` is exactly what `.github/workflows/checks.yml` runs, and the two
+formatters are the half that is easy to forget — `dotnet format` failed CI on a four-space
+overhang no test could catch. Keep the two lists identical: a check that only CI runs is a
+check that only fails after a push, which is why the script exists rather than a block to
+copy. Both toolchains come from SDK extensions the script enters on its own.
+
+`.githooks/pre-commit` runs it as `--staged`: it reformats the staged code and stages the
+fix, skips the halves nothing is staged for, and skips `dotnet test` to stay under about
+seven seconds. A file that is only partly staged is reformatted but *not* staged, and the
+commit stops so the diff can be looked at. Enable the hook once per clone:
 
 ```sh
-# Neither toolchain exists on a Silverblue host; both come from SDK extensions.
-# org.gnome.Sdk//50 carries the same org.freedesktop.Sdk.Extension branch (25.08).
-flatpak run --share=network --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c '
-  . /usr/lib/sdk/dotnet10/enable.sh
-  export PATH=/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin:$PATH
-  dotnet format --verify-no-changes &&
-  dotnet test tests/Cabinet.Core.Tests &&
-  appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml &&
-  (cd shim && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo test)'
+git config core.hooksPath .githooks
+
+scripts/checks.sh            # everything CI runs, tests included
 
 # The GUI needs the compiler server off, or every GirCore assembly comes back as CS0006.
 dotnet build src/Cabinet.Gui -p:UseSharedCompilation=false
