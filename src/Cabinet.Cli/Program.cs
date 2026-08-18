@@ -14,6 +14,7 @@ internal static class Program
           cabinet delete <name>                delete a prefix and everything in it
           cabinet list                         list prefixes
           cabinet use <name> <runner>          point a prefix at a runner
+          cabinet dxvk <name>                  install DXVK, which JUCE editors need
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one
@@ -64,6 +65,7 @@ internal static class Program
             "runners" => Runners(layout, runner, args.Skip(1).ToArray()),
             "use" => Use(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "a runner name")),
+            "dxvk" => InstallDxvk(layout, runner, Require(args, 1, "a prefix name")),
             "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "an installer path")),
             "delete" => Delete(layout, runner, Require(args, 1, "a prefix name")),
@@ -199,6 +201,15 @@ internal static class Program
         return 0;
     }
 
+    private static int InstallDxvk(Layout layout, IProcessRunner runner, string name)
+    {
+        var version = new Dxvk(layout, runner).Install(name);
+
+        Console.WriteLine($"{name} now renders through DXVK {version}.");
+        Console.WriteLine("Reopen the plugin in your DAW; its editor should redraw as you use it.");
+        return 0;
+    }
+
     private static int Install(Layout layout, IProcessRunner runner, string name, string installer)
     {
         var prefixes = new Prefixes(layout, runner);
@@ -259,7 +270,8 @@ internal static class Program
         {
             Console.WriteLine(
                 $"{(prefix.Initialised ? "ok  " : "bare")}  {prefix.Name,-20}  "
-                + $"{prefix.Runner,-16}  {prefix.Path}");
+                + $"{prefix.Runner,-24}  {(prefix.Dxvk is null ? "" : "dxvk " + prefix.Dxvk),-11}"
+                + $"  {prefix.Path}");
         }
 
         return 0;

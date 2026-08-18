@@ -33,6 +33,7 @@ internal static class Json
                 writer.WriteString("path", prefix.Path);
                 writer.WriteBoolean("initialised", prefix.Initialised);
                 writer.WriteString("runner", prefix.Runner);
+                writer.WriteString("dxvk", prefix.Dxvk);
                 writer.WriteEndObject();
             }
 

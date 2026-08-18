@@ -30,6 +30,7 @@ cabinet=io.github.mark12870.cabinet
 
 flatpak run $cabinet new serum                              # a prefix of its own
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
+flatpak run $cabinet dxvk serum                             # JUCE editors need this
 flatpak run $cabinet sync                                   # bridge what it installed
 flatpak run $cabinet doctor                                 # check both sides
 
@@ -58,6 +59,14 @@ You will want this: **plugin editors are unusable on the bundled Wine 11.** Clic
 by however far the window sits from the top-left of the screen —
 [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382) — and it needs **Wine 9.21
 or older**, which `cabinet runners available` marks for you.
+
+## Editors that never redraw
+
+A plugin whose GUI draws once and then only when you drag its window is missing DXVK.
+`cabinet dxvk <prefix>` fetches a pinned build, checks its SHA-256, unpacks it into that one
+prefix and points `d3d11`, `dxgi`, `d3d10core`, `d3d9` and `d3d8` at it. Most JUCE plugins
+need it — Surge XT and Dexed both do. It wants a working Vulkan driver, which you already have
+if games run.
 
 That is enough for VST2. **VST3 editors need more, and it is not Cabinet's to fix:** put
 `editor_disable_host_scaling = true` under `["*"]` in `~/.vst3/yabridge/yabridge.toml` before

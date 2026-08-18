@@ -14,6 +14,8 @@ public sealed class Layout
 
     public const string RunnerMarker = ".cabinet-runner";
 
+    public const string DxvkMarker = ".cabinet-dxvk";
+
     public Layout(
         string home,
         string runtimeDir,
@@ -67,6 +69,15 @@ public sealed class Layout
 
     public string PrefixRunnerFile(string name) =>
         Path.Combine(PrefixPath(name), RunnerMarker);
+
+    public string PrefixDxvkFile(string name) =>
+        Path.Combine(PrefixPath(name), DxvkMarker);
+
+    public string PrefixSystem32(string name) =>
+        Path.Combine(PrefixPath(name), "drive_c", "windows", "system32");
+
+    public string PrefixSysWow64(string name) =>
+        Path.Combine(PrefixPath(name), "drive_c", "windows", "syswow64");
 
     public string PrefixVst3Dir(string name) =>
         Path.Combine(PrefixPath(name), "drive_c", ProgramFiles64, "Common Files", "VST3");

@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Cabinet.Core;
@@ -37,14 +36,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
                        ?? throw new InvalidOperationException(
                            $"{release.Asset} is not listed in sha256sums.txt");
 
-        var actual = Sha256(target);
-        if (!string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
-        {
-            File.Delete(target);
-            throw new InvalidOperationException(
-                $"{release.Asset} failed its checksum: expected {expected}, got {actual}");
-        }
-
+        Checksum.Expect(target, expected);
         return target;
     }
 
@@ -111,12 +103,6 @@ public sealed class RunnerIndex(IProcessRunner runner)
 
     private static string SumsUrlFor(RunnerRelease release) =>
         release.Url[..(release.Url.LastIndexOf('/') + 1)] + "sha256sums.txt";
-
-    private static string Sha256(string path)
-    {
-        using var stream = File.OpenRead(path);
-        return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
-    }
 
     private string Fetch(string url)
     {
