@@ -91,7 +91,11 @@ footer a { margin-right: 1rem; }
 <pre><code>flatpak remote-add --if-not-exists cabinet \
   $flatpakrepo_url
 flatpak install cabinet $app_id
-flatpak run $app_id setup</code></pre>
+flatpak run $app_id</code></pre>
+<p>
+  That last line opens the window. Every operation is also a command —
+  <code>flatpak run $app_id --help</code> lists them.
+</p>
 
 <div class="current">
   <b>Cabinet $current_version</b>
@@ -100,19 +104,20 @@ flatpak run $app_id setup</code></pre>
 
 <h2>How it fits together</h2>
 <p>
-  Only Wine runs inside the sandbox. <code>setup</code> exports the halves your DAW loads —
-  yabridge's chainloader and <code>libyabridge-*.so</code> — to
-  <code>~/.local/share/yabridge</code>, because they are loaded by the DAW, which lives
-  outside. A shim at <code>$$WINELOADER</code> is the whole boundary between the two.
+  Only Wine runs inside the sandbox. The halves your DAW loads — yabridge's chainloader
+  and <code>libyabridge-*.so</code> — are never copied out of it: the DAW reads them from
+  the installed Flatpak itself, which <code>enrol</code> grants it read-only. There is no
+  setup step. A shim at <code>$$WINELOADER</code> is the whole boundary between the two.
 </p>
 <p>
   Each plugin gets its own Wine prefix under
-  <code>~/.local/share/cabinet/prefixes</code> — its own C: drive, registry and
+  <code>~/.var/app/$app_id/data/prefixes</code> — its own C: drive, registry and
   dependencies. yabridge detects which prefix a plugin lives in on its own, so several
   run side by side.
 </p>
 <pre><code>flatpak run $app_id new serum
 flatpak run $app_id install serum ~/Downloads/Serum.exe
+flatpak run $app_id dxvk serum
 flatpak run $app_id sync</code></pre>
 <p>
   For a Flatpak DAW, run <code>enrol &lt;daw-flatpak-id&gt;</code> first and read what it
