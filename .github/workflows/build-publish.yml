@@ -106,6 +106,9 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    # Backstop: every step here is seconds to a minute, so anything that stalls is
+    # wedged, and a wedged job sits on the `pages` group for the six-hour limit.
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -114,8 +117,13 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install flatpak
+        # Ubuntu's indexes come from GitHub's Azure-first mirrorlist. apt's default
+        # 120 s timeout times its retries turns one unreachable mirror into a step
+        # that outlasts the job limit -- and `concurrency: pages` then holds every
+        # later run behind it. Bound the wait so the fallback mirror takes over.
+        timeout-minutes: 6
         run: |
-          sudo apt-get update
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
           sudo apt-get install -y --no-install-recommends flatpak ostree
 
       - uses: actions/download-artifact@v8
