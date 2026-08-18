@@ -51,6 +51,12 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.3.1" date="2026-08-18">
+      <description>
+        <p>Fixed the external link icons</p>
+      </description>
+    </release>
+    
     <release version="0.3.0" date="2026-08-18">
       <description>
         <p>An About page names the running build: its version, the remote it was installed

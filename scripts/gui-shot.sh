@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Screenshot one page of the GUI, so a change to it can be looked at without a rebuild.
+#
+#   scripts/gui-shot.sh About [out.png]
+#
+# The window is driven through AT-SPI rather than by clicking coordinates: the view
+# switcher's tabs are exposed as named "page tab" nodes, so a page is selected by its
+# label and nothing here depends on the window's size, font or scale. GNOME refuses the
+# Screenshot D-Bus method to callers like this one, and GTK's Broadway backend does not
+# open a display in org.gnome.Platform//50, so capture is X11: the app is started with
+# GDK_BACKEND=x11 through XWayland, which the manifest's --socket=x11 already allows.
+#
+# xdotool, ImageMagick and pyatspi are not on a Silverblue host, so they live in a
+# toolbox that shares the session's DISPLAY and D-Bus. Create it once with:
+#
+#   toolbox create cabinet-gui-test --image registry.fedoraproject.org/fedora-toolbox:44
+#   toolbox run --container cabinet-gui-test \
+#     sudo dnf install -y xdotool ImageMagick python3-pyatspi gobject-introspection
+#
+# gobject-introspection is not optional: without its DBus typelib, `import pyatspi` dies.
+set -euo pipefail
+
+APP=io.github.mark12870.cabinet
+BOX=${CABINET_GUI_TOOLBOX:-cabinet-gui-test}
+PAGE=${1:-Prefixes}
+OUT=${2:-$(printf '%s' "$PAGE" | tr '[:upper:]' '[:lower:]').png}
+
+box() { toolbox run --container "$BOX" "$@"; }
+
+window() { box xdotool search --name '^Cabinet$' 2>/dev/null | head -1 || true; }
+
+if ! podman container exists "$BOX" 2>/dev/null; then
+  echo "gui-shot: no toolbox '$BOX' — see the header of this script" >&2
+  exit 1
+fi
+
+started=no
+cleanup() {
+  rm -f "${select_page:-}"
+  if [ "$started" = yes ]; then
+    pkill -x cabinet-gui || true
+  fi
+}
+trap cleanup EXIT
+
+if [ -z "$(window)" ]; then
+  flatpak run --env=GDK_BACKEND=x11 "$APP" >/dev/null 2>&1 &
+  started=yes
+fi
+
+id=
+for _ in $(seq 40); do
+  id=$(window)
+  if [ -n "$id" ]; then
+    break
+  fi
+  sleep 0.5
+done
+
+if [ -z "$id" ]; then
+  echo "gui-shot: no Cabinet window appeared — is $APP installed?" >&2
+  exit 1
+fi
+
+select_page=$(mktemp /tmp/gui-shot-XXXXXX.py)
+
+cat > "$select_page" <<'PY'
+import sys
+import pyatspi
+
+wanted = sys.argv[1].casefold()
+
+
+def tab(node, depth=0):
+    if depth > 16:
+        return None
+    if node.getRoleName() == "page tab" and (node.name or "").casefold() == wanted:
+        return node
+    for child in node:
+        if child is not None:
+            found = tab(child, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+for app in pyatspi.Registry.getDesktop(0):
+    if (getattr(app, "name", "") or "") != "cabinet-gui":
+        continue
+    found = tab(app)
+    if found is None:
+        sys.exit(f"no page called {sys.argv[1]!r}")
+    found.queryAction().doAction(0)
+    sys.exit(0)
+
+sys.exit("cabinet-gui is not on the accessibility bus")
+PY
+
+box python3 "$select_page" "$PAGE"
+sleep 1
+box import -window "$id" "$(realpath -m "$OUT")"
+
+echo "$OUT"

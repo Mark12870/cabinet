@@ -59,6 +59,9 @@ dotnet build src/Cabinet.Gui -p:UseSharedCompilation=false
 flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
   --default-branch=stable build io.github.mark12870.cabinet.yml
 flatpak install --user cabinet-local io.github.mark12870.cabinet   # remote: file://$PWD/repo
+
+# Look at a page of the installed GUI. Needs the toolbox its header describes, once.
+scripts/gui-shot.sh About about.png
 ```
 
 ## The architecture, in one paragraph
