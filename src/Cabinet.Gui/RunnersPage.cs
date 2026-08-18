@@ -73,8 +73,6 @@ internal sealed class RunnersPage
         var body = Ui.Page();
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Available upstream");
-        group.SetDescription(
-            $"Wine {RunnerIndex.Recommended} is the one yabridge is tested against.");
         body.Append(Ui.Scrolled(group));
 
         var view = Adw.ToolbarView.New();
@@ -87,12 +85,13 @@ internal sealed class RunnersPage
         {
             try
             {
-                var releases = new RunnerIndex(runner).Available();
+                var families = new RunnerIndex(runner).Available()
+                    .GroupBy(release => release.Family);
                 Ui.OnMainLoop(() =>
                 {
-                    foreach (var release in releases)
+                    foreach (var family in families)
                     {
-                        group.Add(AvailableRow(release, dialog));
+                        group.Add(FamilyRow(family, dialog));
                     }
                 });
             }
@@ -103,25 +102,36 @@ internal sealed class RunnersPage
         });
     }
 
+    private Adw.ExpanderRow FamilyRow(
+        IGrouping<RunnerFamily, RunnerRelease> family, Adw.Dialog dialog)
+    {
+        var expander = Adw.ExpanderRow.New();
+        expander.SetTitle(family.Key.Label);
+        expander.SetSubtitle(family.Key.Description);
+        expander.AddPrefix(Gtk.Image.NewFromIconName(Icons.Runners));
+
+        foreach (var release in family)
+        {
+            expander.AddRow(AvailableRow(release, dialog));
+        }
+
+        return expander;
+    }
+
     private Adw.ActionRow AvailableRow(RunnerRelease release, Adw.Dialog dialog)
     {
         var row = Adw.ActionRow.New();
         row.SetTitle(release.Version);
+        row.SetSubtitle(release.Name);
 
-        if (release.BreaksEditors)
-        {
-            row.SetSubtitle("breaks plugin editors (yabridge#382)");
-            row.AddCssClass("warning");
-        }
-
-        var install = Ui.IconButton(Icons.Download, $"Install Wine {release.Version}");
+        var install = Ui.IconButton(Icons.Download, $"Install {release.Name}");
         install.SetValign(Gtk.Align.Center);
         install.OnClicked += (_, _) =>
         {
             dialog.ForceClose();
             Operation.Run(
                 window,
-                $"Installing Wine {release.Version}",
+                $"Installing {release.Name}",
                 output => new Runners(layout, runner).Install(release, output),
                 Refresh);
         };

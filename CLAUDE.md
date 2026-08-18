@@ -122,6 +122,14 @@ These were all found by something failing, not by reading documentation.
   `runners install` takes the TkG asset. Never `-wow64` or `-x86`: yabridge's 32-bit host is a
   32-bit winelib binary that new WoW64 cannot run, which is why `Runners` rejects an archive
   with no 32-bit tree.
+- **`bottlesdevs/wine` serves five families from one releases feed** — `soda`, `mcsoda`,
+  `protosoda`, `caffe`, `vaniglia` — so `RunnerFamily` filters it by tag prefix, which
+  `mcsoda-` and `protosoda-` correctly fail against `soda-`. Soda 11.0-5 is wine-tkg over
+  Valve's experimental Wine with a full old-style 32-bit tree, so it clears the same bar the
+  TkG asset does — except that **its fsync is assumed, not measured**, its `wine-tkg-config`
+  saying nothing either way. And **no `soda-` release publishes a checksum** — only `mcsoda-`
+  ships a `.sha256` — so `SumsFile` is nullable and `Download` says out loud when it has
+  nothing to verify against.
 - **yabridge 5.1.1's plugin editors need Wine 9.21 or older.** From 9.22 on, clicks land offset
   by the window's distance from the screen origin —
   [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382), which upstream
@@ -129,7 +137,9 @@ These were all found by something failing, not by reading documentation.
   wants `cabinet runners install 9.21`. That fixes VST2 outright — verified on Aalto. **VST3
   needs two more things**, neither of them Cabinet's: `editor_disable_host_scaling = true`
   under `["*"]` in `~/.vst3/yabridge/yabridge.toml` before clicks land at all. The repaint
-  failure seen alongside it was a separate fault with its own fix — DXVK, below.
+  failure seen alongside it was a separate fault with its own fix — DXVK, below. **The
+  versions list says none of this on purpose**: flagging every release from 9.22 on read as
+  Cabinet grading upstream Wine. Here is where it lives.
 - **A JUCE editor that never repaints wants DXVK in its prefix.** Surge XT drew once and then
   only when the window moved. The fix is DXVK's `d3d11`, `dxgi`, `d3d10core` and `d3d9` copied
   into `system32` and `syswow64` and set to `native`, which is what `cabinet dxvk <prefix>`

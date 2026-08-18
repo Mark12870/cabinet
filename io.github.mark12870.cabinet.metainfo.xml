@@ -51,6 +51,13 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.2.0" date="2026-08-18">
+      <description>
+        <p>The Wine versions list is grouped into families the way Bottles groups its
+        runners, and Soda joins Kron4ek as a second source. Versions are no longer
+        labelled with a verdict of their own.</p>
+      </description>
+    </release>
     <release version="0.1.0" date="2026-08-18">
       <description>
         <p>First release under Cabinet's own version. Wine 11 and yabridge 5.1.1,
