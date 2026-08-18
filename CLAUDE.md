@@ -320,7 +320,12 @@ upstream: yabridge releases rarely, and an unattended rebuild would publish a co
 installed client sees as an update.
 
 A push touching the manifest, `src/`, `shim/` or the metainfo triggers `build-publish.yml`;
-otherwise run it from the Actions tab via `workflow_dispatch`.
+otherwise run it from the Actions tab via `workflow_dispatch`. **It publishes only when the
+metainfo's newest `<release>` differs from the version at the head of the published
+history** — *Decide whether to publish* compares the two and skips the rest of the run,
+green, when they match. There is no override, and none is needed: a failed publish leaves
+the version unpublished, so a retry still goes through, and a re-root deletes the *Seed*
+step, so there is nothing left to compare against.
 
 **A published commit's version cannot be corrected.** The string lives in
 `files/share/metainfo/` *inside* the commit, and commits are content-addressed and signed —
