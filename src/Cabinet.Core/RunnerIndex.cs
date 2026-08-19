@@ -52,12 +52,14 @@ public sealed record RunnerRelease(
 
 public sealed class RunnerIndex(IProcessRunner runner)
 {
+    private readonly Http http = new(runner);
+
     public static readonly IReadOnlyList<RunnerFamily> Families =
         [RunnerFamily.Soda, RunnerFamily.Kron4ek];
 
     public IReadOnlyList<RunnerRelease> Available()
     {
-        var entries = Components.Entries(Fetch(Components.IndexUrl));
+        var entries = Components.Entries(http.Text(Components.IndexUrl));
 
         return Families.SelectMany(family => ReleasesFrom(family, entries)).ToList();
     }
@@ -83,7 +85,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
     {
         Directory.CreateDirectory(directory);
 
-        var listed = Components.Manifest(Fetch(release.ManifestUrl));
+        var listed = Components.Manifest(http.Text(release.ManifestUrl));
         if (listed.Url.Length == 0 || listed.FileName != release.Asset)
         {
             throw new InvalidOperationException(
@@ -91,13 +93,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
         }
 
         var target = Path.Combine(directory, release.Asset);
-        onOutput?.Invoke($"Downloading {release.Asset}");
-
-        var fetched = runner.Run("curl", ["-fL", "--retry", "2", "-o", target, listed.Url]);
-        if (!fetched.Ok)
-        {
-            throw new InvalidOperationException($"could not download {listed.Url}");
-        }
+        http.ToFile(listed.Url, target, onOutput);
 
         if (release.Family.SumsFile is not { } sums)
         {
@@ -105,7 +101,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
             return target;
         }
 
-        var expected = ChecksumFor(Fetch(SumsUrlFor(listed.Url, sums)), release.Asset)
+        var expected = ChecksumFor(http.Text(SumsUrlFor(listed.Url, sums)), release.Asset)
                        ?? throw new InvalidOperationException(
                            $"{release.Asset} is not listed in {sums}");
 
@@ -144,48 +140,6 @@ public sealed class RunnerIndex(IProcessRunner runner)
         return null;
     }
 
-    private static string? StatusOf(string headers)
-    {
-        string? status = null;
-
-        foreach (var line in headers.Split('\n'))
-        {
-            if (line.StartsWith("HTTP/", StringComparison.Ordinal)
-                && line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: > 1 } fields)
-            {
-                status = fields[1];
-            }
-        }
-
-        return status;
-    }
-
     private static string SumsUrlFor(string url, string sums) =>
         url[..(url.LastIndexOf('/') + 1)] + sums;
-
-    private static string LastLine(string text) =>
-        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            is { Length: > 0 } lines
-            ? lines[^1]
-            : "curl said nothing";
-
-    private string Fetch(string url)
-    {
-        var result = runner.Run(
-            "curl", ["-sSL", "--retry", "2", "--max-time", "30", "-D", "/dev/stderr", url]);
-
-        var host = new Uri(url).Host;
-
-        if (!result.Ok)
-        {
-            throw new InvalidOperationException($"could not reach {host} — {LastLine(result.Stderr)}");
-        }
-
-        var status = StatusOf(result.Stderr);
-
-        return status is null or "200"
-            ? result.Stdout
-            : throw new InvalidOperationException(
-                $"{host} answered {status} for {new Uri(url).AbsolutePath}");
-    }
 }
