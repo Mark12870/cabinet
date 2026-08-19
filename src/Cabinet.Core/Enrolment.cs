@@ -11,6 +11,7 @@ public static class Enrolment
         "--filesystem=xdg-run/yabridge:create",
         $"--filesystem={layout.HostAppFiles}:ro",
         $"--filesystem={layout.PrefixesDir}:ro",
+        $"--filesystem={layout.NativeDir}:ro",
         "--talk-name=org.freedesktop.Flatpak",
         $"--env=WINELOADER={layout.ShimPath}",
         $"--env=YABRIDGE_TEMP_DIR={layout.SocketDir}",

@@ -73,6 +73,8 @@ finish-args:
   - --filesystem=~/.vst3:create
   - --filesystem=~/.vst:create
   - --filesystem=~/.clap:create
+  # Linux-native plugins only; yabridge bridges no LV2.
+  - --filesystem=~/.lv2:create
   # Masked under `home`, but honoured explicitly. `enrol` links yabridge into a DAW's
   # XDG_DATA_HOME here, the only place that DAW's chainloader looks.
   - --filesystem=~/.var/app
@@ -146,6 +148,8 @@ modules:
         ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       - install -Dm644 data/${FLATPAK_ID}.svg
         ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
+      # The plugin catalogue the Library page reads. Bundled, so the list works offline.
+      - install -Dm644 data/library/*.yml -t ${FLATPAK_DEST}/share/cabinet/library/
     sources:
       - type: dir
         path: src

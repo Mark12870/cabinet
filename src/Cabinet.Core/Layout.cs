@@ -26,16 +26,23 @@ public sealed class Layout
 
     public const string EnvMarker = ".cabinet-env";
 
+    public const string BundledLibraryDir = "/app/share/cabinet/library";
+
+    public static readonly IReadOnlyList<string> PluginExtensions =
+        [".vst3", ".clap", ".lv2", ".so"];
+
     public Layout(
         string home,
         string runtimeDir,
         string? sandboxDataHome = null,
-        string? hostAppFiles = null)
+        string? hostAppFiles = null,
+        string? libraryDir = null)
     {
         Home = home;
         RuntimeDir = runtimeDir;
         SandboxDataHome = sandboxDataHome ?? Path.Combine(home, ".var", "app", AppId, "data");
         HostAppFiles = hostAppFiles ?? DefaultHostAppFiles(home);
+        LibraryDir = libraryDir ?? BundledLibraryDir;
     }
 
     public static Layout FromEnvironment()
@@ -61,6 +68,8 @@ public sealed class Layout
 
     public string HostAppFiles { get; }
 
+    public string LibraryDir { get; }
+
     public string HostYabridgeDir => Path.Combine(HostAppFiles, "lib", "yabridge");
 
     public string ShimPath => Path.Combine(HostYabridgeDir, "cabinet-wine");
@@ -78,6 +87,19 @@ public sealed class Layout
     public string SocketDir => Path.Combine(RuntimeDir, "yabridge");
 
     public string RunnersDir => Path.Combine(SandboxDataHome, "runners");
+
+    public string NativeDir => Path.Combine(SandboxDataHome, "native");
+
+    public string NativePath(string name) => Path.Combine(NativeDir, name);
+
+    public string ScanDir(string extension) => Path.Combine(Home, extension switch
+    {
+        ".vst3" => ".vst3",
+        ".clap" => ".clap",
+        ".lv2" => ".lv2",
+        ".so" => ".vst",
+        _ => throw new ArgumentException($"not a plugin extension: '{extension}'", nameof(extension)),
+    });
 
     public string RunnerPath(string name) => Path.Combine(RunnersDir, name);
 

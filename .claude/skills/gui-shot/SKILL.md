@@ -11,7 +11,7 @@ GirCore misuse, but neither answers *does it look right*. This does.
 ## Take a screenshot
 
 ```sh
-scripts/gui-shot.sh About about.png       # page: Prefixes | Runners | Doctor | About
+scripts/gui-shot.sh About about.png       # Library | Prefixes | Runners | Doctor | About
 scripts/gui-shot.sh Prefixes/aalto x.png  # a named row's own page, one level down
 ```
 

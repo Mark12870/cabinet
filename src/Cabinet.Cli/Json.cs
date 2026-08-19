@@ -57,6 +57,32 @@ internal static class Json
             writer.WriteEndArray();
         });
 
+    public static string Library(
+        IReadOnlyList<LibraryEntry> entries, IReadOnlySet<string> installedNative) =>
+        Write(writer =>
+        {
+            writer.WriteStartArray();
+            foreach (var entry in entries)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("id", entry.Id);
+                writer.WriteString("name", entry.Name);
+                writer.WriteString("kind", entry.Kind.ToString().ToLowerInvariant());
+                writer.WriteString("category", entry.Category);
+                writer.WriteString("summary", entry.Summary);
+                writer.WriteString("homepage", entry.Homepage);
+                writer.WriteString("source", entry.Source.ToString().ToLowerInvariant());
+                writer.WriteString("prefix", entry.Kind == PluginKind.Native ? null : entry.Prefix);
+                writer.WriteString("runner", entry.Runner);
+                writer.WriteBoolean("dxvk", entry.Dxvk);
+                writer.WriteString("sync", PrefixSettings.Word(entry.Sync));
+                writer.WriteBoolean("installed", installedNative.Contains(entry.Id));
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+        });
+
     private static string Write(Action<Utf8JsonWriter> body)
     {
         using var buffer = new MemoryStream();

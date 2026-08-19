@@ -1,0 +1,9 @@
+Name: Serum
+Kind: windows
+Category: Synth
+Summary: Wavetable synthesizer from Xfer Records.
+Homepage: https://xferrecords.com/products/serum
+Source: byo
+Runner: 9.21
+Dxvk: true
+Sync: fsync

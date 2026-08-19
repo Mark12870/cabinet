@@ -14,6 +14,7 @@ public class EnrolmentTests
     [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files:ro")]
     [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
+    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/native:ro")]
     [InlineData("--env=WINELOADER=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files/lib/yabridge/cabinet-wine")]
     public void TheOverrideCarriesEverythingTheBoundaryNeeds(string expected)
