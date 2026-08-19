@@ -425,6 +425,16 @@ These were all found by something failing, not by reading documentation.
   CLI's `Enrol`, which meant a second front end would have had to copy it. `Enrolment.Link`
   now owns it and both call it. `Enrolment` still only *prints* the `flatpak override` — the
   GUI must not run it either, for the reason the README gives.
+- **The enrol command has to be copyable, and an `Adw.AlertDialog` body is not.** Its body is a
+  plain label with no selection, so the command `enrol` exists to hand you could be read and not
+  taken — the GUI half of the feature was useless. `EnrolmentDialog` shows each command in its
+  own card with a Copy button, and `Ui.Report` is left for short error text.
+- **A `Gtk.TextView` collapses to nothing inside a page that scrolls.** The first fix reused
+  `Operation`'s monospace non-editable TextView, which is selectable and would have done; it
+  rendered as a 1px strip, because a TextView's *minimum* height is zero — it expects to be the
+  thing being scrolled, not a block inside one. AT-SPI showed the buffer holding the text all
+  along, which is what told layout from content apart. Static text that must size to itself is a
+  `Gtk.Label` with `SetSelectable(true)` and `Pango.WrapMode.WordChar`.
 - **A per-prefix Wayland/X11 switch was asked for and deliberately not built.** yabridge embeds
   plugin editors by X11 reparenting, so the setting could never affect a bridged plugin — only
   `winecfg`, installers and `cabinet run`. `WAYLAND_DISPLAY = ""` stays unconditional; see the
@@ -443,6 +453,15 @@ These were all found by something failing, not by reading documentation.
   there is nothing for the servers to save. Same server the GUI's `-p:UseSharedCompilation=false`
   turns off under *Build and test*, and the reason never to run a one-off `dotnet` in a sandbox
   of its own beside a check that is already running.
+- **Check the build's exit code, and do not hide it behind `&&`/`||`.** `flatpak-builder … &&
+  flatpak install … || tail -4 log` exits 0 whatever happens, so a failed build reported success
+  and the next half hour tested a *stale* install — the GUI kept showing the old dialog and the
+  code looked wrong when it was merely not there. Two failure modes have shown up unprompted and
+  both passed on a plain retry: ILLink dying with `dotnet exited with code 139` during
+  `PublishTrimmed`, and `Extension org.freedesktop.Platform.GL.default has invalid merge-dirs`.
+  Print `BUILD_EXIT=$?` and read it before believing anything about the installed app. A managed
+  assembly stores literals as UTF-16, so `grep` for an ASCII string cannot confirm what shipped —
+  search for `text.encode('utf-16-le')` instead.
 - **Never poll for a background command here — the harness already notifies.** Waiting on the
   flatpak build with a `pgrep`/`sleep` loop burned the full 600 s timeout for nothing: the
   builder runs as `flatpak run org.flatpak.Builder`, which `pgrep -f flatpak-builder` does not
