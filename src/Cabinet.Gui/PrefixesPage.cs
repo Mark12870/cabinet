@@ -32,11 +32,7 @@ internal sealed class PrefixesPage
 
         if (prefixes.Count == 0)
         {
-            var empty = Adw.StatusPage.New();
-            empty.SetIconName(Icons.Prefixes);
-            empty.SetTitle("No prefixes yet");
-            empty.SetDescription("Every plugin gets a Wine prefix of its own.");
-            list.Append(empty);
+            list.Append(Empty());
             return;
         }
 
@@ -44,12 +40,33 @@ internal sealed class PrefixesPage
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Prefixes");
 
+        var create = Ui.RowButton(Icons.New, "New prefix");
+        create.OnClicked += (_, _) => NewPrefix();
+        group.SetHeaderSuffix(create);
+
         foreach (var prefix in prefixes)
         {
             group.Add(Row(prefix, names));
         }
 
         list.Append(group);
+    }
+
+    private Adw.StatusPage Empty()
+    {
+        var empty = Adw.StatusPage.New();
+        empty.SetIconName(Icons.Prefixes);
+        empty.SetTitle("No prefixes yet");
+        empty.SetDescription("Every plugin gets a Wine prefix of its own.");
+
+        var create = Gtk.Button.NewWithLabel("New prefix");
+        create.SetHalign(Gtk.Align.Center);
+        create.AddCssClass("suggested-action");
+        create.AddCssClass("pill");
+        create.OnClicked += (_, _) => NewPrefix();
+        empty.SetChild(create);
+
+        return empty;
     }
 
     private List<string> RunnerNames() =>
@@ -63,21 +80,17 @@ internal sealed class PrefixesPage
         row.AddPrefix(Gtk.Image.NewFromIconName(Icons.Prefixes));
 
         row.AddRow(RunnerRow(prefix, runnerNames));
+        row.AddRow(SyncRow(prefix));
+        row.AddRow(DxvkRow(prefix));
         row.AddRow(Action(
-            "Windows installer", "Run an installer inside this prefix",
-            Icons.Install, () => ChooseInstaller(prefix.Name)));
+            "Environment variables", Icons.Variables, () => EditVariables(prefix.Name)));
         row.AddRow(Action(
-            "DXVK", prefix.Dxvk is null ? "JUCE editors need this" : $"installed, {prefix.Dxvk}",
-            Icons.Dxvk, () => InstallDxvk(prefix.Name)));
+            "Windows installer", Icons.Install, () => ChooseInstaller(prefix.Name)));
         row.AddRow(Action(
-            "Wine configuration", "winecfg", Icons.Configure,
-            () => Run(prefix.Name, "winecfg", [])));
+            "Wine configuration", Icons.Configure, () => Run(prefix.Name, "winecfg", [])));
+        row.AddRow(Action("Run a command", Icons.Command, () => AskForCommand(prefix.Name)));
         row.AddRow(Action(
-            "Run a command", "regedit, or wine reg add …", Icons.Command,
-            () => AskForCommand(prefix.Name)));
-        row.AddRow(Action(
-            "Delete", "The prefix and every plugin in it", Icons.Delete,
-            () => ConfirmDelete(prefix), destructive: true));
+            "Delete", Icons.Delete, () => ConfirmDelete(prefix), destructive: true));
 
         return row;
     }
@@ -93,7 +106,6 @@ internal sealed class PrefixesPage
 
         var row = Adw.ComboRow.New();
         row.SetTitle("Wine");
-        row.SetSubtitle("The runner this prefix starts on");
         row.SetModel(Gtk.StringList.New([.. choices]));
         row.SetSelected((uint)choices.IndexOf(prefix.Runner));
 
@@ -115,13 +127,69 @@ internal sealed class PrefixesPage
         return row;
     }
 
+    private Adw.ComboRow SyncRow(Prefix prefix)
+    {
+        var choices = PrefixSettings.SyncModes;
+
+        var row = Adw.ComboRow.New();
+        row.SetTitle("Sync");
+        row.SetModel(Gtk.StringList.New([.. choices.Select(Label)]));
+        row.SetSelected((uint)choices.ToList().IndexOf(prefix.Sync));
+
+        row.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() != "selected")
+            {
+                return;
+            }
+
+            var chosen = choices[(int)row.GetSelected()];
+
+            if (chosen != prefix.Sync)
+            {
+                UseSync(prefix.Name, chosen);
+            }
+        };
+
+        return row;
+    }
+
+    private Adw.SwitchRow DxvkRow(Prefix prefix)
+    {
+        var installed = prefix.Dxvk is not null;
+
+        var row = Adw.SwitchRow.New();
+        row.SetTitle("DXVK");
+        row.SetActive(installed);
+
+        row.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() != "active" || row.GetActive() == installed)
+            {
+                return;
+            }
+
+            if (row.GetActive())
+            {
+                InstallDxvk(prefix.Name);
+            }
+            else
+            {
+                RemoveDxvk(prefix.Name);
+            }
+        };
+
+        return row;
+    }
+
+    private static string Label(SyncMode mode) =>
+        mode == SyncMode.System ? "System" : PrefixSettings.Word(mode);
+
     private static Adw.ActionRow Action(
-        string title, string subtitle, string iconName, Action clicked,
-        bool destructive = false)
+        string title, string iconName, Action clicked, bool destructive = false)
     {
         var row = Adw.ActionRow.New();
         row.SetTitle(title);
-        row.SetSubtitle(subtitle);
 
         var button = Ui.RowButton(iconName, title, destructive);
         button.OnClicked += (_, _) => clicked();
@@ -134,10 +202,16 @@ internal sealed class PrefixesPage
     private static string Subtitle(Prefix prefix)
     {
         var state = prefix.Initialised ? prefix.Runner : "not initialised";
+
+        if (prefix.Sync != SyncMode.System)
+        {
+            state += $"  ·  {PrefixSettings.Word(prefix.Sync)}";
+        }
+
         return prefix.Dxvk is null ? state : $"{state}  ·  DXVK {prefix.Dxvk}";
     }
 
-    public void NewPrefix()
+    private void NewPrefix()
     {
         var dialog = Adw.AlertDialog.New(
             "New prefix", "A name for the prefix, such as the plugin it will hold.");
@@ -176,7 +250,7 @@ internal sealed class PrefixesPage
         dialog.Present(window);
     }
 
-    public void CreatePrefix(string name, string? runnerName) =>
+    private void CreatePrefix(string name, string? runnerName) =>
         Operation.Run(
             window,
             $"Creating {name}",
@@ -195,12 +269,29 @@ internal sealed class PrefixesPage
             },
             changed);
 
+    private void UseSync(string name, SyncMode mode) =>
+        Operation.Run(
+            window,
+            $"Putting {name} on {Label(mode)}",
+            _ => new PrefixSettings(layout).SetSync(name, mode),
+            changed);
+
     private void InstallDxvk(string name) =>
         Operation.Run(
             window,
             $"Installing DXVK into {name}",
-            _ => new Dxvk(layout, runner).Install(name),
+            output => new Dxvk(layout, runner).Install(name, output),
             changed);
+
+    private void RemoveDxvk(string name) =>
+        Operation.Run(
+            window,
+            $"Taking DXVK out of {name}",
+            output => new Dxvk(layout, runner).Remove(name, output),
+            changed);
+
+    private void EditVariables(string name) =>
+        new VariablesDialog(window, layout, name, changed).Present();
 
     private void Run(string name, string command, IReadOnlyList<string> arguments) =>
         Operation.Run(

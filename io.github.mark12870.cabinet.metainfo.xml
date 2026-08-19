@@ -51,6 +51,18 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.4.0" date="2026-08-19">
+      <description>
+        <p>Prefixes carry their own settings</p>
+        <ul>
+          <li>A sync primitive per prefix: system, esync, fsync or ntsync</li>
+          <li>Environment variables per prefix, reaching bridged plugins too</li>
+          <li>DXVK is a switch now, and putting it back restores the DLLs it replaced</li>
+          <li>New prefix and Wine versions moved onto the pages they act on</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.3.1" date="2026-08-18">
       <description>
         <p>Fixed the external link icons</p>

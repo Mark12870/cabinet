@@ -13,7 +13,6 @@ internal static class Icons
     public const string Sync = "send-to-symbolic";
     public const string Refresh = "view-refresh-symbolic";
     public const string Enrol = "applications-multimedia-symbolic";
-    public const string Dxvk = "applications-system-symbolic";
     public const string Ok = "object-select-symbolic";
     public const string Warn = "dialog-warning-symbolic";
     public const string Fail = "dialog-error-symbolic";
@@ -21,4 +20,5 @@ internal static class Icons
     public const string Configure = "preferences-system-symbolic";
     public const string Command = "utilities-terminal-symbolic";
     public const string Archive = "package-x-generic-symbolic";
+    public const string Variables = "preferences-other-symbolic";
 }

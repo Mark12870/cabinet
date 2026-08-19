@@ -45,11 +45,18 @@ flatpak run $cabinet runners                                # Wine builds you ha
 flatpak run $cabinet runners install 9.21                   # fetch one
 flatpak run $cabinet new serum wine-9.21-staging-tkg        # a prefix on it
 flatpak run $cabinet use serum wine-9.21-staging-tkg        # move an existing prefix
+
+flatpak run $cabinet show serum                             # everything this prefix is set to
+flatpak run $cabinet set serum sync fsync                   # system, esync, fsync or ntsync
+flatpak run $cabinet set serum dxvk off                     # put Wine's own Direct3D back
+flatpak run $cabinet set serum env WINEDEBUG=-all           # WINEDEBUG= removes it
 ```
 
-The first four are the whole workflow. `run` is the escape hatch when a plugin needs a DLL
-override or a registry key; `delete` asks before it does anything, and wants a `sync` after
-it to unbridge what it held.
+The first four are the whole workflow. `set` is per prefix, and reaches the bridged plugin
+too: a sync mode or a variable set here is handed to the Wine your DAW starts, not just to
+`winecfg`. `sync system` is the default and means *leave it to whatever launched the DAW*.
+`run` is the escape hatch for anything `set` does not cover; `delete` asks before it does
+anything, and wants a `sync` after it to unbridge what it held.
 
 ## Permissions
 
