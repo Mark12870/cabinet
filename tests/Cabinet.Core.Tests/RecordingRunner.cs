@@ -4,6 +4,10 @@ namespace Cabinet.Core.Tests;
 
 internal sealed class RecordingRunner : IProcessRunner
 {
+    private readonly List<(string File, IReadOnlyList<string> Arguments)> calls = [];
+
+    public IReadOnlyList<(string File, IReadOnlyList<string> Arguments)> Calls => calls;
+
     public IReadOnlyDictionary<string, string> Environment { get; private set; } =
         new Dictionary<string, string>();
 
@@ -17,6 +21,7 @@ internal sealed class RecordingRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null)
     {
+        calls.Add((file, args));
         Environment = env ?? new Dictionary<string, string>();
         LastFile = file;
         LastArguments = args;

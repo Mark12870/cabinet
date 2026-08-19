@@ -42,6 +42,7 @@ sandboxes; nothing else has that constraint.
 - `data/` — the app icon: Phosphor's *dresser* duotone, recoloured, MIT, keep the licence
   beside it and the credit in the README.
 - `scripts/`, `site/`, `.github/workflows/` — packaging and publishing.
+- `.claude/skills/` — `gui-shot` for looking at the GUI, `releasing` for publishing one.
 
 ## Build and test
 
@@ -91,6 +92,8 @@ are unavoidable: `~/.vst3/yabridge/…` (where DAWs scan) and `~/.var/app/<daw>/
 
 These were all found by something failing, not by reading documentation.
 
+### The sandbox and its masks
+
 - **`--device=all` does not include `/dev/shm`.** yabridge's audio buffers are `shm_open`,
   so `--device=shm` is required on Cabinet *and* on every bridged DAW. A sandbox without it
   sees an empty `/dev/shm` while the host has entries — that is the check `doctor` makes.
@@ -105,11 +108,58 @@ These were all found by something failing, not by reading documentation.
   symlink into the prefix and libyabridge walks up for `dosdevices`, both in the *DAW's*
   process. REAPER reported only "failed to scan". `enrol` grants `--filesystem=<prefixes>:ro`;
   anything that moves the prefixes must move that grant too.
+- **A DAW's `WINELOADER` reaches Cabinet through `flatpak run`**, so anything Cabinet starts
+  would exec the shim and re-enter its own sandbox. Every Wine invocation pins
+  `WINELOADER=/app/bin/wine`.
+- **`app-path` in `/.flatpak-info` is content-addressed**, so it must never be baked into a
+  DAW's override. `Layout.StableAlias` rewrites it to the `current/active` alias.
+- **`--filesystem=home:ro` plus `--filesystem=~/.vst3:create` works**: the specific grant
+  wins. Verified, not assumed.
+- **`/.flatpak-info` does not say which remote the app came from.** The origin is the first
+  NUL-terminated string of the deploy GVariant at `<app-dir>/current/active/deploy`, which the
+  existing `--filesystem=~/.local/share/flatpak/app/<id>:ro` already reaches. The name alone
+  cannot tell a published build from a local one — the user chooses it — so `about` also reads
+  the remote's `url` from `<install-root>/repo/config`, which needs its own
+  `--filesystem=…/repo/config:ro`. A **single-file** grant is honoured through the mask over
+  `~/.local/share/flatpak`; verified by reading it from inside, not assumed. `file://` is the
+  local build, any other scheme the published one, and a url that cannot be read is *unknown*
+  rather than local — an install predating the grant must not be mislabelled.
+
+### The manifest and the runtime
+
 - **`base:` copies the base app's files but not its extension declarations.** Inheriting
   multilib Wine loses `org.freedesktop.Platform.Compat.i386` and it dies on
   `/lib/ld-linux.so.2: could not open`. The manifest re-declares them, *including*
   `org.winehq.Wine.gecko` and `.mono` — another app's extensions are re-declarable, as
   Bottles does against the same base.
+- **The runtime is GNOME, not freedesktop, and that is the GUI's doing.**
+  `org.freedesktop.Platform//25.08` carries GTK3 but no GTK4 and no libadwaita, so a native
+  GNOME app cannot be built on it. `org.gnome.Platform//50` carries both and keeps the
+  `lib/i386-linux-gnu` mount point Wine's 32-bit tree needs. This is safe because it is
+  exactly what Bottles ships — `runtime=org.gnome.Platform/x86_64/49` over
+  `base=app/org.winehq.Wine/x86_64/stable-25.08`, the same base Cabinet uses. The three SDK
+  extensions do **not** move: `org.gnome.Sdk//49` and `//50` both declare
+  `[Extension org.freedesktop.Sdk.Extension]` at `version = 25.08`, which is the branch
+  `dotnet10`, `llvm20` and `rust-stable` are already pinned to. Verified by running
+  `flatpak remote-info --show-metadata`, not by reading documentation.
+- **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
+  which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
+- **The shim is not statically linked**, though it should be: the freedesktop SDK ships no
+  static libc and rust-stable carries only gnu targets. `--cabinet-self-test` exists so a DAW
+  on an older runtime gives a legible error instead of a plugin that will not scan.
+- **`nuget-sources.json` must be regenerated whenever the C# packages move**, with
+  `flatpak-dotnet-generator.py` from `flatpak/flatpak-builder-tools` (the `flatpak` org, not
+  `flathub`). Required even with zero third-party packages: NativeAOT pulls ILCompiler from
+  NuGet. Keep the shim dependency-free and the Rust side needs no equivalent.
+- **Never use `flatpak-builder --install`**, and never re-add `--generate-static-deltas` — see
+  `../beeper-flatpak/CLAUDE.md`, whose publishing gotchas all apply here unchanged.
+- Fedora's system `flathub` remote is filtered; add a user-scoped one to install SDKs.
+- **The running build reads its own version back out of `/app/share/metainfo/`.** That keeps the
+  metainfo the one place the version lives; nothing goes into a csproj `Version`, which would be
+  a second copy that a `<release>` bump could not reach.
+
+### Wine, prefixes and runners
+
 - **`org.winehq.Wine` bakes `WINEPREFIX=/var/data/wine` into its metadata.** Always pass an
   explicit prefix rather than assuming an unset one.
 - **A prefix picks its own Wine, and the shim resolves it from `WINEPREFIX` alone.** `runners/`
@@ -158,6 +208,24 @@ These were all found by something failing, not by reading documentation.
   `( TkG Plain )`** where both Kron4ek builds say `( TkG Staging Esync Fsync )`, so its tkg
   config does not turn them on; whether Valve's base carries fsync of its own is still
   unmeasured. The Runners page shows that string, which is how it was noticed.
+- **A per-prefix setting has to be added on both sides, or it only half exists.** Cabinet's own
+  Wine goes through `Prefixes.Wine`; the *plugin-load* path goes through the Rust shim, and that
+  is the one that matters. So `.cabinet-sync` and `.cabinet-env` are parsed twice, in
+  `PrefixSettings` and in `shim/src/main.rs`, exactly as `.cabinet-runner` already was. A DLL
+  override needs none of that — it lives in the prefix's own registry, so both paths get it for
+  free, which is why `PrefixRegistry` writes there rather than inventing a third marker file.
+  The shim emits its `--env=` flags *after* the `FORWARD` loop so a prefix wins over the DAW,
+  and refuses the four keys Cabinet owns so an env file cannot break the crossing.
+- **Sync `system` means inherit, not off.** It emits nothing at all, so the shim keeps relaying
+  whatever `WINEFSYNC` the DAW was launched with — the behaviour before any of this existed.
+  The other three modes set their own variable to `1` **and the other two to `0`**, because a
+  half-set choice would silently lose to a DAW that exports `WINEFSYNC=1`. Defaulting new
+  prefixes to fsync was rejected: Soda reports `( TkG Plain )` and has none.
+- **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
+  `new DirectoryInfo(p).LinkTarget` answers `null` instead.
+
+### DXVK and plugin editors
+
 - **yabridge 5.1.1's plugin editors need Wine 9.21 or older.** From 9.22 on, clicks land offset
   by the window's distance from the screen origin —
   [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382), which upstream
@@ -187,60 +255,6 @@ These were all found by something failing, not by reading documentation.
   Per-prefix overrides go in the prefix's own `HKCU\Software\Wine\DllOverrides`, written with
   `cabinet run <prefix> wine reg add` — the environment variable the issue quotes would have to
   be set on the DAW, which is every prefix at once.
-- **Nothing in Cabinet writes `yabridge.toml`, and no experiment may leave one behind.** It is
-  the user's file, it is not tracked here, and a stale one is invisible: yabridge only mentions
-  it as `config from: …` deep in a debug log. One left over from an earlier debugging session
-  cost real time in the investigation that found
-  [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382) — checking for it was what
-  finally ruled it out. If a session writes one to test an option, delete it in the same
-  session and record the option here instead.
-- **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
-  taking a value and then read as a flag, so clap aborts and `--path` is unreachable.
-  `Bootstrap` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` instead. Re-check on the next
-  yabridge bump.
-- **A DAW's `WINELOADER` reaches Cabinet through `flatpak run`**, so anything Cabinet starts
-  would exec the shim and re-enter its own sandbox. Every Wine invocation pins
-  `WINELOADER=/app/bin/wine`.
-- **`app-path` in `/.flatpak-info` is content-addressed**, so it must never be baked into a
-  DAW's override. `Layout.StableAlias` rewrites it to the `current/active` alias.
-- **`--filesystem=home:ro` plus `--filesystem=~/.vst3:create` works**: the specific grant
-  wins. Verified, not assumed.
-- **`/.flatpak-info` does not say which remote the app came from.** The origin is the first
-  NUL-terminated string of the deploy GVariant at `<app-dir>/current/active/deploy`, which the
-  existing `--filesystem=~/.local/share/flatpak/app/<id>:ro` already reaches. The name alone
-  cannot tell a published build from a local one — the user chooses it — so `about` also reads
-  the remote's `url` from `<install-root>/repo/config`, which needs its own
-  `--filesystem=…/repo/config:ro`. A **single-file** grant is honoured through the mask over
-  `~/.local/share/flatpak`; verified by reading it from inside, not assumed. `file://` is the
-  local build, any other scheme the published one, and a url that cannot be read is *unknown*
-  rather than local — an install predating the grant must not be mislabelled.
-- **The running build reads its own version back out of `/app/share/metainfo/`.** That keeps the
-  metainfo the one place the version lives; nothing goes into a csproj `Version`, which would be
-  a second copy that a `<release>` bump could not reach.
-- **`dotnet` leaves two servers running, and inside `flatpak run` they hang the next run.**
-  MSBuild worker nodes (`nodeReuse:true`) and Roslyn's `VBCSCompiler` both outlive the command
-  that started them by 10–15 minutes, and because `bwrap` waits for every process in its
-  namespace they keep that sandbox open long after the check "finished". A second run then
-  finds the first one's compiler socket in the shared `/tmp` and connects to a server in a
-  namespace that cannot see its files — `scripts/checks.sh` sat at **zero CPU for eight
-  minutes**, which reads as slow rather than stuck. It exports `MSBUILDDISABLENODEREUSE=1`
-  and `UseSharedCompilation=false` for that reason; the whole run is about 25 seconds, so
-  there is nothing for the servers to save. Same server the GUI's `-p:UseSharedCompilation=false`
-  turns off under *Build and test*, and the reason never to run a one-off `dotnet` in a sandbox
-  of its own beside a check that is already running.
-- **A per-prefix setting has to be added on both sides, or it only half exists.** Cabinet's own
-  Wine goes through `Prefixes.Wine`; the *plugin-load* path goes through the Rust shim, and that
-  is the one that matters. So `.cabinet-sync` and `.cabinet-env` are parsed twice, in
-  `PrefixSettings` and in `shim/src/main.rs`, exactly as `.cabinet-runner` already was. A DLL
-  override needs none of that — it lives in the prefix's own registry, so both paths get it for
-  free, which is why `PrefixRegistry` writes there rather than inventing a third marker file.
-  The shim emits its `--env=` flags *after* the `FORWARD` loop so a prefix wins over the DAW,
-  and refuses the four keys Cabinet owns so an env file cannot break the crossing.
-- **Sync `system` means inherit, not off.** It emits nothing at all, so the shim keeps relaying
-  whatever `WINEFSYNC` the DAW was launched with — the behaviour before any of this existed.
-  The other three modes set their own variable to `1` **and the other two to `0`**, because a
-  half-set choice would silently lose to a DAW that exports `WINEFSYNC=1`. Defaulting new
-  prefixes to fsync was rejected: Soda reports `( TkG Plain )` and has none.
 - **DXVK overwrote Wine's own `d3d*`/`dxgi` in place, so the switch needs backups.** `Install`
   moves each replaced DLL to `<prefix>/.cabinet-dxvk-backup/{system32,syswow64}/` first, and
   `Remove` moves it back. `wineboot -u` alone is not enough to undo an install: it will not
@@ -250,6 +264,17 @@ These were all found by something failing, not by reading documentation.
   all five outright and left `system32` with no Direct3D at all. `Remove` now reports whether
   every library came back and runs `wineboot -u` when one did not, which does restore an
   *absent* DLL. Any prefix predating the backup directory takes that path.
+- **`Remove` had to be told DXVK was ever installed, or it deleted Wine's own Direct3D.**
+  `Restore` treats every `d3d*`/`dxgi` in the prefix as DXVK's, so with no backup beside it the
+  DLL was deleted as if it were. On a prefix DXVK was already *off* in, that is Wine's own copy:
+  `cabinet set aalto dxvk off` twice, measured, left all ten missing. The recovery never ran
+  either, because **`wine reg delete` exits 1 for a value that is not there** (`reg: Unable to
+  find the specified registry value`) and every `reg` call was checked, so the second `off`
+  threw on `d3d8` before reaching `wineboot -u`. That is the original aalto destruction reached
+  by a second route. `Remove` now refuses a prefix whose marker is absent, `Unset` ignores a
+  delete for an override Wine has already forgotten, and the marker is deleted *after* the
+  recovery rather than before — a prefix that `wineboot` could not fix must not read as
+  DXVK-free.
 - **A DLL-override editor was built and then removed, and the registry is why.** The registry is
   the truth for *Wine* but it is not a list of anyone's decisions: `aalto` carried 29 overrides
   nobody typed — `msvcp*`, `ucrtbase`, `atl*`, `api-ms-win-crt-*` — written by the VC++
@@ -261,44 +286,6 @@ These were all found by something failing, not by reading documentation.
   first, which is what the DXVK switch already does. Bottles' own feature
   (`frontend/windows/dlloverrides.py`) is name plus `("b", "n", "b,n", "n,b", "d")` for the same
   reason. Removed for want of a use case; rebuild it only with one.
-- **A per-prefix setting has to be added on both sides, or it only half exists.** Cabinet's own
-  Wine goes through `Prefixes.Wine`; the *plugin-load* path goes through the Rust shim, and that
-  is the one that matters. So `.cabinet-sync` and `.cabinet-env` are parsed twice, in
-  `PrefixSettings` and in `shim/src/main.rs`, exactly as `.cabinet-runner` already was. A DLL
-  override needs none of that — it lives in the prefix's own registry, so both paths get it for
-  free, which is why `PrefixRegistry` writes there rather than inventing a third marker file.
-  The shim emits its `--env=` flags *after* the `FORWARD` loop so a prefix wins over the DAW,
-  and refuses the four keys Cabinet owns so an env file cannot break the crossing.
-- **Sync `system` means inherit, not off.** It emits nothing at all, so the shim keeps relaying
-  whatever `WINEFSYNC` the DAW was launched with — the behaviour before any of this existed.
-  The other three modes set their own variable to `1` **and the other two to `0`**, because a
-  half-set choice would silently lose to a DAW that exports `WINEFSYNC=1`. Defaulting new
-  prefixes to fsync was rejected: Soda reports `( TkG Plain )` and has none.
-- **DXVK overwrote Wine's own `d3d*`/`dxgi` in place, so the switch needs backups.** `Install`
-  moves each replaced DLL to `<prefix>/.cabinet-dxvk-backup/{system32,syswow64}/` first, and
-  `Remove` moves it back. `wineboot -u` alone is not enough to undo an install: it will not
-  replace a DLL whose version resource is newer than the runner's, which DXVK's are.
-  **A missing backup does not mean Wine had no such DLL** — that was assumed, and it destroyed
-  a real prefix: `aalto` was DXVK'd before backups existed, so turning the switch off deleted
-  all five outright and left `system32` with no Direct3D at all. `Remove` now reports whether
-  every library came back and runs `wineboot -u` when one did not, which does restore an
-  *absent* DLL. Any prefix predating the backup directory takes that path.
-- **The DLL-override editor lists what Cabinet set, not what the registry holds.** The registry
-  is the truth for *Wine*, but it is not a list of the user's decisions: a real prefix carries
-  dozens of overrides nobody typed. `aalto` had 29 — `msvcp*`, `msvcr*`, `vcruntime140`,
-  `ucrtbase`, `atl*`, `api-ms-win-crt-*` — written by the VC++ redistributable, because setting
-  `native,builtin` is *how* a dependency makes Wine load what it just copied in. Installing a
-  dependency and adding an override are the same mechanism, so they cannot be told apart after
-  the fact. Cabinet therefore records the names it set in `<prefix>/.cabinet-dll` and shows the
-  intersection with the registry, which is what Bottles does with its bottle config. DXVK's five
-  are never recorded, so the switch owns them and they stay out of the list for free — no
-  special case needed.
-- **A per-prefix Wayland/X11 switch was asked for and deliberately not built.** yabridge embeds
-  plugin editors by X11 reparenting, so the setting could never affect a bridged plugin — only
-  `winecfg`, installers and `cabinet run`. `WAYLAND_DISPLAY = ""` stays unconditional; see the
-  Wayland gotcha above for why the GUI holding a Wayland socket makes that load-bearing.
-- **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
-  `new DirectoryInfo(p).LinkTarget` answers `null` instead.
 - **Plugin editors get absolute screen coordinates where they expect client-relative ones.**
   Clicks are delivered and dispatched correctly — they just land offset by exactly the plugin
   window's distance from the screen origin. Measured by clicking one corner and moving the
@@ -322,6 +309,23 @@ These were all found by something failing, not by reading documentation.
   worked was two commands: `YABRIDGE_DEBUG_LEVEL=1+editor` for the embedding, and
   `WINEDEBUG=+msg,+event` to decode the lParam of the delivered click. Measure the coordinate
   before proposing anything.
+
+### yabridge
+
+- **Nothing in Cabinet writes `yabridge.toml`, and no experiment may leave one behind.** It is
+  the user's file, it is not tracked here, and a stale one is invisible: yabridge only mentions
+  it as `config from: …` deep in a debug log. One left over from an earlier debugging session
+  cost real time in the investigation that found
+  [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382) — checking for it was what
+  finally ruled it out. If a session writes one to test an option, delete it in the same
+  session and record the option here instead.
+- **`yabridgectl set` panics in 5.1.1**, on every invocation: `--path-auto` is declared as
+  taking a value and then read as a flag, so clap aborts and `--path` is unreachable.
+  `Bootstrap` symlinks Cabinet's own `$XDG_DATA_HOME/yabridge` instead. Re-check on the next
+  yabridge bump.
+
+### The front ends
+
 - **`command:` is `cabinet`, so the CLI with no arguments has to open the window.** A bare
   `flatpak run io.github.mark12870.cabinet` runs the default command, and GNOME Software's
   *Open* falls back to exactly that when its cached appstream predates the desktop entry —
@@ -329,16 +333,6 @@ These were all found by something failing, not by reading documentation.
   output. `Program.LaunchGui` execs `/app/bin/cabinet-gui`; usage moved to `--help`. The
   alternative was `command: cabinet-gui`, which would have rewritten every `flatpak run
   $cabinet <verb>` line in the README.
-- **The runtime is GNOME, not freedesktop, and that is the GUI's doing.**
-  `org.freedesktop.Platform//25.08` carries GTK3 but no GTK4 and no libadwaita, so a native
-  GNOME app cannot be built on it. `org.gnome.Platform//50` carries both and keeps the
-  `lib/i386-linux-gnu` mount point Wine's 32-bit tree needs. This is safe because it is
-  exactly what Bottles ships — `runtime=org.gnome.Platform/x86_64/49` over
-  `base=app/org.winehq.Wine/x86_64/stable-25.08`, the same base Cabinet uses. The three SDK
-  extensions do **not** move: `org.gnome.Sdk//49` and `//50` both declare
-  `[Extension org.freedesktop.Sdk.Extension]` at `version = 25.08`, which is the branch
-  `dotnet10`, `llvm20` and `rust-stable` are already pinned to. Verified by running
-  `flatpak remote-info --show-metadata`, not by reading documentation.
 - **The GUI is GirCore, and it is deliberately not NativeAOT.** GirCore 0.8.1 binds GTK 4.22
   and libadwaita 1.9 and never claims NativeAOT support, so `Cabinet.Gui` publishes
   self-contained and trimmed while `Cabinet.Cli` keeps `PublishAot`. Measured, not assumed: a
@@ -365,18 +359,31 @@ These were all found by something failing, not by reading documentation.
   CLI's `Enrol`, which meant a second front end would have had to copy it. `Enrolment.Link`
   now owns it and both call it. `Enrolment` still only *prints* the `flatpak override` — the
   GUI must not run it either, for the reason the README gives.
-- **`stable-25.08`, not `wow64-25.08`.** yabridge's 32-bit host is a 32-bit *winelib* binary,
-  which new WoW64 cannot run — that would silently drop most of the older VST2 catalogue.
-- **The shim is not statically linked**, though it should be: the freedesktop SDK ships no
-  static libc and rust-stable carries only gnu targets. `--cabinet-self-test` exists so a DAW
-  on an older runtime gives a legible error instead of a plugin that will not scan.
-- **`nuget-sources.json` must be regenerated whenever the C# packages move**, with
-  `flatpak-dotnet-generator.py` from `flatpak/flatpak-builder-tools` (the `flatpak` org, not
-  `flathub`). Required even with zero third-party packages: NativeAOT pulls ILCompiler from
-  NuGet. Keep the shim dependency-free and the Rust side needs no equivalent.
-- **Never use `flatpak-builder --install`**, and never re-add `--generate-static-deltas` — see
-  `../beeper-flatpak/CLAUDE.md`, whose publishing gotchas all apply here unchanged.
-- Fedora's system `flathub` remote is filtered; add a user-scoped one to install SDKs.
+- **A per-prefix Wayland/X11 switch was asked for and deliberately not built.** yabridge embeds
+  plugin editors by X11 reparenting, so the setting could never affect a bridged plugin — only
+  `winecfg`, installers and `cabinet run`. `WAYLAND_DISPLAY = ""` stays unconditional; see the
+  Wayland gotcha above for why the GUI holding a Wayland socket makes that load-bearing.
+
+### Working in this repo
+
+- **`dotnet` leaves two servers running, and inside `flatpak run` they hang the next run.**
+  MSBuild worker nodes (`nodeReuse:true`) and Roslyn's `VBCSCompiler` both outlive the command
+  that started them by 10–15 minutes, and because `bwrap` waits for every process in its
+  namespace they keep that sandbox open long after the check "finished". A second run then
+  finds the first one's compiler socket in the shared `/tmp` and connects to a server in a
+  namespace that cannot see its files — `scripts/checks.sh` sat at **zero CPU for eight
+  minutes**, which reads as slow rather than stuck. It exports `MSBUILDDISABLENODEREUSE=1`
+  and `UseSharedCompilation=false` for that reason; the whole run is about 25 seconds, so
+  there is nothing for the servers to save. Same server the GUI's `-p:UseSharedCompilation=false`
+  turns off under *Build and test*, and the reason never to run a one-off `dotnet` in a sandbox
+  of its own beside a check that is already running.
+- **Never poll for a background command here — the harness already notifies.** Waiting on the
+  flatpak build with a `pgrep`/`sleep` loop burned the full 600 s timeout for nothing: the
+  builder runs as `flatpak run org.flatpak.Builder`, which `pgrep -f flatpak-builder` does not
+  match, so the loop kept sleeping *after* the build had already exited 0. Start the long
+  command in the background and wait for its completion event instead. And do not pipe a long
+  build through `tail`: the pipeline buffers, so the output file stays empty for the whole run
+  and progress cannot be checked at all.
 
 ## Palette
 
@@ -397,62 +404,9 @@ overriding the accent someone chose is the one case this rule excludes. Use the 
 where there is no GNOME colour to inherit: the app icon (espresso and amber-flame today),
 the site, a diagram, anything drawn rather than themed.
 
-## Signing
+## Releasing
 
-Cabinet signs with its own key, **not** beeper-flatpak's:
-
-```
-ed25519  5C6EC25CCC962DA9B07F5944995E2BEBE73034E6  Cabinet Flatpak (mark12870)
-```
-
-Separate on purpose. One key across both repos would mean one revocation breaks both, and
-beeper's uid reads "Beeper Flatpak", which would be visibly wrong on Cabinet's site.
-
-The key has **no passphrase**, so only `GPG_PRIVATE_KEY` is set on the repo and the
-workflow's `GPG_PASSPHRASE` path stays unused. It has no expiry either, and that is not an
-oversight: flatpak pins the key when a client adds the remote, so replacing it forces every
-installed user to remove and re-add the remote. Treat it as permanent, and keep it backed up
-accordingly.
-
-## Versioning
-
-**Cabinet has its own version, and yabridge's is not it.** Semver: major for a breaking
-change, minor for a feature, patch for a fix. It lives in exactly one place — the newest
-`<release>` in the metainfo, which is where flatpak reads `Version:` from and where
-`render-site.py` reads it back out of each published commit to build the table.
-
-Naming a release after the bundled yabridge was the original scheme and it was wrong: seven
-different builds published as `5.1.1`, indistinguishable in the table and in `flatpak info`,
-and no way to say that the GUI had landed. A new yabridge *is* a Cabinet release — usually a
-patch, a minor if it changes what Cabinet can do — so it gets an entry of its own like
-anything else.
-
-`scripts/update-yabridge.py` bumps the dependency and nothing else; it rewrites the
-manifest's url/sha256 and leaves the metainfo alone, because which release the bump amounts
-to is a judgement it cannot make. Add the `<release>` yourself:
-
-```sh
-python3 scripts/update-yabridge.py   # prints updated=true/false, yabridge=<tag>
-```
-
-**Bumping is manual, on purpose.** Unlike beeper-flatpak there is no daily workflow chasing
-upstream: yabridge releases rarely, and an unattended rebuild would publish a commit every
-installed client sees as an update.
-
-A push touching the manifest, `src/`, `shim/` or the metainfo triggers `build-publish.yml`;
-otherwise run it from the Actions tab via `workflow_dispatch`. **It publishes only when the
-metainfo's newest `<release>` differs from the version at the head of the published
-history** — *Decide whether to publish* compares the two and skips the rest of the run,
-green, when they match. There is no override, and none is needed: a failed publish leaves
-the version unpublished, so a retry still goes through, and a re-root deletes the *Seed*
-step, so there is nothing left to compare against.
-
-**A published commit's version cannot be corrected.** The string lives in
-`files/share/metainfo/` *inside* the commit, and commits are content-addressed and signed —
-editing it produces a different checksum, breaking the parent chain and the signature. The
-only choices are to leave it or to re-root: publish once with `build-publish.yml`'s
-*Seed the repo from the published history* step deleted, so the build exports a parentless
-root and everything before it stops being reachable. That is how the seven commits
-published as `5.1.1` were dropped, on 2026-08-18, leaving `0.1.0` as the only one. It is a
-hand edit on purpose — a permanent switch for it was tried and removed, because a control
-that discards published history should not sit one checkbox away in the Actions tab.
+Version, signing key and the publishing rules live in the **`releasing` skill**
+(`.claude/skills/releasing/`). Read it before editing the metainfo: the version lives only in
+the newest `<release>` there, bumping is manual on purpose, and a published version cannot be
+corrected afterwards.

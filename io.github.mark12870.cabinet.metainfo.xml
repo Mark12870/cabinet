@@ -51,6 +51,17 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.4.1" date="2026-08-19">
+      <description>
+        <p>Taking DXVK out can no longer delete Wine's own Direct3D</p>
+        <ul>
+          <li>Turning the switch off on a prefix DXVK was never in is refused, not obeyed</li>
+          <li>A prefix Wine could not repair keeps saying so, rather than reading as clean</li>
+          <li>Asking for dxvk anything but on or off is refused, not taken as off</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.4.0" date="2026-08-19">
       <description>
         <p>Prefixes carry their own settings</p>
