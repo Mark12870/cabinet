@@ -217,6 +217,86 @@ These were all found by something failing, not by reading documentation.
 - **The running build reads its own version back out of `/app/share/metainfo/`.** That keeps the
   metainfo the one place the version lives; nothing goes into a csproj `Version`, which would be
   a second copy that a `<release>` bump could not reach.
+- **`dotnet` leaves two servers running, and inside `flatpak run` they hang the next run.**
+  MSBuild worker nodes (`nodeReuse:true`) and Roslyn's `VBCSCompiler` both outlive the command
+  that started them by 10–15 minutes, and because `bwrap` waits for every process in its
+  namespace they keep that sandbox open long after the check "finished". A second run then
+  finds the first one's compiler socket in the shared `/tmp` and connects to a server in a
+  namespace that cannot see its files — `scripts/checks.sh` sat at **zero CPU for eight
+  minutes**, which reads as slow rather than stuck. It exports `MSBUILDDISABLENODEREUSE=1`
+  and `UseSharedCompilation=false` for that reason; the whole run is about 25 seconds, so
+  there is nothing for the servers to save. Same server the GUI's `-p:UseSharedCompilation=false`
+  turns off under *Build and test*, and the reason never to run a one-off `dotnet` in a sandbox
+  of its own beside a check that is already running.
+- **A per-prefix setting has to be added on both sides, or it only half exists.** Cabinet's own
+  Wine goes through `Prefixes.Wine`; the *plugin-load* path goes through the Rust shim, and that
+  is the one that matters. So `.cabinet-sync` and `.cabinet-env` are parsed twice, in
+  `PrefixSettings` and in `shim/src/main.rs`, exactly as `.cabinet-runner` already was. A DLL
+  override needs none of that — it lives in the prefix's own registry, so both paths get it for
+  free, which is why `PrefixRegistry` writes there rather than inventing a third marker file.
+  The shim emits its `--env=` flags *after* the `FORWARD` loop so a prefix wins over the DAW,
+  and refuses the four keys Cabinet owns so an env file cannot break the crossing.
+- **Sync `system` means inherit, not off.** It emits nothing at all, so the shim keeps relaying
+  whatever `WINEFSYNC` the DAW was launched with — the behaviour before any of this existed.
+  The other three modes set their own variable to `1` **and the other two to `0`**, because a
+  half-set choice would silently lose to a DAW that exports `WINEFSYNC=1`. Defaulting new
+  prefixes to fsync was rejected: Soda reports `( TkG Plain )` and has none.
+- **DXVK overwrote Wine's own `d3d*`/`dxgi` in place, so the switch needs backups.** `Install`
+  moves each replaced DLL to `<prefix>/.cabinet-dxvk-backup/{system32,syswow64}/` first, and
+  `Remove` moves it back. `wineboot -u` alone is not enough to undo an install: it will not
+  replace a DLL whose version resource is newer than the runner's, which DXVK's are.
+  **A missing backup does not mean Wine had no such DLL** — that was assumed, and it destroyed
+  a real prefix: `aalto` was DXVK'd before backups existed, so turning the switch off deleted
+  all five outright and left `system32` with no Direct3D at all. `Remove` now reports whether
+  every library came back and runs `wineboot -u` when one did not, which does restore an
+  *absent* DLL. Any prefix predating the backup directory takes that path.
+- **A DLL-override editor was built and then removed, and the registry is why.** The registry is
+  the truth for *Wine* but it is not a list of anyone's decisions: `aalto` carried 29 overrides
+  nobody typed — `msvcp*`, `ucrtbase`, `atl*`, `api-ms-win-crt-*` — written by the VC++
+  redistributable, because setting `native,builtin` is *how* a dependency makes Wine load what it
+  copied in. Installing a dependency and adding an override are one mechanism, so they cannot be
+  told apart afterwards; showing the registry showed noise, and Cabinet had to keep its own list
+  to show anything useful. Wine also has **no path field** — an override is a load order for a
+  module name, nothing more — so "point at a DLL" cannot be expressed without copying the file in
+  first, which is what the DXVK switch already does. Bottles' own feature
+  (`frontend/windows/dlloverrides.py`) is name plus `("b", "n", "b,n", "n,b", "d")` for the same
+  reason. Removed for want of a use case; rebuild it only with one.
+- **A per-prefix setting has to be added on both sides, or it only half exists.** Cabinet's own
+  Wine goes through `Prefixes.Wine`; the *plugin-load* path goes through the Rust shim, and that
+  is the one that matters. So `.cabinet-sync` and `.cabinet-env` are parsed twice, in
+  `PrefixSettings` and in `shim/src/main.rs`, exactly as `.cabinet-runner` already was. A DLL
+  override needs none of that — it lives in the prefix's own registry, so both paths get it for
+  free, which is why `PrefixRegistry` writes there rather than inventing a third marker file.
+  The shim emits its `--env=` flags *after* the `FORWARD` loop so a prefix wins over the DAW,
+  and refuses the four keys Cabinet owns so an env file cannot break the crossing.
+- **Sync `system` means inherit, not off.** It emits nothing at all, so the shim keeps relaying
+  whatever `WINEFSYNC` the DAW was launched with — the behaviour before any of this existed.
+  The other three modes set their own variable to `1` **and the other two to `0`**, because a
+  half-set choice would silently lose to a DAW that exports `WINEFSYNC=1`. Defaulting new
+  prefixes to fsync was rejected: Soda reports `( TkG Plain )` and has none.
+- **DXVK overwrote Wine's own `d3d*`/`dxgi` in place, so the switch needs backups.** `Install`
+  moves each replaced DLL to `<prefix>/.cabinet-dxvk-backup/{system32,syswow64}/` first, and
+  `Remove` moves it back. `wineboot -u` alone is not enough to undo an install: it will not
+  replace a DLL whose version resource is newer than the runner's, which DXVK's are.
+  **A missing backup does not mean Wine had no such DLL** — that was assumed, and it destroyed
+  a real prefix: `aalto` was DXVK'd before backups existed, so turning the switch off deleted
+  all five outright and left `system32` with no Direct3D at all. `Remove` now reports whether
+  every library came back and runs `wineboot -u` when one did not, which does restore an
+  *absent* DLL. Any prefix predating the backup directory takes that path.
+- **The DLL-override editor lists what Cabinet set, not what the registry holds.** The registry
+  is the truth for *Wine*, but it is not a list of the user's decisions: a real prefix carries
+  dozens of overrides nobody typed. `aalto` had 29 — `msvcp*`, `msvcr*`, `vcruntime140`,
+  `ucrtbase`, `atl*`, `api-ms-win-crt-*` — written by the VC++ redistributable, because setting
+  `native,builtin` is *how* a dependency makes Wine load what it just copied in. Installing a
+  dependency and adding an override are the same mechanism, so they cannot be told apart after
+  the fact. Cabinet therefore records the names it set in `<prefix>/.cabinet-dll` and shows the
+  intersection with the registry, which is what Bottles does with its bottle config. DXVK's five
+  are never recorded, so the switch owns them and they stay out of the list for free — no
+  special case needed.
+- **A per-prefix Wayland/X11 switch was asked for and deliberately not built.** yabridge embeds
+  plugin editors by X11 reparenting, so the setting could never affect a bridged plugin — only
+  `winecfg`, installers and `cabinet run`. `WAYLAND_DISPLAY = ""` stays unconditional; see the
+  Wayland gotcha above for why the GUI holding a Wayland socket makes that load-bearing.
 - **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
   `new DirectoryInfo(p).LinkTarget` answers `null` instead.
 - **Plugin editors get absolute screen coordinates where they expect client-relative ones.**

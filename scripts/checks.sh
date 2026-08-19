@@ -12,6 +12,9 @@
 # one CI uses, and a hook that disagrees with CI is worse than no hook.
 # --no-restore is not a micro-optimisation: the implicit restore turns a 6 second format
 # into a 19 second one, and a hook that slow is one nobody keeps.
+# dotnet's two background servers have to be off, or the run hangs rather than ends: both
+# outlive the command that started them, both keep the sandbox they were started in open,
+# and a second run reaches the first one's compiler over a /tmp socket it cannot serve.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
@@ -20,6 +23,7 @@ if [ -z "${CABINET_CHECKS_IN_SDK:-}" ]; then
   exec flatpak run --share=network --filesystem="$root" --command=sh org.gnome.Sdk//50 -c '
     . /usr/lib/sdk/dotnet10/enable.sh
     export PATH=/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin:$PATH
+    export MSBUILDDISABLENODEREUSE=1 UseSharedCompilation=false
     CABINET_CHECKS_IN_SDK=1 exec "$0" "$@"' "$(realpath "$0")" "$@"
 fi
 

@@ -17,6 +17,10 @@ internal static class Program
           cabinet list                         list prefixes
           cabinet use <name> <runner>          point a prefix at a runner
           cabinet dxvk <name>                  install DXVK, which JUCE editors need
+          cabinet show <name>                  everything a prefix is set to
+          cabinet set <name> sync <mode>       system, esync, fsync or ntsync
+          cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
+          cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one
@@ -78,6 +82,9 @@ internal static class Program
             "use" => Use(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "a runner name")),
             "dxvk" => InstallDxvk(layout, runner, Require(args, 1, "a prefix name")),
+            "show" => Show(layout, runner, Require(args, 1, "a prefix name")),
+            "set" => Set(layout, runner, Require(args, 1, "a prefix name"),
+                args.Skip(2).ToArray()),
             "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "an installer path")),
             "delete" => Delete(layout, runner, Require(args, 1, "a prefix name")),
@@ -204,11 +211,92 @@ internal static class Program
 
     private static int InstallDxvk(Layout layout, IProcessRunner runner, string name)
     {
-        var version = new Dxvk(layout, runner).Install(name);
+        new Dxvk(layout, runner).Install(name, Console.WriteLine);
 
-        Console.WriteLine($"{name} now renders through DXVK {version}.");
         Console.WriteLine("Reopen the plugin in your DAW; its editor should redraw as you use it.");
         return 0;
+    }
+
+    private static int RemoveDxvk(Layout layout, IProcessRunner runner, string name)
+    {
+        new Dxvk(layout, runner).Remove(name, Console.WriteLine);
+        return 0;
+    }
+
+    private static int Set(Layout layout, IProcessRunner runner, string name, string[] args) =>
+        args.FirstOrDefault() switch
+        {
+            "sync" => SetSync(layout, name, Require(args, 1, "a sync mode")),
+            "dxvk" => Require(args, 1, "on or off") == "on"
+                ? InstallDxvk(layout, runner, name)
+                : RemoveDxvk(layout, runner, name),
+            "env" => SetVariable(layout, name, Require(args, 1, "KEY=VALUE")),
+            var unknown => Unknown($"set {name} {unknown}"),
+        };
+
+    private static int SetSync(Layout layout, string name, string word)
+    {
+        var mode = PrefixSettings.ParseSync(word);
+        new PrefixSettings(layout).SetSync(name, mode);
+
+        Console.WriteLine($"{name} now waits on {PrefixSettings.Word(mode)}.");
+        return 0;
+    }
+
+    private static int SetVariable(Layout layout, string name, string assignment)
+    {
+        var (key, value) = Assignment(assignment);
+        new PrefixSettings(layout).SetVariable(name, key, value);
+
+        Console.WriteLine(value is null
+            ? $"{key} removed from {name}."
+            : $"{key}={value} in {name}.");
+        return 0;
+    }
+
+    private static (string Key, string? Value) Assignment(string text)
+    {
+        var at = text.IndexOf('=');
+
+        if (at <= 0)
+        {
+            throw new ArgumentException($"expected <name>=<value>, got '{text}'");
+        }
+
+        var value = text[(at + 1)..];
+        return (text[..at], value.Length == 0 ? null : value);
+    }
+
+    private static int Show(Layout layout, IProcessRunner runner, string name)
+    {
+        var prefix = new Prefixes(layout, runner).List()
+            .FirstOrDefault(candidate => candidate.Name == name)
+            ?? throw new ArgumentException($"no such prefix '{name}'");
+
+        Console.WriteLine($"{"name",-16}  {prefix.Name}");
+        Console.WriteLine($"{"path",-16}  {prefix.Path}");
+        Console.WriteLine($"{"state",-16}  {(prefix.Initialised ? "initialised" : "bare")}");
+        Console.WriteLine($"{"runner",-16}  {prefix.Runner}");
+        Console.WriteLine($"{"dxvk",-16}  {prefix.Dxvk ?? "off"}");
+        Console.WriteLine($"{"sync",-16}  {PrefixSettings.Word(prefix.Sync)}");
+
+        Describe("env", new PrefixSettings(layout).Variables(name));
+
+        return 0;
+    }
+
+    private static void Describe(string label, IReadOnlyDictionary<string, string> entries)
+    {
+        if (entries.Count == 0)
+        {
+            Console.WriteLine($"{label,-16}  none");
+            return;
+        }
+
+        foreach (var (key, value) in entries.OrderBy(entry => entry.Key, StringComparer.Ordinal))
+        {
+            Console.WriteLine($"{label,-16}  {key}={value}");
+        }
     }
 
     private static int Install(Layout layout, IProcessRunner runner, string name, string installer)

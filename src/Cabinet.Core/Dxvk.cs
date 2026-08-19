@@ -24,22 +24,18 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
             : null;
     }
 
-    public string Install(string prefix)
+    public string Install(string prefix, Action<string>? onOutput = null)
     {
-        if (!Directory.Exists(Path.Combine(layout.PrefixPath(prefix), "dosdevices")))
-        {
-            throw new DirectoryNotFoundException(
-                $"no initialised prefix '{prefix}' — make one with `cabinet new {prefix}`");
-        }
+        Initialised(prefix);
 
         var staging = Path.Combine(Path.GetTempPath(), "cabinet-dxvk");
 
         try
         {
-            Unpack(Download(staging), staging);
-            Copy(staging, "x64", layout.PrefixSystem32(prefix));
-            Copy(staging, "x32", layout.PrefixSysWow64(prefix));
-            Override(prefix);
+            Unpack(Download(staging, onOutput), staging, onOutput);
+            Copy(staging, "x64", layout.PrefixSystem32(prefix), Backups(prefix, System32), onOutput);
+            Copy(staging, "x32", layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64), onOutput);
+            Override(prefix, onOutput);
         }
         finally
         {
@@ -50,28 +46,84 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
         }
 
         File.WriteAllText(layout.PrefixDxvkFile(prefix), Version + Environment.NewLine);
+        onOutput?.Invoke($"{prefix} now renders through DXVK {Version}.");
         return Version;
     }
 
-    private string Download(string directory)
+    public void Remove(string prefix, Action<string>? onOutput = null)
+    {
+        Initialised(prefix);
+
+        var complete =
+            Restore(layout.PrefixSystem32(prefix), Backups(prefix, System32), System32, onOutput)
+            & Restore(layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64), SysWow64, onOutput);
+
+        foreach (var library in Libraries)
+        {
+            onOutput?.Invoke($"{library}: back to Wine's own");
+            Reg(prefix, ["delete", OverridesKey, "/v", library, "/f"], library);
+        }
+
+        if (Directory.Exists(layout.PrefixDxvkBackupDir(prefix)))
+        {
+            Directory.Delete(layout.PrefixDxvkBackupDir(prefix), recursive: true);
+        }
+
+        File.Delete(layout.PrefixDxvkFile(prefix));
+
+        if (!complete)
+        {
+            onOutput?.Invoke("Some had no backup — asking Wine to put its own back.");
+            var result = new Prefixes(layout, runner).Run(prefix, "wineboot", ["-u"], onOutput);
+
+            if (!result.Ok)
+            {
+                throw new InvalidOperationException(
+                    $"wineboot could not restore Direct3D in '{prefix}'");
+            }
+        }
+
+        onOutput?.Invoke($"{prefix} renders through Wine's own Direct3D again.");
+    }
+
+    private const string System32 = "system32";
+    private const string SysWow64 = "syswow64";
+
+    private void Initialised(string prefix)
+    {
+        if (!Directory.Exists(Path.Combine(layout.PrefixPath(prefix), "dosdevices")))
+        {
+            throw new DirectoryNotFoundException(
+                $"no initialised prefix '{prefix}' — make one with `cabinet new {prefix}`");
+        }
+    }
+
+    private string Download(string directory, Action<string>? onOutput)
     {
         Directory.CreateDirectory(directory);
         var target = Path.Combine(directory, Archive);
 
-        var fetched = runner.Run("curl", ["-fL", "--retry", "2", "-o", target, Url]);
+        onOutput?.Invoke($"Downloading {Url}");
+        var fetched = runner.Run(
+            "curl", ["-fL", "-sS", "--retry", "2", "-o", target, Url], onOutput: onOutput);
+
         if (!fetched.Ok)
         {
             throw new InvalidOperationException($"could not download {Url}");
         }
 
+        onOutput?.Invoke($"Downloaded {new FileInfo(target).Length / 1024 / 1024} MB");
+        onOutput?.Invoke($"Checking sha256 {Sha256[..12]}…");
         Checksum.Expect(target, Sha256);
         return target;
     }
 
-    private void Unpack(string tarball, string directory)
+    private void Unpack(string tarball, string directory, Action<string>? onOutput)
     {
+        onOutput?.Invoke($"Unpacking {Path.GetFileName(tarball)}");
         var result = runner.Run(
-            "tar", ["-xf", tarball, "--strip-components=1", "-C", directory]);
+            "tar", ["-xf", tarball, "--strip-components=1", "-C", directory],
+            onOutput: onOutput);
 
         if (!result.Ok)
         {
@@ -79,9 +131,14 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
         }
     }
 
-    private static void Copy(string staging, string architecture, string destination)
+    private static void Copy(
+        string staging, string architecture, string destination, string backups,
+        Action<string>? onOutput)
     {
+        onOutput?.Invoke($"Copying {architecture} into {Path.GetFileName(destination)}");
+
         Directory.CreateDirectory(destination);
+        Directory.CreateDirectory(backups);
 
         foreach (var library in Libraries)
         {
@@ -93,27 +150,72 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
                     $"{Archive} carries no {architecture}/{library}.dll", source);
             }
 
-            File.Copy(source, Path.Combine(destination, library + ".dll"), overwrite: true);
+            var replaced = Path.Combine(destination, library + ".dll");
+            var backup = Path.Combine(backups, library + ".dll");
+
+            if (File.Exists(replaced) && !File.Exists(backup))
+            {
+                File.Move(replaced, backup);
+                onOutput?.Invoke($"  {library}.dll  (Wine's kept for putting back)");
+            }
+            else
+            {
+                onOutput?.Invoke($"  {library}.dll");
+            }
+
+            File.Copy(source, replaced, overwrite: true);
         }
     }
 
-    private void Override(string prefix)
+    private static bool Restore(
+        string destination, string backups, string windowsDir, Action<string>? onOutput)
     {
-        var prefixes = new Prefixes(layout, runner);
+        onOutput?.Invoke($"Putting {windowsDir} back");
+        var complete = true;
 
         foreach (var library in Libraries)
         {
-            var result = prefixes.Run(
-                prefix,
-                "wine",
-                ["reg", "add", @"HKCU\Software\Wine\DllOverrides", "/v", library, "/d", "native",
-                    "/f"]);
+            var installed = Path.Combine(destination, library + ".dll");
+            var backup = Path.Combine(backups, library + ".dll");
 
-            if (!result.Ok)
+            if (File.Exists(backup))
             {
-                throw new InvalidOperationException(
-                    $"could not point {library} at DXVK in '{prefix}'");
+                File.Move(backup, installed, overwrite: true);
+                onOutput?.Invoke($"  {library}.dll  (Wine's own, restored)");
             }
+            else if (File.Exists(installed))
+            {
+                File.Delete(installed);
+                complete = false;
+                onOutput?.Invoke($"  {library}.dll  (no backup — Wine will put its own back)");
+            }
+        }
+
+        return complete;
+    }
+
+    private string Backups(string prefix, string windowsDir) =>
+        layout.PrefixDxvkBackup(prefix, windowsDir);
+
+    private const string OverridesKey = @"HKCU\Software\Wine\DllOverrides";
+
+    private void Override(string prefix, Action<string>? onOutput)
+    {
+        foreach (var library in Libraries)
+        {
+            onOutput?.Invoke($"{library}: native");
+            Reg(prefix, ["add", OverridesKey, "/v", library, "/d", "native", "/f"], library);
+        }
+    }
+
+    private void Reg(string prefix, IReadOnlyList<string> arguments, string library)
+    {
+        var result = new Prefixes(layout, runner).Run(prefix, "wine", ["reg", .. arguments]);
+
+        if (!result.Ok)
+        {
+            throw new InvalidOperationException(
+                $"could not point {library} at its DLL in '{prefix}'");
         }
     }
 }

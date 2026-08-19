@@ -1,12 +1,13 @@
 namespace Cabinet.Core;
 
 public sealed record Prefix(
-    string Name, string Path, bool Initialised, string Runner, string? Dxvk);
+    string Name, string Path, bool Initialised, string Runner, string? Dxvk, SyncMode Sync);
 
 public sealed class Prefixes(Layout layout, IProcessRunner runner)
 {
     private readonly Runners runners = new(layout, runner);
     private readonly Dxvk dxvk = new(layout, runner);
+    private readonly PrefixSettings settings = new(layout);
 
     public IReadOnlyList<Prefix> List()
     {
@@ -23,7 +24,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
                 layout.PrefixPath(name),
                 Directory.Exists(Path.Combine(layout.PrefixPath(name), "dosdevices")),
                 RunnerOf(name),
-                dxvk.InstalledIn(name)))
+                dxvk.InstalledIn(name),
+                settings.Sync(name)))
             .ToList();
     }
 
@@ -82,7 +84,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             Directory.CreateDirectory(directory);
         }
 
-        return new Prefix(name, path, true, RunnerOf(name), dxvk.InstalledIn(name));
+        return new Prefix(
+            name, path, true, RunnerOf(name), dxvk.InstalledIn(name), settings.Sync(name));
     }
 
     public void Delete(string name)
@@ -129,13 +132,22 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
     {
         var selected = runners.Resolve(RunnerOf(prefix));
 
-        var environment = new Dictionary<string, string>
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var (key, value) in settings.Variables(prefix))
         {
-            ["WINEPREFIX"] = layout.PrefixPath(prefix),
-            ["YABRIDGE_TEMP_DIR"] = layout.SocketDir,
-            ["WINELOADER"] = selected.Wine,
-            ["WAYLAND_DISPLAY"] = "",
-        };
+            environment[key] = value;
+        }
+
+        foreach (var (key, value) in PrefixSettings.SyncVariables(settings.Sync(prefix)))
+        {
+            environment[key] = value;
+        }
+
+        environment["WINEPREFIX"] = layout.PrefixPath(prefix);
+        environment["YABRIDGE_TEMP_DIR"] = layout.SocketDir;
+        environment["WINELOADER"] = selected.Wine;
+        environment["WAYLAND_DISPLAY"] = "";
 
         if (dllOverrides is not null)
         {

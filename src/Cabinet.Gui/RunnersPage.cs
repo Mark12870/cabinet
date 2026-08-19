@@ -32,9 +32,7 @@ internal sealed class RunnersPage
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Installed");
 
-        var add = Ui.RowButton(Icons.Archive, "Unpack a Wine build you already have");
-        add.OnClicked += (_, _) => ChooseArchive();
-        group.SetHeaderSuffix(add);
+        group.SetHeaderSuffix(Actions());
 
         var described = new List<(Runner Runner, Adw.ActionRow Row, string Subtitle)>();
 
@@ -62,6 +60,20 @@ internal sealed class RunnersPage
         ShowVersions(described);
     }
 
+    private Gtk.Box Actions()
+    {
+        var add = Ui.RowButton(Icons.Archive, "Unpack a Wine build you already have");
+        add.OnClicked += (_, _) => ChooseArchive();
+
+        var available = Ui.RowButton(Icons.Download, "Wine versions");
+        available.OnClicked += (_, _) => ShowAvailable();
+
+        var box = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
+        box.Append(available);
+        box.Append(add);
+        return box;
+    }
+
     private void ShowVersions(
         IReadOnlyList<(Runner Runner, Adw.ActionRow Row, string Subtitle)> described) =>
         Task.Run(() =>
@@ -83,7 +95,7 @@ internal sealed class RunnersPage
         return installed.Usable ? $"{by}  ·  {(installed.Multilib ? "32+64" : "64-bit only")}" : "broken";
     }
 
-    public void ShowAvailable()
+    private void ShowAvailable()
     {
         var dialog = Adw.Dialog.New();
         dialog.SetTitle("Wine versions");

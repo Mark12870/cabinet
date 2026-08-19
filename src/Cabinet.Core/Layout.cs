@@ -20,6 +20,12 @@ public sealed class Layout
 
     public const string DxvkMarker = ".cabinet-dxvk";
 
+    public const string DxvkBackupDir = ".cabinet-dxvk-backup";
+
+    public const string SyncMarker = ".cabinet-sync";
+
+    public const string EnvMarker = ".cabinet-env";
+
     public Layout(
         string home,
         string runtimeDir,
@@ -84,6 +90,18 @@ public sealed class Layout
 
     public string PrefixDxvkFile(string name) =>
         Path.Combine(PrefixPath(name), DxvkMarker);
+
+    public string PrefixDxvkBackupDir(string name) =>
+        Path.Combine(PrefixPath(name), DxvkBackupDir);
+
+    public string PrefixDxvkBackup(string name, string windowsDir) =>
+        Path.Combine(PrefixDxvkBackupDir(name), windowsDir);
+
+    public string PrefixSyncFile(string name) =>
+        Path.Combine(PrefixPath(name), SyncMarker);
+
+    public string PrefixEnvFile(string name) =>
+        Path.Combine(PrefixPath(name), EnvMarker);
 
     public string PrefixSystem32(string name) =>
         Path.Combine(PrefixPath(name), "drive_c", "windows", "system32");

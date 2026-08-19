@@ -50,6 +50,7 @@ internal static class Json
                 writer.WriteBoolean("initialised", prefix.Initialised);
                 writer.WriteString("runner", prefix.Runner);
                 writer.WriteString("dxvk", prefix.Dxvk);
+                writer.WriteString("sync", PrefixSettings.Word(prefix.Sync));
                 writer.WriteEndObject();
             }
 

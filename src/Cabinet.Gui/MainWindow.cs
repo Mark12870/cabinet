@@ -48,14 +48,6 @@ internal sealed class MainWindow
     {
         var header = Adw.HeaderBar.New();
 
-        var create = Ui.IconButton(Icons.New, "New prefix");
-        create.OnClicked += (_, _) => prefixes.NewPrefix();
-        header.PackStart(create);
-
-        var available = Ui.IconButton(Icons.Download, "Wine versions");
-        available.OnClicked += (_, _) => runners.ShowAvailable();
-        header.PackStart(available);
-
         var refresh = Ui.IconButton(Icons.Refresh, "Look at everything again");
         refresh.OnClicked += (_, _) => RefreshAll();
         header.PackEnd(refresh);

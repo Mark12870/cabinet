@@ -34,7 +34,24 @@ const CANON_VARS: &[&str] = &[
 const CANON_LIST_VARS: &[&str] = &["WINEDLLPATH"];
 
 const RUNNER_MARKER: &str = ".cabinet-runner";
+const SYNC_MARKER: &str = ".cabinet-sync";
+const ENV_MARKER: &str = ".cabinet-env";
 const BUNDLED_RUNNER: &str = "bundled";
+
+const SYNC_MODES: &[(&str, [&str; 3])] = &[
+    ("esync", ["1", "0", "0"]),
+    ("fsync", ["0", "1", "0"]),
+    ("ntsync", ["0", "0", "1"]),
+];
+
+const SYNC_VARS: [&str; 3] = ["WINEESYNC", "WINEFSYNC", "WINENTSYNC"];
+
+const CABINET_OWNED: &[&str] = &[
+    "WINEPREFIX",
+    "WINELOADER",
+    "WINEDLLPATH",
+    "YABRIDGE_TEMP_DIR",
+];
 
 fn wine_command<R>(prefix: Option<&OsStr>, read: &R) -> OsString
 where
@@ -65,6 +82,51 @@ where
             .into_os_string(),
         None => fallback(),
     }
+}
+
+fn sync_flags<R>(prefix: Option<&OsStr>, read: &R) -> Vec<OsString>
+where
+    R: Fn(&Path) -> Option<String>,
+{
+    let Some(recorded) = prefix.and_then(|p| read(&Path::new(p).join(SYNC_MARKER))) else {
+        return Vec::new();
+    };
+    let recorded = recorded.trim();
+
+    let Some((_, values)) = SYNC_MODES.iter().find(|(word, _)| *word == recorded) else {
+        return Vec::new();
+    };
+
+    SYNC_VARS
+        .iter()
+        .zip(values)
+        .map(|(var, value)| OsString::from(format!("--env={var}={value}")))
+        .collect()
+}
+
+fn env_flags<R>(prefix: Option<&OsStr>, read: &R) -> Vec<OsString>
+where
+    R: Fn(&Path) -> Option<String>,
+{
+    let Some(recorded) = prefix.and_then(|p| read(&Path::new(p).join(ENV_MARKER))) else {
+        return Vec::new();
+    };
+
+    recorded
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.starts_with('#') {
+                return None;
+            }
+            let (key, value) = line.split_once('=')?;
+            let key = key.trim_end();
+            if key.is_empty() || CABINET_OWNED.contains(&key) {
+                return None;
+            }
+            Some(OsString::from(format!("--env={key}={value}")))
+        })
+        .collect()
 }
 
 fn canonicalize<C>(value: &OsStr, canon: &C) -> OsString
@@ -146,6 +208,9 @@ where
         argv.push(flag);
     }
 
+    argv.extend(sync_flags(prefix.as_deref(), &read));
+    argv.extend(env_flags(prefix.as_deref(), &read));
+
     argv.push(app.into());
 
     for arg in args {
@@ -215,12 +280,24 @@ mod tests {
         in_sandbox: bool,
         runner: Option<&str>,
     ) -> Vec<String> {
+        build_with_markers(env, args, in_sandbox, &[(RUNNER_MARKER, runner)])
+    }
+
+    fn build_with_markers(
+        env: &[(&str, &str)],
+        args: &[&str],
+        in_sandbox: bool,
+        markers: &[(&str, Option<&str>)],
+    ) -> Vec<String> {
         let env: Vec<(String, String)> = env
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
         let args: Vec<OsString> = args.iter().map(OsString::from).collect();
-        let runner = runner.map(str::to_string);
+        let markers: Vec<(String, Option<String>)> = markers
+            .iter()
+            .map(|(name, body)| (name.to_string(), body.map(str::to_string)))
+            .collect();
 
         build_argv(
             "io.github.mark12870.cabinet",
@@ -233,10 +310,11 @@ mod tests {
             },
             fake_canon,
             |path| {
-                path.file_name()
-                    .is_some_and(|n| n == RUNNER_MARKER)
-                    .then(|| runner.clone())
-                    .flatten()
+                let name = path.file_name()?.to_str()?;
+                markers
+                    .iter()
+                    .find(|(marker, _)| marker == name)
+                    .and_then(|(_, body)| body.clone())
             },
         )
         .iter()
@@ -375,5 +453,98 @@ mod tests {
                 "marker {marker:?} should fall back"
             );
         }
+    }
+
+    #[test]
+    fn a_prefix_sync_mode_sets_all_three_primitives() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX)],
+            &[],
+            false,
+            &[(SYNC_MARKER, Some("fsync\n"))],
+        );
+        assert!(argv.iter().any(|a| a == "--env=WINEFSYNC=1"));
+        assert!(argv.iter().any(|a| a == "--env=WINEESYNC=0"));
+        assert!(argv.iter().any(|a| a == "--env=WINENTSYNC=0"));
+    }
+
+    #[test]
+    fn the_prefix_sync_mode_wins_over_what_the_daw_was_launched_with() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX), ("WINEFSYNC", "1")],
+            &[],
+            false,
+            &[(SYNC_MARKER, Some("esync"))],
+        );
+        let fsync = argv.iter().position(|a| a == "--env=WINEFSYNC=1").unwrap();
+        let off = argv.iter().position(|a| a == "--env=WINEFSYNC=0").unwrap();
+        assert!(off > fsync);
+    }
+
+    #[test]
+    fn no_sync_marker_leaves_the_daws_own_choice_alone() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX), ("WINEFSYNC", "1")],
+            &[],
+            false,
+            &[],
+        );
+        assert!(argv.iter().any(|a| a == "--env=WINEFSYNC=1"));
+        assert!(!argv.iter().any(|a| a.starts_with("--env=WINENTSYNC")));
+    }
+
+    #[test]
+    fn an_unknown_sync_word_sets_nothing() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX)],
+            &[],
+            false,
+            &[(SYNC_MARKER, Some("ntsyncc"))],
+        );
+        assert!(!argv.iter().any(|a| a.starts_with("--env=WINEESYNC")));
+    }
+
+    #[test]
+    fn a_prefix_environment_file_reaches_the_plugin_load_path() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX)],
+            &[],
+            false,
+            &[(ENV_MARKER, Some("WINEDEBUG=warn+all\nSTEAM_COMPAT=1\n"))],
+        );
+        assert!(argv.iter().any(|a| a == "--env=WINEDEBUG=warn+all"));
+        assert!(argv.iter().any(|a| a == "--env=STEAM_COMPAT=1"));
+    }
+
+    #[test]
+    fn blank_comment_and_keyless_lines_are_skipped() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX)],
+            &[],
+            false,
+            &[(ENV_MARKER, Some("\n# a note\nnonsense\n=orphan\nKEEP=1\n"))],
+        );
+        assert_eq!(
+            argv.iter().filter(|a| a.starts_with("--env=")).count(),
+            2,
+            "{argv:?}"
+        );
+        assert!(argv.iter().any(|a| a == "--env=KEEP=1"));
+    }
+
+    #[test]
+    fn a_prefix_cannot_take_over_the_variables_cabinet_owns() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX)],
+            &[],
+            false,
+            &[(
+                ENV_MARKER,
+                Some("WINEPREFIX=/elsewhere\nWINELOADER=/bin/false\nYABRIDGE_TEMP_DIR=/tmp\n"),
+            )],
+        );
+        assert!(!argv.iter().any(|a| a == "--env=WINEPREFIX=/elsewhere"));
+        assert!(!argv.iter().any(|a| a.starts_with("--env=WINELOADER")));
+        assert!(!argv.iter().any(|a| a == "--env=YABRIDGE_TEMP_DIR=/tmp"));
     }
 }
