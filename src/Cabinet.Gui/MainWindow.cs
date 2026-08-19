@@ -8,6 +8,7 @@ internal sealed class MainWindow
     private readonly IProcessRunner runner;
     private readonly Adw.ApplicationWindow window;
     private readonly Adw.ViewStack stack = Adw.ViewStack.New();
+    private readonly Adw.NavigationView navigation = Adw.NavigationView.New();
 
     private readonly PrefixesPage prefixes;
     private readonly RunnersPage runners;
@@ -23,7 +24,7 @@ internal sealed class MainWindow
         window.SetTitle("Cabinet");
         window.SetDefaultSize(920, 640);
 
-        prefixes = new PrefixesPage(layout, runner, window, RefreshAll);
+        prefixes = new PrefixesPage(layout, runner, window, navigation, RefreshAll);
         runners = new RunnersPage(layout, runner, window, RefreshAll);
         doctor = new DoctorPage(layout);
         about = new AboutPage(layout, runner, window);
@@ -37,7 +38,9 @@ internal sealed class MainWindow
         view.AddTopBar(Header());
         view.AddBottomBar(Switcher());
         view.SetContent(stack);
-        window.SetContent(view);
+
+        navigation.Add(Adw.NavigationPage.New(view, "Cabinet"));
+        window.SetContent(navigation);
 
         RefreshAll();
     }

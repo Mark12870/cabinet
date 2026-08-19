@@ -11,7 +11,8 @@ GirCore misuse, but neither answers *does it look right*. This does.
 ## Take a screenshot
 
 ```sh
-scripts/gui-shot.sh About about.png     # page: Prefixes | Runners | Doctor | About
+scripts/gui-shot.sh About about.png       # page: Prefixes | Runners | Doctor | About
+scripts/gui-shot.sh Prefixes/aalto x.png  # a named row's own page, one level down
 ```
 
 Then **read the PNG back** — that is the whole point; a script that ran is not a page that was
@@ -46,8 +47,10 @@ Pages are selected through **AT-SPI**, not by clicking coordinates: the view swi
 its tabs as `page tab` nodes named exactly as they are titled, and `queryAction().doAction(0)`
 switches to one. Nothing depends on window size, font or scale.
 
-The same route reaches every other widget. To drive a button, a dialog or a row, walk the tree
-for the role and name and act on it — this dumps it:
+The same route reaches every other widget that exposes a `click` action. To drive a button, a
+dialog or a row, walk the tree for the role and name and act on it — this dumps it. Keep the
+depth cap generous: `Adw.NavigationView` put the prefix rows past a cap of 16, and a walk that
+stops short reports the row missing rather than deep.
 
 ```sh
 toolbox run --container cabinet-gui-test python3 - <<'PY'
@@ -56,7 +59,7 @@ for app in pyatspi.Registry.getDesktop(0):
     if (getattr(app, "name", "") or "") != "cabinet-gui":
         continue
     def walk(node, depth=0):
-        if depth > 16:
+        if depth > 32:
             return
         print("  " * depth, node.getRoleName(), repr(node.name))
         for child in node:
@@ -84,13 +87,21 @@ Measured, not assumed:
   apply: it drives browsers.
 - **Editing the app to open on a given page** and rebuilding. That was the old way and it
   costs minutes per look.
-- **Synthesising input from the toolbox.** `xdotool mousemove … click` on a row's own
-  coordinates leaves it unexpanded, and `xdotool key` after `windowactivate --sync` leaves the
-  header buttons drawn unfocused — neither reaches the window. AT-SPI's `getExtents` is no help
-  in aiming either: it answered `0,0` for a window at `2401,285`. So a widget is reachable only
-  if it exposes an action, and `Adw.ExpanderRow` does not — `doAction(0)` on a prefix row
-  answers `No action with index 0`. Pages can be screenshotted; an expanded row or a dialog
-  cannot.
+- **Synthesising input from the toolbox.** `xdotool mousemove … click` at a widget's own
+  coordinates does not reach it, with or without `windowactivate --sync`. AT-SPI's `getExtents`
+  is no help in aiming either: `DESKTOP_COORDS` answered `0,0` for a window at `2715,391`.
+  Everything goes through `doAction`, so a widget is reachable only if it offers a **`click`**
+  action — and most do not. `Adw.ExpanderRow` and a bare `Adw.ActionRow` offer none at all; a
+  `Gtk.Label` offers eight, all clipboard, so *take the action named `click`* rather than
+  `doAction(0)`, which otherwise copies a label and reports success.
+- **Capturing a popover.** An `Adw.ComboRow`'s list is a separate X window, so
+  `import -window` photographs the page underneath it and a combo's choice cannot be confirmed
+  visually. An `Adw.Dialog` draws in the window's own surface and captures fine — that is the
+  route for anything a popover would have offered.
+- **Reaching the root page while another is pushed.** `Adw.NavigationView` drops the hidden
+  page from the accessibility tree, so the header's *Look at everything again* button is not
+  there to click from a subpage. Trigger a refresh through an operation the subpage itself
+  offers.
 
 ## Two traps
 
