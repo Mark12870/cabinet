@@ -98,6 +98,11 @@ Measured, not assumed:
   `import -window` photographs the page underneath it and a combo's choice cannot be confirmed
   visually. An `Adw.Dialog` draws in the window's own surface and captures fine — that is the
   route for anything a popover would have offered.
+- **Verifying a clipboard write on Wayland.** The compositor only accepts one from a *focused*
+  client, and a window driven through AT-SPI has neither `active` nor `focused` — checked, so the
+  paste comes back as whatever was there before and the button looks broken. Run the app under
+  `GDK_BACKEND=x11`, where there is no such rule, and read the result with `wl-paste`; mutter
+  bridges the two. Expect one trailing NUL from that bridge, which is not the app's doing.
 - **Reaching the root page while another is pushed.** `Adw.NavigationView` drops the hidden
   page from the accessibility tree, so the header's *Look at everything again* button is not
   there to click from a subpage. Trigger a refresh through an operation the subpage itself

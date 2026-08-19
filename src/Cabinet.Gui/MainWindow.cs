@@ -126,16 +126,7 @@ internal sealed class MainWindow
             return;
         }
 
-        Ui.Report(
-            window,
-            $"Linked {link}",
-            "Now run this yourself:\n\n"
-            + Enrolment.OverrideCommand(dawId, layout)
-            + "\n\nIt is not applied automatically: --talk-name=org.freedesktop.Flatpak lets "
-            + $"{dawId} run commands on the host, which is yours to decide.\n\n"
-            + "Then check the shim loads inside that DAW's runtime, which is older than the "
-            + "one it was built against on some DAWs:\n\n"
-            + Enrolment.SelfTestCommand(dawId, layout));
+        new EnrolmentDialog(window, layout, dawId, link).Present();
 
         RefreshAll();
     }
