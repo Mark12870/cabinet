@@ -2,6 +2,8 @@ namespace Cabinet.Core;
 
 public sealed class Dxvk(Layout layout, IProcessRunner runner)
 {
+    private readonly Http http = new(runner);
+
     public const string Version = "2.7.1";
 
     public const string Sha256 =
@@ -101,19 +103,9 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
 
     private string Download(string directory, Action<string>? onOutput)
     {
-        Directory.CreateDirectory(directory);
         var target = Path.Combine(directory, Archive);
+        http.ToFile(Url, target, onOutput);
 
-        onOutput?.Invoke($"Downloading {Url}");
-        var fetched = runner.Run(
-            "curl", ["-fL", "-sS", "--retry", "2", "-o", target, Url], onOutput: onOutput);
-
-        if (!fetched.Ok)
-        {
-            throw new InvalidOperationException($"could not download {Url}");
-        }
-
-        onOutput?.Invoke($"Downloaded {new FileInfo(target).Length / 1024 / 1024} MB");
         onOutput?.Invoke($"Checking sha256 {Sha256[..12]}…");
         Checksum.Expect(target, Sha256);
         return target;

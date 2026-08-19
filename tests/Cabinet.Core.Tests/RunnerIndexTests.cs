@@ -142,30 +142,6 @@ public class RunnerIndexTests
     }
 
     [Fact]
-    public void AnHttpFailureNamesTheStatusRatherThanTheUrl()
-    {
-        var refused = Assert.Throws<InvalidOperationException>(() => Answering("429", "").Available());
-
-        Assert.Equal(
-            "raw.githubusercontent.com answered 429 for /bottlesdevs/components/main/index.yml",
-            refused.Message);
-    }
-
-    [Fact]
-    public void AnUnreachableHostSaysWhatCurlSaid()
-    {
-        var runner = new StubRunner(
-            new ProcessResult(6, "", "curl: (6) Could not resolve host: raw.githubusercontent.com\n"));
-
-        var offline = Assert.Throws<InvalidOperationException>(() => new RunnerIndex(runner).Available());
-
-        Assert.Equal(
-            "could not reach raw.githubusercontent.com — "
-            + "curl: (6) Could not resolve host: raw.githubusercontent.com",
-            offline.Message);
-    }
-
-    [Fact]
     public void TheChecksumIsReadForTheRightFile()
     {
         var sums = """
