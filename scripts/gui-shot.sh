@@ -2,13 +2,16 @@
 # Screenshot one page of the GUI, so a change to it can be looked at without a rebuild.
 #
 #   scripts/gui-shot.sh About [out.png]
+#   scripts/gui-shot.sh Prefixes/aalto [out.png]   a row's own page, one level down
 #
 # The window is driven through AT-SPI rather than by clicking coordinates: the view
 # switcher's tabs are exposed as named "page tab" nodes, so a page is selected by its
-# label and nothing here depends on the window's size, font or scale. GNOME refuses the
-# Screenshot D-Bus method to callers like this one, and GTK's Broadway backend does not
-# open a display in org.gnome.Platform//50, so capture is X11: the app is started with
-# GDK_BACKEND=x11 through XWayland, which the manifest's --socket=x11 already allows.
+# label and nothing here depends on the window's size, font or scale. A name after a
+# slash is a row on that page, activated the same way, which pushes its own page.
+# GNOME refuses the Screenshot D-Bus method to callers like this one, and GTK's
+# Broadway backend does not open a display in org.gnome.Platform//50, so capture is
+# X11: the app is started with GDK_BACKEND=x11 through XWayland, which the manifest's
+# --socket=x11 already allows.
 #
 # xdotool, ImageMagick and pyatspi are not on a Silverblue host, so they live in a
 # toolbox that shares the session's DISPLAY and D-Bus. Create it once with:
@@ -23,7 +26,7 @@ set -euo pipefail
 APP=io.github.mark12870.cabinet
 BOX=${CABINET_GUI_TOOLBOX:-cabinet-gui-test}
 PAGE=${1:-Prefixes}
-OUT=${2:-$(printf '%s' "$PAGE" | tr '[:upper:]' '[:lower:]').png}
+OUT=${2:-$(printf '%s' "$PAGE" | tr '[:upper:]/' '[:lower:]-').png}
 
 box() { toolbox run --container "$BOX" "$@"; }
 
@@ -68,29 +71,57 @@ cat > "$select_page" <<'PY'
 import sys
 import pyatspi
 
-wanted = sys.argv[1].casefold()
+tab_name, _, row_name = sys.argv[1].partition("/")
 
 
-def tab(node, depth=0):
-    if depth > 16:
+def find(node, role, wanted, depth=0):
+    if depth > 32:
         return None
-    if node.getRoleName() == "page tab" and (node.name or "").casefold() == wanted:
+    if node.getRoleName() == role and (node.name or "").casefold() == wanted.casefold():
         return node
     for child in node:
         if child is not None:
-            found = tab(child, depth + 1)
+            found = find(child, role, wanted, depth + 1)
             if found is not None:
                 return found
     return None
 
 
+def clickable(node, depth=0):
+    if depth > 32:
+        return None
+    try:
+        action = node.queryAction()
+        for i in range(action.nActions):
+            if action.getName(i) == "click":
+                return node, i
+    except Exception:
+        pass
+    for child in node:
+        if child is not None:
+            found = clickable(child, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def activate(root, role, wanted, what):
+    found = find(root, role, wanted)
+    if found is None:
+        sys.exit(f"no {what} called {wanted!r}")
+    clicked = clickable(found)
+    if clicked is None:
+        sys.exit(f"{what} {wanted!r} has nothing to click")
+    node, index = clicked
+    node.queryAction().doAction(index)
+
+
 for app in pyatspi.Registry.getDesktop(0):
     if (getattr(app, "name", "") or "") != "cabinet-gui":
         continue
-    found = tab(app)
-    if found is None:
-        sys.exit(f"no page called {sys.argv[1]!r}")
-    found.queryAction().doAction(0)
+    activate(app, "page tab", tab_name, "page")
+    if row_name:
+        activate(app, "list item", row_name, "row")
     sys.exit(0)
 
 sys.exit("cabinet-gui is not on the accessibility bus")

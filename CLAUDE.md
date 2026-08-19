@@ -355,6 +355,16 @@ These were all found by something failing, not by reading documentation.
   passes `Console.WriteLine`, so its behaviour is unchanged; the GUI appends to a text view.
   One consequence: output is line-buffered now, so a child that draws progress with `\r` and
   no newline will not render the same way it did.
+- **A prefix's settings live on a pushed page because a rebuilt expander collapses.** Every
+  mutation ends in `RefreshAll`, which clears and rebuilds the prefixes list, so settings held
+  in an `Adw.ExpanderRow` vanished the moment one was changed. `Adw.NavigationView` is now the
+  window's content with the header, switcher and stack as its root page; `PrefixesPage.Refresh`
+  refills the open `PrefixPage` in place and pops it only when its prefix is gone.
+- **An `Adw.ActionRow` with no activatable widget is not clickable.** `SetActivatable(true)`
+  changes nothing on its own — it is the `Gtk.ListBoxRow` default. Measured: the row emitted no
+  `activated`, offered AT-SPI no `click` action, and a pointer click on it did nothing. So a
+  navigating row carries a `Ui.RowButton` suffix that is also its `SetActivatableWidget`, which
+  is what makes the whole row activate — the shape the action rows already used.
 - **`Enrolment` creates the symlink; it did not used to.** The side effect lived inline in the
   CLI's `Enrol`, which meant a second front end would have had to copy it. `Enrolment.Link`
   now owns it and both call it. `Enrolment` still only *prints* the `flatpak override` — the
