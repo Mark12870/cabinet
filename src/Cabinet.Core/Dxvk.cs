@@ -54,22 +54,17 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
     {
         Initialised(prefix);
 
+        if (InstalledIn(prefix) is null)
+        {
+            throw new InvalidOperationException(
+                $"'{prefix}' does not render through DXVK — its Direct3D is Wine's already");
+        }
+
         var complete =
             Restore(layout.PrefixSystem32(prefix), Backups(prefix, System32), System32, onOutput)
             & Restore(layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64), SysWow64, onOutput);
 
-        foreach (var library in Libraries)
-        {
-            onOutput?.Invoke($"{library}: back to Wine's own");
-            Reg(prefix, ["delete", OverridesKey, "/v", library, "/f"], library);
-        }
-
-        if (Directory.Exists(layout.PrefixDxvkBackupDir(prefix)))
-        {
-            Directory.Delete(layout.PrefixDxvkBackupDir(prefix), recursive: true);
-        }
-
-        File.Delete(layout.PrefixDxvkFile(prefix));
+        Unset(prefix, onOutput);
 
         if (!complete)
         {
@@ -83,6 +78,12 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
             }
         }
 
+        if (Directory.Exists(layout.PrefixDxvkBackupDir(prefix)))
+        {
+            Directory.Delete(layout.PrefixDxvkBackupDir(prefix), recursive: true);
+        }
+
+        File.Delete(layout.PrefixDxvkFile(prefix));
         onOutput?.Invoke($"{prefix} renders through Wine's own Direct3D again.");
     }
 
@@ -204,18 +205,24 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
         foreach (var library in Libraries)
         {
             onOutput?.Invoke($"{library}: native");
-            Reg(prefix, ["add", OverridesKey, "/v", library, "/d", "native", "/f"], library);
+
+            if (!Reg(prefix, ["add", OverridesKey, "/v", library, "/d", "native", "/f"]).Ok)
+            {
+                throw new InvalidOperationException(
+                    $"could not point {library} at its DLL in '{prefix}'");
+            }
         }
     }
 
-    private void Reg(string prefix, IReadOnlyList<string> arguments, string library)
+    private void Unset(string prefix, Action<string>? onOutput)
     {
-        var result = new Prefixes(layout, runner).Run(prefix, "wine", ["reg", .. arguments]);
-
-        if (!result.Ok)
+        foreach (var library in Libraries)
         {
-            throw new InvalidOperationException(
-                $"could not point {library} at its DLL in '{prefix}'");
+            onOutput?.Invoke($"{library}: back to Wine's own");
+            Reg(prefix, ["delete", OverridesKey, "/v", library, "/f"]);
         }
     }
+
+    private ProcessResult Reg(string prefix, IReadOnlyList<string> arguments) =>
+        new Prefixes(layout, runner).Run(prefix, "wine", ["reg", .. arguments]);
 }

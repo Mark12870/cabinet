@@ -227,11 +227,17 @@ internal static class Program
         args.FirstOrDefault() switch
         {
             "sync" => SetSync(layout, name, Require(args, 1, "a sync mode")),
-            "dxvk" => Require(args, 1, "on or off") == "on"
-                ? InstallDxvk(layout, runner, name)
-                : RemoveDxvk(layout, runner, name),
+            "dxvk" => SetDxvk(layout, runner, name, Require(args, 1, "on or off")),
             "env" => SetVariable(layout, name, Require(args, 1, "KEY=VALUE")),
             var unknown => Unknown($"set {name} {unknown}"),
+        };
+
+    private static int SetDxvk(Layout layout, IProcessRunner runner, string name, string word) =>
+        word.Trim().ToLowerInvariant() switch
+        {
+            "on" => InstallDxvk(layout, runner, name),
+            "off" => RemoveDxvk(layout, runner, name),
+            _ => throw new ArgumentException($"not on or off: '{word}'"),
         };
 
     private static int SetSync(Layout layout, string name, string word)
