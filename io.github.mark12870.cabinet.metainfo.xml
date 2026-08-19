@@ -51,6 +51,23 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.5.0" date="2026-08-19">
+      <description>
+        <p>A Library page, so a plugin installs itself</p>
+        <ul>
+          <li>Pick a plugin and it is downloaded, checked, installed and bridged for you</li>
+          <li>Windows plugins ask whether to use a prefix you have or make a new one, then
+          pin the Wine their editor needs and add DXVK without being told</li>
+          <li>Plugins you had to buy carry the same knowledge and ask for your installer</li>
+          <li>Linux plugins need no Wine at all: VST3, CLAP and LV2 land in Cabinet's own
+          directory and are linked where your DAW looks, and remove takes them out cleanly</li>
+          <li>The enrol command can be copied out of the window now</li>
+        </ul>
+        <p>Enrolled DAWs need `cabinet enrol` run again to see Linux plugins; bridged
+        Windows plugins keep working untouched.</p>
+      </description>
+    </release>
+
     <release version="0.4.1" date="2026-08-19">
       <description>
         <p>Taking DXVK out can no longer delete Wine's own Direct3D</p>
