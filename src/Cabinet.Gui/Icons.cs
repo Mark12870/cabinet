@@ -10,8 +10,9 @@ internal static class Icons
     public const string Doctor = "dialog-information-symbolic";
     public const string About = "help-about-symbolic";
     public const string Link = "adw-external-link-symbolic";
-    public const string Sync = "view-refresh-symbolic";
-    public const string Enrol = "insert-link-symbolic";
+    public const string Sync = "send-to-symbolic";
+    public const string Refresh = "view-refresh-symbolic";
+    public const string Enrol = "applications-multimedia-symbolic";
     public const string Dxvk = "applications-system-symbolic";
     public const string Ok = "object-select-symbolic";
     public const string Warn = "dialog-warning-symbolic";

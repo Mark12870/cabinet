@@ -84,6 +84,13 @@ Measured, not assumed:
   apply: it drives browsers.
 - **Editing the app to open on a given page** and rebuilding. That was the old way and it
   costs minutes per look.
+- **Synthesising input from the toolbox.** `xdotool mousemove … click` on a row's own
+  coordinates leaves it unexpanded, and `xdotool key` after `windowactivate --sync` leaves the
+  header buttons drawn unfocused — neither reaches the window. AT-SPI's `getExtents` is no help
+  in aiming either: it answered `0,0` for a window at `2401,285`. So a widget is reachable only
+  if it exposes an action, and `Adw.ExpanderRow` does not — `doAction(0)` on a prefix row
+  answers `No action with index 0`. Pages can be screenshotted; an expanded row or a dialog
+  cannot.
 
 ## Two traps
 
