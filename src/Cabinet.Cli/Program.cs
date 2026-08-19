@@ -21,6 +21,10 @@ internal static class Program
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
+          cabinet library                      plugins Cabinet knows how to install
+          cabinet library install <id> [prefix] [installer]
+                                               install one; paid plugins need your own
+          cabinet library remove <id>          remove a Linux plugin and its links
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one
@@ -78,6 +82,7 @@ internal static class Program
             "enrol" or "enroll" => Enrol(layout, Require(args, 1, "a DAW flatpak id")),
             "new" => New(layout, runner, Require(args, 1, "a prefix name"),
                 args.Length > 2 ? args[2] : null),
+            "library" => Library(layout, runner, args.Skip(1).ToArray(), json),
             "runners" => Runners(layout, runner, args.Skip(1).ToArray()),
             "use" => Use(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "a runner name")),
@@ -369,6 +374,73 @@ internal static class Program
                 + $"  {prefix.Path}");
         }
 
+        return 0;
+    }
+
+    private static int Library(
+        Layout layout, IProcessRunner runner, string[] args, bool json) =>
+        args.FirstOrDefault() switch
+        {
+            null => ListLibrary(layout, runner, json),
+            "install" => InstallFromLibrary(layout, runner, args.Skip(1).ToArray()),
+            "remove" => RemoveFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
+            var unknown => Unknown($"library {unknown}"),
+        };
+
+    private static int ListLibrary(Layout layout, IProcessRunner runner, bool json)
+    {
+        var library = new Library(layout, runner);
+        var entries = library.Entries();
+        var installed = library.InstalledNative().ToHashSet(StringComparer.Ordinal);
+
+        if (json)
+        {
+            Console.WriteLine(Json.Library(entries, installed));
+            return 0;
+        }
+
+        if (entries.Count == 0)
+        {
+            Console.WriteLine("This build shipped no library.");
+            return 0;
+        }
+
+        foreach (var entry in entries)
+        {
+            var kind = entry.Kind == PluginKind.Native ? "linux" : "windows";
+            var cost = entry.Source == PluginSource.Byo ? "paid" : "free";
+            var mark = installed.Contains(entry.Id) ? "ok" : "  ";
+
+            Console.WriteLine(
+                $"{mark}  {entry.Id,-18}  {kind,-8}  {cost,-5}  {entry.Category,-10}  {entry.Name}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Install one with `cabinet library install <id>`.");
+        return 0;
+    }
+
+    private static int InstallFromLibrary(Layout layout, IProcessRunner runner, string[] args)
+    {
+        var library = new Library(layout, runner);
+        var entry = library.Find(Require(args, 0, "a plugin id"));
+
+        library.Install(
+            entry,
+            args.Length > 1 ? args[1] : null,
+            args.Length > 2 ? args[2] : null,
+            Console.WriteLine);
+
+        Console.WriteLine();
+        Console.WriteLine(entry.Kind == PluginKind.Native
+            ? $"{entry.Name} is installed. Your DAW loads it directly — rescan to find it."
+            : $"{entry.Name} is installed and bridged.");
+        return 0;
+    }
+
+    private static int RemoveFromLibrary(Layout layout, IProcessRunner runner, string id)
+    {
+        new Library(layout, runner).RemoveNative(id, Console.WriteLine);
         return 0;
     }
 

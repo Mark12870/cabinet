@@ -1,0 +1,8 @@
+Name: Dexed
+Kind: native
+Category: Synth
+Summary: Yamaha DX7 emulation that loads original cartridges.
+Homepage: https://asb2m10.github.io/dexed/
+Source: download
+Url: https://github.com/asb2m10/dexed/releases/download/v1.0.1/Dexed-1.0.1-lnx.zip
+Sha256: 2bac3d0c4237e8c22c4274b6d5b59fe6329fcae72864f81b5830393eff354fc1

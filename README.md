@@ -30,6 +30,10 @@ cabinet=io.github.mark12870.cabinet
 
 flatpak run $cabinet                                        # the window, also in your launcher
 
+flatpak run $cabinet library                                # plugins it can install for you
+flatpak run $cabinet library install surge-xt               # a Linux build, so no Wine at all
+flatpak run $cabinet library install serum serum ~/Downloads/Serum.exe   # prefix, Wine, DXVK
+
 flatpak run $cabinet new serum                              # a prefix of its own
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
 flatpak run $cabinet dxvk serum                             # JUCE editors need this
@@ -52,7 +56,18 @@ flatpak run $cabinet set serum dxvk off                     # put Wine's own Dir
 flatpak run $cabinet set serum env WINEDEBUG=-all           # WINEDEBUG= removes it
 ```
 
-The first four are the whole workflow. `set` is per prefix, and reaches the bridged plugin
+`library` is the short way in: it knows which Wine a plugin's editor needs, whether its
+editor wants DXVK, and it bridges the result — the four steps below, done for you. Plugins
+you had to buy cannot be downloaded, so those ask for the installer you already have. A plugin
+with a working Linux build is listed only as that, because a native one needs no prefix, no
+pinned Wine and no bridge. Linux
+plugins in the library need no prefix at all; their files go in Cabinet's own directory and
+are linked into `~/.vst3`, `~/.clap`, `~/.lv2` and `~/.vst`, so `library remove` takes them out
+cleanly —
+`enrol` is what lets a Flatpak DAW follow those links.
+
+The four commands after it are the same thing by hand, and still the whole workflow for a
+plugin the library has never heard of. `set` is per prefix, and reaches the bridged plugin
 too: a sync mode or a variable set here is handed to the Wine your DAW starts, not just to
 `winecfg`. `sync system` is the default and means *leave it to whatever launched the DAW*.
 `run` is the escape hatch for anything `set` does not cover; `delete` asks before it does

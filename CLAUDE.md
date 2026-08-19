@@ -40,9 +40,11 @@ sandboxes; nothing else has that constraint.
 - `src/Cabinet.Cli/` — argument parsing and rendering only, NativeAOT.
 - `src/Cabinet.Gui/` — GTK4 + libadwaita through GirCore. Trimmed, not NativeAOT.
 - `data/` — the app icon: Phosphor's *dresser* duotone, recoloured, MIT, keep the licence
-  beside it and the credit in the README.
+  beside it and the credit in the README. `data/library/` is the plugin catalogue, one flat
+  `.yml` per plugin, installed to `/app/share/cabinet/library/`.
 - `scripts/`, `site/`, `.github/workflows/` — packaging and publishing.
-- `.claude/skills/` — `gui-shot` for looking at the GUI, `releasing` for publishing one.
+- `.claude/skills/` — `gui-shot` for looking at the GUI, `releasing` for publishing one,
+  `library-entry` for adding a plugin to the catalogue.
 
 ## Build and test
 
@@ -309,6 +311,60 @@ These were all found by something failing, not by reading documentation.
   worked was two commands: `YABRIDGE_DEBUG_LEVEL=1+editor` for the embedding, and
   `WINEDEBUG=+msg,+event` to decode the lParam of the delivered click. Measure the coordinate
   before proposing anything.
+
+### The Library
+
+- **A native Linux plugin cannot be sandboxed from here, and `bwrap` is not the missing
+  piece.** It was asked for and the answer is no on architecture, not on tooling: `bwrap` and
+  `flatpak-spawn` are both in `org.gnome.Platform//50` and the host allows unprivileged user
+  namespaces — checked, not assumed. But a native plugin is a `.so` the DAW `dlopen`s into its
+  own address space, and `bwrap` namespaces a *process*; there is nothing there to wrap. Doing
+  it would mean an out-of-process host behind a stub `.so` — yabridge's entire architecture,
+  which yabridge does not offer for native plugins — spawned from inside the DAW's own sandbox
+  through the `--talk-name=org.freedesktop.Flatpak` permission `enrol` deliberately refuses to
+  apply. And the sandbox would have to grant back PipeWire, X11, presets, licence files and
+  network to be usable at all. So a native plugin gets its **files** isolated and nothing else:
+  its own `data/native/<id>/`, symlinked into `~/.vst3`, `~/.clap`, `~/.lv2` and `~/.vst`. Clean
+  uninstall, not a boundary — do not describe it as one.
+- **A Flatpak DAW cannot follow a link into `data/native/` either.** Same mask as the prefixes
+  gotcha above: the symlink Cabinet writes into `~/.vst3` points at
+  `~/.var/app/io.github.mark12870.cabinet/data/native/<id>/…`, which is masked for every other
+  app, so the DAW sees a dangling link and the plugin simply does not appear. `enrol` grants
+  `--filesystem=<native>:ro` beside the prefixes grant, and `doctor` checks for it — anything
+  that moves that directory has to move both.
+- **A Library entry is a description, not a script.** There is no step DSL and no hook, because
+  one procedure — `Library.Install` — covers every entry, and a plugin needing more than the
+  fields express is a gap in that procedure to fix rather than an escape hatch to add.
+- **`Bundles` walks two levels and never descends into a bundle.** A Linux `.vst3` and an
+  `.lv2` are both *directories* carrying a plain `.so` inside, so a recursive search links that
+  inner `.so` into `~/.vst` as if it were a VST2. Found by inspecting
+  `surge-xt-linux-1.3.4-pluginsonly.tar.gz`, whose top level holds `Surge XT.lv2/libSurge XT.so`
+  beside `Surge XT.vst3` and `Surge XT.clap`. So a path matching a plugin extension is yielded
+  whole and never walked into, and `BundleDirectories` catches the bundle formats Cabinet does
+  *not* link — `.vst`, `.lxvst` — so those are not descended into either. Do not replace that
+  test with "any directory with an extension": a folder named `Surge XT 1.3.4` has extension
+  `.4`. Dexed's zip is the flat case, `Dexed.vst3/` and `Dexed.clap` at the top beside a
+  standalone binary and a `LICENSE`.
+- **The catalogue lists a plugin once, and prefers its Linux build.** A Windows entry costs a
+  prefix, a pinned old runner, DXVK and a bridge on the audio path; a native one costs a
+  symlink. So Surge XT and Dexed ship as `Kind: native` only, and the Windows section is
+  effectively the commercial plugins with no Linux build. The rule and how to check it live in
+  the `library-entry` skill.
+- **LV2 is linked but never bridged.** yabridge does VST2, VST3 and CLAP, so there is no such
+  thing as a Windows LV2 entry — `.lv2` reaches `~/.lv2` only through a `Kind: native` plugin,
+  and the manifest's `--filesystem=~/.lv2:create` exists for that alone. Cabinet writes the
+  bundle directory as one symlink; it does not merge into an existing `~/.lv2` bundle.
+- **An existing prefix keeps its runner, and the runner is not fetched for one.** `library
+  install <id> <existing>` says what the plugin would rather have and leaves the prefix alone,
+  because moving it means `wineboot -u` on someone else's working setup. `EnsureRunner` is
+  therefore called only when the prefix is being created — reaching for it first downloads a
+  100 MB Wine that is then thrown away. Same reason the entry's sync mode is written only for a
+  prefix that call created.
+- **A runner is matched offline.** `Answers` derives the installed directory name from the
+  family and the version — `Runners.DeriveName(family.AssetFor("9.21"))` is
+  `wine-9.21-staging-tkg` — rather than asking Bottles' index which build `9.21` is. Resolving
+  it upstream would make every install need the network, and fail when Cabinet already had the
+  runner sitting there.
 
 ### yabridge
 

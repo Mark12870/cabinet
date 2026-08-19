@@ -11,6 +11,7 @@ internal sealed class MainWindow
     private readonly Adw.NavigationView navigation = Adw.NavigationView.New();
 
     private readonly PrefixesPage prefixes;
+    private readonly LibraryPage library;
     private readonly RunnersPage runners;
     private readonly DoctorPage doctor;
     private readonly AboutPage about;
@@ -25,10 +26,12 @@ internal sealed class MainWindow
         window.SetDefaultSize(920, 640);
 
         prefixes = new PrefixesPage(layout, runner, window, navigation, RefreshAll);
+        library = new LibraryPage(layout, runner, window, RefreshAll);
         runners = new RunnersPage(layout, runner, window, RefreshAll);
         doctor = new DoctorPage(layout);
         about = new AboutPage(layout, runner, window);
 
+        stack.AddTitledWithIcon(library.Widget, "library", "Library", Icons.Library);
         stack.AddTitledWithIcon(prefixes.Widget, "prefixes", "Prefixes", Icons.Prefixes);
         stack.AddTitledWithIcon(runners.Widget, "runners", "Runners", Icons.Runners);
         stack.AddTitledWithIcon(doctor.Widget, "doctor", "Doctor", Icons.Doctor);
@@ -76,6 +79,7 @@ internal sealed class MainWindow
 
     private void RefreshAll()
     {
+        library.Refresh();
         prefixes.Refresh();
         runners.Refresh();
         doctor.Refresh();

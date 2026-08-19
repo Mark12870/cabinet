@@ -200,6 +200,11 @@ public sealed class Doctor(Layout layout)
             missing.Add($"--filesystem={layout.PrefixesDir}:ro");
         }
 
+        if (!(filesystems?.Contains(layout.NativeDir) ?? false))
+        {
+            missing.Add($"--filesystem={layout.NativeDir}:ro");
+        }
+
         if (ini.Get("Session Bus Policy", "org.freedesktop.Flatpak") != "talk")
         {
             missing.Add("--talk-name=org.freedesktop.Flatpak");

@@ -22,4 +22,5 @@ internal static class Icons
     public const string Forward = "go-next-symbolic";
     public const string Archive = "package-x-generic-symbolic";
     public const string Variables = "preferences-other-symbolic";
+    public const string Library = "system-software-install-symbolic";
 }
