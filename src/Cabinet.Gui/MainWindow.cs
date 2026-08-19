@@ -23,8 +23,8 @@ internal sealed class MainWindow
         window.SetTitle("Cabinet");
         window.SetDefaultSize(920, 640);
 
-        prefixes = new PrefixesPage(layout, runner, window);
-        runners = new RunnersPage(layout, runner, window);
+        prefixes = new PrefixesPage(layout, runner, window, RefreshAll);
+        runners = new RunnersPage(layout, runner, window, RefreshAll);
         doctor = new DoctorPage(layout);
         about = new AboutPage(layout, runner, window);
 
@@ -49,12 +49,16 @@ internal sealed class MainWindow
         var header = Adw.HeaderBar.New();
 
         var create = Ui.IconButton(Icons.New, "New prefix");
-        create.OnClicked += (_, _) => AskForName();
+        create.OnClicked += (_, _) => prefixes.NewPrefix();
         header.PackStart(create);
 
         var available = Ui.IconButton(Icons.Download, "Wine versions");
         available.OnClicked += (_, _) => runners.ShowAvailable();
         header.PackStart(available);
+
+        var refresh = Ui.IconButton(Icons.Refresh, "Look at everything again");
+        refresh.OnClicked += (_, _) => RefreshAll();
+        header.PackEnd(refresh);
 
         var sync = Ui.IconButton(Icons.Sync, "Bridge what is installed");
         sync.OnClicked += (_, _) => Sync();
@@ -97,20 +101,9 @@ internal sealed class MainWindow
                     output(line);
                 }
 
-                if (!result.Ok)
-                {
-                    throw new InvalidOperationException(result.Stderr.Trim());
-                }
+                Operation.Ensure(result, "yabridgectl");
             },
             RefreshAll);
-
-    private void AskForName() =>
-        Ui.Prompt(
-            window,
-            "New prefix",
-            "A name for the prefix, such as the plugin it will hold.",
-            "serum",
-            name => prefixes.CreatePrefix(name, null));
 
     private void AskForDaw() =>
         Ui.Prompt(
@@ -140,6 +133,11 @@ internal sealed class MainWindow
             "Now run this yourself:\n\n"
             + Enrolment.OverrideCommand(dawId, layout)
             + "\n\nIt is not applied automatically: --talk-name=org.freedesktop.Flatpak lets "
-            + $"{dawId} run commands on the host, which is yours to decide.");
+            + $"{dawId} run commands on the host, which is yours to decide.\n\n"
+            + "Then check the shim loads inside that DAW's runtime, which is older than the "
+            + "one it was built against on some DAWs:\n\n"
+            + Enrolment.SelfTestCommand(dawId, layout));
+
+        RefreshAll();
     }
 }

@@ -7,13 +7,15 @@ internal sealed class PrefixesPage
     private readonly Layout layout;
     private readonly IProcessRunner runner;
     private readonly Gtk.Window window;
+    private readonly Action changed;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
 
-    public PrefixesPage(Layout layout, IProcessRunner runner, Gtk.Window window)
+    public PrefixesPage(Layout layout, IProcessRunner runner, Gtk.Window window, Action changed)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
+        this.changed = changed;
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -38,7 +40,7 @@ internal sealed class PrefixesPage
             return;
         }
 
-        var names = new Runners(layout, runner).List().Select(found => found.Name).ToList();
+        var names = RunnerNames();
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Prefixes");
 
@@ -49,6 +51,9 @@ internal sealed class PrefixesPage
 
         list.Append(group);
     }
+
+    private List<string> RunnerNames() =>
+        [.. new Runners(layout, runner).List().Select(found => found.Name)];
 
     private Adw.ExpanderRow Row(Prefix prefix, IReadOnlyList<string> runnerNames)
     {
@@ -79,17 +84,18 @@ internal sealed class PrefixesPage
 
     private Adw.ComboRow RunnerRow(Prefix prefix, IReadOnlyList<string> runnerNames)
     {
+        List<string> choices = [.. runnerNames];
+
+        if (!choices.Contains(prefix.Runner))
+        {
+            choices.Add(prefix.Runner);
+        }
+
         var row = Adw.ComboRow.New();
         row.SetTitle("Wine");
         row.SetSubtitle("The runner this prefix starts on");
-        row.SetModel(Gtk.StringList.New([.. runnerNames]));
-
-        var current = runnerNames.ToList().IndexOf(prefix.Runner);
-
-        if (current >= 0)
-        {
-            row.SetSelected((uint)current);
-        }
+        row.SetModel(Gtk.StringList.New([.. choices]));
+        row.SetSelected((uint)choices.IndexOf(prefix.Runner));
 
         row.OnNotify += (_, args) =>
         {
@@ -98,7 +104,7 @@ internal sealed class PrefixesPage
                 return;
             }
 
-            var chosen = runnerNames[(int)row.GetSelected()];
+            var chosen = choices[(int)row.GetSelected()];
 
             if (chosen != prefix.Runner)
             {
@@ -131,12 +137,51 @@ internal sealed class PrefixesPage
         return prefix.Dxvk is null ? state : $"{state}  ·  DXVK {prefix.Dxvk}";
     }
 
+    public void NewPrefix()
+    {
+        var dialog = Adw.AlertDialog.New(
+            "New prefix", "A name for the prefix, such as the plugin it will hold.");
+
+        var name = Adw.EntryRow.New();
+        name.SetTitle("Name");
+
+        var choices = RunnerNames();
+        var wine = Adw.ComboRow.New();
+        wine.SetTitle("Wine");
+        wine.SetSubtitle("The runner it will keep");
+        wine.SetModel(Gtk.StringList.New([.. choices]));
+
+        var fields = Adw.PreferencesGroup.New();
+        fields.SetMarginTop(12);
+        fields.Add(name);
+        fields.Add(wine);
+        dialog.SetExtraChild(fields);
+
+        dialog.AddResponse("cancel", "Cancel");
+        dialog.AddResponse("ok", "Create");
+        dialog.SetResponseAppearance("ok", Adw.ResponseAppearance.Suggested);
+        dialog.SetDefaultResponse("ok");
+        dialog.SetCloseResponse("cancel");
+
+        dialog.OnResponse += (_, args) =>
+        {
+            var entered = name.GetText().Trim();
+
+            if (args.Response == "ok" && entered.Length > 0)
+            {
+                CreatePrefix(entered, choices[(int)wine.GetSelected()]);
+            }
+        };
+
+        dialog.Present(window);
+    }
+
     public void CreatePrefix(string name, string? runnerName) =>
         Operation.Run(
             window,
             $"Creating {name}",
             output => new Prefixes(layout, runner).Create(name, runnerName, output),
-            Refresh);
+            changed);
 
     private void UseRunner(string name, string runnerName) =>
         Operation.Run(
@@ -146,22 +191,24 @@ internal sealed class PrefixesPage
             {
                 var prefixes = new Prefixes(layout, runner);
                 prefixes.SetRunner(name, runnerName);
-                prefixes.Run(name, "wineboot", ["-u"], output);
+                Operation.Ensure(prefixes.Run(name, "wineboot", ["-u"], output), "wineboot");
             },
-            Refresh);
+            changed);
 
     private void InstallDxvk(string name) =>
         Operation.Run(
             window,
             $"Installing DXVK into {name}",
             _ => new Dxvk(layout, runner).Install(name),
-            Refresh);
+            changed);
 
     private void Run(string name, string command, IReadOnlyList<string> arguments) =>
         Operation.Run(
             window,
             $"{command} in {name}",
-            output => new Prefixes(layout, runner).Run(name, command, arguments, output));
+            output => Operation.Ensure(
+                new Prefixes(layout, runner).Run(name, command, arguments, output), command),
+            changed);
 
     private void AskForCommand(string name) =>
         Ui.Prompt(
@@ -180,8 +227,10 @@ internal sealed class PrefixesPage
             Operation.Run(
                 window,
                 $"Installing into {name}",
-                output => new Prefixes(layout, runner).Install(name, path, output),
-                Refresh));
+                output => Operation.Ensure(
+                    new Prefixes(layout, runner).Install(name, path, output),
+                    Path.GetFileName(path)),
+                changed));
 
     private void ConfirmDelete(Prefix prefix)
     {
@@ -203,7 +252,7 @@ internal sealed class PrefixesPage
                     window,
                     $"Deleting {prefix.Name}",
                     _ => new Prefixes(layout, runner).Delete(prefix.Name),
-                    Refresh);
+                    changed);
             }
         };
 

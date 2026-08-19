@@ -137,10 +137,7 @@ internal static class Program
 
         foreach (var found in runners.List())
         {
-            var used = runners.InUseBy(found.Name);
-            var by = found.Bundled
-                ? string.Join(", ", runners.InUseBy(Layout.BundledRunner))
-                : string.Join(", ", used);
+            var by = string.Join(", ", runners.InUseBy(found.Name));
 
             Console.WriteLine(
                 $"{(found.Usable ? "ok  " : "FAIL")}  {found.Name,-30}  "

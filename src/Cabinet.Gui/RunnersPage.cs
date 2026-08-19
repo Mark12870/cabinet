@@ -7,13 +7,15 @@ internal sealed class RunnersPage
     private readonly Layout layout;
     private readonly IProcessRunner runner;
     private readonly Gtk.Window window;
+    private readonly Action changed;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
 
-    public RunnersPage(Layout layout, IProcessRunner runner, Gtk.Window window)
+    public RunnersPage(Layout layout, IProcessRunner runner, Gtk.Window window, Action changed)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
+        this.changed = changed;
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -34,11 +36,14 @@ internal sealed class RunnersPage
         add.OnClicked += (_, _) => ChooseArchive();
         group.SetHeaderSuffix(add);
 
+        var described = new List<(Runner Runner, Adw.ActionRow Row, string Subtitle)>();
+
         foreach (var installed in runners.List())
         {
+            var subtitle = Describe(runners, installed);
             var row = Adw.ActionRow.New();
             row.SetTitle(installed.Name);
-            row.SetSubtitle(Describe(runners, installed));
+            row.SetSubtitle(subtitle);
             row.AddPrefix(Gtk.Image.NewFromIconName(Icons.Runners));
 
             if (!installed.Bundled)
@@ -50,14 +55,29 @@ internal sealed class RunnersPage
             }
 
             group.Add(row);
+            described.Add((installed, row, subtitle));
         }
 
         list.Append(group);
+        ShowVersions(described);
     }
+
+    private void ShowVersions(
+        IReadOnlyList<(Runner Runner, Adw.ActionRow Row, string Subtitle)> described) =>
+        Task.Run(() =>
+        {
+            var runners = new Runners(layout, runner);
+
+            foreach (var (installed, row, subtitle) in described.Where(shown => shown.Runner.Usable))
+            {
+                var version = runners.Version(installed);
+                Ui.OnMainLoop(() => row.SetSubtitle($"{subtitle}  ·  {version}"));
+            }
+        });
 
     private static string Describe(Runners runners, Runner installed)
     {
-        var used = runners.InUseBy(installed.Bundled ? Layout.BundledRunner : installed.Name);
+        var used = runners.InUseBy(installed.Name);
         var by = used.Count == 0 ? "unused" : "used by " + string.Join(", ", used);
 
         return installed.Usable ? $"{by}  ·  {(installed.Multilib ? "32+64" : "64-bit only")}" : "broken";
@@ -136,7 +156,7 @@ internal sealed class RunnersPage
                 window,
                 $"Installing {release.Name}",
                 output => new Runners(layout, runner).Install(release, output),
-                Refresh);
+                changed);
         };
 
         row.AddSuffix(install);
@@ -149,12 +169,12 @@ internal sealed class RunnersPage
                 window,
                 $"Unpacking {Path.GetFileName(path)}",
                 output => new Runners(layout, runner).Add(path, onOutput: output),
-                Refresh));
+                changed));
 
     private void Remove(string name) =>
         Operation.Run(
             window,
             $"Deleting {name}",
             _ => new Runners(layout, runner).Remove(name),
-            Refresh);
+            changed);
 }

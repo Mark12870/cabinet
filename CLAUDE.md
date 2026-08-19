@@ -154,8 +154,10 @@ These were all found by something failing, not by reading documentation.
   against the real `soda-11.0-5` archive. Soda is checked now, where it used to be taken on the
   strength of its https download alone; Kron4ek keeps its stronger `sha256sums.txt`. Soda 11.0-5
   is wine-tkg over Valve's experimental Wine with a full old-style 32-bit tree, so it clears the
-  same bar the TkG asset does — except that **its fsync is assumed, not measured**, its
-  `wine-tkg-config` saying nothing either way.
+  same bar the TkG asset does — except for fsync. **Soda's own `wine --version` says
+  `( TkG Plain )`** where both Kron4ek builds say `( TkG Staging Esync Fsync )`, so its tkg
+  config does not turn them on; whether Valve's base carries fsync of its own is still
+  unmeasured. The Runners page shows that string, which is how it was noticed.
 - **yabridge 5.1.1's plugin editors need Wine 9.21 or older.** From 9.22 on, clicks land offset
   by the window's distance from the screen origin —
   [yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382), which upstream

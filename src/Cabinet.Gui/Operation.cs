@@ -1,3 +1,5 @@
+using Cabinet.Core;
+
 namespace Cabinet.Gui;
 
 internal sealed class Operation
@@ -60,6 +62,14 @@ internal sealed class Operation
                 operation.Finish(exception.Message);
             }
         }).ContinueWith(_ => Ui.OnMainLoop(() => onFinished?.Invoke()));
+    }
+
+    public static void Ensure(ProcessResult result, string what)
+    {
+        if (!result.Ok)
+        {
+            throw new InvalidOperationException($"{what} exited with {result.ExitCode}");
+        }
     }
 
     private void Write(string line) => Ui.OnMainLoop(() =>

@@ -28,14 +28,21 @@ internal sealed class DoctorPage
 
         Task.Run(() =>
         {
-            var checks = new Doctor(layout).Run();
-            Ui.OnMainLoop(() =>
+            try
             {
-                foreach (var check in checks)
+                var checks = new Doctor(layout).Run();
+                Ui.OnMainLoop(() =>
                 {
-                    group.Add(Row(check));
-                }
-            });
+                    foreach (var check in checks)
+                    {
+                        group.Add(Row(check));
+                    }
+                });
+            }
+            catch (Exception exception)
+            {
+                Ui.OnMainLoop(() => group.SetDescription(exception.Message));
+            }
         });
     }
 
