@@ -84,11 +84,11 @@ internal sealed class PluginPage
 
     private Gtk.Widget Icon(LibraryEntry entry)
     {
-        var file = layout.LibraryLogo(entry.Vendor) ?? layout.LibraryIcon(entry.Vendor, entry.Id);
+        var file = layout.LibraryLogo(entry.Vendor);
 
         if (file is null)
         {
-            var fallback = Gtk.Image.NewFromIconName(Icons.Prefixes);
+            var fallback = Gtk.Image.NewFromIconName(Icons.Vst);
             fallback.SetPixelSize(64);
             fallback.SetValign(Gtk.Align.Center);
             return fallback;

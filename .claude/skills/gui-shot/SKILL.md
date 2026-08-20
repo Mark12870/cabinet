@@ -24,7 +24,7 @@ The script launches the *installed* Flatpak, so build and install first:
 ```sh
 flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
   --default-branch=stable build io.github.mark12870.cabinet.yml
-flatpak install --user -y --reinstall cabinet-local io.github.mark12870.cabinet
+flatpak install --user -y --or-update cabinet-local io.github.mark12870.cabinet
 ```
 
 If a Cabinet window is already open the script uses it and leaves it running; otherwise it
@@ -114,6 +114,16 @@ Measured, not assumed:
   about the page's layout. An `Adw.AlertDialog` is the same story: it captures fine while the window
   is focused, and its body text is unreadable through AT-SPI either way — the alert exposes two
   empty panels and no label, the same reason its body cannot be selected or copied.
+
+- **Forcing the repaint with `xdotool windowsize`.** The resize lands — the captured PNG comes
+  back at the new size — but the client never redraws, so the old region still holds the stale
+  frame and the new region is black. Nothing short of focus updates the pixmap. A whole session
+  can go this way: a fresh launch that does not get focus captures its *startup* frame for
+  every page, so even a plain tab switch compares byte-identical to the Library landing shot.
+  `magick compare -metric AE` against an earlier shot is how to tell, and `0` means the run
+  proved nothing.
+- **`import -window ""`.** An unset id is not an error to `import`; it waits for an interactive
+  pick and hangs until the timeout kills it. Guard the id before capturing.
 
 - **Reaching the root page while another is pushed.** `Adw.NavigationView` drops the hidden
   page from the accessibility tree, so the header's *Look at everything again* button is not

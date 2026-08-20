@@ -23,4 +23,5 @@ internal static class Icons
     public const string Archive = "package-x-generic-symbolic";
     public const string Variables = "preferences-other-symbolic";
     public const string Library = "system-software-install-symbolic";
+    public const string Vst = "audio-x-generic-symbolic";
 }
