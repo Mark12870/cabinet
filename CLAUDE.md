@@ -70,7 +70,7 @@ dotnet build src/Cabinet.Gui -p:UseSharedCompilation=false
 
 flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
   --default-branch=stable build io.github.mark12870.cabinet.yml
-flatpak install --user cabinet-local io.github.mark12870.cabinet   # remote: file://$PWD/repo
+flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet  # file://$PWD/repo
 
 # Look at a page of the installed GUI. Needs the toolbox its header describes, once.
 scripts/gui-shot.sh About about.png
@@ -538,6 +538,13 @@ These were all found by something failing, not by reading documentation.
   Print `BUILD_EXIT=$?` and read it before believing anything about the installed app. A managed
   assembly stores literals as UTF-16, so `grep` for an ASCII string cannot confirm what shipped —
   search for `text.encode('utf-16-le')` instead.
+- **`flatpak install` skips a ref that is already installed**, printing
+  `Skipping: … is already installed` and exiting 0, so the second half of the build block does
+  nothing and the old build keeps running under a terminal that reported success. The same
+  stale install as above, reached without a failed build. `--or-update` installs or updates, so
+  one line covers the first run and every rebuild, and `flatpak info --user <id>` names the
+  commit actually deployed — compare it against
+  `ostree --repo=repo rev-parse app/<id>/x86_64/stable`.
 - **Never poll for a background command here — the harness already notifies.** Waiting on the
   flatpak build with a `pgrep`/`sleep` loop burned the full 600 s timeout for nothing: the
   builder runs as `flatpak run org.flatpak.Builder`, which `pgrep -f flatpak-builder` does not

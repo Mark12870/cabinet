@@ -50,12 +50,13 @@ paragraphs is the right length for `Description` — what it is, then what it co
 
 **Artwork is bundled**: `<vendor>/<id>.png` is a 192×192 icon for the row, `<id>.jpg` a
 screenshot no wider than 1000px, and `<vendor>/logo.png` the vendor's own mark, which is what a
-plugin's page shows in its top-left corner — falling back to the plugin's icon when a vendor has
-none. A logo needs a background chosen for it: a white-on-transparent mark disappears in the
+plugin's page shows in its top-left corner — falling back to a symbolic icon when a vendor has
+none, not to the plugin's own artwork. A logo needs a background chosen for it: a white-on-transparent mark disappears in the
 light theme and a black one in the dark theme, so pad each onto near-black or white as it
-needs, rather than shipping it transparent. Every entry has both today; record where a new one came from in
-`SOURCES.md` beside this skill, because shipping
-it makes Cabinet redistribute that vendor's artwork. Take it from the vendor's own product
+needs, rather than shipping it transparent — unless the mark is a self-contained badge, as
+u-he's and FabFilter's are. A vendor with no logo worth shipping ships none, as Digital
+Suburban does. Record where a new one came from in `SOURCES.md` beside this skill, because
+shipping it makes Cabinet redistribute that vendor's artwork. Take it from the vendor's own product
 page — or, when a project publishes no screenshot at all, **run the thing and photograph it**:
 Dexed's came from its own standalone build, started under `GDK_BACKEND=x11` and captured with
 `import -window`, which beats borrowing a stranger's screenshot. An entry with no files there

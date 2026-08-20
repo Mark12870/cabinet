@@ -93,8 +93,8 @@ Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
 ```sh
 flatpak run org.flatpak.Builder --repo=repo --force-clean \
   --default-branch=stable build io.github.mark12870.cabinet.yml
-flatpak remote-add --user --no-gpg-verify cabinet-local "file://$PWD/repo"
-flatpak install --user cabinet-local io.github.mark12870.cabinet
+flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://$PWD/repo"
+flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet
 ```
 
 ## License

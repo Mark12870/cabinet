@@ -14,6 +14,7 @@
 
 # jetbrains
 /.idea/
+*.DotSettings.user
 
 # python
 __pycache__/

@@ -44,13 +44,14 @@
   </screenshots>
 
   <content_rating type="oars-1.1" />
-
-  <!-- Cabinet's own version, and the only place it lives: flatpak reads Version:
-       from the newest entry here, and render-site.py reads it back out of each
-       published commit to build the table. Semver: major for breaking changes,
-       minor for features, patch for fixes. The yabridge it carries is a separate
-       number and belongs in the description, never in version. -->
+  
   <releases>
+    <release version="0.6.1" date="2026-08-20">
+      <description>
+        <p>Small fixes to the logos</p>
+      </description>
+    </release>
+    
     <release version="0.6.0" date="2026-08-20">
       <description>
         <p>Plugins have pages, and installs that a tar cannot do</p>
