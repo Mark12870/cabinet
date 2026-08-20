@@ -1,9 +1,0 @@
-Name: FabFilter Pro-Q
-Kind: windows
-Category: Effect
-Summary: Equaliser with a dynamic band per filter.
-Homepage: https://www.fabfilter.com/products/pro-q-4-equalizer-plug-in
-Source: byo
-Runner: 9.21
-Dxvk: true
-Sync: fsync

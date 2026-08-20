@@ -1,0 +1,20 @@
+Name: FabFilter Pro-Q
+Kind: windows
+Category: Effect
+Summary: Equaliser with a dynamic band per filter.
+Developer: FabFilter
+Licence: Commercial
+Formats: VST3, VST2, CLAP
+Homepage: https://www.fabfilter.com/products/pro-q-4-equalizer-plug-in
+Source: byo
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  The equaliser other equalisers are compared to: up to twenty-four bands,
+  each of which can be made dynamic, on a spectrum analyser you edit
+  directly.
+
+  There is no Linux build, so Cabinet gives it a Wine prefix of its own with
+  the Wine version its editor needs and DXVK for the drawing. You supply the
+  installer you bought.

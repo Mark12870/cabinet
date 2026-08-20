@@ -1,0 +1,21 @@
+Name: Protoverb
+Kind: native
+Category: Effect
+Summary: Room simulator built out of resonances, from u-he's own research.
+Developer: u-he
+Version: 1.0.1
+Licence: Freeware
+Formats: VST3
+Homepage: https://u-he.com/products/protoverb/
+Source: download
+Url: https://dl.u-he.com/releases/Protoverb_101_12092_Linux.tar.xz
+Sha256: 7b2c626b749a2a27f0aaeefe5e7fac43565e1df2e5a94f2b47a02c629a0a26d0
+Script: u-he.sh
+Data: .u-he/Protoverb
+Description:
+  A reverb that models a room rather than an impulse: it builds up resonances
+  the way a real space does, which gives it ghost echoes and keeps instruments
+  separated in the tail.
+
+  u-he call it researchware — it exists to feed their reverb research, and it
+  is free because of that. The Linux build is their own and is labelled beta.

@@ -121,6 +121,16 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         Action<string>? onOutput = null) =>
         Wine(name, command, arguments, onOutput);
 
+    public IReadOnlyDictionary<string, string> Variables(string name)
+    {
+        var selected = runners.Resolve(RunnerOf(name));
+        var environment = WineVariables(name, selected, null);
+        environment["CABINET_PREFIX"] = layout.PrefixPath(name);
+        environment["WINE"] = selected.Wine;
+
+        return environment;
+    }
+
     private const string Unattended = "mscoree=d;mshtml=d";
 
     private ProcessResult Wine(
@@ -132,6 +142,16 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
     {
         var selected = runners.Resolve(RunnerOf(prefix));
 
+        return runner.Run(
+            Executable(selected, command),
+            arguments,
+            WineVariables(prefix, selected, dllOverrides),
+            onOutput);
+    }
+
+    private Dictionary<string, string> WineVariables(
+        string prefix, Runner selected, string? dllOverrides)
+    {
         var environment = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var (key, value) in settings.Variables(prefix))
@@ -154,7 +174,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             environment["WINEDLLOVERRIDES"] = dllOverrides;
         }
 
-        return runner.Run(Executable(selected, command), arguments, environment, onOutput);
+        return environment;
     }
 
     private static string Executable(Runner selected, string command) =>

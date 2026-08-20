@@ -26,7 +26,7 @@ internal sealed class MainWindow
         window.SetDefaultSize(920, 640);
 
         prefixes = new PrefixesPage(layout, runner, window, navigation, RefreshAll);
-        library = new LibraryPage(layout, runner, window, RefreshAll);
+        library = new LibraryPage(layout, runner, window, navigation, RefreshAll);
         runners = new RunnersPage(layout, runner, window, RefreshAll);
         doctor = new DoctorPage(layout);
         about = new AboutPage(layout, runner, window);

@@ -58,7 +58,8 @@ internal static class Json
         });
 
     public static string Library(
-        IReadOnlyList<LibraryEntry> entries, IReadOnlySet<string> installedNative) =>
+        IReadOnlyList<LibraryEntry> entries,
+        IReadOnlyDictionary<string, string?> installed) =>
         Write(writer =>
         {
             writer.WriteStartArray();
@@ -76,12 +77,33 @@ internal static class Json
                 writer.WriteString("runner", entry.Runner);
                 writer.WriteBoolean("dxvk", entry.Dxvk);
                 writer.WriteString("sync", PrefixSettings.Word(entry.Sync));
-                writer.WriteBoolean("installed", installedNative.Contains(entry.Id));
+                writer.WriteString("script", entry.Script);
+                writer.WriteString("data", entry.Data);
+                writer.WriteString("developer", entry.Developer);
+                writer.WriteString("version", entry.Version);
+                writer.WriteString("licence", entry.Licence);
+                Strings(writer, "formats", entry.Formats);
+                Strings(writer, "description", entry.Description);
+                writer.WriteBoolean("installed", installed.ContainsKey(entry.Id));
+                writer.WriteString("installedIn", installed.GetValueOrDefault(entry.Id));
                 writer.WriteEndObject();
             }
 
             writer.WriteEndArray();
         });
+
+    private static void Strings(
+        Utf8JsonWriter writer, string name, IReadOnlyList<string> values)
+    {
+        writer.WriteStartArray(name);
+
+        foreach (var value in values)
+        {
+            writer.WriteStringValue(value);
+        }
+
+        writer.WriteEndArray();
+    }
 
     private static string Write(Action<Utf8JsonWriter> body)
     {

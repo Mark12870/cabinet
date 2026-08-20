@@ -26,7 +26,8 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
             : null;
     }
 
-    public string Install(string prefix, Action<string>? onOutput = null)
+    public string Install(
+        string prefix, Action<string>? onOutput = null, Action<double>? onProgress = null)
     {
         Initialised(prefix);
 
@@ -34,7 +35,7 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
 
         try
         {
-            Unpack(Download(staging, onOutput), staging, onOutput);
+            Unpack(Download(staging, onOutput, onProgress), staging, onOutput);
             Copy(staging, "x64", layout.PrefixSystem32(prefix), Backups(prefix, System32), onOutput);
             Copy(staging, "x32", layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64), onOutput);
             Override(prefix, onOutput);
@@ -101,10 +102,11 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
         }
     }
 
-    private string Download(string directory, Action<string>? onOutput)
+    private string Download(
+        string directory, Action<string>? onOutput, Action<double>? onProgress)
     {
         var target = Path.Combine(directory, Archive);
-        http.ToFile(Url, target, onOutput);
+        http.ToFile(Url, target, onOutput, onProgress);
 
         onOutput?.Invoke($"Checking sha256 {Sha256[..12]}…");
         Checksum.Expect(target, Sha256);

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Cabinet.Core;
 
 public sealed class Http(IProcessRunner runner)
@@ -22,13 +24,54 @@ public sealed class Http(IProcessRunner runner)
                 $"{host} answered {status} for {new Uri(url).AbsolutePath}");
     }
 
-    public void ToFile(string url, string target, Action<string>? onOutput = null)
+    public void ToFile(
+        string url,
+        string target,
+        Action<string>? onOutput = null,
+        Action<double>? onProgress = null)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         onOutput?.Invoke($"Downloading {url}");
 
+        var reported = -1d;
+        var announced = 0;
+
         var fetched = runner.Run(
-            "curl", ["-fL", "-sS", "--retry", "2", "-o", target, url], onOutput: onOutput);
+            "curl",
+            ["-fL", "--progress-bar", "--retry", "2", "-o", target, url],
+            onOutput: line =>
+            {
+                if (FractionOf(line) is not { } fraction)
+                {
+                    if (!Drawn(line))
+                    {
+                        onOutput?.Invoke(line);
+                    }
+
+                    return;
+                }
+
+                if (fraction == reported)
+                {
+                    return;
+                }
+
+                reported = fraction;
+
+                if (onProgress is not null)
+                {
+                    onProgress(fraction);
+                    return;
+                }
+
+                var tens = (int)(fraction * 10);
+
+                if (tens != announced)
+                {
+                    announced = tens;
+                    onOutput?.Invoke($"Downloading… {tens * 10}%");
+                }
+            });
 
         if (!fetched.Ok)
         {
@@ -37,6 +80,15 @@ public sealed class Http(IProcessRunner runner)
 
         onOutput?.Invoke($"Downloaded {new FileInfo(target).Length / 1024 / 1024} MB");
     }
+
+    private static bool Drawn(string line) => line.Trim(' ', '#', '=', 'O', '-').Length == 0;
+
+    private static double? FractionOf(string line) =>
+        line.Split(' ', StringSplitOptions.RemoveEmptyEntries) is [.., var last]
+        && last.EndsWith('%')
+        && double.TryParse(last[..^1], CultureInfo.InvariantCulture, out var percent)
+            ? Math.Clamp(percent / 100, 0, 1)
+            : null;
 
     private static string? StatusOf(string headers)
     {

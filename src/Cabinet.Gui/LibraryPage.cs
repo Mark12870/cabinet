@@ -7,15 +7,26 @@ internal sealed class LibraryPage
     private readonly Layout layout;
     private readonly IProcessRunner runner;
     private readonly Gtk.Window window;
+    private readonly Adw.NavigationView navigation;
     private readonly Action changed;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
 
-    public LibraryPage(Layout layout, IProcessRunner runner, Gtk.Window window, Action changed)
+    private PluginPage? open;
+
+    public LibraryPage(
+        Layout layout,
+        IProcessRunner runner,
+        Gtk.Window window,
+        Adw.NavigationView navigation,
+        Action changed)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
+        this.navigation = navigation;
         this.changed = changed;
+
+        navigation.OnPopped += (_, _) => open = null;
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -34,23 +45,55 @@ internal sealed class LibraryPage
         if (entries.Count == 0)
         {
             list.Append(Empty());
+            Reopen(entries, new Dictionary<string, string?>());
             return;
         }
 
-        var installed = library.InstalledNative().ToHashSet(StringComparer.Ordinal);
+        var installed = library.Installed();
 
         Section("Windows plugins", "Each one gets a Wine prefix, bridged into your DAW.",
             entries.Where(entry => entry.Kind == PluginKind.Windows), installed);
 
         Section("Linux plugins", "VST3, CLAP and LV2, in Cabinet's own directory and linked out.",
             entries.Where(entry => entry.Kind == PluginKind.Native), installed);
+
+        Reopen(entries, installed);
+    }
+
+    private void Reopen(
+        IReadOnlyList<LibraryEntry> entries, IReadOnlyDictionary<string, string?> installed)
+    {
+        if (open is null)
+        {
+            return;
+        }
+
+        var still = entries.FirstOrDefault(entry => entry.Id == open.Id);
+
+        if (still is null)
+        {
+            navigation.Pop();
+            return;
+        }
+
+        open.Show(still, installed.GetValueOrDefault(still.Id), installed.ContainsKey(still.Id));
+    }
+
+    private void Open(LibraryEntry entry, string? prefix, bool installed)
+    {
+        var page = new PluginPage(
+            layout, window, entry, one => Begin(one, prefix), ConfirmRemove);
+        page.Show(entry, prefix, installed);
+
+        open = page;
+        navigation.Push(page.Page);
     }
 
     private void Section(
         string title,
         string description,
         IEnumerable<LibraryEntry> entries,
-        IReadOnlySet<string> installed)
+        IReadOnlyDictionary<string, string?> installed)
     {
         var found = entries.ToList();
 
@@ -65,7 +108,7 @@ internal sealed class LibraryPage
 
         foreach (var entry in found)
         {
-            group.Add(Row(entry, installed.Contains(entry.Id)));
+            group.Add(Row(entry, installed));
         }
 
         list.Append(group);
@@ -80,85 +123,118 @@ internal sealed class LibraryPage
         return empty;
     }
 
-    private Adw.ActionRow Row(LibraryEntry entry, bool installed)
+    private Adw.ActionRow Row(LibraryEntry entry, IReadOnlyDictionary<string, string?> installed)
     {
+        var here = installed.TryGetValue(entry.Id, out var prefix);
+
         var row = Adw.ActionRow.New();
         row.SetTitle(entry.Name);
-        row.SetSubtitle(Subtitle(entry, installed));
-        row.AddPrefix(Gtk.Image.NewFromIconName(Icons.Prefixes));
+        row.SetSubtitle(Subtitle(entry));
+        row.AddPrefix(RowIcon(entry, here));
 
-        if (entry.Homepage is { } homepage)
+        if (here)
         {
-            var visit = Ui.RowButton(Icons.Link, $"{entry.Name} on the web");
-            visit.OnClicked += (_, _) => Gtk.UriLauncher.New(homepage).LaunchAsync(window);
-            row.AddSuffix(visit);
+            row.AddSuffix(Badge(prefix));
         }
 
-        var act = installed
-            ? Ui.RowButton(Icons.Delete, $"Remove {entry.Name}", destructive: true)
-            : Ui.RowButton(Icons.Download, $"Install {entry.Name}");
-
-        act.OnClicked += (_, _) =>
-        {
-            if (installed)
-            {
-                ConfirmRemove(entry);
-            }
-            else
-            {
-                Begin(entry);
-            }
-        };
-
-        row.AddSuffix(act);
-        row.SetActivatableWidget(act);
+        var enter = Ui.RowButton(Icons.Forward, $"About {entry.Name}");
+        enter.OnClicked += (_, _) => Open(entry, prefix, here);
+        row.AddSuffix(enter);
+        row.SetActivatableWidget(enter);
 
         return row;
     }
 
-    private static string Subtitle(LibraryEntry entry, bool installed)
+    private Gtk.Widget RowIcon(LibraryEntry entry, bool installed)
     {
-        var state = entry.Summary.Length > 0 ? $"{entry.Category}  ·  {entry.Summary}"
-            : entry.Category;
+        if (layout.LibraryIcon(entry.Vendor, entry.Id) is { } file)
+        {
+            var art = Gtk.Image.NewFromFile(file);
+            art.SetPixelSize(32);
+            return art;
+        }
+
+        var icon = Gtk.Image.NewFromIconName(installed ? Icons.Ok : Icons.Prefixes);
+
+        if (installed)
+        {
+            icon.AddCssClass("success");
+        }
+
+        return icon;
+    }
+
+    private static Gtk.Label Badge(string? prefix)
+    {
+        var badge = Gtk.Label.New(prefix is null ? "Installed" : $"Installed in {prefix}");
+        badge.AddCssClass("success");
+        badge.AddCssClass("caption-heading");
+        badge.SetValign(Gtk.Align.Center);
+        return badge;
+    }
+
+    private static string Subtitle(LibraryEntry entry)
+    {
+        var parts = new List<string>();
+
+        if (entry.Developer is { } developer)
+        {
+            parts.Add(developer);
+        }
+
+        parts.Add(entry.Category);
+
+        if (entry.Summary.Length > 0)
+        {
+            parts.Add(entry.Summary);
+        }
 
         if (entry.Source == PluginSource.Byo)
         {
-            state += "  ·  needs the installer you bought";
+            parts.Add("needs the installer you bought");
         }
 
-        return installed ? $"{state}  ·  installed" : state;
+        return string.Join("  ·  ", parts);
     }
 
-    private void Begin(LibraryEntry entry)
+    private void Begin(LibraryEntry entry, string? already)
     {
         if (entry.Kind == PluginKind.Native)
         {
-            Start(entry, null, null);
+            ConfirmInstall(entry);
             return;
         }
 
-        AskForPrefix(entry);
+        AskForPrefix(entry, already);
     }
 
-    private void AskForPrefix(LibraryEntry entry)
-    {
-        var dialog = Adw.AlertDialog.New(
-            $"Install {entry.Name}",
-            entry.Source == PluginSource.Byo
-                ? $"{entry.Name} cannot be downloaded, so you will be asked for the installer "
-                  + "you already have."
-                : "A prefix of its own keeps this plugin's dependencies away from every other.");
+    private void ConfirmInstall(LibraryEntry entry) => Ui.Confirm(
+        window,
+        $"Install {entry.Name}?",
+        $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own directory "
+        + "and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW "
+        + "afterwards."
+        + (entry.Data is null
+            ? ""
+            : $"\n\nIts presets and resources go in ~/{entry.Data}, which is where this "
+              + "plugin looks for them."),
+        "Install",
+        () => Start(entry, null, null));
 
+    private void AskForPrefix(LibraryEntry entry, string? already)
+    {
         var existing = new Prefixes(layout, runner).List().Select(one => one.Name).ToList();
         List<string> choices = ["New prefix", .. existing];
 
         var where = Adw.ComboRow.New();
         where.SetTitle("Prefix");
         where.SetModel(Gtk.StringList.New([.. choices]));
+        where.SetSelected((uint)Math.Max(choices.IndexOf(already ?? ""), 0));
 
         var name = Adw.EntryRow.New();
         name.SetTitle("Name");
         name.SetText(entry.Prefix);
+        name.SetVisible(where.GetSelected() == 0);
 
         where.OnNotify += (_, args) =>
         {
@@ -169,79 +245,62 @@ internal sealed class LibraryPage
         };
 
         var fields = Adw.PreferencesGroup.New();
-        fields.SetMarginTop(12);
         fields.Add(where);
         fields.Add(name);
-        dialog.SetExtraChild(fields);
 
-        dialog.AddResponse("cancel", "Cancel");
-        dialog.AddResponse("ok", "Install");
-        dialog.SetResponseAppearance("ok", Adw.ResponseAppearance.Suggested);
-        dialog.SetDefaultResponse("ok");
-        dialog.SetCloseResponse("cancel");
-
-        dialog.OnResponse += (_, args) =>
-        {
-            if (args.Response != "ok")
+        Ui.Confirm(
+            window,
+            $"Install {entry.Name}?",
+            entry.Source == PluginSource.Byo
+                ? $"{entry.Name} cannot be downloaded, so you will be asked for the installer "
+                  + "you already have."
+                : "A prefix of its own keeps this plugin's dependencies away from every other.",
+            "Install",
+            () =>
             {
-                return;
-            }
+                var selected = (int)where.GetSelected();
+                var prefix = selected == 0 ? name.GetText().Trim() : choices[selected];
 
-            var selected = (int)where.GetSelected();
-            var prefix = selected == 0 ? name.GetText().Trim() : choices[selected];
+                if (prefix.Length == 0)
+                {
+                    return;
+                }
 
-            if (prefix.Length == 0)
-            {
-                return;
-            }
+                if (entry.Source == PluginSource.Byo)
+                {
+                    Ui.ChooseFile(
+                        window,
+                        $"Choose the {entry.Name} installer",
+                        installer => Start(entry, prefix, installer));
+                    return;
+                }
 
-            if (entry.Source == PluginSource.Byo)
-            {
-                Ui.ChooseFile(
-                    window,
-                    $"Choose the {entry.Name} installer",
-                    installer => Start(entry, prefix, installer));
-                return;
-            }
-
-            Start(entry, prefix, null);
-        };
-
-        dialog.Present(window);
+                Start(entry, prefix, null);
+            },
+            extra: fields);
     }
 
     private void Start(LibraryEntry entry, string? prefix, string? installer) =>
         Operation.Run(
             window,
             $"Installing {entry.Name}",
-            output => new Library(layout, runner).Install(entry, prefix, installer, output),
+            (output, progress) =>
+                new Library(layout, runner).Install(entry, prefix, installer, output, progress),
             changed);
 
-    private void ConfirmRemove(LibraryEntry entry)
-    {
-        var dialog = Adw.AlertDialog.New(
-            $"Remove {entry.Name}?",
-            "Its files and the links your DAW scans are deleted. Presets you saved elsewhere "
-            + "are left alone.");
-
-        dialog.AddResponse("cancel", "Cancel");
-        dialog.AddResponse("delete", "Remove");
-        dialog.SetResponseAppearance("delete", Adw.ResponseAppearance.Destructive);
-        dialog.SetDefaultResponse("cancel");
-        dialog.SetCloseResponse("cancel");
-
-        dialog.OnResponse += (_, args) =>
-        {
-            if (args.Response == "delete")
-            {
-                Operation.Run(
-                    window,
-                    $"Removing {entry.Name}",
-                    output => new Library(layout, runner).RemoveNative(entry.Id, output),
-                    changed);
-            }
-        };
-
-        dialog.Present(window);
-    }
+    private void ConfirmRemove(LibraryEntry entry) => Ui.Confirm(
+        window,
+        $"Remove {entry.Name}?",
+        entry.Data is null
+            ? "Its files and the links your DAW scans are deleted. Presets you saved elsewhere "
+              + "are left alone."
+            : $"Its files and the links your DAW scans are deleted, and so is ~/{entry.Data} — "
+              + "the presets you saved for it go with it.",
+        "Remove",
+        () => Operation.Run(
+            window,
+            $"Removing {entry.Name}",
+            output => new Library(layout, runner).RemoveNative(entry.Id, output),
+            changed),
+        Adw.ResponseAppearance.Destructive);
 }

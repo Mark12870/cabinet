@@ -13,6 +13,12 @@
 # X11: the app is started with GDK_BACKEND=x11 through XWayland, which the manifest's
 # --socket=x11 already allows.
 #
+# A row is activated through its LAST clickable descendant, which is the one an
+# Adw.ActionRow makes its activatable widget. Taking the first instead reaches
+# whatever button the row carries ahead of it, and a row's other buttons act rather
+# than navigate -- one of them opened a destructive dialog instead of the page asked
+# for.
+#
 # xdotool, ImageMagick and pyatspi are not on a Silverblue host, so they live in a
 # toolbox that shares the session's DISPLAY and D-Bus. Create it once with:
 #
@@ -88,21 +94,21 @@ def find(node, role, wanted, depth=0):
 
 
 def clickable(node, depth=0):
-    if depth > 32:
-        return None
-    try:
-        action = node.queryAction()
-        for i in range(action.nActions):
-            if action.getName(i) == "click":
-                return node, i
-    except Exception:
-        pass
-    for child in node:
-        if child is not None:
-            found = clickable(child, depth + 1)
-            if found is not None:
-                return found
-    return None
+    found = None
+    if depth <= 32:
+        try:
+            action = node.queryAction()
+            for i in range(action.nActions):
+                if action.getName(i) == "click":
+                    found = node, i
+        except Exception:
+            pass
+        for child in node:
+            if child is not None:
+                deeper = clickable(child, depth + 1)
+                if deeper is not None:
+                    found = deeper
+    return found
 
 
 def activate(root, role, wanted, what):

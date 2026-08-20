@@ -96,13 +96,25 @@ Measured, not assumed:
   `doAction(0)`, which otherwise copies a label and reports success.
 - **Capturing a popover.** An `Adw.ComboRow`'s list is a separate X window, so
   `import -window` photographs the page underneath it and a combo's choice cannot be confirmed
-  visually. An `Adw.Dialog` draws in the window's own surface and captures fine — that is the
-  route for anything a popover would have offered.
-- **Verifying a clipboard write on Wayland.** The compositor only accepts one from a *focused*
-  client, and a window driven through AT-SPI has neither `active` nor `focused` — checked, so the
-  paste comes back as whatever was there before and the button looks broken. Run the app under
-  `GDK_BACKEND=x11`, where there is no such rule, and read the result with `wl-paste`; mutter
-  bridges the two. Expect one trailing NUL from that bridge, which is not the app's doing.
+  visually. An `Adw.Dialog` with real widgets in it draws in the window's own surface and
+  captures fine — that is the route for anything a popover would have offered.
+- **Capturing a window that is not the focused one.** This is the trap behind every "my change
+  did not render": once another window takes focus, XWayland stops updating Cabinet's backing
+  pixmap and `import -window <id>` keeps returning **the last frame it had** — a page switch, a
+  pushed page and an open dialog all vanish from the capture while AT-SPI shows them present.
+  `xprop _NET_WM_STATE` says `_NET_WM_STATE_DEMANDS_ATTENTION` when this is happening, and
+  `xdotool windowactivate --sync` does *not* fix it: mutter refuses the raise, exactly as it
+  refuses the clipboard to an unfocused client. There is no route to the screen either —
+  `import -window root` and `import -screen -window <id>` both fail with *missing an image
+  filename*. **Check what the shot actually shows before believing it**, and when the window
+  cannot be brought forward, verify through AT-SPI (page titles, label text, button names)
+  rather than pixels. A page pushed onto the `Adw.NavigationView` in that state is also
+  **allocated 0×0** — `queryComponent().getExtents()` says so for a brand-new page and for the
+  long-working Prefixes one alike, so a zero-size page is evidence about the window's focus, not
+  about the page's layout. An `Adw.AlertDialog` is the same story: it captures fine while the window
+  is focused, and its body text is unreadable through AT-SPI either way — the alert exposes two
+  empty panels and no label, the same reason its body cannot be selected or copied.
+
 - **Reaching the root page while another is pushed.** `Adw.NavigationView` drops the hidden
   page from the accessibility tree, so the header's *Look at everything again* button is not
   there to click from a subpage. Trigger a refresh through an operation the subpage itself

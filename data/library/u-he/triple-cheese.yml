@@ -1,0 +1,21 @@
+Name: Triple Cheese
+Kind: native
+Category: Synth
+Summary: Comb filters instead of oscillators, for sounds nothing else makes.
+Developer: u-he
+Version: 1.3
+Licence: Freeware
+Formats: VST3
+Homepage: https://u-he.com/products/triplecheese/
+Source: download
+Url: https://dl.u-he.com/releases/TripleCheese_13_12092_Linux.tar.xz
+Sha256: 04ea1233fd64173746480c85e662f3e81d3e48c1149ca419f89a216e850fb3c4
+Script: u-he.sh
+Data: .u-he/TripleCheese
+Description:
+  Winner of the 2006 KVR Developer Challenge, and unlike anything else here:
+  no oscillators, no wavetables, no FM, no modelled analogue filter. Three
+  cascaded comb-filter modules make the sound instead.
+
+  The Linux build is u-he's own, and they call it beta: stable, but supported
+  through their forum rather than their support desk.

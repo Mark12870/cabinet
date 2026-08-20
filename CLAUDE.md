@@ -40,8 +40,9 @@ sandboxes; nothing else has that constraint.
 - `src/Cabinet.Cli/` — argument parsing and rendering only, NativeAOT.
 - `src/Cabinet.Gui/` — GTK4 + libadwaita through GirCore. Trimmed, not NativeAOT.
 - `data/` — the app icon: Phosphor's *dresser* duotone, recoloured, MIT, keep the licence
-  beside it and the credit in the README. `data/library/` is the plugin catalogue, one flat
-  `.yml` per plugin, installed to `/app/share/cabinet/library/`.
+  beside it and the credit in the README. `data/library/` is the plugin catalogue, **one
+  directory per vendor** holding its `.yml` entries, the `.sh` its installs need and the icon
+  and screenshot its pages show, installed to `/app/share/cabinet/library/<vendor>/`.
 - `scripts/`, `site/`, `.github/workflows/` — packaging and publishing.
 - `.claude/skills/` — `gui-shot` for looking at the GUI, `releasing` for publishing one,
   `library-entry` for adding a plugin to the catalogue.
@@ -86,9 +87,11 @@ upstream supports this through `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. P
 no registration: yabridge walks up from the plugin `.dll` for a `dosdevices` directory.
 
 **Everything Cabinet owns stays in `~/.var/app/io.github.mark12870.cabinet/`, prefixes
-included** — the Bottles model, and the standard to hold new code to. Two paths outside it
-are unavoidable: `~/.vst3/yabridge/…` (where DAWs scan) and `~/.var/app/<daw>/data/yabridge`
-(the chainloader's compiled-in search path). Anything else in `$HOME` is a bug.
+included** — the Bottles model, and the standard to hold new code to. Three paths outside it
+are unavoidable: `~/.vst3/yabridge/…` (where DAWs scan), `~/.var/app/<daw>/data/yabridge`
+(the chainloader's compiled-in search path), and a Library entry's `Data:` directory, for a
+plugin that reads a fixed path under `$HOME` and would otherwise load without its presets.
+Anything else in `$HOME` is a bug.
 
 ## Gotchas
 
@@ -332,9 +335,32 @@ These were all found by something failing, not by reading documentation.
   app, so the DAW sees a dangling link and the plugin simply does not appear. `enrol` grants
   `--filesystem=<native>:ro` beside the prefixes grant, and `doctor` checks for it — anything
   that moves that directory has to move both.
-- **A Library entry is a description, not a script.** There is no step DSL and no hook, because
-  one procedure — `Library.Install` — covers every entry, and a plugin needing more than the
-  fields express is a gap in that procedure to fix rather than an escape hatch to add.
+- **A Library entry describes the install, and may name a script for one step of it.** That step
+  is the unpack — or, for a Windows entry, the installer run — and nothing else: the checksummed
+  download, the links into `~/.vst3` and friends, the `.cabinet-plugins` record, DXVK and the
+  yabridge sync stay in `Library`, so what an install leaves behind does not depend on what a
+  script did, and removal never runs one. `Script:` names a file the build ships in the entry's
+  own vendor directory under `/app/share/cabinet/library/`, never a path; the script is `sh -e`,
+  run **in the destination directory** so a `tar -xf` with no `-C` still lands inside, and told
+  everything
+  else through `CABINET_ARCHIVE`, `CABINET_DEST`, `CABINET_DATA`, `CABINET_WORK` and, for a
+  prefix, everything `Prefixes.Wine` sets. It must not download: the archive is already
+  checksummed and a second fetch would not be. A `Data:` directory is Cabinet's, not the
+  script's — it creates it, refuses to install over one it did not create, and deletes it on
+  removal.
+- **u-he ships no bundle, and its plugins read `$HOME/.u-he/<Product>` by name.** The tarball is
+  one `<Product>.64.so` plus `Data`, `Presets` and the rest, and upstream's `install.sh` builds
+  the VST3 around it. The binary's own strings are `%s/.%s/%s/Data` with `u-he` — it does *not*
+  resolve its resources beside itself, so keeping them in `data/native/<id>/` would give every
+  u-he plugin a GUI with no images and no presets. `u-he.sh` therefore assembles
+  `<Product>.vst3/Contents/x86_64-linux/<Product>.so` in `CABINET_DEST` and fills `CABINET_DATA`,
+  which the entry points at `.u-he/<Product>`. Whether a product is also a CLAP is decided by
+  `grep -qa clap_entry` on the binary rather than by copying upstream's hardcoded list — measured
+  to agree with it on all seven free products. `install.sh` itself is never run: it copies into
+  `~/.vst`, `~/.vst3` and `~/.u-he` on its own terms, which is the nondeterminism the split above
+  exists to avoid. **Cabinet holds `$HOME` read-only**, so a `Data:` directory needs its own
+  `--filesystem=~/<dir>:create` in the manifest — `~/.u-he` has one, and a second vendor needs a
+  second grant rather than widening `home`.
 - **`Bundles` walks two levels and never descends into a bundle.** A Linux `.vst3` and an
   `.lv2` are both *directories* carrying a plain `.so` inside, so a recursive search links that
   inner `.so` into `~/.vst` as if it were a VST2. Found by inspecting
@@ -365,6 +391,23 @@ These were all found by something failing, not by reading documentation.
   `wine-9.21-staging-tkg` — rather than asking Bottles' index which build `9.21` is. Resolving
   it upstream would make every install need the network, and fail when Cabinet already had the
   runner sitting there.
+- **Which plugin a prefix holds is recorded, not guessed.** A Windows entry reads as installed
+  only because `InstallWindows` appends its id to `.cabinet-plugins` in the prefix, beside
+  `.cabinet-runner` and the rest. Guessing from the entry's `Prefix:` field was rejected and is
+  wrong both ways: installing into a differently-named prefix would read as not installed, and
+  an empty prefix that happens to share the name would read as installed. The record lives
+  inside the prefix, so deleting the prefix takes it with it — nothing else has to clean up.
+  A native plugin needs no record: its `data/native/<id>/` directory *is* the fact.
+- **`Kind: native` with `Source: byo` is refused.** `Install` ignores the installer argument for
+  a native plugin and `Fetch` dereferences `Url`, so the combination was an entry nothing could
+  install — and the GUI's install dialog, which names the download host, had nothing to name.
+  Both front ends now fail at `LibraryEntry.Parse` instead of at the download. A paid Linux
+  plugin would need a real answer here, not this one.
+- **The Library page offers no Remove for a Windows plugin, on purpose.** `RemoveNative` refuses
+  a Windows entry and points at `cabinet delete <prefix>`, because a prefix may hold more than
+  the one plugin. So an installed Windows row keeps its Install button — installing the same
+  plugin into a second prefix is a real thing to want — and only a native row turns
+  destructive.
 
 ### yabridge
 
@@ -404,13 +447,40 @@ These were all found by something failing, not by reading documentation.
   is empty** rather than setting it blank — blanking it would make Wine fail a connection to a
   socket named `""` instead of skipping Wayland. Do not "simplify" that rule away; it is the
   only thing keeping `--socket=wayland` from reaching Wine.
+- **Download progress is curl's `--progress-bar`, and it is readable only by accident of
+  `ReadLine`.** `Http.ToFile` used `-sS`, so a 100 MB runner fetch printed one line and then
+  nothing. curl still draws the bar when stderr is a pipe rather than a tty, and
+  `StreamReader.ReadLine` — what `ProcessRunner.Drain` uses — treats a bare `\r` as a line
+  terminator, so each redraw already arrives as its own `onOutput` call; nothing in
+  `ProcessRunner` had to change. Two things `od -c` showed that reading the flag would not:
+  the `\r` **leads** each draw rather than trailing it, so the first line of every download is
+  empty, and before the percentages curl draws a **fly spinner** — `#=#=#`, `##O#- #` — for the
+  stretch where it has no size yet. Neither carries a `%`, so both would have gone to the log
+  as text; `Drawn` drops a line made only of ` #=O-`. What is left: with an `Action<double>`
+  sink the percentages become fractions for the GUI's progress bar, with none they become one
+  `Downloading… NN%` line per tens digit, which is how the **CLI** got progress without a line
+  of CLI code. Do not "simplify" it back to `-sS`.
+- **A progress sink must be throttled, and the symptom of not throttling is a dialog that
+  stops.** `Operation.Show` first did what `Write` does — one `Ui.OnMainLoop` per call — and
+  curl draws a 7 MB download a few hundred times. Twice the install *finished on disk*, curl
+  exited, and the dialog sat with a stale bar and a truncated log; the window still repainted,
+  so it read as a slow download rather than an idle queue that had stopped dispatching. It is
+  intermittent — the same build then completed the same install — so the cause is a race in the
+  callback path and **is not proven**; what is measured is that it appears only under hundreds
+  of `Ui.OnMainLoop` calls and never under the ten or so an ordinary operation makes. `Show`
+  therefore coalesces (latest fraction under a lock, one callback outstanding) *and* redraws at
+  most every 100 ms, which bounds a download of any size to the volume that has always worked
+  and is more than a progress bar can render anyway. If a queue-stops-dispatching hang ever
+  shows up again, this is the first place to look, and the real fix is delegate lifetime in
+  `Ui.OnMainLoop`.
 - **`IProcessRunner` streams, and that replaced the old `inherit` flag.** `inherit: true` handed
   the child the parent's stdout/stderr and returned an empty `ProcessResult` — invisible to a
   GUI, which has no console. The interface now takes an `Action<string>? onOutput` sink that
   is called per line while the process runs, and still collects the full output. The CLI
   passes `Console.WriteLine`, so its behaviour is unchanged; the GUI appends to a text view.
   One consequence: output is line-buffered now, so a child that draws progress with `\r` and
-  no newline will not render the same way it did.
+  no newline arrives as one line per update rather than one line redrawn — which is what makes
+  curl's meter parseable, above.
 - **A prefix's settings live on a pushed page because a rebuilt expander collapses.** Every
   mutation ends in `RefreshAll`, which clears and rebuilds the prefixes list, so settings held
   in an `Adw.ExpanderRow` vanished the moment one was changed. `Adw.NavigationView` is now the
@@ -453,6 +523,12 @@ These were all found by something failing, not by reading documentation.
   there is nothing for the servers to save. Same server the GUI's `-p:UseSharedCompilation=false`
   turns off under *Build and test*, and the reason never to run a one-off `dotnet` in a sandbox
   of its own beside a check that is already running.
+- **A screenshot of an unfocused window is a stale frame, not a broken change.** Chasing one cost
+  four rebuilds: the plugin page was pushing correctly all along while `import -window` returned a
+  frame from before the click, so the change looked absent and two innocent lines were reverted
+  looking for it. AT-SPI showed the truth throughout. The `gui-shot` skill has the detail; the
+  rule here is that a GUI change is unproven until the shot is confirmed *current*, and that
+  AT-SPI is what to fall back on when the window cannot be brought forward.
 - **Check the build's exit code, and do not hide it behind `&&`/`||`.** `flatpak-builder … &&
   flatpak install … || tail -4 log` exits 0 whatever happens, so a failed build reported success
   and the next half hour tested a *stale* install — the GUI kept showing the old dialog and the

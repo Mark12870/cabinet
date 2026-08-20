@@ -64,25 +64,48 @@ internal static class Ui
         string placeholder,
         Action<string> accepted)
     {
-        var dialog = Adw.AlertDialog.New(heading, body);
         var entry = Gtk.Entry.New();
         entry.SetPlaceholderText(placeholder);
-        entry.SetMarginTop(12);
-        dialog.SetExtraChild(entry);
+
+        Confirm(parent, heading, body, "Continue", () =>
+        {
+            if (entry.GetText().Trim() is { Length: > 0 } text)
+            {
+                accepted(text);
+            }
+        }, extra: entry);
+    }
+
+    public static void Confirm(
+        Gtk.Widget parent,
+        string heading,
+        string body,
+        string action,
+        Action accepted,
+        Adw.ResponseAppearance appearance = Adw.ResponseAppearance.Suggested,
+        Gtk.Widget? extra = null)
+    {
+        var dialog = Adw.AlertDialog.New(heading, body);
+
+        if (extra is not null)
+        {
+            extra.SetMarginTop(12);
+            dialog.SetExtraChild(extra);
+        }
+
+        var destructive = appearance == Adw.ResponseAppearance.Destructive;
 
         dialog.AddResponse("cancel", "Cancel");
-        dialog.AddResponse("ok", "Continue");
-        dialog.SetResponseAppearance("ok", Adw.ResponseAppearance.Suggested);
-        dialog.SetDefaultResponse("ok");
+        dialog.AddResponse("ok", action);
+        dialog.SetResponseAppearance("ok", appearance);
+        dialog.SetDefaultResponse(destructive ? "cancel" : "ok");
         dialog.SetCloseResponse("cancel");
 
         dialog.OnResponse += (_, args) =>
         {
-            var text = entry.GetText().Trim();
-
-            if (args.Response == "ok" && text.Length > 0)
+            if (args.Response == "ok")
             {
-                accepted(text);
+                accepted();
             }
         };
 

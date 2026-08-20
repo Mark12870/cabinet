@@ -51,6 +51,25 @@
        minor for features, patch for fixes. The yabridge it carries is a separate
        number and belongs in the description, never in version. -->
   <releases>
+    <release version="0.6.0" date="2026-08-20">
+      <description>
+        <p>Plugins have pages, and installs that a tar cannot do</p>
+        <ul>
+          <li>Every plugin in the Library gets a page of its own: a screenshot, what it is,
+          who makes it, which formats it installs as and what running it costs</li>
+          <li>Seven free u-he synths added — Podolski, Triple Cheese, Protoverb,
+          Zebralette 3, TyrellN6, ZebraCM and BazilleCM</li>
+          <li>A catalogue entry can name an install script for the plugins a plain unpack
+          cannot install, and say which directory of its own a plugin keeps presets in</li>
+          <li>cabinet library show tells you the same as the page does</li>
+          <li>Removing a Linux plugin now asks first, and says what it will delete</li>
+          <li>Downloads show how far along they are: a bar in the window, percentages on
+          the command line</li>
+        </ul>
+        <p>Removing a u-he plugin also deletes its presets, which live in ~/.u-he.</p>
+      </description>
+    </release>
+
     <release version="0.5.0" date="2026-08-19">
       <description>
         <p>A Library page, so a plugin installs itself</p>

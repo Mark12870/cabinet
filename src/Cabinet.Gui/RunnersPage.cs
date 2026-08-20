@@ -167,7 +167,8 @@ internal sealed class RunnersPage
             Operation.Run(
                 window,
                 $"Installing {release.Name}",
-                output => new Runners(layout, runner).Install(release, output),
+                (output, progress) =>
+                    new Runners(layout, runner).Install(release, output, progress),
                 changed);
         };
 
