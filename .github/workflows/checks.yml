@@ -36,6 +36,8 @@ jobs:
       - name: Build and test
         run: |
           dotnet format --verify-no-changes
+          dotnet build src/Cabinet.Cli --nologo -v q
+          dotnet build src/Cabinet.Gui --nologo -v q -p:UseSharedCompilation=false
           dotnet test tests/Cabinet.Core.Tests --nologo
 
   metadata:

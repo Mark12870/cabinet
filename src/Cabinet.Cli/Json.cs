@@ -82,6 +82,7 @@ internal static class Json
                 writer.WriteString("developer", entry.Developer);
                 writer.WriteString("version", entry.Version);
                 writer.WriteString("licence", entry.Licence);
+                writer.WriteString("licensing", entry.Licensing);
                 Strings(writer, "formats", entry.Formats);
                 Strings(writer, "description", entry.Description);
                 writer.WriteBoolean("installed", installed.ContainsKey(entry.Id));

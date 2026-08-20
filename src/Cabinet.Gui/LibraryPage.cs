@@ -251,10 +251,7 @@ internal sealed class LibraryPage
         Ui.Confirm(
             window,
             $"Install {entry.Name}?",
-            entry.Source == PluginSource.Byo
-                ? $"{entry.Name} cannot be downloaded, so you will be asked for the installer "
-                  + "you already have."
-                : "A prefix of its own keeps this plugin's dependencies away from every other.",
+            Prospect(entry),
             "Install",
             () =>
             {
@@ -278,6 +275,23 @@ internal sealed class LibraryPage
                 Start(entry, prefix, null);
             },
             extra: fields);
+    }
+
+    private static string Prospect(LibraryEntry entry)
+    {
+        if (entry.Source == PluginSource.Byo)
+        {
+            return $"{entry.Name} cannot be downloaded, so you will be asked for the installer "
+                   + "you already have.";
+        }
+
+        var prefix = "A prefix of its own keeps this plugin's dependencies away from every other.";
+
+        return entry.Source == PluginSource.Rolling
+            ? "Cabinet downloads it and runs its installer under Wine. "
+              + $"{Library.Unverifiable(entry.Url!)}\n\n{prefix}"
+            : $"Cabinet downloads it from {new Uri(entry.Url!).Host} and runs its installer "
+              + $"under Wine. {prefix}";
     }
 
     private void Start(LibraryEntry entry, string? prefix, string? installer) =>

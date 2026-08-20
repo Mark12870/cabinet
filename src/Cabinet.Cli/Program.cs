@@ -407,14 +407,17 @@ internal static class Program
             return 0;
         }
 
+        var width = entries.Max(entry => entry.Id.Length);
+
         foreach (var entry in entries)
         {
             var kind = entry.Kind == PluginKind.Native ? "linux" : "windows";
-            var cost = entry.Source == PluginSource.Byo ? "paid" : "free";
+            var cost = entry.Licence == "Commercial" ? "paid" : "free";
             var mark = installed.ContainsKey(entry.Id) ? "ok" : "  ";
 
             Console.WriteLine(
-                $"{mark}  {entry.Id,-18}  {kind,-8}  {cost,-5}  {entry.Category,-10}  {entry.Name}");
+                $"{mark}  {entry.Id.PadRight(width)}  {kind,-8}  {cost,-5}  "
+                + $"{entry.Category,-10}  {entry.Name}");
         }
 
         Console.WriteLine();
@@ -458,6 +461,18 @@ internal static class Program
         Field("Installed", installed.TryGetValue(id, out var where)
             ? where is null ? "yes" : $"in prefix {where}"
             : "no");
+
+        if (entry.Licensing is { } licensing)
+        {
+            Console.WriteLine();
+            Console.WriteLine(Wrapped(licensing));
+        }
+
+        if (entry.Source == PluginSource.Rolling)
+        {
+            Console.WriteLine();
+            Console.WriteLine(Wrapped(Cabinet.Core.Library.Unverifiable(entry.Url!)));
+        }
 
         Console.WriteLine();
         Console.WriteLine(entry.Source == PluginSource.Byo

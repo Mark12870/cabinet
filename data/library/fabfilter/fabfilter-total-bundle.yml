@@ -1,0 +1,26 @@
+Name: FabFilter Total Bundle
+Kind: windows
+Category: Bundle
+Summary: Every FabFilter plugin, on a 30-day trial.
+Developer: FabFilter
+Licence: Commercial
+Licensing:
+  Every download is a free, fully functional 30-day trial version. After the
+  evaluation period it is unlocked with a licence key from FabFilter's shop.
+Formats: VST3, CLAP
+Homepage: https://www.fabfilter.com/products
+Source: rolling
+Url: https://cdn-b.fabfilter.com/downloads/fftotalbundlex64.exe
+Prefix: fabfilter
+Runner: soda-11.0-5
+Dxvk: true
+Sync: system
+Description:
+  All fourteen FabFilter plugins in one installer: Pro-Q 4, the equaliser other
+  equalisers are compared to, with Pro-C, Pro-L, Pro-R, Pro-MB, Pro-DS and Pro-G
+  beside it; Saturn, Timeless, Volcano and Twin for the creative half; and One,
+  Simplon and Micro for the basics.
+
+  None of them has a Linux build, so Cabinet gives the bundle a Wine prefix of its
+  own with the Wine version their editors need and DXVK for the drawing. Which
+  plugins and which formats land in it is the installer's own first question.

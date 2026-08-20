@@ -11,7 +11,7 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | surge-xt | `surge-synthesizer.github.io/images/hero_dark.png` |
 | dexed | captured here, from Dexed 1.0.1's own standalone build |
 | serum | `xferrecords.com/assets/products-large/serum2_promo…png` |
-| fabfilter-pro-q | `cdn-b.fabfilter.com/img/products/pro-q-4-screenshot.jpg` |
+| fabfilter-total-bundle | `cdn-b.fabfilter.com/img/products/pro-q-4-screenshot.jpg` — Pro-Q 4, the bundle's flagship |
 
 Each `<vendor>/logo.png` is that vendor's own mark on the background that keeps it legible in
 both GNOME themes — Xfer's is white, so it sits on near-black; Surge Synth Team's has black

@@ -20,6 +20,9 @@ public class LibraryTests : IDisposable
         Developer: Surge Synth Team
         Version: 1.3.4
         Licence: GPL-3.0
+        Licensing:
+          Free and open source, so there is no key
+          and no account.
         Formats: VST3, CLAP, LV2
         Description:
           Three oscillators per scene, twelve filter types
@@ -56,6 +59,7 @@ public class LibraryTests : IDisposable
         Assert.Equal("Surge Synth Team", entry.Developer);
         Assert.Equal("1.3.4", entry.Version);
         Assert.Equal("GPL-3.0", entry.Licence);
+        Assert.Equal("Free and open source, so there is no key and no account.", entry.Licensing);
         Assert.Equal(["VST3", "CLAP", "LV2"], entry.Formats);
         Assert.Equal(
             [
@@ -199,6 +203,44 @@ public class LibraryTests : IDisposable
                 "loose", "Name: Loose\nKind: native\nUrl: https://example.invalid/x.zip\n"));
 
         Assert.Contains("has no Sha256", refused.Message);
+    }
+
+    [Fact]
+    public void ARollingEntryIsTheOneKindWithNoChecksum()
+    {
+        var entry = LibraryEntry.Parse("thing", """
+            Name: Thing
+            Kind: windows
+            Source: rolling
+            Url: https://example.invalid/thing.exe
+            """);
+
+        Assert.Equal(PluginSource.Rolling, entry.Source);
+        Assert.Null(entry.Sha256);
+    }
+
+    [Fact]
+    public void ARollingEntryCarryingAChecksumIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse("thing", $"""
+                Name: Thing
+                Kind: windows
+                Source: rolling
+                Url: https://example.invalid/thing.exe
+                Sha256: {Zeros}
+                """));
+
+        Assert.Contains("is rolling and carries Sha256", refused.Message);
+    }
+
+    [Fact]
+    public void ARollingEntryWithNothingToDownloadIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: rolling\n"));
+
+        Assert.Equal("thing.yml says Source: rolling but has no Url", refused.Message);
     }
 
     [Fact]
@@ -404,6 +446,52 @@ public class LibraryTests : IDisposable
 
         Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".lv2"), "Thing.lv2")));
         Assert.Empty(library.Installed());
+    }
+
+    [Fact]
+    public void ARollingDownloadIsInstalledUncheckedAndSaidToBe()
+    {
+        var archive = Fixture();
+
+        Catalogue(("thing", $"""
+            Name: Thing
+            Kind: native
+            Source: rolling
+            Url: file://{archive}
+            Script: fixture.sh
+            """));
+
+        Script("fixture.sh", "mkdir -p \"$CABINET_DEST/Thing.vst3\"");
+
+        var layout = Layout();
+        var library = new Library(layout, new ProcessRunner());
+        var said = new List<string>();
+
+        library.Install(library.Find("thing"), onOutput: said.Add);
+
+        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
+        Assert.Contains(said, line => line.Contains("nothing here can verify what arrives"));
+        Assert.DoesNotContain(said, line => line.Contains("Checking sha256"));
+    }
+
+    [Fact]
+    public void ADownloadThatIsNotTheOneTheEntryPinnedStopsTheInstall()
+    {
+        var archive = Fixture();
+
+        Catalogue(("thing", $"""
+            Name: Thing
+            Kind: native
+            Url: file://{archive}
+            Sha256: {Zeros}
+            """));
+
+        var library = new Library(Layout(), new ProcessRunner());
+
+        Assert.Contains(
+            "failed its checksum",
+            Assert.Throws<InvalidOperationException>(() => library.Install(library.Find("thing")))
+                .Message);
     }
 
     [Fact]

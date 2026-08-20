@@ -34,6 +34,7 @@ flatpak run $cabinet library                                # plugins it can ins
 flatpak run $cabinet library show podolski                  # what one is, and what it costs
 flatpak run $cabinet library install surge-xt               # a Linux build, so no Wine at all
 flatpak run $cabinet library install serum serum ~/Downloads/Serum.exe   # prefix, Wine, DXVK
+flatpak run $cabinet library install fabfilter-total-bundle  # downloaded for you, prefix and all
 
 flatpak run $cabinet new serum                              # a prefix of its own
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
@@ -59,7 +60,8 @@ flatpak run $cabinet set serum env WINEDEBUG=-all           # WINEDEBUG= removes
 
 `library` is the short way in: it knows which Wine a plugin's editor needs, whether its
 editor wants DXVK, and it bridges the result — the four steps below, done for you. Plugins
-you had to buy cannot be downloaded, so those ask for the installer you already have. A plugin
+you had to buy mostly cannot be downloaded, so those ask for the installer you already have —
+unless the vendor serves a trial anyone can fetch, as FabFilter does. A plugin
 with a working Linux build is listed only as that, because a native one needs no prefix, no
 pinned Wine and no bridge. Linux
 plugins in the library need no prefix at all; their files go in Cabinet's own directory and

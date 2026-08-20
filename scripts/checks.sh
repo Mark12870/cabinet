@@ -33,6 +33,9 @@ step() { printf '  %s\n' "$*" >&2; }
 
 if [ "${1:-}" != --staged ]; then
   step 'dotnet format';   dotnet format --verify-no-changes
+  step 'dotnet build';    dotnet build src/Cabinet.Cli --nologo -v q
+  step 'dotnet build';    dotnet build src/Cabinet.Gui --nologo -v q \
+                            -p:UseSharedCompilation=false
   step 'dotnet test';     dotnet test tests/Cabinet.Core.Tests --nologo
   step 'appstreamcli';    appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml
   step 'cargo fmt';       (cd shim && cargo fmt --check)
