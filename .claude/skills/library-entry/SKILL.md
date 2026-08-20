@@ -35,6 +35,8 @@ to show. `cabinet library show <id>` renders the same facts.
 Developer: u-he              # who made it, shown under the name
 Version: 1.2.3               # the pinned release, not "latest"
 Licence: Freeware            # Freeware, GPL-3.0, Commercial
+Licensing:                   # optional; one sentence, where the word alone would mislead
+  Every download is a free, fully functional 30-day trial version.
 Formats: VST3, CLAP          # what a DAW will actually find after installing
 Description:                 # indented block, blank line between paragraphs
   Made in 2005 and still shipping. One oscillator, one filter,
@@ -127,6 +129,20 @@ Anything behind a login, a licence agreement, an account or a download manager. 
 carries the prefix, runner, DXVK and sync knowledge — that is most of its value — and only the
 `.exe` comes from the user. **Do not try to script a login.** Omit `Url` and `Sha256`; the
 error `Library.Install` raises already tells the user exactly what to pass.
+
+## When the vendor publishes one always-current URL
+
+`Source: rolling`, and **no `Sha256` — the parser refuses one.** FabFilter serves the whole Total
+Bundle from `cdn-b.fabfilter.com/downloads/fftotalbundlex64.exe`, a path with no version in it
+whose bytes move with every plugin update, and publishes no checksum of its own. A number
+computed here would be neither a pin (it fails every install between an upstream update and the
+next release) nor a verification (it is only what one person happened to download). So a rolling
+entry says so instead: both front ends warn, before the download starts, that nothing can verify
+what arrives — only that it came from the vendor over HTTPS. Leave `Version` out too; there is no
+pinned release to name.
+
+Use it only where the vendor really does serve one moving URL. Anything with a version in its
+filename stays `download`, where the checksum is real and a mismatch stops the install.
 
 ## Native entries
 

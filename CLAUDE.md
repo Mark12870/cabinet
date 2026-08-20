@@ -53,7 +53,12 @@ sandboxes; nothing else has that constraint.
 formatters are the half that is easy to forget — `dotnet format` failed CI on a four-space
 overhang no test could catch. Keep the two lists identical: a check that only CI runs is a
 check that only fails after a push, which is why the script exists rather than a block to
-copy. Both toolchains come from SDK extensions the script enters on its own.
+copy. Both toolchains come from SDK extensions the script enters on its own. **Neither front end is
+compiled by anything else in the list** — `dotnet test` reaches only `Cabinet.Core` and
+`dotnet format` does not fail on a broken build — so a CLI that would not compile once passed
+every check and died in the flatpak build twenty minutes later. That is what the two
+`dotnet build` steps are for; the GUI's carries `-p:UseSharedCompilation=false` for the CS0006
+reason below.
 
 `.githooks/pre-commit` runs it as `--staged`: it reformats the staged code and stages the
 fix, skips the halves nothing is staged for, and skips `dotnet test` to stay under about
@@ -178,6 +183,36 @@ These were all found by something failing, not by reading documentation.
   bundled Wine. Create a prefix on the runner it will keep; `wineboot` writes a registry the
   next Wine inherits, and Wine refuses a prefix another `wineserver` still holds, so close the
   DAW before moving one.
+- **A Wine installer's window can open off-screen and blank, and `explorer /desktop=` was built
+  for that and then removed.** FabFilter's setup put its 512×370 window at x=2944 on a 2560-wide
+  display — `xdotool getwindowgeometry`, not guessed — so `library install` looked like it had
+  hung with nothing on screen; moving it back left it mapped but blank, a shadow with no drawable
+  that `import -window` refused. `wine explorer /desktop=<prefix>,1024x768` fixes it completely,
+  verified by photographing the wizard's welcome page inside it. It is **not** what ships: a later
+  run in another prefix placed the same installer's window correctly with no desktop at all, so
+  the fault is intermittent and a virtual desktop would put every installer in a fake Windows
+  desktop to insure against it. `Prefixes.Install` runs the `.exe` plainly. If an installer ever
+  goes missing again, that one-line wrapper is the answer, and this is where it is written down.
+- **FabFilter's installer has no silent mode.** Asked for, and measured rather than assumed: `/S`,
+  `/SILENT`, `/VERYSILENT`, `/qn`, `/quiet` and `-s` each opened the wizard and installed nothing —
+  `Common Files/VST3` empty after every one. It is FabFilter's own installer, not NSIS or Inno, and
+  its packed image carries no switch strings to find. A Windows entry's install is therefore always
+  a wizard somebody clicks through; do not design around an unattended one.
+
+- **FabFilter's VST2 lands where yabridge does not look.** Its installer put all fourteen VST3
+  bundles in `Common Files/VST3` and all fourteen CLAPs in `Common Files/CLAP` — both in
+  `Layout.PrefixPluginDirs`, both bridged, 28 plugins in one `sync` — but the VST2 `.dll`s in
+  `Program Files/FabFilter/<Product>/`, a vendor directory nothing scans. A fresh prefix has no
+  VST2 folder in its registry for an installer to read, so it invents one. The entry says
+  `Formats: VST3, CLAP` for that reason: what a DAW will actually find. Do not widen
+  `PrefixPluginDirs` to chase a vendor directory — VST3 and CLAP are both there already.
+
+- **An installer that never ran still exits 0.** With the wizard sitting unseen on its first page,
+  the whole run around it reported success — DXVK installed, sync set, yabridge synced, the id
+  appended to `.cabinet-plugins` — and `Common Files/VST3` in the prefix was empty. An installer's
+  exit code is not evidence that anything was installed, and a user who cancels one says the same
+  thing to Cabinet. Read the prefix, not the status, when asking whether a plugin is really there.
+
 - **Runners carry no Mono or Gecko, and Wine will ask the user to download them.** Those come
   from Flatpak extensions mounted at `/app/share/wine/{mono,gecko}`, which only the bundled
   Wine has, so `Runners` symlinks them into every runner it unpacks. Cabinet's own `wineboot`
@@ -316,6 +351,22 @@ These were all found by something failing, not by reading documentation.
   before proposing anything.
 
 ### The Library
+
+- **FabFilter publishes no checksum, and a self-computed one would be theatre.**
+  `cdn-b.fabfilter.com/downloads/fftotalbundlex64.exe` is one path with no version in it whose
+  bytes change every time any of the fourteen plugins updates — 95 810 344 bytes,
+  `last-modified: 25 Jun 2026`, read off the CDN's own headers. Pinning a sha256 there is not a
+  pin but a fuse: every install would die on `failed its checksum` between a FabFilter update and
+  Cabinet's next release, and the number would only ever be what whoever wrote the entry happened
+  to download — FabFilter publishes nothing to check it against. The per-plugin installers that
+  *do* carry a version (`ffproq413x64.exe`) would mean fourteen entries and fourteen wizards. So
+  `Source: rolling`, which **refuses** `Sha256` outright and warns instead: nothing can verify
+  what arrives, only that it came from the vendor over HTTPS. Both front ends say that before the
+  download starts, from the one sentence in `Library.Unverifiable`. A rolling entry states no
+  `Version` either, for the same reason. `download` is unchanged and still strict — a mismatch
+  deletes the file and throws — and it stays the rule for anything with a version in its filename.
+  The bundle installer is itself a **32-bit** PE that lays down 64-bit plugins, one more thing a
+  runner with no 32-bit tree would break.
 
 - **A native Linux plugin cannot be sandboxed from here, and `bwrap` is not the missing
   piece.** It was asked for and the answer is no on architecture, not on tooling: `bwrap` and

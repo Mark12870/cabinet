@@ -9,6 +9,7 @@ public enum PluginKind
 public enum PluginSource
 {
     Download,
+    Rolling,
     Byo,
 }
 
@@ -31,6 +32,7 @@ public sealed record LibraryEntry(
     string? Developer,
     string? Version,
     string? Licence,
+    string? Licensing,
     IReadOnlyList<string> Formats,
     IReadOnlyList<string> Description,
     string Vendor)
@@ -41,15 +43,24 @@ public sealed record LibraryEntry(
         var kind = ParseKind(id, Required(id, fields, "Kind"));
         var source = ParseSource(id, Value(fields, "Source") ?? "download");
 
-        if (source == PluginSource.Download && Value(fields, "Url") is null)
+        if (source != PluginSource.Byo && Value(fields, "Url") is null)
         {
-            throw new InvalidOperationException($"{id}.yml says Source: download but has no Url");
+            throw new InvalidOperationException(
+                $"{id}.yml says Source: {source.ToString().ToLowerInvariant()} but has no Url");
         }
 
         if (source == PluginSource.Download && Value(fields, "Sha256") is null)
         {
             throw new InvalidOperationException(
                 $"{id}.yml has no Sha256 — a download nobody checked is not one Cabinet will run");
+        }
+
+        if (source == PluginSource.Rolling && Value(fields, "Sha256") is not null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml is rolling and carries Sha256 — the vendor changes what is behind "
+                + "that one URL, so a checksum here could only ever be the build whoever wrote "
+                + "the entry happened to download");
         }
 
         if (kind == PluginKind.Windows && fields.ContainsKey("Data"))
@@ -94,6 +105,7 @@ public sealed record LibraryEntry(
             Value(fields, "Developer"),
             Value(fields, "Version"),
             Value(fields, "Licence"),
+            Sentence(Value(fields, "Licensing")),
             Split(Value(fields, "Formats")),
             Paragraphs(Value(fields, "Description")),
             vendor);
@@ -127,6 +139,12 @@ public sealed record LibraryEntry(
 
         return string.Join('/', parts);
     }
+
+    private static string? Sentence(string? value) =>
+        value is null
+            ? null
+            : string.Join(' ', value.Split(
+                '\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 
     private static IReadOnlyList<string> Split(string? value) =>
         value is null
@@ -217,9 +235,10 @@ public sealed record LibraryEntry(
     private static PluginSource ParseSource(string id, string word) => word.ToLowerInvariant() switch
     {
         "download" => PluginSource.Download,
+        "rolling" => PluginSource.Rolling,
         "byo" => PluginSource.Byo,
         _ => throw new InvalidOperationException(
-            $"{id}.yml has Source: {word} — download or byo"),
+            $"{id}.yml has Source: {word} — download, rolling or byo"),
     };
 }
 
@@ -511,11 +530,24 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         var target = Path.Combine(staging, url[(url.LastIndexOf('/') + 1)..]);
 
         http.ToFile(url, target, onOutput, onProgress);
-        onOutput?.Invoke($"Checking sha256 {entry.Sha256![..12]}…");
-        Checksum.Expect(target, entry.Sha256!);
+
+        if (entry.Sha256 is { } expected)
+        {
+            onOutput?.Invoke($"Checking sha256 {expected[..12]}…");
+            Checksum.Expect(target, expected);
+        }
+        else
+        {
+            onOutput?.Invoke(Unverifiable(url));
+        }
 
         return target;
     }
+
+    public static string Unverifiable(string url) =>
+        $"{new Uri(url).Host} publishes no checksum and changes this download with every "
+        + "release, so nothing here can verify what arrives — only that it came from the "
+        + "vendor over HTTPS.";
 
     private void Lay(
         LibraryEntry entry,

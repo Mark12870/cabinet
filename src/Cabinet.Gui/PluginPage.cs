@@ -129,6 +129,7 @@ internal sealed class PluginPage
         Add(group, "Developer", entry.Developer);
         Add(group, "Version", entry.Version);
         Add(group, "Licence", entry.Licence);
+        Add(group, "Licensing", entry.Licensing);
         Add(group, "Formats", entry.Formats.Count > 0 ? string.Join(", ", entry.Formats) : null);
         Add(group, "Runs", entry.Kind == PluginKind.Native ? "Natively on Linux" : Bridged(entry));
         Add(group, "Presets", entry.Data is { } data ? "~/" + data : null);
