@@ -1,8 +1,0 @@
-Name: Surge XT
-Kind: native
-Category: Synth
-Summary: Hybrid synthesizer, free and open source.
-Homepage: https://surge-synthesizer.github.io
-Source: download
-Url: https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-1.3.4-pluginsonly.tar.gz
-Sha256: dd431b75f5fa197c4bffa6ca27ca46970f0a94c834119bb1db7decdeec4c28db

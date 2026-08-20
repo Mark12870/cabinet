@@ -4,10 +4,17 @@ namespace Cabinet.Gui;
 
 internal sealed class Operation
 {
+    private const long RedrawMilliseconds = 100;
+
     private readonly Adw.Dialog dialog = Adw.Dialog.New();
     private readonly Gtk.Label status = Gtk.Label.New(null);
+    private readonly Gtk.ProgressBar bar = Gtk.ProgressBar.New();
     private readonly Gtk.TextView log = Gtk.TextView.New();
     private readonly Gtk.Button close = Gtk.Button.NewWithLabel("Close");
+    private readonly Lock gate = new();
+    private double pending;
+    private bool queued;
+    private long drawn;
 
     private Operation(string title)
     {
@@ -20,6 +27,9 @@ internal sealed class Operation
         status.SetWrap(true);
         status.AddCssClass("heading");
 
+        bar.SetShowText(true);
+        bar.SetVisible(false);
+
         log.SetMonospace(true);
         log.SetEditable(false);
         log.AddCssClass("card");
@@ -31,6 +41,7 @@ internal sealed class Operation
 
         var body = Ui.Page();
         body.Append(status);
+        body.Append(bar);
         body.Append(Ui.Scrolled(log));
         body.Append(close);
 
@@ -44,6 +55,13 @@ internal sealed class Operation
         Gtk.Widget parent,
         string title,
         Action<Action<string>> work,
+        Action? onFinished = null) =>
+        Run(parent, title, (output, _) => work(output), onFinished);
+
+    public static void Run(
+        Gtk.Widget parent,
+        string title,
+        Action<Action<string>, Action<double>> work,
         Action? onFinished = null)
     {
         var operation = new Operation(title);
@@ -54,7 +72,7 @@ internal sealed class Operation
         {
             try
             {
-                work(operation.Write);
+                work(operation.Write, operation.Show);
                 operation.Finish(null);
             }
             catch (Exception exception)
@@ -79,8 +97,40 @@ internal sealed class Operation
         buffer.Insert(end, line + "\n", -1);
     });
 
+    private void Show(double fraction)
+    {
+        lock (gate)
+        {
+            pending = fraction;
+
+            if (queued || Environment.TickCount64 - drawn < RedrawMilliseconds)
+            {
+                return;
+            }
+
+            queued = true;
+            drawn = Environment.TickCount64;
+        }
+
+        Ui.OnMainLoop(() =>
+        {
+            double drawing;
+
+            lock (gate)
+            {
+                drawing = pending;
+                queued = false;
+            }
+
+            bar.SetVisible(true);
+            bar.SetFraction(drawing);
+            bar.SetText($"{drawing * 100:0}%");
+        });
+    }
+
     private void Finish(string? error) => Ui.OnMainLoop(() =>
     {
+        bar.SetVisible(false);
         status.SetText(error is null ? "Done." : error);
         status.AddCssClass(error is null ? "success" : "error");
         close.SetSensitive(true);

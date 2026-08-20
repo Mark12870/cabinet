@@ -1,0 +1,21 @@
+Name: Zebralette 3
+Kind: native
+Category: Synth
+Summary: One Zebra oscillator with an envelope, two LFOs and effects.
+Developer: u-he
+Version: 3.0
+Licence: Freeware
+Formats: VST3, CLAP
+Homepage: https://u-he.com/products/plug-ins/zebralette3/
+Source: download
+Url: https://dl.u-he.com/releases/Zebralette3_300_20399_Linux.tar.xz
+Sha256: df34d1cce6712702894d3cbdeff1c3ab7465142638d3bcc82c86eb5ee02ec580
+Script: u-he.sh
+Data: .u-he/Zebralette3
+Description:
+  A single oscillator taken out of Zebra and given a synth of its own: ADSR
+  envelope, MSEG, two LFOs, a modulation matrix, and delay and reverb. The
+  waveform editor is the point — draw it, morph it, and hear it while you do.
+
+  The most capable of u-he's free plugins, and one of the two that also
+  installs as a CLAP. The Linux build is u-he's own and is labelled beta.

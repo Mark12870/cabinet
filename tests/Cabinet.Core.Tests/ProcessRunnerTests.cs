@@ -67,4 +67,17 @@ public sealed class ProcessRunnerTests
 
         Assert.Contains("unset", result.Stdout);
     }
+
+    [Fact]
+    public void AMeterDrawnWithCarriageReturnsArrivesAsOneLinePerUpdate()
+    {
+        var lines = new List<string>();
+
+        Subject.Run(
+            "sh",
+            ["-c", @"printf '\r###  10.0%%\r##### 50.0%%\r####100.0%%\n' >&2"],
+            onOutput: lines.Add);
+
+        Assert.Equal(["", "###  10.0%", "##### 50.0%", "####100.0%"], lines);
+    }
 }

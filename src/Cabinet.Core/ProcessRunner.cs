@@ -13,7 +13,8 @@ public interface IProcessRunner
         string file,
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string>? env = null,
-        Action<string>? onOutput = null);
+        Action<string>? onOutput = null,
+        string? workingDirectory = null);
 }
 
 public sealed class ProcessRunner : IProcessRunner
@@ -22,13 +23,15 @@ public sealed class ProcessRunner : IProcessRunner
         string file,
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string>? env = null,
-        Action<string>? onOutput = null)
+        Action<string>? onOutput = null,
+        string? workingDirectory = null)
     {
         var info = new ProcessStartInfo(file)
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
+            WorkingDirectory = workingDirectory ?? "",
         };
 
         foreach (var arg in args)

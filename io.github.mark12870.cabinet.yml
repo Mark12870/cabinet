@@ -75,6 +75,9 @@ finish-args:
   - --filesystem=~/.clap:create
   # Linux-native plugins only; yabridge bridges no LV2.
   - --filesystem=~/.lv2:create
+  # A Library entry's `Data:` directory. u-he's plugins read their presets and resources
+  # from this path by name, so `home:ro` above is not enough -- one grant per vendor.
+  - --filesystem=~/.u-he:create
   # Masked under `home`, but honoured explicitly. `enrol` links yabridge into a DAW's
   # XDG_DATA_HOME here, the only place that DAW's chainloader looks.
   - --filesystem=~/.var/app
@@ -148,8 +151,19 @@ modules:
         ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
       - install -Dm644 data/${FLATPAK_ID}.svg
         ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
-      # The plugin catalogue the Library page reads. Bundled, so the list works offline.
-      - install -Dm644 data/library/*.yml -t ${FLATPAK_DEST}/share/cabinet/library/
+      # The plugin catalogue the Library page reads: one directory per vendor holding its
+      # entries, its install script and its artwork. Bundled, so the list works offline.
+      - |
+        for vendor in data/library/*/; do
+          dest=${FLATPAK_DEST}/share/cabinet/library/$(basename "$vendor")
+          install -Dm644 "$vendor"*.yml -t "$dest"/
+          for art in "$vendor"*.jpg "$vendor"*.png; do
+            if [ -f "$art" ]; then install -Dm644 "$art" -t "$dest"/; fi
+          done
+          for script in "$vendor"*.sh; do
+            if [ -f "$script" ]; then install -Dm755 "$script" -t "$dest"/; fi
+          done
+        done
     sources:
       - type: dir
         path: src

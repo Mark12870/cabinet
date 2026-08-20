@@ -1,0 +1,21 @@
+Name: Podolski
+Kind: native
+Category: Synth
+Summary: Free virtual analogue synth with a delay and an arpeggiator.
+Developer: u-he
+Version: 1.2.3
+Licence: Freeware
+Formats: VST3
+Homepage: https://u-he.com/products/podolski/
+Source: download
+Url: https://dl.u-he.com/releases/Podolski_123_12092_Linux.tar.xz
+Sha256: 7dde7e9b77980b2785d0f317e5150d90f3e7947441955b751a7f8d027a33f126
+Script: u-he.sh
+Data: .u-he/Podolski
+Description:
+  Made in 2005 and still shipping. One oscillator, one filter, one envelope
+  and an arpeggiator that doubles as a step sequencer — simple enough to
+  learn in an afternoon, and cheap enough on the CPU to run a dozen of them.
+
+  The Linux build is u-he's own, and they call it beta: stable, but supported
+  through their forum rather than their support desk.

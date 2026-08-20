@@ -26,10 +26,15 @@ public sealed class Layout
 
     public const string EnvMarker = ".cabinet-env";
 
+    public const string PluginsMarker = ".cabinet-plugins";
+
     public const string BundledLibraryDir = "/app/share/cabinet/library";
 
     public static readonly IReadOnlyList<string> PluginExtensions =
         [".vst3", ".clap", ".lv2", ".so"];
+
+    public static readonly IReadOnlyList<string> ScanDirectories =
+        [".vst3", ".clap", ".lv2", ".vst"];
 
     public Layout(
         string home,
@@ -92,6 +97,24 @@ public sealed class Layout
 
     public string NativePath(string name) => Path.Combine(NativeDir, name);
 
+    public string LibraryScript(string vendor, string name) =>
+        Path.Combine(LibraryDir, vendor, name);
+
+    public string? LibraryIcon(string vendor, string id) => Media(vendor, id + ".png");
+
+    public string? LibraryLogo(string vendor) => Media(vendor, "logo.png");
+
+    public string? LibraryScreenshot(string vendor, string id) => Media(vendor, id + ".jpg");
+
+    private string? Media(string vendor, string name)
+    {
+        var path = Path.Combine(LibraryDir, vendor, name);
+
+        return File.Exists(path) ? path : null;
+    }
+
+    public string DataPath(string relative) => Path.Combine(Home, relative);
+
     public string ScanDir(string extension) => Path.Combine(Home, extension switch
     {
         ".vst3" => ".vst3",
@@ -124,6 +147,9 @@ public sealed class Layout
 
     public string PrefixEnvFile(string name) =>
         Path.Combine(PrefixPath(name), EnvMarker);
+
+    public string PrefixPluginsFile(string name) =>
+        Path.Combine(PrefixPath(name), PluginsMarker);
 
     public string PrefixSystem32(string name) =>
         Path.Combine(PrefixPath(name), "drive_c", "windows", "system32");

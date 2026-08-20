@@ -22,6 +22,7 @@ internal static class Program
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
           cabinet library                      plugins Cabinet knows how to install
+          cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [prefix] [installer]
                                                install one; paid plugins need your own
           cabinet library remove <id>          remove a Linux plugin and its links
@@ -382,6 +383,7 @@ internal static class Program
         args.FirstOrDefault() switch
         {
             null => ListLibrary(layout, runner, json),
+            "show" => ShowFromLibrary(layout, runner, Require(args, 1, "a plugin id"), json),
             "install" => InstallFromLibrary(layout, runner, args.Skip(1).ToArray()),
             "remove" => RemoveFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
             var unknown => Unknown($"library {unknown}"),
@@ -391,7 +393,7 @@ internal static class Program
     {
         var library = new Library(layout, runner);
         var entries = library.Entries();
-        var installed = library.InstalledNative().ToHashSet(StringComparer.Ordinal);
+        var installed = library.Installed();
 
         if (json)
         {
@@ -409,7 +411,7 @@ internal static class Program
         {
             var kind = entry.Kind == PluginKind.Native ? "linux" : "windows";
             var cost = entry.Source == PluginSource.Byo ? "paid" : "free";
-            var mark = installed.Contains(entry.Id) ? "ok" : "  ";
+            var mark = installed.ContainsKey(entry.Id) ? "ok" : "  ";
 
             Console.WriteLine(
                 $"{mark}  {entry.Id,-18}  {kind,-8}  {cost,-5}  {entry.Category,-10}  {entry.Name}");
@@ -418,6 +420,100 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("Install one with `cabinet library install <id>`.");
         return 0;
+    }
+
+    private static int ShowFromLibrary(
+        Layout layout, IProcessRunner runner, string id, bool json)
+    {
+        var library = new Library(layout, runner);
+        var entry = library.Find(id);
+        var installed = library.Installed();
+
+        if (json)
+        {
+            Console.WriteLine(Json.Library([entry], installed));
+            return 0;
+        }
+
+        Console.WriteLine(entry.Name);
+        Console.WriteLine(new string('-', entry.Name.Length));
+        Console.WriteLine();
+
+        foreach (var paragraph in entry.Description.Count > 0
+                     ? entry.Description
+                     : [entry.Summary])
+        {
+            Console.WriteLine(Wrapped(paragraph));
+            Console.WriteLine();
+        }
+
+        Field("Developer", entry.Developer);
+        Field("Version", entry.Version);
+        Field("Category", entry.Category);
+        Field("Licence", entry.Licence);
+        Field("Formats", entry.Formats.Count > 0 ? string.Join(", ", entry.Formats) : null);
+        Field("Runs", entry.Kind == PluginKind.Native ? "natively on Linux" : Bridged(entry));
+        Field("Presets", entry.Data is { } data ? "~/" + data : null);
+        Field("Website", entry.Homepage);
+        Field("Installed", installed.TryGetValue(id, out var where)
+            ? where is null ? "yes" : $"in prefix {where}"
+            : "no");
+
+        Console.WriteLine();
+        Console.WriteLine(entry.Source == PluginSource.Byo
+            ? $"`cabinet library install {id} <prefix> <installer.exe>` — this one you buy."
+            : $"`cabinet library install {id}` installs it.");
+        return 0;
+
+        static void Field(string name, string? value)
+        {
+            if (value is not null)
+            {
+                Console.WriteLine($"  {name,-10}  {value}");
+            }
+        }
+    }
+
+    private static string Bridged(LibraryEntry entry)
+    {
+        var costs = new List<string> { "under Wine, bridged" };
+
+        if (entry.Runner is { } wine)
+        {
+            costs.Add($"Wine {wine}");
+        }
+
+        if (entry.Dxvk)
+        {
+            costs.Add("DXVK");
+        }
+
+        if (entry.Sync != SyncMode.System)
+        {
+            costs.Add(PrefixSettings.Word(entry.Sync));
+        }
+
+        return string.Join("  ·  ", costs);
+    }
+
+    private static string Wrapped(string paragraph)
+    {
+        var lines = new List<string>();
+        var line = "";
+
+        foreach (var word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.Length + word.Length + 1 > 76)
+            {
+                lines.Add(line);
+                line = "";
+            }
+
+            line = line.Length == 0 ? word : $"{line} {word}";
+        }
+
+        lines.Add(line);
+        return string.Join(Environment.NewLine, lines);
     }
 
     private static int InstallFromLibrary(Layout layout, IProcessRunner runner, string[] args)
@@ -440,7 +536,21 @@ internal static class Program
 
     private static int RemoveFromLibrary(Layout layout, IProcessRunner runner, string id)
     {
-        new Library(layout, runner).RemoveNative(id, Console.WriteLine);
+        var library = new Library(layout, runner);
+        var data = library.Entries().FirstOrDefault(entry => entry.Id == id)?.Data;
+
+        Console.Write(data is null
+            ? $"Remove {id} and the links your DAW scans? [y/N] "
+            : $"Remove {id}, the links your DAW scans, and ~/{data} with the presets in it? "
+              + "[y/N] ");
+
+        if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine("Left alone.");
+            return 1;
+        }
+
+        library.RemoveNative(id, Console.WriteLine);
         return 0;
     }
 

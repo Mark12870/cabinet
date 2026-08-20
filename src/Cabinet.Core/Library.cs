@@ -25,9 +25,17 @@ public sealed record LibraryEntry(
     string Prefix,
     string? Runner,
     bool Dxvk,
-    SyncMode Sync)
+    SyncMode Sync,
+    string? Script,
+    string? Data,
+    string? Developer,
+    string? Version,
+    string? Licence,
+    IReadOnlyList<string> Formats,
+    IReadOnlyList<string> Description,
+    string Vendor)
 {
-    public static LibraryEntry Parse(string id, string text)
+    public static LibraryEntry Parse(string id, string text, string vendor = "")
     {
         var fields = Fields(text);
         var kind = ParseKind(id, Required(id, fields, "Kind"));
@@ -44,6 +52,13 @@ public sealed record LibraryEntry(
                 $"{id}.yml has no Sha256 — a download nobody checked is not one Cabinet will run");
         }
 
+        if (kind == PluginKind.Windows && fields.ContainsKey("Data"))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml is a Windows plugin and carries Data — what it writes stays in its "
+                + "prefix");
+        }
+
         if (kind == PluginKind.Native
             && new[] { "Prefix", "Runner", "Dxvk", "Sync" }.FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
@@ -51,6 +66,13 @@ public sealed record LibraryEntry(
             throw new InvalidOperationException(
                 $"{id}.yml is native and carries {windowsOnly} — a native plugin has no prefix, "
                 + "no Wine and no Direct3D to replace");
+        }
+
+        if (kind == PluginKind.Native && source == PluginSource.Byo)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml is native and byo — a Linux plugin Cabinet cannot download is one it "
+                + "has no way to install");
         }
 
         return new LibraryEntry(
@@ -66,16 +88,87 @@ public sealed record LibraryEntry(
             Value(fields, "Prefix") ?? id,
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
-            Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System);
+            Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
+            Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
+            Value(fields, "Data") is { } data ? ParseData(id, data) : null,
+            Value(fields, "Developer"),
+            Value(fields, "Version"),
+            Value(fields, "Licence"),
+            Split(Value(fields, "Formats")),
+            Paragraphs(Value(fields, "Description")),
+            vendor);
     }
+
+    private static string ParseScript(string id, string name)
+    {
+        if (name != Path.GetFileName(name) || !name.EndsWith(".sh", StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Script: {name} — the name of a .sh file this build ships, not a "
+                + "path");
+        }
+
+        return name;
+    }
+
+    private static string ParseData(string id, string relative)
+    {
+        var parts = relative.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (Path.IsPathRooted(relative)
+            || parts.Length < 2
+            || parts.Contains("..")
+            || Layout.ScanDirectories.Contains(parts[0], StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Data: {relative} — a directory of the plugin's own under your "
+                + "home, such as .u-he/Podolski");
+        }
+
+        return string.Join('/', parts);
+    }
+
+    private static IReadOnlyList<string> Split(string? value) =>
+        value is null
+            ? []
+            : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static IReadOnlyList<string> Paragraphs(string? value) =>
+        value is null
+            ? []
+            : value.Split("\n\n", StringSplitOptions.RemoveEmptyEntries)
+                .Select(paragraph => string.Join(' ', paragraph.Split(
+                    '\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)))
+                .Where(paragraph => paragraph.Length > 0)
+                .ToList();
 
     private static Dictionary<string, string> Fields(string text)
     {
         var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var indented = new List<string>();
+        string? block = null;
+
+        void Close()
+        {
+            if (block is not null)
+            {
+                fields[block] = string.Join('\n', indented).Trim();
+                indented.Clear();
+                block = null;
+            }
+        }
 
         foreach (var raw in text.Split('\n'))
         {
             var line = raw.Trim();
+
+            if (block is not null && (line.Length == 0 || char.IsWhiteSpace(raw[0])))
+            {
+                indented.Add(line);
+                continue;
+            }
+
+            Close();
 
             if (line.Length == 0 || line[0] == '#')
             {
@@ -84,11 +177,24 @@ public sealed record LibraryEntry(
 
             var at = line.IndexOf(':');
 
-            if (at > 0)
+            if (at <= 0)
             {
-                fields[line[..at].TrimEnd()] = line[(at + 1)..].Trim().Trim('\'', '"');
+                continue;
+            }
+
+            var value = line[(at + 1)..].Trim().Trim('\'', '"');
+
+            if (value.Length == 0)
+            {
+                block = line[..at].TrimEnd();
+            }
+            else
+            {
+                fields[line[..at].TrimEnd()] = value;
             }
         }
+
+        Close();
 
         return fields;
     }
@@ -128,11 +234,24 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             return [];
         }
 
-        return Directory.EnumerateFiles(layout.LibraryDir, "*.yml")
-            .Select(path => LibraryEntry.Parse(
-                Path.GetFileNameWithoutExtension(path), File.ReadAllText(path)))
+        var entries = Directory.EnumerateDirectories(layout.LibraryDir)
+            .SelectMany(vendor => Directory.EnumerateFiles(vendor, "*.yml")
+                .Select(path => LibraryEntry.Parse(
+                    Path.GetFileNameWithoutExtension(path),
+                    File.ReadAllText(path),
+                    Path.GetFileName(vendor))))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        if (entries.GroupBy(entry => entry.Id, StringComparer.Ordinal)
+                .FirstOrDefault(same => same.Count() > 1) is { } clash)
+        {
+            throw new InvalidOperationException(
+                $"two vendors both ship {clash.Key}.yml — "
+                + $"{string.Join(" and ", clash.Select(entry => entry.Vendor))}");
+        }
+
+        return entries;
     }
 
     public LibraryEntry Find(string id) =>
@@ -140,19 +259,35 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         ?? throw new InvalidOperationException(
             $"no plugin '{id}' in the library — `cabinet library` lists what there is");
 
-    public IReadOnlyList<string> InstalledNative() =>
-        Directory.Exists(layout.NativeDir)
-            ? Directory.EnumerateDirectories(layout.NativeDir)
-                .Select(path => Path.GetFileName(path))
-                .OrderBy(name => name, StringComparer.Ordinal)
-                .ToList()
-            : [];
+    public IReadOnlyDictionary<string, string?> Installed()
+    {
+        var installed = new Dictionary<string, string?>(StringComparer.Ordinal);
+
+        foreach (var prefix in new Prefixes(layout, runner).List())
+        {
+            foreach (var id in Recorded(prefix.Name))
+            {
+                installed[id] = prefix.Name;
+            }
+        }
+
+        if (Directory.Exists(layout.NativeDir))
+        {
+            foreach (var path in Directory.EnumerateDirectories(layout.NativeDir))
+            {
+                installed[Path.GetFileName(path)] = null;
+            }
+        }
+
+        return installed;
+    }
 
     public void Install(
         LibraryEntry entry,
         string? prefix = null,
         string? installer = null,
-        Action<string>? onOutput = null)
+        Action<string>? onOutput = null,
+        Action<double>? onProgress = null)
     {
         if (entry.Kind == PluginKind.Native)
         {
@@ -163,20 +298,22 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                     + "directly", nameof(prefix));
             }
 
-            InstallNative(entry, onOutput);
+            InstallNative(entry, onOutput, onProgress);
             return;
         }
 
-        InstallWindows(entry, prefix ?? entry.Prefix, installer, onOutput);
+        InstallWindows(entry, prefix ?? entry.Prefix, installer, onOutput, onProgress);
     }
 
     public void RemoveNative(string id, Action<string>? onOutput = null)
     {
-        if (Entries().FirstOrDefault(entry => entry.Id == id) is { Kind: PluginKind.Windows } windows)
+        var entry = Entries().FirstOrDefault(one => one.Id == id);
+
+        if (entry is { Kind: PluginKind.Windows })
         {
             throw new InvalidOperationException(
-                $"{windows.Name} runs under Wine, so it lives in a prefix — "
-                + $"`cabinet delete {windows.Prefix}` is what removes it");
+                $"{entry.Name} runs under Wine, so it lives in a prefix — "
+                + $"`cabinet delete {entry.Prefix}` is what removes it");
         }
 
         var root = Path.GetFullPath(layout.NativePath(id));
@@ -198,11 +335,27 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         Directory.Delete(root, recursive: true);
+
+        if (entry?.Data is { } relative)
+        {
+            var data = layout.DataPath(relative);
+
+            if (Directory.Exists(data))
+            {
+                Directory.Delete(data, recursive: true);
+                onOutput?.Invoke($"  removed {data}");
+            }
+        }
+
         onOutput?.Invoke($"{id} and everything it linked are gone.");
     }
 
     private void InstallWindows(
-        LibraryEntry entry, string prefix, string? installer, Action<string>? onOutput)
+        LibraryEntry entry,
+        string prefix,
+        string? installer,
+        Action<string>? onOutput,
+        Action<double>? onProgress)
     {
         if (entry.Source == PluginSource.Byo && installer is null)
         {
@@ -222,21 +375,39 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         prefixes.Create(
             prefix,
-            existing is null && entry.Runner is { } spec ? EnsureRunner(spec, onOutput) : null,
+            existing is null && entry.Runner is { } spec
+                ? EnsureRunner(spec, onOutput, onProgress)
+                : null,
             onOutput);
 
         var staging = Path.Combine(Path.GetTempPath(), "cabinet-library");
 
         try
         {
-            var chosen = installer ?? Fetch(entry, staging, onOutput);
-            var result = prefixes.Install(prefix, chosen, onOutput);
+            var chosen = installer ?? Fetch(entry, staging, onOutput, onProgress);
 
-            if (!result.Ok)
+            if (entry.Script is null)
             {
-                throw new InvalidOperationException(
-                    $"the {entry.Name} installer exited with {result.ExitCode}");
+                var result = prefixes.Install(prefix, chosen, onOutput);
+
+                if (!result.Ok)
+                {
+                    throw new InvalidOperationException(
+                        $"the {entry.Name} installer exited with {result.ExitCode}");
+                }
             }
+            else
+            {
+                new InstallScript(layout, runner).Run(
+                    entry,
+                    chosen,
+                    staging,
+                    layout.PrefixPath(prefix),
+                    prefixes.Variables(prefix),
+                    onOutput);
+            }
+
+            Record(prefix, entry.Id);
         }
         finally
         {
@@ -247,7 +418,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         if (entry.Dxvk && dxvk.InstalledIn(prefix) is null)
         {
-            dxvk.Install(prefix, onOutput);
+            dxvk.Install(prefix, onOutput, onProgress);
         }
 
         if (existing is null && entry.Sync != SyncMode.System)
@@ -259,7 +430,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Bridge(prefixes, onOutput);
     }
 
-    private void InstallNative(LibraryEntry entry, Action<string>? onOutput)
+    private void InstallNative(
+        LibraryEntry entry, Action<string>? onOutput, Action<double>? onProgress)
     {
         var root = layout.NativePath(entry.Id);
 
@@ -269,20 +441,38 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 $"{entry.Name} is installed already — `cabinet library remove {entry.Id}` first");
         }
 
+        var data = entry.Data is { } relative ? layout.DataPath(relative) : null;
+
+        if (data is not null && Directory.Exists(data))
+        {
+            throw new InvalidOperationException(
+                $"{data} is already there — {entry.Name} keeps its presets in it, so move it "
+                + "aside first");
+        }
+
         var staging = Path.Combine(Path.GetTempPath(), "cabinet-library");
 
         try
         {
-            var archive = Fetch(entry, staging, onOutput);
+            var archive = Fetch(entry, staging, onOutput, onProgress);
             Directory.CreateDirectory(root);
-            Unpack(archive, root, onOutput);
+
+            if (data is not null)
+            {
+                Directory.CreateDirectory(data);
+                onOutput?.Invoke($"Its presets and resources go in {data}.");
+            }
+
+            Lay(entry, archive, root, data, staging, onOutput);
             Link(entry, root, onOutput);
         }
         catch
         {
-            if (Directory.Exists(root))
+            Discard(root);
+
+            if (data is not null)
             {
-                Directory.Delete(root, recursive: true);
+                Discard(data);
             }
 
             throw;
@@ -293,7 +483,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
     }
 
-    private string EnsureRunner(string spec, Action<string>? onOutput)
+    private string EnsureRunner(
+        string spec, Action<string>? onOutput, Action<double>? onProgress)
     {
         var runners = new Runners(layout, runner);
 
@@ -303,23 +494,54 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         onOutput?.Invoke($"Fetching Wine {spec}, which this plugin's editor needs.");
-        return runners.Install(new RunnerIndex(runner).Find(spec), onOutput).Name;
+        return runners.Install(new RunnerIndex(runner).Find(spec), onOutput, onProgress).Name;
     }
 
     private static bool Answers(string name, string spec) =>
         name == spec
         || RunnerIndex.Families.Any(family => Runners.DeriveName(family.AssetFor(spec)) == name);
 
-    private string Fetch(LibraryEntry entry, string staging, Action<string>? onOutput)
+    private string Fetch(
+        LibraryEntry entry,
+        string staging,
+        Action<string>? onOutput,
+        Action<double>? onProgress)
     {
         var url = entry.Url!;
         var target = Path.Combine(staging, url[(url.LastIndexOf('/') + 1)..]);
 
-        http.ToFile(url, target, onOutput);
+        http.ToFile(url, target, onOutput, onProgress);
         onOutput?.Invoke($"Checking sha256 {entry.Sha256![..12]}…");
         Checksum.Expect(target, entry.Sha256!);
 
         return target;
+    }
+
+    private void Lay(
+        LibraryEntry entry,
+        string archive,
+        string root,
+        string? data,
+        string staging,
+        Action<string>? onOutput)
+    {
+        if (entry.Script is null)
+        {
+            Unpack(archive, root, onOutput);
+            return;
+        }
+
+        var variables = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["CABINET_DEST"] = root,
+        };
+
+        if (data is not null)
+        {
+            variables["CABINET_DATA"] = data;
+        }
+
+        new InstallScript(layout, runner).Run(entry, archive, staging, root, variables, onOutput);
     }
 
     private void Unpack(string archive, string root, Action<string>? onOutput)
@@ -393,6 +615,21 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
     }
 
+    private IEnumerable<string> Recorded(string prefix) =>
+        File.Exists(layout.PrefixPluginsFile(prefix))
+            ? File.ReadAllLines(layout.PrefixPluginsFile(prefix))
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+            : [];
+
+    private void Record(string prefix, string id)
+    {
+        if (!Recorded(prefix).Contains(id, StringComparer.Ordinal))
+        {
+            File.AppendAllText(layout.PrefixPluginsFile(prefix), id + Environment.NewLine);
+        }
+    }
+
     private void Bridge(Prefixes prefixes, Action<string>? onOutput)
     {
         onOutput?.Invoke("Bridging what is installed…");
@@ -443,11 +680,11 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     private static bool IsBundle(string path) =>
         BundleDirectories.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase);
 
-    private static void Discard(string staging)
+    private static void Discard(string directory)
     {
-        if (Directory.Exists(staging))
+        if (Directory.Exists(directory))
         {
-            Directory.Delete(staging, recursive: true);
+            Directory.Delete(directory, recursive: true);
         }
     }
 }

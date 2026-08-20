@@ -1,0 +1,30 @@
+# Where the Library's artwork came from
+
+Every image in `data/library/<vendor>/`, and what it is.
+
+Cabinet ships these so the Library works offline. Each `<vendor>/<id>.jpg` is the plugin's own
+interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothing was redrawn.
+
+| Entry | Source |
+| --- | --- |
+| bazille-cm, podolski, protoverb, triple-cheese, tyrell-n6, zebra-cm, zebralette | u-he's product pages, `u-he.com/products/<product>/assets/images/` |
+| surge-xt | `surge-synthesizer.github.io/images/hero_dark.png` |
+| dexed | captured here, from Dexed 1.0.1's own standalone build |
+| serum | `xferrecords.com/assets/products-large/serum2_promo…png` |
+| fabfilter-pro-q | `cdn-b.fabfilter.com/img/products/pro-q-4-screenshot.jpg` |
+
+Each `<vendor>/logo.png` is that vendor's own mark, padded onto the background that keeps it
+legible in both GNOME themes — u-he's and Xfer's are white, so they sit on near-black; Surge
+Synth Team's has black nodes, so it sits on white; FabFilter's is already a square badge.
+
+| Vendor | Logo |
+| --- | --- |
+| u-he | `u-he.com/assets/images/u-he-logo.png` |
+| xfer-records | `xferrecords.com/assets/logo-…png` |
+| fabfilter | `cdn-b.fabfilter.com/static/img/logo-fabfilter-2022.svg` |
+| surge-synth-team | `surge-synthesizer.github.io/_astro/sst-logo…svg` |
+| digital-suburban | the Dexed wordmark, from the same capture as its screenshot |
+
+The u-he, Xfer Records and FabFilter images are those companies' own artwork of their own
+products, used to identify the plugin the entry installs. Dexed is GPL-3.0 and Surge XT
+GPL-3.0. Ask before adding a vendor whose terms you have not read.

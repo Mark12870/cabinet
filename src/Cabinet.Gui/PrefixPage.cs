@@ -183,7 +183,7 @@ internal sealed class PrefixPage
         Operation.Run(
             window,
             $"Installing DXVK into {Name}",
-            output => new Dxvk(layout, runner).Install(Name, output),
+            (output, progress) => new Dxvk(layout, runner).Install(Name, output, progress),
             changed);
 
     private void RemoveDxvk() =>
@@ -226,30 +226,15 @@ internal sealed class PrefixPage
                     Path.GetFileName(path)),
                 changed));
 
-    private void ConfirmDelete()
-    {
-        var dialog = Adw.AlertDialog.New(
-            $"Delete “{Name}”?",
-            "The prefix and every plugin installed in it will be removed.");
-
-        dialog.AddResponse("cancel", "Cancel");
-        dialog.AddResponse("delete", "Delete");
-        dialog.SetResponseAppearance("delete", Adw.ResponseAppearance.Destructive);
-        dialog.SetDefaultResponse("cancel");
-        dialog.SetCloseResponse("cancel");
-
-        dialog.OnResponse += (_, args) =>
-        {
-            if (args.Response == "delete")
-            {
-                Operation.Run(
-                    window,
-                    $"Deleting {Name}",
-                    _ => new Prefixes(layout, runner).Delete(Name),
-                    changed);
-            }
-        };
-
-        dialog.Present(window);
-    }
+    private void ConfirmDelete() => Ui.Confirm(
+        window,
+        $"Delete “{Name}”?",
+        "The prefix and every plugin installed in it will be removed.",
+        "Delete",
+        () => Operation.Run(
+            window,
+            $"Deleting {Name}",
+            _ => new Prefixes(layout, runner).Delete(Name),
+            changed),
+        Adw.ResponseAppearance.Destructive);
 }

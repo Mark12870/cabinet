@@ -1,0 +1,21 @@
+Name: BazilleCM
+Kind: native
+Category: Synth
+Summary: Patchable digital oscillators and an analogue-style filter.
+Developer: u-he
+Version: 1.0.1
+Licence: Freeware
+Formats: VST3
+Homepage: https://u-he.com/products/bazillecm/
+Source: download
+Url: https://dl.u-he.com/releases/BazilleCM_101_12185_Linux.tar.xz
+Sha256: 0fb07bc7feff6301ca1f5653b9684a8517d5c642880c93b706edfa267435a2d8
+Script: u-he.sh
+Data: .u-he/BazilleCM
+Description:
+  The small brother of Bazille, u-he's modular monster: digital oscillators
+  doing phase distortion and fractal resonance, an analogue-style filter, and
+  patch cords between whatever you like.
+
+  Commissioned by Computer Music magazine for its readers. The magazine has
+  since closed and the publisher let u-he keep hosting it. Linux build is beta.

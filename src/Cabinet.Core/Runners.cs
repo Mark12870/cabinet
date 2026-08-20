@@ -72,13 +72,16 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
             .Select(prefix => prefix.Name)
             .ToList();
 
-    public Runner Install(RunnerRelease release, Action<string>? onOutput = null)
+    public Runner Install(
+        RunnerRelease release,
+        Action<string>? onOutput = null,
+        Action<double>? onProgress = null)
     {
         var staging = Path.Combine(Path.GetTempPath(), "cabinet-runner");
 
         try
         {
-            var tarball = new RunnerIndex(runner).Download(release, staging, onOutput);
+            var tarball = new RunnerIndex(runner).Download(release, staging, onOutput, onProgress);
             return Unpack(tarball, release.Name, onOutput);
         }
         finally

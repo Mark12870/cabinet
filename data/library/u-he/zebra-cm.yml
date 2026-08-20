@@ -1,0 +1,21 @@
+Name: ZebraCM
+Kind: native
+Category: Synth
+Summary: Zebra2's core modules in a smaller layout, free from Computer Music.
+Developer: u-he
+Version: 1.1.1
+Licence: Freeware
+Formats: VST3
+Homepage: https://u-he.com/products/zebracm/
+Source: download
+Url: https://dl.u-he.com/releases/ZebraCM_111_12185_Linux.tar.xz
+Sha256: fc6cb48b6c59b3b12a20b6dddf508145f7151ca63e044cc08fa4e3c133abf6eb
+Script: u-he.sh
+Data: .u-he/ZebraCM
+Description:
+  A cut-down Zebra2: a selection of the same modules in a fixed, simpler
+  layout. Smaller, but the sound engine underneath is the one people buy the
+  full version for.
+
+  Commissioned by Computer Music magazine for its readers. The magazine has
+  since closed and the publisher let u-he keep hosting it. Linux build is beta.

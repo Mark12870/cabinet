@@ -142,9 +142,6 @@ internal sealed class PrefixesPage
 
     private void NewPrefix()
     {
-        var dialog = Adw.AlertDialog.New(
-            "New prefix", "A name for the prefix, such as the plugin it will hold.");
-
         var name = Adw.EntryRow.New();
         name.SetTitle("Name");
 
@@ -155,28 +152,22 @@ internal sealed class PrefixesPage
         wine.SetModel(Gtk.StringList.New([.. choices]));
 
         var fields = Adw.PreferencesGroup.New();
-        fields.SetMarginTop(12);
         fields.Add(name);
         fields.Add(wine);
-        dialog.SetExtraChild(fields);
 
-        dialog.AddResponse("cancel", "Cancel");
-        dialog.AddResponse("ok", "Create");
-        dialog.SetResponseAppearance("ok", Adw.ResponseAppearance.Suggested);
-        dialog.SetDefaultResponse("ok");
-        dialog.SetCloseResponse("cancel");
-
-        dialog.OnResponse += (_, args) =>
-        {
-            var entered = name.GetText().Trim();
-
-            if (args.Response == "ok" && entered.Length > 0)
+        Ui.Confirm(
+            window,
+            "New prefix",
+            "A name for the prefix, such as the plugin it will hold.",
+            "Create",
+            () =>
             {
-                CreatePrefix(entered, choices[(int)wine.GetSelected()]);
-            }
-        };
-
-        dialog.Present(window);
+                if (name.GetText().Trim() is { Length: > 0 } entered)
+                {
+                    CreatePrefix(entered, choices[(int)wine.GetSelected()]);
+                }
+            },
+            extra: fields);
     }
 
     private void CreatePrefix(string name, string? runnerName) =>

@@ -31,6 +31,7 @@ cabinet=io.github.mark12870.cabinet
 flatpak run $cabinet                                        # the window, also in your launcher
 
 flatpak run $cabinet library                                # plugins it can install for you
+flatpak run $cabinet library show podolski                  # what one is, and what it costs
 flatpak run $cabinet library install surge-xt               # a Linux build, so no Wine at all
 flatpak run $cabinet library install serum serum ~/Downloads/Serum.exe   # prefix, Wine, DXVK
 
@@ -64,7 +65,9 @@ pinned Wine and no bridge. Linux
 plugins in the library need no prefix at all; their files go in Cabinet's own directory and
 are linked into `~/.vst3`, `~/.clap`, `~/.lv2` and `~/.vst`, so `library remove` takes them out
 cleanly —
-`enrol` is what lets a Flatpak DAW follow those links.
+`enrol` is what lets a Flatpak DAW follow those links. A few plugins insist on a directory of
+their own — the u-he ones keep their presets in `~/.u-he/<Product>` and read it by name — so
+Cabinet fills that too, and `library remove` says before it deletes it.
 
 The four commands after it are the same thing by hand, and still the whole workflow for a
 plugin the library has never heard of. `set` is per prefix, and reaches the bridged plugin

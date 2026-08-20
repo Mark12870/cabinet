@@ -81,7 +81,11 @@ public sealed class RunnerIndex(IProcessRunner runner)
         };
     }
 
-    public string Download(RunnerRelease release, string directory, Action<string>? onOutput = null)
+    public string Download(
+        RunnerRelease release,
+        string directory,
+        Action<string>? onOutput = null,
+        Action<double>? onProgress = null)
     {
         Directory.CreateDirectory(directory);
 
@@ -93,7 +97,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
         }
 
         var target = Path.Combine(directory, release.Asset);
-        http.ToFile(listed.Url, target, onOutput);
+        http.ToFile(listed.Url, target, onOutput, onProgress);
 
         if (release.Family.SumsFile is not { } sums)
         {
