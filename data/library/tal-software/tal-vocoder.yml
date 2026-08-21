@@ -1,0 +1,19 @@
+Name: TAL-Vocoder
+Kind: native
+Category: Effect
+Summary: Eleven-band vocoder with a carrier synth built in.
+Developer: TAL Software
+Licence: Freeware
+Formats: VST3, CLAP, VST2
+Homepage: https://tal-software.com/products/tal-vocoder
+Source: rolling
+Url: https://tal-software.com/downloads/plugins/TAL-Vocoder-2_64_linux.zip
+Description:
+  Eleven bands, each with a level of its own, and a carrier already inside
+  — pulse, saw, sub and noise, tuned and detuned from the panel — so a
+  vocal becomes a vocoder part without a second synth routed into it.
+
+  What it aims at is the vocoder sound of the early 80s rather than a clean
+  modern one, so the analogue modelling is the point rather than a garnish.
+  It reads the modulator from the track it sits on and takes its notes over
+  MIDI, or a carrier from the other channel if you would rather bring one.

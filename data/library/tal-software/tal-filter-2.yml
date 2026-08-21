@@ -1,0 +1,19 @@
+Name: TAL-Filter-2
+Kind: native
+Category: Effect
+Summary: Host-synced filter driven by a curve you draw.
+Developer: TAL Software
+Licence: Freeware
+Formats: VST3, CLAP, VST2
+Homepage: https://tal-software.com/products/tal-filter
+Source: rolling
+Url: https://tal-software.com/downloads/plugins/TAL-Filter-2_64_linux.zip
+Description:
+  A curve you draw point by point, locked to the host's tempo, driving a
+  multimode filter — or, pointed elsewhere, the panorama or the volume.
+  That last pair is what makes it a tremolo and a trance gate as much as a
+  filter.
+
+  One display and six knobs under it, so it is the thing you drop on a stem
+  rather than the thing you patch. The curve runs free on the bar or waits
+  to be triggered.

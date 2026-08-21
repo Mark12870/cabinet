@@ -233,9 +233,13 @@ internal sealed class LibraryPage
         Ui.Confirm(
             window,
             $"Install {entry.Name}?",
-            $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own "
-            + "directory and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in your "
-            + "DAW afterwards."
+            (entry.Source == PluginSource.Rolling
+                ? "Cabinet downloads it, keeps it in its own directory and links it into "
+                  + "~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW afterwards."
+                  + $"\n\n{Library.Unverifiable(entry.Url!)}"
+                : $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own "
+                  + "directory and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in "
+                  + "your DAW afterwards.")
             + Presets(entry),
             "Install",
             () => Start(entry, null, null));
