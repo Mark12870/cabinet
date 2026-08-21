@@ -46,6 +46,29 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.7.0" date="2026-08-21">
+      <description>
+        <p>Eight more plugins, and prefixes that stop writing into your home</p>
+        <ul>
+          <li>All six of TAL's free plugins — NoiseMaker, Filter-2, Reverb-4, Chorus-LX,
+          Vocoder and Bitcrusher — as Linux builds, so none of them needs Wine</li>
+          <li>FabFilter's Total Bundle: all fourteen of their plugins from one installer,
+          on a 30-day trial</li>
+          <li>Vital, whose download sits behind an account — Cabinet opens the login page
+          and installs the file you come back with</li>
+          <li>A prefix keeps its Documents, Desktop and Music inside itself instead of
+          pointing them at yours, so a plugin that writes there installs everything it
+          should: Serum 2 had been laying down its binary and none of the 1.4 GB of
+          wavetables, presets and skins its editor needs</li>
+          <li>Serum 2 installs unattended now, with no wizard to click through</li>
+          <li>Where a vendor serves one always-current download there is nothing to check
+          it against, and both the window and the command line say so before fetching</li>
+        </ul>
+        <p>A prefix made before this release is repaired the next time a plugin is
+        installed into it.</p>
+      </description>
+    </release>
+
     <release version="0.6.1" date="2026-08-20">
       <description>
         <p>Small fixes to the logos</p>
