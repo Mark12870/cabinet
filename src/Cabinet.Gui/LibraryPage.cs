@@ -191,7 +191,9 @@ internal sealed class LibraryPage
 
         if (entry.Source == PluginSource.Byo)
         {
-            parts.Add("needs the installer you bought");
+            parts.Add(entry.Account is null
+                ? "needs the installer you bought"
+                : "needs the file you download from your account");
         }
 
         return string.Join("  ·  ", parts);
@@ -208,18 +210,73 @@ internal sealed class LibraryPage
         AskForPrefix(entry, already);
     }
 
-    private void ConfirmInstall(LibraryEntry entry) => Ui.Confirm(
-        window,
-        $"Install {entry.Name}?",
-        $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own directory "
-        + "and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW "
-        + "afterwards."
-        + (entry.Data is null
-            ? ""
-            : $"\n\nIts presets and resources go in ~/{entry.Data}, which is where this "
-              + "plugin looks for them."),
-        "Install",
-        () => Start(entry, null, null));
+    private void ConfirmInstall(LibraryEntry entry)
+    {
+        if (entry.Source == PluginSource.Byo)
+        {
+            Ui.Confirm(
+                window,
+                $"Install {entry.Name}?",
+                $"Cabinet cannot download {entry.Name}. Log in, download it, then choose the "
+                + "file — Cabinet keeps it in its own directory and links it into ~/.vst3, "
+                + "~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW afterwards."
+                + Presets(entry),
+                "Choose File…",
+                () => Ui.ChooseFile(
+                    window,
+                    $"Choose the {entry.Name} download",
+                    file => Start(entry, null, file)),
+                extra: AccountGroup(entry));
+            return;
+        }
+
+        Ui.Confirm(
+            window,
+            $"Install {entry.Name}?",
+            $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own "
+            + "directory and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in your "
+            + "DAW afterwards."
+            + Presets(entry),
+            "Install",
+            () => Start(entry, null, null));
+    }
+
+    private static string Presets(LibraryEntry entry) => entry.Data is null
+        ? ""
+        : $"\n\nIts presets and resources go in ~/{entry.Data}, which is where this plugin "
+          + "looks for them.";
+
+    private Adw.PreferencesGroup? AccountGroup(LibraryEntry entry)
+    {
+        if (AccountRow(entry) is not { } row)
+        {
+            return null;
+        }
+
+        var group = Adw.PreferencesGroup.New();
+        group.Add(row);
+        return group;
+    }
+
+    private Adw.ActionRow? AccountRow(LibraryEntry entry)
+    {
+        if (entry.Account is not { } account)
+        {
+            return null;
+        }
+
+        var host = new Uri(account).Host;
+        var row = Adw.ActionRow.New();
+        row.SetTitle("Log in and download");
+        row.SetSubtitle(host);
+
+        var open = Ui.RowButton(Icons.Link, $"{entry.Name} at {host}");
+        open.OnClicked += (_, _) => Gtk.UriLauncher.New(account).LaunchAsync(window);
+        row.AddSuffix(open);
+        row.SetActivatableWidget(open);
+
+        return row;
+    }
 
     private void AskForPrefix(LibraryEntry entry, string? already)
     {
@@ -245,6 +302,12 @@ internal sealed class LibraryPage
         };
 
         var fields = Adw.PreferencesGroup.New();
+
+        if (AccountRow(entry) is { } account)
+        {
+            fields.Add(account);
+        }
+
         fields.Add(where);
         fields.Add(name);
 
@@ -281,8 +344,11 @@ internal sealed class LibraryPage
     {
         if (entry.Source == PluginSource.Byo)
         {
-            return $"{entry.Name} cannot be downloaded, so you will be asked for the installer "
-                   + "you already have.";
+            return entry.Account is null
+                ? $"{entry.Name} cannot be downloaded, so you will be asked for the installer "
+                  + "you already have."
+                : $"{entry.Name} cannot be downloaded. Log in, download it, and you will be "
+                  + "asked for the file.";
         }
 
         var prefix = "A prefix of its own keeps this plugin's dependencies away from every other.";

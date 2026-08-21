@@ -22,6 +22,7 @@ public sealed record LibraryEntry(
     string? Homepage,
     PluginSource Source,
     string? Url,
+    string? Account,
     string? Sha256,
     string Prefix,
     string? Runner,
@@ -79,11 +80,11 @@ public sealed record LibraryEntry(
                 + "no Wine and no Direct3D to replace");
         }
 
-        if (kind == PluginKind.Native && source == PluginSource.Byo)
+        if (source != PluginSource.Byo && fields.ContainsKey("Account"))
         {
             throw new InvalidOperationException(
-                $"{id}.yml is native and byo — a Linux plugin Cabinet cannot download is one it "
-                + "has no way to install");
+                $"{id}.yml carries Account but Cabinet downloads it — a login page is only of "
+                + "use where the file has to come from you");
         }
 
         return new LibraryEntry(
@@ -95,6 +96,7 @@ public sealed record LibraryEntry(
             Value(fields, "Homepage"),
             source,
             Value(fields, "Url"),
+            Value(fields, "Account"),
             Value(fields, "Sha256"),
             Value(fields, "Prefix") ?? id,
             Value(fields, "Runner"),
@@ -317,7 +319,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                     + "directly", nameof(prefix));
             }
 
-            InstallNative(entry, onOutput, onProgress);
+            InstallNative(entry, installer, onOutput, onProgress);
             return;
         }
 
@@ -378,9 +380,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     {
         if (entry.Source == PluginSource.Byo && installer is null)
         {
-            throw new InvalidOperationException(
-                $"{entry.Name} cannot be downloaded — pass the installer you already have: "
-                + $"`cabinet library install {entry.Id} {prefix} <installer.exe>`");
+            throw new InvalidOperationException(BringYourOwn(entry, prefix));
         }
 
         var prefixes = new Prefixes(layout, runner);
@@ -450,8 +450,21 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     }
 
     private void InstallNative(
-        LibraryEntry entry, Action<string>? onOutput, Action<double>? onProgress)
+        LibraryEntry entry,
+        string? supplied,
+        Action<string>? onOutput,
+        Action<double>? onProgress)
     {
+        if (entry.Source == PluginSource.Byo && supplied is null)
+        {
+            throw new InvalidOperationException(BringYourOwn(entry));
+        }
+
+        if (supplied is not null && !File.Exists(supplied))
+        {
+            throw new FileNotFoundException($"no such file: {supplied}", supplied);
+        }
+
         var root = layout.NativePath(entry.Id);
 
         if (Directory.Exists(root))
@@ -473,7 +486,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         try
         {
-            var archive = Fetch(entry, staging, onOutput, onProgress);
+            var archive = supplied ?? Fetch(entry, staging, onOutput, onProgress);
             Directory.CreateDirectory(root);
 
             if (data is not null)
@@ -543,6 +556,21 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         return target;
     }
+
+    public static string Command(LibraryEntry entry, string? prefix = null) =>
+        (entry.Source, entry.Kind) switch
+        {
+            (PluginSource.Byo, PluginKind.Native) => $"cabinet library install {entry.Id} <file>",
+            (PluginSource.Byo, _) =>
+                $"cabinet library install {entry.Id} {prefix ?? "<prefix>"} <installer.exe>",
+            _ => $"cabinet library install {entry.Id}",
+        };
+
+    public static string BringYourOwn(LibraryEntry entry, string? prefix = null) =>
+        $"{entry.Name} cannot be downloaded — "
+        + (entry.Account is { } account
+            ? $"log in at {account}, download it, then `{Command(entry, prefix)}`"
+            : $"pass the installer you already have: `{Command(entry, prefix)}`");
 
     public static string Unverifiable(string url) =>
         $"{new Uri(url).Host} publishes no checksum and changes this download with every "

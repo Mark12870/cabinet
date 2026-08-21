@@ -23,8 +23,8 @@ internal static class Program
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
           cabinet library                      plugins Cabinet knows how to install
           cabinet library show <id>            what a plugin is, and what installing costs
-          cabinet library install <id> [prefix] [installer]
-                                               install one; paid plugins need your own
+          cabinet library install <id> [prefix] [file]
+                                               install one; some need a file you download
           cabinet library remove <id>          remove a Linux plugin and its links
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
@@ -475,9 +475,9 @@ internal static class Program
         }
 
         Console.WriteLine();
-        Console.WriteLine(entry.Source == PluginSource.Byo
-            ? $"`cabinet library install {id} <prefix> <installer.exe>` — this one you buy."
-            : $"`cabinet library install {id}` installs it.");
+        Console.WriteLine(Wrapped(entry.Source == PluginSource.Byo
+            ? Cabinet.Core.Library.BringYourOwn(entry)
+            : $"`{Cabinet.Core.Library.Command(entry)}` installs it."));
         return 0;
 
         static void Field(string name, string? value)
@@ -536,10 +536,12 @@ internal static class Program
         var library = new Library(layout, runner);
         var entry = library.Find(Require(args, 0, "a plugin id"));
 
+        var native = entry.Kind == PluginKind.Native;
+
         library.Install(
             entry,
-            args.Length > 1 ? args[1] : null,
-            args.Length > 2 ? args[2] : null,
+            native ? null : Optional(args, 1),
+            Optional(args, native ? 1 : 2),
             Console.WriteLine);
 
         Console.WriteLine();
@@ -661,6 +663,9 @@ internal static class Program
 
         return args[index];
     }
+
+    private static string? Optional(string[] args, int index) =>
+        args.Length > index ? args[index] : null;
 
     private static int Unknown(string command)
     {

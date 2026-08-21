@@ -244,12 +244,30 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void ANativeEntryNobodyCanDownloadIsRefused()
+    public void ANativeEntryMayCarryALoginPageInsteadOfADownload()
+    {
+        var entry = LibraryEntry.Parse(
+            "vital",
+            "Name: Vital\nKind: native\nSource: byo\nAccount: https://account.vital.audio\n");
+
+        Assert.Equal(PluginSource.Byo, entry.Source);
+        Assert.Equal("https://account.vital.audio", entry.Account);
+        Assert.Null(entry.Url);
+    }
+
+    [Fact]
+    public void ALoginPageOnAPluginCabinetDownloadsItselfIsRefused()
     {
         var refused = Assert.Throws<InvalidOperationException>(
-            () => LibraryEntry.Parse("vital", "Name: Vital\nKind: native\nSource: byo\n"));
+            () => LibraryEntry.Parse("thing", $"""
+                Name: Thing
+                Kind: native
+                Url: https://example.invalid/thing.zip
+                Sha256: {Zeros}
+                Account: https://example.invalid/login
+                """));
 
-        Assert.Contains("is native and byo", refused.Message);
+        Assert.Contains("carries Account but Cabinet downloads it", refused.Message);
     }
 
     [Fact]
@@ -305,6 +323,62 @@ public class LibraryTests : IDisposable
             "Serum cannot be downloaded — pass the installer you already have: "
             + "`cabinet library install serum serum <installer.exe>`",
             refused.Message);
+    }
+
+    [Fact]
+    public void ALinuxPluginBehindALoginSaysWhereToGoAndGetIt()
+    {
+        Catalogue(("vital", """
+            Name: Vital
+            Kind: native
+            Source: byo
+            Account: https://account.vital.audio
+            """));
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => Subject().Install(Subject().Find("vital")));
+
+        Assert.Equal(
+            "Vital cannot be downloaded — log in at https://account.vital.audio, download it, "
+            + "then `cabinet library install vital <file>`",
+            refused.Message);
+    }
+
+    [Fact]
+    public void AFileThatIsNotThereIsSaidSoRatherThanFailingInTheUnpack()
+    {
+        Catalogue(("vital", "Name: Vital\nKind: native\nSource: byo\n"));
+
+        Assert.Throws<FileNotFoundException>(() => Subject()
+            .Install(Subject().Find("vital"), installer: Path.Combine(root, "gone.zip")));
+    }
+
+    [Fact]
+    public void ALinuxPluginInstallsFromTheFileYouSupplyAndLeavesItWhereItWas()
+    {
+        var staging = Path.Combine(root, "supplied");
+        Directory.CreateDirectory(Path.Combine(staging, "Vital.vst3"));
+
+        var archive = Path.Combine(root, "VitalInstaller.tar.gz");
+        var real = new ProcessRunner();
+        Assert.True(real.Run("tar", ["-czf", archive, "-C", staging, "."]).Ok);
+
+        Catalogue(("vital", """
+            Name: Vital
+            Kind: native
+            Source: byo
+            Account: https://account.vital.audio
+            """));
+
+        var layout = Layout();
+        var library = new Library(layout, real);
+        var said = new List<string>();
+
+        library.Install(library.Find("vital"), installer: archive, onOutput: said.Add);
+
+        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Vital.vst3")));
+        Assert.True(File.Exists(archive));
+        Assert.DoesNotContain(said, line => line.Contains("Checking sha256"));
     }
 
     [Fact]
