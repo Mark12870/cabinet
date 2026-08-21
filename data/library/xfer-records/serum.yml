@@ -1,4 +1,4 @@
-Name: Serum
+Name: Serum 2
 Kind: windows
 Category: Synth
 Summary: Wavetable synthesizer from Xfer Records.
@@ -7,6 +7,7 @@ Licence: Commercial
 Formats: VST3
 Homepage: https://xferrecords.com/products/serum-2
 Source: byo
+Script: serum.sh
 Runner: 9.21
 Dxvk: true
 Sync: fsync
@@ -17,4 +18,4 @@ Description:
 
   There is no Linux build, so Cabinet gives it a Wine prefix of its own with
   the Wine version its editor needs and DXVK for the drawing. You supply the
-  installer you bought.
+  installer you bought, and it runs through on its own with no wizard to click.

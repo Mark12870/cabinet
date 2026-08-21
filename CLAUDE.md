@@ -196,8 +196,10 @@ These were all found by something failing, not by reading documentation.
 - **FabFilter's installer has no silent mode.** Asked for, and measured rather than assumed: `/S`,
   `/SILENT`, `/VERYSILENT`, `/qn`, `/quiet` and `-s` each opened the wizard and installed nothing —
   `Common Files/VST3` empty after every one. It is FabFilter's own installer, not NSIS or Inno, and
-  its packed image carries no switch strings to find. A Windows entry's install is therefore always
-  a wizard somebody clicks through; do not design around an unattended one.
+  its packed image carries no switch strings to find. That is FabFilter's installer, not the rule:
+  Serum 2's is NSIS — `file` says so — and `/S` installs all 1.9 GB of it unattended, which is what
+  `xfer-records/serum.sh` does. Check the installer before assuming either way, and where there is
+  no silent switch, a wizard somebody clicks through is the answer.
 
 - **FabFilter's VST2 lands where yabridge does not look.** Its installer put all fourteen VST3
   bundles in `Common Files/VST3` and all fourteen CLAPs in `Common Files/CLAP` — both in
@@ -263,6 +265,23 @@ These were all found by something failing, not by reading documentation.
   prefixes to fsync was rejected: Soda reports `( TkG Plain )` and has none.
 - **`File.ResolveLinkTarget` throws when the path does not exist** — the normal first run.
   `new DirectoryInfo(p).LinkTarget` answers `null` instead.
+- **Wine symlinks the prefix's profile out to `$HOME`, and Cabinet holds `$HOME` read-only.**
+  `wineboot --init` points `Documents`, `Desktop`, `Music`, `Pictures`, `Videos` and
+  `Downloads` at the host's own, so a Windows plugin that keeps its content under the user
+  profile writes to a path the sandbox refuses — and **the installer still exits 0**. Serum 2
+  recorded `PresetsDir=C:\users\marek\Documents\Xfer\Serum 2 Presets` and then laid down
+  nothing but its 18.9 MB binary: 514 MB prefix against 1.9 GB once the same installer ran
+  with a real directory there, the missing 1.4 GB being the wavetables, presets and the
+  `Skins` the editor draws itself from. This is **not** a TkG defect, which was the first
+  guess: the bundled stock WineHQ 11.0 makes the same six links, and Soda escapes only
+  because it is Proton-derived — a `steamuser` profile with real directories. So it bites the
+  bundled default and every Kron4ek/TkG runner. `Prefixes.ContainProfile` replaces any profile
+  link pointing outside the prefix with a directory, which is `winecfg`'s own unlink and keeps
+  everything Cabinet owns inside `~/.var/app`; the alternative, a `--filesystem=~/Documents`
+  grant, would put a vendor's content in `$HOME` for good. It runs on every `Create`, so an
+  older prefix is repaired the next time one is installed into, and **`wineboot -u` does not
+  put a link back where a real directory stands** — measured, which is why containment is not
+  repeated after the update in `Dxvk.Remove`.
 
 ### DXVK and plugin editors
 

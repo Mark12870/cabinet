@@ -120,8 +120,15 @@ curl -sSfL -O "$url" && sha256sum "$(basename "$url")"
 - Compute the SHA-256 **from the file you downloaded**, never from a number the release page
   quotes. A checksum copied from the same page that served a bad file proves nothing.
 - Keep the version in the filename. That is what makes a stale entry visible in a diff.
-- Windows entries take an **installer `.exe`**; `Prefixes.Install` runs it under Wine and the
-  user clicks through it. A zip of loose plugin files is not something an entry can install.
+- Windows entries take an **installer `.exe`**; `Prefixes.Install` runs it under Wine. A zip of
+  loose plugin files is not something an entry can install.
+- **Always prefer a silent install.** Run `file` on the `.exe` first: NSIS takes `/S`, Inno takes
+  `/VERYSILENT`, MSI-based ones `/qn`. Where one works, give the entry a `Script:` that passes it
+  — `xfer-records/serum.sh` is the worked example, and it installs all 1.9 GB of Serum 2 with
+  nothing to click. Measure it rather than trusting the family: FabFilter's is its own installer
+  and every switch opened the wizard and installed nothing. A wizard is the fallback, not the
+  default. A silent install takes the vendor's default paths, so **check the prefix afterwards** —
+  the script is the place to fail loudly when the plugin or its content did not land.
 
 ## When an entry has to be `Source: byo`
 
