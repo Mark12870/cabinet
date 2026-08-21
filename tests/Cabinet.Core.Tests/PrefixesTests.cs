@@ -40,6 +40,72 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void AProfileLinkOutOfThePrefixBecomesADirectoryInsideIt()
+    {
+        var documents = Profile("serum", "testuser", "Documents");
+        var host = Path.Combine(root, "Documents");
+        Directory.CreateDirectory(host);
+        File.WriteAllText(Path.Combine(host, "keep-me"), "");
+        Directory.CreateSymbolicLink(documents, host);
+
+        Subject.ContainProfile("serum");
+
+        Assert.Null(new DirectoryInfo(documents).LinkTarget);
+        Assert.True(Directory.Exists(documents));
+        Assert.True(File.Exists(Path.Combine(host, "keep-me")));
+    }
+
+    [Fact]
+    public void EveryProfileInThePrefixIsContained()
+    {
+        var mine = Profile("serum", "testuser", "Music");
+        var everyone = Profile("serum", "Public", "Music");
+        Directory.CreateDirectory(Path.Combine(root, "Music"));
+        Directory.CreateSymbolicLink(mine, Path.Combine(root, "Music"));
+        Directory.CreateSymbolicLink(everyone, Path.Combine(root, "Music"));
+
+        Subject.ContainProfile("serum");
+
+        Assert.Null(new DirectoryInfo(mine).LinkTarget);
+        Assert.Null(new DirectoryInfo(everyone).LinkTarget);
+    }
+
+    [Fact]
+    public void ALinkThatStaysInsideThePrefixIsLeftAlone()
+    {
+        var appData = Profile("serum", "testuser", "AppData");
+        var target = Path.Combine(Layout.PrefixPath("serum"), "drive_c", "shared");
+        Directory.CreateDirectory(target);
+        Directory.CreateSymbolicLink(appData, target);
+
+        Subject.ContainProfile("serum");
+
+        Assert.Equal(target, new DirectoryInfo(appData).LinkTarget);
+    }
+
+    [Fact]
+    public void ContainingAProfileTwiceChangesNothingTheSecondTime()
+    {
+        var documents = Profile("serum", "testuser", "Documents");
+        Directory.CreateDirectory(Path.Combine(root, "Documents"));
+        Directory.CreateSymbolicLink(documents, Path.Combine(root, "Documents"));
+
+        Subject.ContainProfile("serum");
+        File.WriteAllText(Path.Combine(documents, "written-after"), "");
+        Subject.ContainProfile("serum");
+
+        Assert.True(File.Exists(Path.Combine(documents, "written-after")));
+    }
+
+    [Fact]
+    public void APrefixWithNoProfileYetIsNotAnError()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("serum"));
+
+        Subject.ContainProfile("serum");
+    }
+
+    [Fact]
     public void APrefixRecordsNoRunnerUntilItIsGivenOne()
     {
         Directory.CreateDirectory(Layout.PrefixPath("serum"));
@@ -124,6 +190,15 @@ public sealed class PrefixesTests : IDisposable
 
         Assert.DoesNotContain("WINEFSYNC", recorder.Environment.Keys);
         Assert.DoesNotContain("WINENTSYNC", recorder.Environment.Keys);
+    }
+
+    private string Profile(string prefix, string user, string folder)
+    {
+        var path = Path.Combine(
+            Layout.PrefixPath(prefix), "drive_c", "users", user, folder);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+        return path;
     }
 
     public void Dispose() => Directory.Delete(root, recursive: true);

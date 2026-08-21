@@ -79,6 +79,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             }
         }
 
+        ContainProfile(name);
+
         foreach (var directory in layout.PrefixPluginDirs(name))
         {
             Directory.CreateDirectory(directory);
@@ -87,6 +89,39 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         return new Prefix(
             name, path, true, RunnerOf(name), dxvk.InstalledIn(name), settings.Sync(name));
     }
+
+    public void ContainProfile(string name)
+    {
+        var users = Path.Combine(layout.PrefixPath(name), "drive_c", "users");
+
+        if (!Directory.Exists(users))
+        {
+            return;
+        }
+
+        var inside = Path.GetFullPath(layout.PrefixPath(name)) + Path.DirectorySeparatorChar;
+
+        foreach (var profile in Directory.EnumerateDirectories(users))
+        {
+            foreach (var entry in Directory.EnumerateFileSystemEntries(profile))
+            {
+                if (new DirectoryInfo(entry).LinkTarget is not { } target
+                    || Resolve(entry, target).StartsWith(inside, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                File.Delete(entry);
+                Directory.CreateDirectory(entry);
+            }
+        }
+    }
+
+    private static string Resolve(string link, string target) =>
+        Path.GetFullPath(
+            Path.IsPathRooted(target)
+                ? target
+                : Path.Combine(Path.GetDirectoryName(link)!, target));
 
     public void Delete(string name)
     {
