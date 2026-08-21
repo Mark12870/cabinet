@@ -368,6 +368,35 @@ These were all found by something failing, not by reading documentation.
   The bundle installer is itself a **32-bit** PE that lays down 64-bit plugins, one more thing a
   runner with no 32-bit tree would break.
 
+- **FabFilter's plugins run best on `soda-11.0-5`, not on 9.21.** That is the runner the entry
+  pins, and it is a measured preference rather than a derivation from the editor rule above:
+  9.21 is what an editor with the yabridge#382 click offset needs, and FabFilter's do not
+  behave better for it. Soda reports `( TkG Plain )` rather than the `Esync Fsync` both Kron4ek
+  builds report, and that costs nothing here: FabFilter's plugins run fine without it, so the
+  entry stays on `Sync: system` and inherits whatever the DAW was launched with. Anything that
+  changes the entry's `Runner:` changes what was actually tried.
+
+- **An account-gated download looks like a URL and is not one.** Vital's is
+  `account.vital.audio/VitalInstaller.zip?idToken=<JWT>&version=1_0_7`: the token is one user's,
+  expires an hour after it is issued, and redirects to a presigned R2 URL good for 900 seconds —
+  read off the `302` and its `X-Amz-Expires`, not guessed. There is nothing there to pin, not a
+  checksum and not even a path that resolves for a second user, so `Source: rolling` does not
+  cover it either — rolling still assumes one stable vendor URL anyone can fetch. `Source: byo`
+  does, and `Account:` names the page to go and get it from. **Cabinet cannot do the download
+  itself**, and that is architecture rather than effort: the session lives in the user's browser,
+  the sandbox cannot reach its storage, and the alternatives are holding a vendor password —
+  Vital's is Firebase, so it would be one POST to `identitytoolkit` with a scraped API key, one
+  vendor's worth of bespoke auth in Core — or embedding WebKit, which `org.gnome.Platform//50`
+  does carry. Both were rejected. So Cabinet opens the page and takes the file the user comes
+  back with, which is also why `Account` is refused on an entry Cabinet downloads.
+
+- **Vital's zip needs no script, and that was measured by unpacking it.** `VitalBinaries/` holds
+  `Vital.vst3`, `Vital.lv2` and a bare `Vital.so` — VST3, LV2 and VST2 — beside the `vital`
+  standalone, all one level down, which is exactly as deep as `Bundles` walks. The standalone has
+  no plugin extension so it is not linked, and 1.0.7 predates CLAP. Nothing is laid outside
+  `data/native/vital/` either: the free version's factory content is the *plugin's* to write at
+  runtime, in the DAW's sandbox, so the entry needs no `Data:` and no manifest grant.
+
 - **A native Linux plugin cannot be sandboxed from here, and `bwrap` is not the missing
   piece.** It was asked for and the answer is no on architecture, not on tooling: `bwrap` and
   `flatpak-spawn` are both in `org.gnome.Platform//50` and the host allows unprivileged user

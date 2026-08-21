@@ -127,8 +127,21 @@ curl -sSfL -O "$url" && sha256sum "$(basename "$url")"
 
 Anything behind a login, a licence agreement, an account or a download manager. The entry still
 carries the prefix, runner, DXVK and sync knowledge — that is most of its value — and only the
-`.exe` comes from the user. **Do not try to script a login.** Omit `Url` and `Sha256`; the
+file comes from the user. **Do not try to script a login.** Omit `Url` and `Sha256`; the
 error `Library.Install` raises already tells the user exactly what to pass.
+
+A native plugin may be `byo` too — Vital's download exists only behind an account — and then the
+file the user picks is the archive Cabinet unpacks and links, with no checksum, because they
+fetched it from the vendor themselves.
+
+```yaml
+Source: byo
+Account: https://account.vital.audio   # byo only; refused where Cabinet downloads it itself
+```
+
+`Account:` is the page to log in on, and both front ends offer it before asking for the file —
+the CLI in the message it raises, the GUI as a row in the install dialog that opens a browser.
+Leave it out when there is nothing to log into and the user simply owns an installer.
 
 ## When the vendor publishes one always-current URL
 

@@ -48,7 +48,10 @@ its tabs as `page tab` nodes named exactly as they are titled, and `queryAction(
 switches to one. Nothing depends on window size, font or scale.
 
 The same route reaches every other widget that exposes a `click` action. To drive a button, a
-dialog or a row, walk the tree for the role and name and act on it — this dumps it. Keep the
+dialog or a row, walk the tree for the role and name and act on it — this dumps it. **A
+`Gtk.Button`'s own accessible name is empty**: the text is a `label` child, so match the label
+and walk *up* to the first ancestor offering `click`, rather than looking for a `push button`
+named after what it says. Keep the
 depth cap generous: `Adw.NavigationView` put the prefix rows past a cap of 16, and a walk that
 stops short reports the row missing rather than deep.
 
@@ -122,6 +125,11 @@ Measured, not assumed:
   every page, so even a plain tab switch compares byte-identical to the Library landing shot.
   `magick compare -metric AE` against an earlier shot is how to tell, and `0` means the run
   proved nothing.
+- **Driving the file chooser.** `Ui.ChooseFile` opens the portal's own window, which is
+  Nautilus and native Wayland: XWayland never sees it, so `xdotool` cannot find, focus or type
+  into it, and AT-SPI exposes it as an `org.gnome.Nautilus` frame carrying its title and two
+  toggle buttons — nothing to pick a file with. Confirm the chooser opened by its title and
+  test the install itself through the CLI, which runs the same `Library.Install`.
 - **`import -window ""`.** An unset id is not an error to `import`; it waits for an interactive
   pick and hangs until the timeout kills it. Guard the id before capturing.
 
