@@ -13,7 +13,7 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | serum | `xferrecords.com/assets/products-large/serum2_promo…png` |
 | fabfilter-total-bundle | `cdn-b.fabfilter.com/img/products/pro-q-4-screenshot.jpg` — Pro-Q 4, the bundle's flagship |
 | vital | a frame of `vital.audio/videos/full_screen.mp4`, the interface tour on their own front page |
-| tal-noisemaker | `tal-software.com/images/products/tal-noisemaker-new.jpg` |
+| tal-noisemaker, tal-filter-2, tal-reverb-4, tal-chorus-lx, tal-vocoder, tal-bitcrusher | TAL's product pages, `tal-software.com/images/products/` — `tal-noisemaker-new.jpg`, `tal-filter-2-new.jpg`, `tal-reverb-402.jpg`, `tal-chorus-lx_.png`, `vocoder-3.jpg`, `tal-bitcrusher-02.jpg` |
 
 Each `<vendor>/logo.png` is that vendor's own mark on the background that keeps it legible in
 both GNOME themes — Xfer's and TAL's are white, so they sit on near-black; Surge Synth Team's

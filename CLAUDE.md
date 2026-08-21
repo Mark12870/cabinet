@@ -381,8 +381,10 @@ These were all found by something failing, not by reading documentation.
   *do* carry a version (`ffproq413x64.exe`) would mean fourteen entries and fourteen wizards. So
   `Source: rolling`, which **refuses** `Sha256` outright and warns instead: nothing can verify
   what arrives, only that it came from the vendor over HTTPS. Both front ends say that before the
-  download starts, from the one sentence in `Library.Unverifiable`. A rolling entry states no
-  `Version` either, for the same reason. `download` is unchanged and still strict — a mismatch
+  download starts, from the one sentence in `Library.Unverifiable` — which the GUI has **two**
+  dialogs to say it in, `Prospect` for a prefix and `ConfirmInstall` for a native plugin, and said
+  in only the first for as long as every rolling entry was a Windows one. A rolling entry states
+  no `Version` either, for the same reason. `download` is unchanged and still strict — a mismatch
   deletes the file and throws — and it stays the rule for anything with a version in its filename.
   The bundle installer is itself a **32-bit** PE that lays down 64-bit plugins, one more thing a
   runner with no 32-bit tree would break.

@@ -1,0 +1,20 @@
+Name: TAL-Reverb-4
+Kind: native
+Category: Effect
+Summary: Plate reverb with an early-80s character.
+Developer: TAL Software
+Licence: Freeware
+Formats: VST3, CLAP, VST2
+Homepage: https://tal-software.com/products/tal-reverb-4
+Source: rolling
+Url: https://tal-software.com/downloads/plugins/TAL-Reverb-4_64_linux.zip
+Description:
+  Size, damping, pre-delay and diffusion on the front panel, a modulation
+  pair that keeps the tail moving, low and high cuts with a tunable peak
+  between them, and a lo-fi stage that drops the bit depth and sample rate
+  of the reverb alone.
+
+  TAL call it a plate with a vintage character and it is stereo only, which
+  between them decide where it goes: a send for a whole mix rather than a
+  mono insert. There is a ducking control for when it should get out of the
+  way.

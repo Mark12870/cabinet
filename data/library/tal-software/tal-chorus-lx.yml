@@ -1,0 +1,17 @@
+Name: TAL-Chorus-LX
+Kind: native
+Category: Effect
+Summary: The Juno-60's chorus, on its own.
+Developer: TAL Software
+Licence: Freeware
+Formats: VST3, CLAP, VST2
+Homepage: https://tal-software.com/products/tal-chorus-lx
+Source: rolling
+Url: https://tal-software.com/downloads/plugins/TAL-Chorus-LX_64_linux.zip
+Description:
+  The two modes the hardware had, I and II, emulated from it — plus a dry
+  and wet balance and a stereo width the Juno never offered, which is what
+  lets it sit on something other than a synth.
+
+  Four controls and no menu. It is the one effect here with nothing to
+  decide beyond how much of it you want.

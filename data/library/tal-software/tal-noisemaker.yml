@@ -1,7 +1,7 @@
 Name: TAL-NoiseMaker
 Kind: native
 Category: Synth
-Summary: Virtual analogue synth with built-in effects, free.
+Summary: Virtual analogue synth with a step sequencer and effects.
 Developer: TAL Software
 Licence: Freeware
 Formats: VST3, CLAP, VST2
@@ -14,6 +14,7 @@ Description:
   pointed at most of the panel — then chorus, crusher, reverb and delay on
   the way out, all of it on one page.
 
-  The Linux build is TAL's own, so nothing here goes through Wine. They
-  serve one always-current download rather than a versioned one, so Cabinet
-  fetches whatever is behind it and there is nothing to pin a checksum to.
+  It ships with 256 presets and TAL make a point of how little CPU it takes,
+  so running several at once is not the problem it might be. Along the
+  bottom is a small modulation matrix — velocity and the pitch wheel wired
+  to volume, cutoff and pitch.

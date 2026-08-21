@@ -1,0 +1,19 @@
+Name: TAL-Bitcrusher
+Kind: native
+Category: Effect
+Summary: Bit and sample-rate crusher with a companding stage.
+Developer: TAL Software
+Licence: Freeware
+Formats: VST3, CLAP, VST2
+Homepage: https://tal-software.com/products/tal-bitcrusher
+Source: rolling
+Url: https://tal-software.com/downloads/plugins/TAL-Bitcrusher_64_linux.zip
+Description:
+  Bit depth and sample rate pulled down as far as you like, a noise stage
+  beside them, and a low and high pair to keep what comes out inside a
+  band. Companding is the new part: it lifts the quiet material before the
+  crushing, so the damage lands on more than the peaks.
+
+  A rewrite of a plugin TAL first shipped more than ten years ago, on the
+  same algorithms with the faults taken out. The interface resizes and has
+  a preset browser now, and presets from the old version do not load in it.
