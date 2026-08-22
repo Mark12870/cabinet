@@ -33,6 +33,10 @@ Languages are split on purpose: **Rust only for `shim/`**, C# for everything els
 the GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
 sandboxes; nothing else has that constraint.
 
+### SKILLS
+
+Never modify the CLAUDE.md or Claude skills without asking and approval.
+
 ## Layout
 
 - `shim/` — `cabinet-wine`, the `$WINELOADER` shim. Std-only, no dependencies.
@@ -207,7 +211,8 @@ These were all found by something failing, not by reading documentation.
   `Program Files/FabFilter/<Product>/`, a vendor directory nothing scans. A fresh prefix has no
   VST2 folder in its registry for an installer to read, so it invents one. The entry says
   `Formats: VST3, CLAP` for that reason: what a DAW will actually find. Do not widen
-  `PrefixPluginDirs` to chase a vendor directory — VST3 and CLAP are both there already.
+  `PrefixPluginDirs` to chase a vendor directory — VST3 and CLAP are both there already. A
+  *conventional* VST2 directory is a different question, and `Steinberg\VstPlugins` below is one.
 
 - **An installer that never ran still exits 0.** With the wizard sitting unseen on its first page,
   the whole run around it reported success — DXVK installed, sync set, yabridge synced, the id
@@ -553,6 +558,77 @@ These were all found by something failing, not by reading documentation.
 - **`.cabinet-plugins` is tab-separated now**: the id first, the uninstall keys after it. A file
   of bare ids — every prefix predating this — still parses and simply carries no key, which is
   the case `Candidates` exists to cover. `Record` finally has its inverse, `Forget`.
+
+- **A published Linux build is not a loadable one, and Sitala 1 is the case that proves it.**
+  Its `.deb` carries a VST2 `.so`, which is exactly what a `Kind: native` entry wants — and it
+  links against `libcurl-gnutls.so.4`, which is *Debian's* name for the library. Fedora ships
+  `libcurl.so.4`, `org.freedesktop.Platform//25.08` ships `libcurl.so.4`, and nothing anywhere
+  answers to the other name. Measured, not read: `ctypes.CDLL` on the `.so` from a shell inside
+  `fm.reaper.Reaper` fails with *cannot open shared object file*, and loads on the first try
+  with an `LD_LIBRARY_PATH` pointing at a symlink — a variable Cabinet cannot set on somebody
+  else's DAW. There is no `$ORIGIN` route either: the binary carries neither `RPATH` nor
+  `RUNPATH`, so a symlink dropped beside it in `data/native/<id>/` would never be looked at. So
+  *prefer the Linux build* turns on **loadable**, and the way to settle it is a `dlopen` from
+  inside the DAW's own runtime, not the presence of a `.tar.gz` on a download page. Both Sitala
+  entries are `Kind: windows` for this reason.
+
+- **`Steinberg\VstPlugins` is scanned now, and it is a convention rather than a vendor's
+  directory.** Sitala's WiX installer puts its VST2 there and nowhere else, and version 1 has no
+  VST3 at all, so without it that entry would bridge nothing. Everything less invasive was tried
+  first and each is worth not retrying: the installer ignores `HKLM\Software\VST\VSTPluginsPath`
+  outright, and its `VSTNATIVE_DIR` cannot be steered either, because **Wine 9.21's `msiexec`
+  ignores command-line properties altogether** — measured with `INSTALLDIR` alongside it, which
+  also stayed at its default whatever the argument order and however the quoting was written.
+  Moving the `.dll` afterwards was rejected on removal: `RemoveWindows` compares
+  `PrefixPluginDirs` before and after, and a vendor's uninstaller deletes what *it* installed,
+  never what Cabinet moved, so every removal would fail on *left every plugin where it was*.
+  `Program Files\Steinberg\VstPlugins` is the historical Windows VST2 folder and a sibling of
+  the `Program Files\VstPlugins` already in the list; `Program Files\FabFilter\<Product>` is a
+  vendor's own, and that line still holds.
+
+- **An `.msi` is not something `Prefixes.Install` can run.** It hands the file to `wine` as an
+  executable, which an installer database is not, so a Windows entry that downloads one needs a
+  `Script:` and `"$WINE" msiexec /i "$CABINET_ARCHIVE" /qn`. `/qn` is the vendor's own silent
+  switch — every WiX package takes it, and Sitala's two were measured taking it — not one
+  invented here.
+
+- **yabridgectl names a bridge after the `.dll`, so one basename may reach the scanned
+  directories once — across every prefix.** Sitala hit this twice. Version 1's installer lays
+  `Sitala.dll` in both `Steinberg\VstPlugins` directories, 64-bit and 32-bit, and `sync`
+  cheerfully reported *2 plugins (2 new)* while `~/.vst/yabridge` held exactly one `Sitala.so`;
+  then, with both entries installed, version 2's `Sitala.dll` in *its* prefix overwrote version
+  1's, so which one a DAW loads was whichever synced last. Neither case says a word. `sitala.sh`
+  therefore deletes the 32-bit twin always, and version 2's VST2 whenever the VST3 landed — a
+  `-e` test, because a *Windows* `.vst3` is a plain file where a Linux one is a bundle —
+  version 2's entry says `Formats: VST3` for that reason, and version 1, which has no VST3 at
+  all, keeps the only `Sitala.dll` there is. Read `~/.vst/yabridge` after a sync, not
+  yabridgectl's count.
+
+- **Wine's `msiexec /I{ProductCode}` opens the *install* wizard, not maintenance mode, so an
+  MSI plugin is removed by deleting its prefix.** Sitala's registered `UninstallString` is
+  `MsiExec.exe /I{74B609F8-…}`, which on Windows offers Change, Repair and Remove; under Wine
+  9.21 it offers *Welcome to the Sitala Setup Wizard — the Setup Wizard will install Sitala on
+  your computer*, photographed rather than assumed. Cabinet runs it faithfully and there is
+  nothing to rewrite: turning `/I` into `/X` would be Cabinet inventing a command, the same rule
+  that forbids inventing a silent switch. Both front ends already ask *delete the prefix?*
+  first, and for an MSI that is the answer — the other path ends, correctly, in *left every
+  plugin in … where it was*. There is no `QuietUninstallString` here either.
+
+- **A Wine registry value carries its type, and `PrefixRegistry` used to require a bare string.**
+  Sitala's `.cabinet-plugins` came out holding a bare id with no uninstall key, because an MSI
+  writes `"UninstallString"=str(2):"MsiExec.exe /I{…}"` — REG_EXPAND_SZ, so Wine prints the type
+  before the quote — and `Value` insisted on a `"` immediately after the `=`. It found no command
+  and dropped the whole entry silently, which reads as *this prefix has no uninstaller* rather
+  than as a parse failure. Inno and NSIS write plain `REG_SZ`, which is why every earlier entry
+  worked and the gap survived four of them. `Untyped` now steps over a `str…:` prefix.
+
+  A wrong theory came first and is worth not repeating: `system.reg` on disk gained the key
+  **30 seconds after** Cabinet recorded, which looked exactly like Wine holding an unflushed
+  registry, so a `Prefixes.FlushRegistry` was built around `wineserver -k`. It was never the
+  cause. Instrumenting the call settled it — `wineserver -k` exited **1**, *no server to kill*,
+  on both sides of every install, so the registry had been on disk all along and the 30-second
+  write was some other branch being saved. The flush was removed again. Instrument the call
+  before believing the timestamps.
 
 ### yabridge
 

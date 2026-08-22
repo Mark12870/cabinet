@@ -104,6 +104,16 @@ public sealed class PrefixRegistryTests : IDisposable
             Subject.Uninstallers("valhalla").Select(one => one.Name).Order());
     }
 
+    [Fact]
+    public void AnMsiWritesItsCommandWithWinesTypePrefix()
+    {
+        System(Sitala);
+
+        Assert.Equal(
+            "MsiExec.exe /I{74B609F8-3755-424B-BC0F-71581EDB4123}",
+            Assert.Single(Subject.Uninstallers("valhalla")).Command);
+    }
+
     private const string Valhalla = """
         [Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{83D52E63-9A59-40A1-9117-99A257CBC189}_is1] 1787390242
         #time=1dd321729b5cb96
@@ -112,6 +122,15 @@ public sealed class PrefixRegistryTests : IDisposable
         "Inno Setup: App Path"="C:\\ProgramData\\Valhalla DSP, LLC\\ValhallaSupermassive\\InstallerFiles"
         "QuietUninstallString"="\"C:\\ProgramData\\Valhalla DSP, LLC\\ValhallaSupermassive\\InstallerFiles\\unins000.exe\" /SILENT"
         "UninstallString"="\"C:\\ProgramData\\Valhalla DSP, LLC\\ValhallaSupermassive\\InstallerFiles\\unins000.exe\""
+        """;
+
+    private const string Sitala = """
+        [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{74B609F8-3755-424B-BC0F-71581EDB4123}] 1787417846
+        "DisplayName"="Sitala"
+        "DisplayVersion"="1.0.9"
+        "EstimatedSize"=dword:00000000
+        "ModifyPath"=str(2):"MsiExec.exe /I{74B609F8-3755-424B-BC0F-71581EDB4123}"
+        "UninstallString"=str(2):"MsiExec.exe /I{74B609F8-3755-424B-BC0F-71581EDB4123}"
         """;
 
     private const string FabFilter = """
