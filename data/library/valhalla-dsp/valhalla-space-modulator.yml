@@ -1,0 +1,25 @@
+Name: Valhalla Space Modulator
+Kind: windows
+Category: Effect
+Summary: Through-zero flanger with a barberpole mode.
+Developer: Valhalla DSP
+Version: 1.1.6
+Licence: Freeware
+Formats: VST3, VST2
+Homepage: https://valhalladsp.com/shop/modulation/valhalla-space-modulator/
+Source: download
+Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/spacemod/ValhallaSpaceModulatorWin_1_1_6v3.zip
+Sha256: d4f48ef188f9f9c8128b0ecda38b7cf6df3cc01028f50d65507ca78d1d5b6ae7
+Script: valhalla.sh
+Prefix: valhalla
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  A flanger whose delay passes through zero, so the notch sweeps out the other
+  side the way two tape machines do and nothing else does. The barberpole modes
+  flange in one direction forever, up or down, without ever arriving.
+
+  There is no Linux build, so Cabinet puts it in a shared valhalla prefix with
+  the Wine version its editor needs, and Valhalla's other two free plugins
+  install into the same one.
