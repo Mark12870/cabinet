@@ -1,0 +1,25 @@
+Name: Valhalla Supermassive
+Kind: windows
+Category: Effect
+Summary: Enormous delays and reverbs, given away for nothing.
+Developer: Valhalla DSP
+Version: 5.0.0
+Licence: Freeware
+Formats: VST3, VST2
+Homepage: https://valhalladsp.com/shop/reverb/valhalla-supermassive/
+Source: download
+Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/supermassive/ValhallaSupermassiveWin_V5_0_0.zip
+Sha256: 67e0cedbed9e680b11dfb582618dd257e2dba8b8d10189d59811e4c10414911d
+Script: valhalla.sh
+Prefix: valhalla
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  Delays and reverbs at a scale nothing else gives away: up to 32 seconds of
+  feedback through modes named after things in the sky, from the short slapback
+  of Gemini out to Great Annihilator holding a chord until you stop it.
+
+  There is no Linux build, so Cabinet puts it in a shared valhalla prefix with
+  the Wine version its editor needs, and Valhalla's other two free plugins
+  install into the same one.
