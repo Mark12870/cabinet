@@ -1,11 +1,8 @@
 # CLAUDE.md
 
-Wine packaged as a Flatpak so Windows VST plugins run on Fedora Silverblue, one Wine prefix
+Wine packaged as a Flatpak so Windows VST plugins run on immutable linux, one Wine prefix
 per plugin, bridged into a DAW by upstream yabridge. App ID `io.github.mark12870.cabinet`.
 `x86_64` only — the maintainer runs one machine, so there is deliberately no arm build.
-
-Packaging follows `../beeper-flatpak`: self-hosted GPG-signed OSTree repo on GitHub Pages,
-daily version-bump workflow, same publishing gotchas.
 
 ## Important
 
@@ -23,8 +20,7 @@ Code rules.
 **The code carries no comments.** Not XML doc tags, not a header on every member, and above
 all not a note arguing for why the code is written the way it is — that is a message to a
 reviewer, not to whoever maintains this next. Say it in the name or the structure instead.
-Anything that genuinely will not fit there is a *gotcha*, and gotchas live under Gotchas
-below, where they are findable; what was learned on the way belongs in the commit message.
+Anything that genuinely will not fit there is a *gotcha*.
 
 Languages are split on purpose: **Rust only for `shim/`**, C# for everything else including
 the GUI. The shim is Rust because it is exec'd on the plugin-load path inside foreign
