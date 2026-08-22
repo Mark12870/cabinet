@@ -442,22 +442,193 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void RemovingAWindowsPluginPointsAtDeleteInstead()
+    public void AnIdThatWalksOutOfTheNativeDirectoryIsRefused()
     {
-        Catalogue(("serum", "Name: Serum\nKind: windows\nSource: byo\n"));
-
-        var refused = Assert.Throws<InvalidOperationException>(() => Subject().RemoveNative("serum"));
-
-        Assert.Equal(
-            "Serum runs under Wine, so it lives in a prefix — "
-            + "`cabinet delete serum` is what removes it",
-            refused.Message);
+        Assert.Throws<ArgumentException>(() => Subject().Remove(Native("../runners")));
     }
 
     [Fact]
-    public void AnIdThatWalksOutOfTheNativeDirectoryIsRefused()
+    public void APrefixKnowsWhichOtherPluginsWouldKeepItAlive()
     {
-        Assert.Throws<ArgumentException>(() => Subject().RemoveNative("../runners"));
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("valhalla"));
+        File.WriteAllText(
+            layout.PrefixPluginsFile("valhalla"),
+            "valhalla-supermassive\nvalhalla-freq-echo\n");
+
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal(["valhalla-freq-echo"], library.Sharing("valhalla", "valhalla-supermassive"));
+        Assert.Empty(library.Sharing("serum", "serum"));
+    }
+
+    [Fact]
+    public void ARecordOfBareIdsStillReads()
+    {
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("serum"));
+        File.WriteAllText(layout.PrefixPluginsFile("serum"), "serum\n");
+
+        Assert.Equal(
+            "serum",
+            Assert.Single(new Library(layout, new UnusedRunner()).Installed()).Key);
+    }
+
+    [Fact]
+    public void AnUninstallerNobodyCanFindIsSaidToBeMissingAndNothingElse()
+    {
+        Catalogue(("aalto", "Name: Aalto\nKind: windows\nSource: byo\n"));
+
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("aalto"));
+        File.WriteAllText(layout.PrefixPluginsFile("aalto"), "aalto\n");
+        File.WriteAllText(layout.PrefixSystemReg("aalto"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Mono] 1787344290
+            "DisplayName"="Wine Mono Runtime"
+            "UninstallString"="C:\\mono.exe"
+            """);
+
+        var library = new Library(layout, new UnusedRunner());
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => library.Remove(library.Find("aalto"), "aalto"));
+
+        Assert.Equal(Library.NotFound(library.Find("aalto"), "aalto"), refused.Message);
+        Assert.Equal("aalto", Assert.Single(library.Installed()).Key);
+    }
+
+    [Fact]
+    public void OnlyUninstallersThatCouldBeThePluginsAreOffered()
+    {
+        Catalogue(("aalto", "Name: Aalto\nKind: windows\nSource: byo\n"));
+
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("aalto"));
+        File.WriteAllText(layout.PrefixPluginsFile("aalto"), "aalto\nkaivo\tHKLM\\K\\Kaivo\n");
+        File.WriteAllText(layout.PrefixSystemReg("aalto"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Aalto] 1787344290
+            "DisplayName"="Aalto version 1.9.4"
+            "UninstallString"="C:\\aalto.exe"
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Mono] 1787344290
+            "DisplayName"="Wine Mono Runtime"
+            "UninstallString"="C:\\mono.exe"
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Support] 1787344290
+            "DisplayName"="Wine Mono Windows Support"
+            "UninstallString"="C:\\support.exe"
+            """);
+
+        var script = Path.Combine(layout.PrefixPath("aalto"), "drive_c", "cabinet-uninstall.bat");
+        Directory.CreateDirectory(Path.GetDirectoryName(script)!);
+
+        var ran = "";
+        var recording = new RecordingRunner(_ => ran = File.ReadAllText(script));
+        var library = new Library(layout, recording);
+
+        Assert.Equal(3, library.Uninstallers("aalto").Count);
+        Assert.Throws<InvalidOperationException>(
+            () => library.Remove(library.Find("aalto"), "aalto"));
+
+        Assert.Equal(
+            [["cmd", "/c", @"C:\cabinet-uninstall.bat"]],
+            recording.Calls.Select(call => call.Arguments));
+        Assert.Equal("C:\\aalto.exe\r\n", ran);
+        Assert.False(File.Exists(script));
+    }
+
+    [Fact]
+    public void AnUninstallerAlreadyAttributedToAnotherPluginIsNotOffered()
+    {
+        Catalogue(("aalto", "Name: Aalto\nKind: windows\nSource: byo\n"));
+
+        var layout = Layout();
+        var key = @"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Kaivo";
+
+        Directory.CreateDirectory(layout.PrefixPath("aalto"));
+        File.WriteAllText(layout.PrefixPluginsFile("aalto"), $"aalto\nkaivo\t{key}\n");
+        File.WriteAllText(layout.PrefixSystemReg("aalto"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Kaivo] 1787344290
+            "DisplayName"="Kaivo version 1.9.4"
+            "UninstallString"="C:\\kaivo.exe"
+            """);
+
+        var library = new Library(layout, new UnusedRunner());
+        var entry = library.Find("aalto");
+
+        Assert.Equal(
+            Library.NotFound(entry, "aalto"),
+            Assert.Throws<InvalidOperationException>(() => library.Remove(entry, "aalto")).Message);
+    }
+
+    [Fact]
+    public void AnUninstallerThatRemovedNothingLeavesTheRecordAlone()
+    {
+        Catalogue(("serum", "Name: Serum\nKind: windows\nSource: byo\n"));
+
+        var layout = Layout();
+        var key = @"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Serum2";
+
+        Directory.CreateDirectory(layout.PrefixVst3Dir("serum"));
+        File.WriteAllText(Path.Combine(layout.PrefixVst3Dir("serum"), "Serum2.vst3"), "");
+        File.WriteAllText(layout.PrefixPluginsFile("serum"), $"serum\t{key}\n");
+        File.WriteAllText(layout.PrefixSystemReg("serum"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Serum2] 1787344290
+            "DisplayName"="Xfer Records Serum 2"
+            "UninstallString"="C:\\Uninstall_Serum2.exe"
+            """);
+
+        var recording = new RecordingRunner();
+        var library = new Library(layout, recording);
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => library.Remove(library.Find("serum"), "serum"));
+
+        Assert.Contains("nothing has been removed", refused.Message);
+        Assert.Equal(
+            ["cmd", "/c", @"C:\cabinet-uninstall.bat"], recording.Calls.Single().Arguments);
+        Assert.Equal("serum", Assert.Single(library.Installed()).Key);
+    }
+
+    [Fact]
+    public void RemovingAWindowsPluginTakesItsRecordAndLeavesTheOtherOnes()
+    {
+        Catalogue(("supermassive", "Name: Supermassive\nKind: windows\nPrefix: valhalla\n"
+                                   + "Source: byo\n"));
+
+        var layout = Layout();
+        var vst3 = layout.PrefixVst3Dir("valhalla");
+        Directory.CreateDirectory(vst3);
+        File.WriteAllText(Path.Combine(vst3, "ValhallaSupermassive.vst3"), "");
+        File.WriteAllText(Path.Combine(vst3, "ValhallaFreqEcho.vst3"), "");
+
+        var key = @"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Super";
+        File.WriteAllText(
+            layout.PrefixPluginsFile("valhalla"), $"supermassive\t{key}\nfreq-echo\n");
+        File.WriteAllText(layout.PrefixSystemReg("valhalla"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Super] 1787390242
+            "DisplayName"="ValhallaSupermassive version 5.0.0"
+            "QuietUninstallString"="\"C:\\unins000.exe\" /SILENT"
+            "UninstallString"="\"C:\\unins000.exe\""
+            """);
+
+        var library = new Library(layout, new RecordingRunner(
+            _ => File.Delete(Path.Combine(vst3, "ValhallaSupermassive.vst3"))));
+
+        var failed = Assert.Throws<InvalidOperationException>(
+            () => library.Remove(library.Find("supermassive"), "valhalla"));
+
+        Assert.Contains("yabridgectl", failed.Message);
+        Assert.Equal("freq-echo", Assert.Single(library.Installed()).Key);
+        Assert.True(File.Exists(Path.Combine(vst3, "ValhallaFreqEcho.vst3")));
     }
 
     [Fact]
@@ -478,7 +649,7 @@ public class LibraryTests : IDisposable
         File.CreateSymbolicLink(Path.Combine(scan, "Dexed.clap"), ours);
         File.CreateSymbolicLink(Path.Combine(scan, "Someone.clap"), elsewhere);
 
-        Subject().RemoveNative("dexed");
+        Subject().Remove(Native("dexed"));
 
         Assert.False(Directory.Exists(installed));
         Assert.False(Path.Exists(Path.Combine(scan, "Dexed.clap")));
@@ -516,7 +687,7 @@ public class LibraryTests : IDisposable
         Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".clap"), "Thing.clap")));
         Assert.False(Directory.Exists(layout.ScanDir(".so")));
 
-        library.RemoveNative("thing");
+        library.Remove(library.Find("thing"));
 
         Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".lv2"), "Thing.lv2")));
         Assert.Empty(library.Installed());
@@ -604,7 +775,8 @@ public class LibraryTests : IDisposable
         Directory.CreateDirectory(layout.PrefixPath("serum"));
         File.WriteAllText(layout.PrefixPluginsFile("serum"), "serum\n");
 
-        new Prefixes(layout, new RecordingRunner()).Delete("serum");
+        Assert.Throws<InvalidOperationException>(
+            () => new Prefixes(layout, new RecordingRunner()).Delete("serum"));
 
         Assert.Empty(Subject().Installed());
     }
@@ -641,7 +813,7 @@ public class LibraryTests : IDisposable
         Assert.True(File.Exists(Path.Combine(data, "presets.txt")));
         Assert.Equal("thing", Assert.Single(library.Installed()).Key);
 
-        library.RemoveNative("thing");
+        library.Remove(library.Find("thing"));
 
         Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
         Assert.False(Directory.Exists(data));
@@ -777,6 +949,9 @@ public class LibraryTests : IDisposable
         new(root, "/run/user/1000", Path.Combine(root, "data"), null, Path.Combine(root, "library"));
 
     private Library Subject() => new(Layout(), new RecordingRunner());
+
+    private static LibraryEntry Native(string id) =>
+        LibraryEntry.Parse(id, $"Name: {id}\nKind: native\nSource: byo\n");
 
     private const string Vendor = "a-vendor";
 

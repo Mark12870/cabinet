@@ -123,7 +123,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
                 ? target
                 : Path.Combine(Path.GetDirectoryName(link)!, target));
 
-    public void Delete(string name)
+    public void Delete(string name, Action<string>? onOutput = null)
     {
         var path = Path.GetFullPath(layout.PrefixPath(name));
 
@@ -138,6 +138,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         }
 
         Directory.Delete(path, recursive: true);
+        onOutput?.Invoke($"Deleted {path}");
+        new Yabridgectl(layout, runner).Bridge(List(), onOutput);
     }
 
     public ProcessResult Install(string name, string installer, Action<string>? onOutput = null)

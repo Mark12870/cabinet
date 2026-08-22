@@ -36,6 +36,7 @@ flatpak run $cabinet library install surge-xt               # a Linux build, so 
 flatpak run $cabinet library install serum serum ~/Downloads/Serum.exe   # prefix, Wine, DXVK
 flatpak run $cabinet library install fabfilter-total-bundle  # downloaded for you, prefix and all
 flatpak run $cabinet library install vital ~/Downloads/VitalInstaller.zip  # yours to download
+flatpak run $cabinet library remove valhalla-supermassive   # its own uninstaller, then unbridged
 
 flatpak run $cabinet new serum                              # a prefix of its own
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
@@ -73,12 +74,21 @@ cleanly —
 their own — the u-he ones keep their presets in `~/.u-he/<Product>` and read it by name — so
 Cabinet fills that too, and `library remove` says before it deletes it.
 
+`library remove` works on a Windows plugin too. If nothing else Cabinet installed is left in
+its prefix it offers to delete the prefix outright, which takes the Wine tree, the registry and
+the settings with it; otherwise it runs the plugin's own uninstaller and leaves the prefix for
+the plugins sharing it — the three free Valhalla ones do. Some vendors publish a silent
+uninstall and some open a wizard you click through, which is the vendor's choice, not Cabinet's.
+A plugin installed before Cabinet started recording its uninstaller is matched by name; where
+nothing in the prefix looks like it, Cabinet says so rather than guessing, and `delete` is
+still there.
+
 The four commands after it are the same thing by hand, and still the whole workflow for a
 plugin the library has never heard of. `set` is per prefix, and reaches the bridged plugin
 too: a sync mode or a variable set here is handed to the Wine your DAW starts, not just to
 `winecfg`. `sync system` is the default and means *leave it to whatever launched the DAW*.
 `run` is the escape hatch for anything `set` does not cover; `delete` asks before it does
-anything, and wants a `sync` after it to unbridge what it held.
+anything, and unbridges what it held on its way out.
 
 ## Permissions
 

@@ -154,7 +154,7 @@ internal sealed class PluginPage
 
     private Gtk.Widget Act(LibraryEntry entry, bool installed)
     {
-        var removable = installed && entry.Kind == PluginKind.Native;
+        var removable = installed;
 
         var button = Gtk.Button.NewWithLabel(removable
             ? $"Remove {entry.Name}"

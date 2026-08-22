@@ -504,11 +504,55 @@ These were all found by something failing, not by reading documentation.
   install — and the GUI's install dialog, which names the download host, had nothing to name.
   Both front ends now fail at `LibraryEntry.Parse` instead of at the download. A paid Linux
   plugin would need a real answer here, not this one.
-- **The Library page offers no Remove for a Windows plugin, on purpose.** `RemoveNative` refuses
-  a Windows entry and points at `cabinet delete <prefix>`, because a prefix may hold more than
-  the one plugin. So an installed Windows row keeps its Install button — installing the same
-  plugin into a second prefix is a real thing to want — and only a native row turns
-  destructive.
+- **Removing a Windows plugin runs the plugin's own uninstaller, and the prefix question comes
+  first.** A prefix may hold more than the one plugin — three Valhalla entries share `valhalla` —
+  so deleting it is not the same act as removing one plugin. Both front ends therefore ask
+  *delete the prefix?* before anything runs, but only when `.cabinet-plugins` records nothing
+  else in it; a yes takes the Wine tree, the registry and the settings with it and no uninstaller
+  runs at all. Otherwise `Library.Remove` runs what the installer registered, found in the
+  prefix's own registry. Removal is still **never scripted** — a `Script:` is install-only; what
+  runs is the vendor's uninstaller, not anything the entry names.
+- **The uninstall registry is not a list of a prefix's plugins.** `aalto` registers *Wine Mono
+  Runtime* and *Wine Mono Windows Support* beside *Aalto version 1.9.4* — Wine's own components,
+  installed by `wineboot`, and uninstalling one would break the prefix. So attributing every
+  entry in a prefix to the one plugin Cabinet recorded there was tried and is **wrong**.
+  `Library.Candidates` drops anything already attributed to another recorded plugin, anything
+  whose name begins `Wine `, and then keeps only what resembles the entry's own `Name` with
+  non-alphanumerics squashed out — which matches all four real cases (`Aalto version 1.9.4`,
+  `Xfer Records Serum 2`, `FabFilter Total Bundle`, `ValhallaSupermassive version 5.0.0`) and
+  no Wine component. Find nothing and Cabinet says so and stops; it does not offer a list to
+  guess from.
+- **`QuietUninstallString` is what makes an uninstall silent, and it is not always there.**
+  Measured in the real prefixes: Valhalla's Inno Setup entry publishes
+  `"…\unins000.exe" /SILENT` beside the plain string, so it uninstalls with no window at all;
+  Serum and FabFilter publish only `UninstallString`, so a wizard opens. Prefer the quiet one,
+  and never append a silent switch of your own — the same rule as installers.
+- **An `UninstallString` is a Windows *command line*, and there is no way to hand one to `wine`
+  as argv.** Two shapes have to survive: Valhalla's `"…\unins000.exe" /SILENT`, quoted with an
+  argument, and FabFilter's `C:\Program Files\FabFilter\Uninst.exe`, unquoted *with a space in
+  it*. Splitting on whitespace breaks the second. Passing the whole string as one argv element to
+  `wine cmd /c` breaks the first, and that was measured rather than reasoned: Wine builds the
+  Windows command line back out of argv and escapes the embedded quotes so
+  `CommandLineToArgvW` round-trips, but `cmd` reads the raw tail instead, so it saw
+  `\"C:\ProgramData\…\unins000.exe\" /SILENT` and answered *Can't recognize … as an internal or
+  external command*. So `Library.Uninstall` writes the line to `drive_c\cabinet-uninstall.bat`
+  and runs `wine cmd /c C:\cabinet-uninstall.bat`, which lets Windows parse it exactly as
+  Windows would, and deletes the file in a `finally`. Do not "simplify" that back into an argv
+  split or a bare `cmd /c <string>`.
+- **All three real entries live under `Wow6432Node`**, so both the plain and the 32-bit branch
+  of `…\CurrentVersion\Uninstall` have to be read, in `system.reg` (HKLM) *and* `user.reg`
+  (HKCU).
+- **`PrefixRegistry` parses `system.reg` and `user.reg` directly rather than shelling to
+  `wine reg query`.** They are plain UTF-8 in the prefix, it needs no wineserver, and it is the
+  only version of this that `Cabinet.Core.Tests` can exercise — tests never run Wine. The
+  fixtures are text lifted verbatim from the real prefixes.
+- **An uninstaller that never ran exits 0, exactly as an installer does.** So removal snapshots
+  `PrefixPluginDirs` before and after and refuses to drop the `.cabinet-plugins` record when
+  nothing disappeared — a cancelled uninstaller looks identical from the exit code alone. Read
+  the prefix, not the status.
+- **`.cabinet-plugins` is tab-separated now**: the id first, the uninstall keys after it. A file
+  of bare ids — every prefix predating this — still parses and simply carries no key, which is
+  the case `Candidates` exists to cover. `Record` finally has its inverse, `Forget`.
 
 ### yabridge
 
@@ -653,6 +697,14 @@ These were all found by something failing, not by reading documentation.
   command in the background and wait for its completion event instead. And do not pipe a long
   build through `tail`: the pipeline buffers, so the output file stays empty for the whole run
   and progress cannot be checked at all.
+- **A `pgrep -f` wait loop matches itself, and then it never ends.** The second attempt at the
+  same mistake: `while pgrep -f "flatpak.Builder" >/dev/null; do :; done` spun for thirteen
+  minutes after the build had finished, because `-f` tests the whole command line and the shell
+  running the loop carries the pattern in its own. The first attempt failed the other way —
+  `pgrep -f flatpak-builder` never matched `flatpak run org.flatpak.Builder` at all, so the loop
+  slept past a build that had already exited 0. One pattern is too broad and the other too
+  narrow; there is no third pattern worth finding, because the harness already sends a
+  completion event. Wait for it.
 
 ## Palette
 

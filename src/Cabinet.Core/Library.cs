@@ -326,22 +326,159 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         InstallWindows(entry, prefix ?? entry.Prefix, installer, onOutput, onProgress);
     }
 
-    public void RemoveNative(string id, Action<string>? onOutput = null)
-    {
-        var entry = Entries().FirstOrDefault(one => one.Id == id);
+    public IReadOnlyList<UninstallEntry> Uninstallers(string prefix) =>
+        new PrefixRegistry(layout).Uninstallers(prefix);
 
-        if (entry is { Kind: PluginKind.Windows })
+    private IReadOnlyList<UninstallEntry> Candidates(string prefix, LibraryEntry entry)
+    {
+        var attributed = Lines(prefix)
+            .Where(fields => fields[0] != entry.Id)
+            .SelectMany(fields => fields.Skip(1))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var plausible = Uninstallers(prefix)
+            .Where(one => !attributed.Contains(one.Key) && !IsWine(one.Name))
+            .ToList();
+
+        return plausible.Where(one => Resembles(one.Name, entry.Name)).ToList() is { Count: > 0 } named
+            ? named
+            : plausible;
+    }
+
+    private static bool IsWine(string name) =>
+        name.StartsWith("Wine ", StringComparison.OrdinalIgnoreCase);
+
+    private static bool Resembles(string uninstaller, string name) =>
+        Squashed(uninstaller).Contains(Squashed(name), StringComparison.Ordinal);
+
+    private static string Squashed(string text) =>
+        new([.. text.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant)]);
+
+    public IReadOnlyList<string> Sharing(string prefix, string id) =>
+        [.. Recorded(prefix).Where(other => other != id)];
+
+    public void Remove(
+        LibraryEntry entry,
+        string? prefix = null,
+        bool takePrefix = false,
+        Action<string>? onOutput = null)
+    {
+        if (entry.Kind == PluginKind.Native)
         {
-            throw new InvalidOperationException(
-                $"{entry.Name} runs under Wine, so it lives in a prefix — "
-                + $"`cabinet delete {entry.Prefix}` is what removes it");
+            if (prefix is not null)
+            {
+                throw new ArgumentException(
+                    $"{entry.Name} is a Linux plugin, so it is in no prefix", nameof(prefix));
+            }
+
+            RemoveNative(entry, onOutput);
+            return;
         }
 
+        var where = prefix ?? entry.Prefix;
+
+        if (takePrefix)
+        {
+            new Prefixes(layout, runner).Delete(where, onOutput);
+            onOutput?.Invoke($"{entry.Name} and the prefix that held it are gone.");
+            return;
+        }
+
+        RemoveWindows(entry, where, onOutput);
+    }
+
+    private void RemoveWindows(LibraryEntry entry, string prefix, Action<string>? onOutput)
+    {
+        if (!Directory.Exists(layout.PrefixPath(prefix)))
+        {
+            throw new DirectoryNotFoundException($"no such prefix: {prefix}");
+        }
+
+        if (!Recorded(prefix).Contains(entry.Id, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException($"{entry.Name} is not installed in {prefix}");
+        }
+
+        var recorded = RecordedKeys(prefix, entry.Id).ToList();
+        var chosen = recorded.Count > 0
+            ? Uninstallers(prefix)
+                .Where(one => recorded.Contains(one.Key, StringComparer.Ordinal))
+                .ToList()
+            : Candidates(prefix, entry);
+
+        if (chosen.Count == 0)
+        {
+            throw new InvalidOperationException(NotFound(entry, prefix));
+        }
+
+        var before = Bundled(prefix);
+        var prefixes = new Prefixes(layout, runner);
+
+        foreach (var one in chosen)
+        {
+            onOutput?.Invoke($"Uninstalling {one.Name}…");
+            Uninstall(prefixes, prefix, one.Command, onOutput);
+        }
+
+        var gone = before.Except(Bundled(prefix), StringComparer.Ordinal).ToList();
+
+        if (gone.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"{entry.Name}'s uninstaller left every plugin in {prefix} where it was, so "
+                + "nothing has been removed — a cancelled uninstaller looks exactly like this");
+        }
+
+        foreach (var bundle in gone.OrderBy(path => path, StringComparer.Ordinal))
+        {
+            onOutput?.Invoke($"  removed {Path.GetFileName(bundle)}");
+        }
+
+        Forget(prefix, entry.Id);
+        Bridge(prefixes, onOutput);
+        onOutput?.Invoke($"{entry.Name} is gone from {prefix}, which stays.");
+    }
+
+    private const string Batch = "cabinet-uninstall.bat";
+
+    private void Uninstall(
+        Prefixes prefixes, string prefix, string command, Action<string>? onOutput)
+    {
+        var script = Path.Combine(layout.PrefixPath(prefix), "drive_c", Batch);
+        File.WriteAllText(script, command + "\r\n");
+
+        try
+        {
+            prefixes.Run(prefix, "wine", ["cmd", "/c", @"C:\" + Batch], onOutput);
+        }
+        finally
+        {
+            File.Delete(script);
+        }
+    }
+
+    public static string NotFound(LibraryEntry entry, string prefix) =>
+        $"Nothing in prefix {prefix} looks like {entry.Name}'s uninstaller, so there is no way "
+        + $"to take it out on its own — `cabinet delete {prefix}` removes the prefix and "
+        + "everything in it";
+
+    private IEnumerable<string> Registered(string prefix) =>
+        Uninstallers(prefix).Select(one => one.Key).ToList();
+
+    private IReadOnlySet<string> Bundled(string prefix) =>
+        layout.PrefixPluginDirs(prefix)
+            .Where(Directory.Exists)
+            .SelectMany(Directory.EnumerateFileSystemEntries)
+            .ToHashSet(StringComparer.Ordinal);
+
+    private void RemoveNative(LibraryEntry entry, Action<string>? onOutput)
+    {
+        var id = entry.Id;
         var root = Path.GetFullPath(layout.NativePath(id));
 
         if (Path.GetDirectoryName(root) != layout.NativeDir)
         {
-            throw new ArgumentException($"not a plugin id: '{id}'", nameof(id));
+            throw new ArgumentException($"not a plugin id: '{id}'", nameof(entry));
         }
 
         if (!Directory.Exists(root))
@@ -357,7 +494,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         Directory.Delete(root, recursive: true);
 
-        if (entry?.Data is { } relative)
+        if (entry.Data is { } relative)
         {
             var data = layout.DataPath(relative);
 
@@ -404,6 +541,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         try
         {
             var chosen = installer ?? Fetch(entry, staging, onOutput, onProgress);
+            var before = Registered(prefix);
 
             if (entry.Script is null)
             {
@@ -426,7 +564,12 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                     onOutput);
             }
 
-            Record(prefix, entry.Id);
+            var appeared = Registered(prefix).Except(before, StringComparer.Ordinal).ToList();
+
+            Record(
+                prefix,
+                entry.Id,
+                appeared.Count > 0 ? appeared : RecordedKeys(prefix, entry.Id));
         }
         finally
         {
@@ -675,36 +818,36 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
     }
 
-    private IEnumerable<string> Recorded(string prefix) =>
+    private IEnumerable<string[]> Lines(string prefix) =>
         File.Exists(layout.PrefixPluginsFile(prefix))
             ? File.ReadAllLines(layout.PrefixPluginsFile(prefix))
-                .Select(line => line.Trim())
-                .Where(line => line.Length > 0)
+                .Select(line => line.Split(
+                    '\t', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Where(fields => fields.Length > 0)
             : [];
 
-    private void Record(string prefix, string id)
+    private IEnumerable<string> Recorded(string prefix) =>
+        Lines(prefix).Select(fields => fields[0]);
+
+    private IEnumerable<string> RecordedKeys(string prefix, string id) =>
+        Lines(prefix).Where(fields => fields[0] == id).SelectMany(fields => fields.Skip(1));
+
+    private void Record(string prefix, string id, IEnumerable<string> keys)
     {
-        if (!Recorded(prefix).Contains(id, StringComparer.Ordinal))
-        {
-            File.AppendAllText(layout.PrefixPluginsFile(prefix), id + Environment.NewLine);
-        }
+        var kept = Lines(prefix).Where(fields => fields[0] != id).ToList();
+        kept.Add([id, .. keys]);
+        Write(prefix, kept);
     }
 
-    private void Bridge(Prefixes prefixes, Action<string>? onOutput)
-    {
-        onOutput?.Invoke("Bridging what is installed…");
-        var result = new Yabridgectl(layout, runner).SyncPrefixes(prefixes.List());
+    private void Forget(string prefix, string id) =>
+        Write(prefix, Lines(prefix).Where(fields => fields[0] != id));
 
-        foreach (var line in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-        {
-            onOutput?.Invoke(line);
-        }
+    private void Write(string prefix, IEnumerable<string[]> lines) =>
+        File.WriteAllLines(
+            layout.PrefixPluginsFile(prefix), lines.Select(fields => string.Join('\t', fields)));
 
-        if (!result.Ok)
-        {
-            throw new InvalidOperationException($"yabridgectl exited with {result.ExitCode}");
-        }
-    }
+    private void Bridge(Prefixes prefixes, Action<string>? onOutput) =>
+        new Yabridgectl(layout, runner).Bridge(prefixes.List(), onOutput);
 
     private static readonly IReadOnlyList<string> BundleDirectories =
         [".vst3", ".clap", ".vst", ".lv2", ".lxvst"];

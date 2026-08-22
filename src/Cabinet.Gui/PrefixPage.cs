@@ -234,7 +234,7 @@ internal sealed class PrefixPage
         () => Operation.Run(
             window,
             $"Deleting {Name}",
-            _ => new Prefixes(layout, runner).Delete(Name),
+            output => new Prefixes(layout, runner).Delete(Name, output),
             changed),
         Adw.ResponseAppearance.Destructive);
 }
