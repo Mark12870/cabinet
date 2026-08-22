@@ -32,7 +32,7 @@ sandboxes; nothing else has that constraint.
 
 ### SKILLS
 
-- Never modify the CLAUDE.md or Claude skills without asking and approval.
+- Never modify the CLAUDE.md or Claude skills without asking and approval. You must let me know in separate question, otherwise it is forbidden.
 - Skills should always include only the steps to produce the skill.
 
 ## Layout
@@ -67,7 +67,8 @@ Anything else in `$HOME` is a bug.
 
 ## Gotchas
 
-Every gotcha this project has cost — the sandbox and its masks, the manifest and the runtime,
-Wine prefixes and runners, DXVK and plugin editors, the Library, yabridge, the front ends and
-working in this repo — is in [GOTCHAS.md](GOTCHAS.md). Read it before theorising about a
-failure, and add a new one there rather than here, so this file stays short.
+**Write the guard, not the paragraph.** A fact that can be checked against the tree belongs in
+a test — `CatalogueTests`, `ManifestTests` and `ShimParityTests` hold the shipped catalogue, the
+manifest and the two sides of a per-prefix setting — and a failure a *user* can act on belongs
+in `doctor` — which reaches both front ends at once, and must say only what is true of the
+machine in front of it rather than what is true in general.

@@ -5,11 +5,13 @@ namespace Cabinet.Gui;
 internal sealed class DoctorPage
 {
     private readonly Layout layout;
+    private readonly IProcessRunner runner;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
 
-    public DoctorPage(Layout layout)
+    public DoctorPage(Layout layout, IProcessRunner runner)
     {
         this.layout = layout;
+        this.runner = runner;
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -30,7 +32,7 @@ internal sealed class DoctorPage
         {
             try
             {
-                var checks = new Doctor(layout).Run();
+                var checks = new Doctor(layout, runner).Run();
                 Ui.OnMainLoop(() =>
                 {
                     foreach (var check in checks)
@@ -49,6 +51,7 @@ internal sealed class DoctorPage
     private static Adw.ActionRow Row(Check check)
     {
         var row = Adw.ActionRow.New();
+        row.SetUseMarkup(false);
         row.SetTitle(check.Name);
         row.SetSubtitle(check.Detail);
 

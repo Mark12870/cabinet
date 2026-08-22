@@ -28,7 +28,7 @@ internal sealed class MainWindow
         prefixes = new PrefixesPage(layout, runner, window, navigation, RefreshAll);
         library = new LibraryPage(layout, runner, window, navigation, RefreshAll);
         runners = new RunnersPage(layout, runner, window, RefreshAll);
-        doctor = new DoctorPage(layout);
+        doctor = new DoctorPage(layout, runner);
         about = new AboutPage(layout, runner, window);
 
         stack.AddTitledWithIcon(library.Widget, "library", "Library", Icons.Library);

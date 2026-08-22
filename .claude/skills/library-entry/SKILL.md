@@ -1,6 +1,6 @@
 ---
 name: library-entry
-description: Add a plugin to Cabinet's Library — the bundled catalogue the Library page and `cabinet library` read. Use whenever a new VST should become installable in one click, or an existing entry needs its version bumped. Covers which fields are judgements rather than lookups, how to pin a download so it cannot drift, and the one check that actually proves an entry works. The gotchas behind these rules are in GOTCHAS.md.
+description: Add a plugin to Cabinet's Library — the bundled catalogue the Library page and `cabinet library` read. Use whenever a new VST should be added.
 ---
 
 # Adding a plugin to the Library
@@ -127,7 +127,8 @@ from in `SOURCES.md` beside this skill, because shipping it makes Cabinet redist
 vendor's artwork. An entry with no files there falls back to the category icon and shows no
 screenshot, which is a supported state, not a broken one.
 
-**7. Install it, and read what landed.**
+**7. Check the entry, then install it and read what landed.** `scripts/checks.sh` reads the
+real `data/library`; `CatalogueTests` fails an entry before you spend an install on it.
 
 ```sh
 flatpak run io.github.mark12870.cabinet library install <id>

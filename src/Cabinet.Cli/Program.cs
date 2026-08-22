@@ -638,7 +638,7 @@ internal static class Program
 
     private static int RunDoctor(Layout layout, bool json)
     {
-        var checks = new Doctor(layout).Run();
+        var checks = new Doctor(layout, new ProcessRunner()).Run();
 
         if (json)
         {
