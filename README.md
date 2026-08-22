@@ -1,15 +1,11 @@
 # Cabinet
 
-Windows VST plugins on Linux, packaged as a Flatpak, with **one Wine prefix per plugin** —
-its own C: drive, registry and dependencies, instead of a single prefix every installer
-fights over.
-
-Built for immutable systems like Fedora Silverblue, where Wine and yabridge cannot be
-installed the ordinary way. `x86_64` only.
-
-> Packaging, mostly. The bridging is [yabridge](https://github.com/robbert-vdh/yabridge)
-> and the compatibility layer is [Wine](https://www.winehq.org); Cabinet bundles them,
-> gives each plugin its own prefix, and wires the result to your DAW.
+Windows VST plugins on Linux, packaged as a Flatpak, with **one Wine prefix per plugin** — its
+own C: drive, registry and dependencies, instead of a single prefix every installer fights over.
+Built for immutable systems like Fedora Silverblue, where Wine and yabridge cannot be installed
+the ordinary way. Packaging, mostly: the bridging is [yabridge](https://github.com/robbert-vdh/yabridge) and the
+compatibility layer is [Wine](https://www.winehq.org). Cabinet bundles them, gives each plugin
+its own prefix, and wires the result to your DAW.
 
 ## Install
 
@@ -33,8 +29,7 @@ flatpak run $cabinet                                        # the window, also i
 flatpak run $cabinet library                                # plugins it can install for you
 flatpak run $cabinet library show podolski                  # what one is, and what it costs
 flatpak run $cabinet library install surge-xt               # a Linux build, so no Wine at all
-flatpak run $cabinet library install serum serum ~/Downloads/Serum.exe   # prefix, Wine, DXVK
-flatpak run $cabinet library install fabfilter-total-bundle  # downloaded for you, prefix and all
+flatpak run $cabinet library install fabfilter-total-bundle # downloaded for you, prefix and all
 flatpak run $cabinet library install vital ~/Downloads/VitalInstaller.zip  # yours to download
 flatpak run $cabinet library remove valhalla-supermassive   # its own uninstaller, then unbridged
 
@@ -43,16 +38,11 @@ flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer 
 flatpak run $cabinet dxvk serum                             # JUCE editors need this
 flatpak run $cabinet sync                                   # bridge what it installed
 flatpak run $cabinet doctor                                 # check both sides
-flatpak run $cabinet about                                  # version, and where it came from
 
-flatpak run $cabinet list                                   # prefixes, runners and paths
 flatpak run $cabinet run serum winecfg                      # winecfg, regedit, anything
 flatpak run $cabinet delete serum                           # prefix and plugins, gone
-
-flatpak run $cabinet runners                                # Wine builds you have
-flatpak run $cabinet runners install 9.21                   # fetch one
-flatpak run $cabinet new serum wine-9.21-staging-tkg        # a prefix on it
-flatpak run $cabinet use serum wine-9.21-staging-tkg        # move an existing prefix
+flatpak run $cabinet runners install 9.21                   # fetch a Wine build
+flatpak run $cabinet use serum wine-9.21-staging-tkg        # move a prefix onto one
 
 flatpak run $cabinet show serum                             # everything this prefix is set to
 flatpak run $cabinet set serum sync fsync                   # system, esync, fsync or ntsync
@@ -60,46 +50,37 @@ flatpak run $cabinet set serum dxvk off                     # put Wine's own Dir
 flatpak run $cabinet set serum env WINEDEBUG=-all           # WINEDEBUG= removes it
 ```
 
-`library` is the short way in: it knows which Wine a plugin's editor needs, whether its
-editor wants DXVK, and it bridges the result — the four steps below, done for you. A plugin
-you had to buy, or one that only comes from a logged-in account, cannot be downloaded here, so
-those ask for the file you fetched yourself and point you at the page to fetch it from —
-unless the vendor serves a trial anyone can fetch, as FabFilter does. A plugin
-with a working Linux build is listed only as that, because a native one needs no prefix, no
-pinned Wine and no bridge. Linux
-plugins in the library need no prefix at all; their files go in Cabinet's own directory and
-are linked into `~/.vst3`, `~/.clap`, `~/.lv2` and `~/.vst`, so `library remove` takes them out
-cleanly —
-`enrol` is what lets a Flatpak DAW follow those links. A few plugins insist on a directory of
-their own — the u-he ones keep their presets in `~/.u-he/<Product>` and read it by name — so
-Cabinet fills that too, and `library remove` says before it deletes it.
+`library` is the short way in: it knows which Wine a plugin's editor needs, whether that editor
+wants DXVK, and it bridges the result. A plugin you had to buy, or one behind a logged-in
+account, asks for the file you fetched yourself and points you at the page to fetch it from —
+unless the vendor serves a trial anyone can fetch, as FabFilter does. One with a working Linux
+build is listed only as that and needs no prefix: its files live in Cabinet's own directory,
+linked into `~/.vst3`, `~/.clap`, `~/.lv2` and `~/.vst`, so `library remove` takes them out
+cleanly, and `enrol` is what lets a Flatpak DAW follow those links. A few read a directory of
+their own by name, as the u-he ones do `~/.u-he/<Product>`; Cabinet fills that and says before
+deleting it.
 
-`library remove` works on a Windows plugin too. If nothing else Cabinet installed is left in
-its prefix it offers to delete the prefix outright, which takes the Wine tree, the registry and
-the settings with it; otherwise it runs the plugin's own uninstaller and leaves the prefix for
-the plugins sharing it — the three free Valhalla ones do. Some vendors publish a silent
-uninstall and some open a wizard you click through, which is the vendor's choice, not Cabinet's.
-A plugin installed before Cabinet started recording its uninstaller is matched by name; where
-nothing in the prefix looks like it, Cabinet says so rather than guessing, and `delete` is
-still there.
+`library remove` works on a Windows plugin too: if nothing else Cabinet installed is left in its
+prefix it offers to delete the prefix outright — the Wine tree, the registry and the settings
+with it — and otherwise runs the plugin's own uninstaller, silent or a wizard as the vendor
+chose, leaving the prefix for the plugins sharing it, as the three free Valhalla ones do. One
+installed before Cabinet started recording uninstallers is matched by name; where nothing in the
+prefix looks like it, Cabinet says so rather than guessing, and `delete` is still there.
 
-The four commands after it are the same thing by hand, and still the whole workflow for a
-plugin the library has never heard of. `set` is per prefix, and reaches the bridged plugin
-too: a sync mode or a variable set here is handed to the Wine your DAW starts, not just to
-`winecfg`. `sync system` is the default and means *leave it to whatever launched the DAW*.
-`run` is the escape hatch for anything `set` does not cover; `delete` asks before it does
-anything, and unbridges what it held on its way out.
+The four commands after it are the same thing by hand, and still the whole workflow for a plugin
+the library has never heard of. `set` is per prefix and reaches the bridged plugin too: a sync
+mode or a variable set here is handed to the Wine your DAW starts, not just to `winecfg`.
+`sync system` is the default and means *leave it to whatever launched the DAW*. `run` covers
+what `set` does not; `delete` asks first, and unbridges what it held.
 
 ## Permissions
 
-`enrol` prints the `flatpak override` rather than applying it, because one of the
-permissions it asks for is `--talk-name=org.freedesktop.Flatpak`. That lets the shim start
-Wine on the host — **and it lets that DAW run any command on your host.** It is a real
-weakening of that DAW's sandbox, so the decision stays yours. Undo it with
-`flatpak override --user --reset <daw-id>`.
-
+`enrol` prints the `flatpak override` rather than applying it, because one of the permissions it
+asks for is `--talk-name=org.freedesktop.Flatpak`. That lets the shim start Wine on the host —
+**and it lets that DAW run any command on your host.** It is a real weakening of that DAW's
+sandbox, so the decision stays yours; undo it with `flatpak override --user --reset <daw-id>`.
 Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
-`flatpak uninstall --delete-data` **will** delete your plugin library. A plain
+`flatpak uninstall --delete-data` **will** delete your plugin library — a plain
 `flatpak uninstall` leaves it alone.
 
 ## Building
@@ -113,7 +94,6 @@ flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet
 
 ## License
 
-GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE).
-
-The app icon is the *dresser* icon from [Phosphor Icons](https://phosphoricons.com),
-recoloured. Phosphor is MIT — see [data/LICENSE.phosphor](data/LICENSE.phosphor).
+GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE). The app icon is the *dresser* icon
+from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see
+[data/LICENSE.phosphor](data/LICENSE.phosphor).

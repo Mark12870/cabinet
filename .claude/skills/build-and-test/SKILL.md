@@ -1,0 +1,60 @@
+---
+name: build-and-test
+description: Build, check and install Cabinet — what CI runs, what the pre-commit hook runs, and the two build steps no test reaches. Use before pushing, whenever `scripts/checks.sh` or `dotnet format` is involved, when building the flatpak or installing it locally, or when a change to Cabinet.Cli or Cabinet.Gui has to be proven to compile.
+---
+
+# Building and checking Cabinet
+
+`scripts/checks.sh` is exactly what `.github/workflows/checks.yml` runs. Keep the two lists
+identical: a check that only CI runs is a check that only fails after a push, which is why the
+script exists rather than a block to copy. Both toolchains come from SDK extensions the script
+enters on its own.
+
+## Run the checks
+
+**1. Enable the hook, once per clone.**
+
+```sh
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-commit` runs the script as `--staged`: it reformats the staged code and stages
+the fix, skips the halves nothing is staged for, and skips `dotnet test` to stay under about
+seven seconds. A file that is only partly staged is reformatted but *not* staged, and the
+commit stops so the diff can be looked at.
+
+**2. Run everything CI runs.**
+
+```sh
+scripts/checks.sh            # tests included
+```
+
+The two formatters are the half that is easy to forget — `dotnet format` failed CI on a
+four-space overhang no test could catch.
+
+**3. Compile both front ends.** Neither is reached by anything else in the list: `dotnet test`
+reaches only `Cabinet.Core`, and `dotnet format` does not fail on a broken build. A CLI that
+would not compile once passed every check and died in the flatpak build twenty minutes later.
+That is what the two `dotnet build` steps in the script are for.
+
+```sh
+# The GUI needs the compiler server off, or every GirCore assembly comes back as CS0006.
+dotnet build src/Cabinet.Gui -p:UseSharedCompilation=false
+```
+
+## Build and install the flatpak
+
+```sh
+flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
+  --default-branch=stable build io.github.mark12870.cabinet.yml
+flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet  # file://$PWD/repo
+```
+
+Read `BUILD_EXIT=$?` before believing anything about the installed app, never chain the two
+with `&&`/`||`, and never poll for the build — the harness sends a completion event. The
+Gotchas in CLAUDE.md under *Working in this repo* have the detail on all three.
+
+```sh
+# Look at a page of the installed GUI. Needs the toolbox its header describes, once.
+scripts/gui-shot.sh About about.png
+```
