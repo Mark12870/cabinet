@@ -1,0 +1,24 @@
+Name: Selene
+Kind: native
+Category: Effect
+Summary: Algorithmic reverb with adaptive diffusion.
+Developer: Auburn Sounds
+Version: 1.1
+Licence: Freeware
+Licensing:
+  The download is the Free Edition; the Full Edition adds 2× oversampling
+  and the shimmer, and is sold on itch.io.
+Formats: VST3, CLAP, LV2
+Homepage: https://www.auburnsounds.com/products/Selene.html
+Source: download
+Url: https://www.auburnsounds.com/downloads/Selene-FREE-1.1.zip
+Sha256: 9fb0b02442cb81f3b419f8207fb63105a99b41f8845bb4f5aa3f8ab320366a12
+Script: auburn-sounds.sh
+Description:
+  Diffusion that runs from sparse to plate-like, a vintage knob for the
+  older sound, an eight-band damping EQ, a freeze for an infinite tail, and
+  ducking and gating inside rather than on a plugin after it.
+
+  The path is 64-bit throughout and the post-EQ is drawn as shelves you can
+  see, so fitting it into a mix is done by looking at it. Adaptive
+  diffusion is what keeps a transient — a piano, say — out of the noise.

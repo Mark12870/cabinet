@@ -1,0 +1,25 @@
+Name: Lens
+Kind: native
+Category: Effect
+Summary: Multiband compander with no crossover phase shift.
+Developer: Auburn Sounds
+Version: 1.4
+Licence: Freeware
+Licensing:
+  The download is the Free Edition, a feature-limited build; the Full
+  Edition is sold on itch.io.
+Formats: VST3, CLAP, LV2
+Homepage: https://www.auburnsounds.com/products/Lens.html
+Source: download
+Url: https://www.auburnsounds.com/downloads/Lens-FREE-1.4.zip
+Sha256: 885f9cf0ed5884e6d4574557eed6759984bfc240e6f31d34cab2ccc08540081c
+Script: auburn-sounds.sh
+Description:
+  Up to 64 companders working across the spectrum at once, compressing and
+  expanding without the phase shift a crossover costs and without the
+  ringing a linear-phase EQ costs. Sidechain EQ and output EQ are set
+  together rather than one at a time.
+
+  Upwards compression is where it goes past a multiband compressor:
+  material masked by what sits next to it can be lifted out or taken away
+  altogether, which is what it is reached for on a master bus.

@@ -1,0 +1,26 @@
+Name: Renegate
+Kind: native
+Category: Effect
+Summary: Full-band gate that stays smooth.
+Developer: Auburn Sounds
+Version: 1.6
+Licence: Freeware
+Licensing:
+  The download is the Free Edition; the Full Edition adds alternative
+  gain-reduction modes, oversampling, a sequencer and the Raw knob, and is
+  sold on itch.io.
+Formats: VST3, CLAP, LV2
+Homepage: https://www.auburnsounds.com/products/Renegate.html
+Source: download
+Url: https://www.auburnsounds.com/downloads/Renegate-FREE-1.6.zip
+Sha256: 78071f42cad6ff2d90b36cb431d17758be755da1a5218ac1c39403d8993b506f
+Script: auburn-sounds.sh
+Description:
+  A gate with almost nothing on the surface, over a 43-band psychoacoustic
+  model doing the envelope detection, program-dependent hysteresis deciding
+  what counts as the sound, and look-ahead built in so the transient is
+  never the part that gets cut off.
+
+  That is what makes it quick to set: there is no threshold and hold pair
+  to retune for every source, and the LED can be clicked to open the gate
+  by hand where a part needs it.
