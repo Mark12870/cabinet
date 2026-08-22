@@ -672,7 +672,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         return runners.Install(new RunnerIndex(runner).Find(spec), onOutput, onProgress).Name;
     }
 
-    private static bool Answers(string name, string spec) =>
+    public static bool Answers(string name, string spec) =>
         name == spec
         || RunnerIndex.Families.Any(family => Runners.DeriveName(family.AssetFor(spec)) == name);
 
@@ -826,7 +826,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 .Where(fields => fields.Length > 0)
             : [];
 
-    private IEnumerable<string> Recorded(string prefix) =>
+    public IEnumerable<string> Recorded(string prefix) =>
         Lines(prefix).Select(fields => fields[0]);
 
     private IEnumerable<string> RecordedKeys(string prefix, string id) =>

@@ -6,7 +6,69 @@ public sealed class RunnersTests : IDisposable
 {
     private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
 
-    private Layout Layout => new(root, "/run/user/1000", Path.Combine(root, "data"));
+    [Fact]
+    public void APrefixOnTheRunnerItsPluginAsksForIsNotComplainedAbout()
+    {
+        GiveRunner("soda-11.0-5");
+        GivePrefix("fabfilter", "soda-11.0-5");
+        GiveEntry("fabfilter", "fabfilter-total-bundle", "FabFilter Total Bundle", "soda-11.0-5");
+        GiveRecord("fabfilter", "fabfilter-total-bundle");
+
+        Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
+    }
+
+    [Fact]
+    public void AVersionSpecMatchesTheDirectoryTheRunnerWasUnpackedUnder()
+    {
+        GiveRunner("wine-9.21-staging-tkg");
+        GivePrefix("serum", "wine-9.21-staging-tkg");
+        GiveEntry("xfer-records", "serum", "Serum 2", "9.21");
+        GiveRecord("serum", "serum");
+
+        Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
+    }
+
+    [Fact]
+    public void APrefixMovedOffTheRunnerItsPluginAsksForIsWarnedAbout()
+    {
+        GiveRunner("wine-10.8-staging-tkg");
+        GivePrefix("serum", "wine-10.8-staging-tkg");
+        GiveEntry("xfer-records", "serum", "Serum 2", "9.21");
+        GiveRecord("serum", "serum");
+
+        var check = Checks().Single(c => c.Name == "plugin runners");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.Contains("serum keeps wine-10.8-staging-tkg", check.Detail);
+        Assert.Contains("Serum 2 asks for Wine 9.21", check.Detail);
+    }
+
+    [Fact]
+    public void APrefixHoldingNoRecordedPluginIsNobodysBusiness()
+    {
+        GivePrefix("aalto");
+
+        Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
+    }
+
+    private Layout Layout =>
+        new(root, "/run/user/1000", Path.Combine(root, "data"), null,
+            Path.Combine(root, "library"));
+
+    private IReadOnlyList<Check> Checks() => new Doctor(Layout, new UnusedRunner()).Run();
+
+    private void GiveEntry(string vendor, string id, string name, string runner)
+    {
+        var dir = Path.Combine(root, "library", vendor);
+        Directory.CreateDirectory(dir);
+
+        File.WriteAllText(
+            Path.Combine(dir, id + ".yml"),
+            $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\n");
+    }
+
+    private void GiveRecord(string prefix, string id) =>
+        File.WriteAllText(Layout.PrefixPluginsFile(prefix), id + Environment.NewLine);
 
     private Runners Subject => new(Layout, new UnusedRunner());
 
@@ -101,7 +163,7 @@ public sealed class RunnersTests : IDisposable
     {
         GivePrefix("aalto", "wine-9.21-staging");
 
-        var check = new Doctor(Layout).Run().Single(c => c.Name == "prefix runners");
+        var check = Checks().Single(c => c.Name == "prefix runners");
 
         Assert.Equal(Status.Fail, check.Status);
         Assert.Contains("aalto -> wine-9.21-staging", check.Detail);
@@ -114,7 +176,7 @@ public sealed class RunnersTests : IDisposable
         GiveRunner("wine-9.21-staging");
 
         Assert.Equal(
-            Status.Ok, new Doctor(Layout).Run().Single(c => c.Name == "prefix runners").Status);
+            Status.Ok, Checks().Single(c => c.Name == "prefix runners").Status);
     }
 
     public void Dispose() => Directory.Delete(root, recursive: true);

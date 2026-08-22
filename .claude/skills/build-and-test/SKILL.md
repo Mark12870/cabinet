@@ -50,9 +50,13 @@ flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse
 flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet  # file://$PWD/repo
 ```
 
-Read `BUILD_EXIT=$?` before believing anything about the installed app, never chain the two
-with `&&`/`||`, and never poll for the build — the harness sends a completion event. The
-Gotchas in CLAUDE.md under *Working in this repo* have the detail on all three.
+- Print `BUILD_EXIT=$?` and read it.
+- Never chain the two lines with `&&`/`||`.
+- `flatpak install --or-update`, always.
+- Never poll the build; wait for the event.
+
+Confirm with `flatpak info --user io.github.mark12870.cabinet` against
+`ostree --repo=repo rev-parse app/io.github.mark12870.cabinet/x86_64/stable`.
 
 ```sh
 # Look at a page of the installed GUI. Needs the toolbox its header describes, once.

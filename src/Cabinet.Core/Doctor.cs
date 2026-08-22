@@ -9,7 +9,7 @@ public enum Status
 
 public sealed record Check(string Name, Status Status, string Detail);
 
-public sealed class Doctor(Layout layout)
+public sealed class Doctor(Layout layout, IProcessRunner runner)
 {
     public IReadOnlyList<Check> Run()
     {
@@ -24,44 +24,78 @@ public sealed class Doctor(Layout layout)
         };
 
         checks.AddRange(PrefixRunners());
+        checks.AddRange(PluginRunners());
         checks.AddRange(EnrolledDaws());
         return checks;
     }
 
-    private IEnumerable<Check> PrefixRunners()
+    private IEnumerable<(string Prefix, string Runner)> PrefixesAndRunners()
     {
         if (!Directory.Exists(layout.PrefixesDir))
         {
             yield break;
         }
 
-        var broken = new List<string>();
-
         foreach (var dir in Directory.EnumerateDirectories(layout.PrefixesDir)
                      .OrderBy(d => d, StringComparer.Ordinal))
         {
             var prefix = Path.GetFileName(dir);
             var marker = layout.PrefixRunnerFile(prefix);
+            var name = File.Exists(marker) ? File.ReadAllText(marker).Trim() : "";
 
-            if (!File.Exists(marker))
-            {
-                continue;
-            }
-
-            var name = File.ReadAllText(marker).Trim();
-
-            if (name.Length > 0 && name != Layout.BundledRunner
-                                && !File.Exists(layout.RunnerWine(name)))
-            {
-                broken.Add($"{prefix} -> {name}");
-            }
+            yield return (prefix, name.Length == 0 ? Layout.BundledRunner : name);
         }
+    }
+
+    private IEnumerable<Check> PrefixRunners()
+    {
+        var prefixes = PrefixesAndRunners().ToList();
+
+        if (prefixes.Count == 0)
+        {
+            yield break;
+        }
+
+        var broken = prefixes
+            .Where(entry => entry.Runner != Layout.BundledRunner
+                            && !File.Exists(layout.RunnerWine(entry.Runner)))
+            .Select(entry => $"{entry.Prefix} -> {entry.Runner}")
+            .ToList();
 
         yield return broken.Count == 0
             ? new Check("prefix runners", Status.Ok, "every prefix resolves to a Wine")
             : new Check("prefix runners", Status.Fail,
                 $"missing runner for {string.Join(", ", broken)} — install it or move the "
                 + $"prefix with `cabinet use <prefix> {Layout.BundledRunner}`");
+    }
+
+    private IEnumerable<Check> PluginRunners()
+    {
+        var library = new Library(layout, runner);
+        var entries = library.Entries().ToDictionary(entry => entry.Id, StringComparer.Ordinal);
+
+        var drifted = PrefixesAndRunners()
+            .SelectMany(
+                prefix => library.Recorded(prefix.Prefix),
+                (prefix, id) => (prefix.Prefix, prefix.Runner, Id: id))
+            .Select(held => (held.Prefix, held.Runner,
+                Entry: entries.GetValueOrDefault(held.Id)))
+            .Where(held => held.Entry?.Runner is { } wanted
+                           && !Library.Answers(held.Runner, wanted))
+            .Select(held =>
+                $"{held.Prefix} keeps {held.Runner}, where {held.Entry!.Name} asks for "
+                + $"Wine {held.Entry.Runner}")
+            .ToList();
+
+        if (drifted.Count == 0)
+        {
+            yield break;
+        }
+
+        yield return new Check("plugin runners", Status.Warn,
+            string.Join("; ", drifted)
+            + ". A plugin's entry pins the Wine its editor was tried on, and moving a prefix "
+            + "to it needs the DAW closed: `cabinet use <prefix> <runner>`.");
     }
 
     private Check BundledYabridge()
