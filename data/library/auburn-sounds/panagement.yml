@@ -1,0 +1,24 @@
+Name: Panagement 2
+Kind: native
+Category: Effect
+Summary: Binaural distance panner with reverb and delay.
+Developer: Auburn Sounds
+Version: 2.8
+Licence: Freeware
+Licensing:
+  The download is the Free Edition, which is everything except the Delay
+  and the PGMT-400 chip mod; the Full Edition is sold on itch.io.
+Formats: VST3, CLAP, LV2
+Homepage: https://www.auburnsounds.com/products/Panagement.html
+Source: download
+Url: https://www.auburnsounds.com/downloads/Panagement-FREE-2.8.zip
+Sha256: 5d8cf4804d839de97a02bbee40cdd67fa13971813e506111aceaac87b6640078
+Script: auburn-sounds.sh
+Description:
+  A track placed anywhere in the field by a binaural panner, with early and
+  late reflections following it so that distance reads as distance, and
+  width, tilt and an LFO that reaches most of the panel.
+
+  Its reverb is sparse rather than diffuse, which is the decision the whole
+  thing turns on: it leaves headroom and stays out of the way, so it
+  survives being put on the master rather than only on a send.

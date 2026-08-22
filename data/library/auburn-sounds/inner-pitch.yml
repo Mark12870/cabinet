@@ -1,0 +1,25 @@
+Name: Inner Pitch 2
+Kind: native
+Category: Effect
+Summary: Pitch and formant shifter that stays true to the source.
+Developer: Auburn Sounds
+Version: 2.1
+Licence: Freeware
+Licensing:
+  The download is the Free Edition, which does everything described here;
+  the Full Edition adds vocal hard-tuning and further quality settings, and
+  is sold on itch.io.
+Formats: VST3, CLAP, LV2
+Homepage: https://www.auburnsounds.com/products/InnerPitch.html
+Source: download
+Url: https://www.auburnsounds.com/downloads/Inner-Pitch-FREE-2.1.zip
+Sha256: eedbb307954ec38f87575d1e1807259645107d830779c3727aa9129465691fec
+Script: auburn-sounds.sh
+Description:
+  Pitch and formants shifted apart from each other, a dry and wet balance
+  that reinforces the bottom rather than replacing it, and an L/R pitch
+  difference that widens a mono track. The performance stays recognisable.
+
+  Pushed, it stops being polite: an internal delay limiter builds endlessly
+  ascending or descending sounds, and the distortion, EQ and diffusion in
+  the loop take it to the soundscape end of a pitch shifter.

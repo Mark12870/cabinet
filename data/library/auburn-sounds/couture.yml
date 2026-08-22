@@ -1,0 +1,24 @@
+Name: Couture
+Kind: native
+Category: Effect
+Summary: Transient shaper that changes attacks without changing level.
+Developer: Auburn Sounds
+Version: 1.10
+Licence: Freeware
+Licensing:
+  The download is the Free Edition, which is the whole plug-in with the
+  saturation stage disabled; the Full Edition is sold on itch.io.
+Formats: VST3, CLAP, LV2
+Homepage: https://www.auburnsounds.com/products/Couture.html
+Source: download
+Url: https://www.auburnsounds.com/downloads/Couture-FREE-1.10.zip
+Sha256: 29889576676d1aefb3eb06afcd83377519db61ea515ac69396fae2de8c5b8ff3
+Script: auburn-sounds.sh
+Description:
+  Attacks turned up or down by one knob, over a two-band detector that
+  finds each transient on its own — there is no threshold to place, and
+  changing the input gain does not change the result.
+
+  It goes on a drum track to make it punchier, on a kick to take the click
+  off, or across a bus for glue; pointed at the start of notes on a vocal
+  it takes the edge off sibilance without a de-esser's filter.

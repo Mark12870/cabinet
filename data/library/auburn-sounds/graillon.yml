@@ -1,0 +1,25 @@
+Name: Graillon 3
+Kind: native
+Category: Effect
+Summary: Live voice changer with pitch correction and formant shifting.
+Developer: Auburn Sounds
+Version: 3.2
+Licence: Freeware
+Licensing:
+  The download is the Free Edition, which leaves out pitch-tracking
+  modulation, keyboard tuning and the vocal doubler; the Full Edition is
+  sold on itch.io.
+Formats: VST3, CLAP, LV2
+Homepage: https://www.auburnsounds.com/products/Graillon.html
+Source: download
+Url: https://www.auburnsounds.com/downloads/Graillon-FREE-3.2.zip
+Sha256: d9ed254bd6ac89d5c5e670383dec2cb1acf43a72c62ebf2e4401d039ff6bda18
+Script: auburn-sounds.sh
+Description:
+  Pitch correction with a hard-tune end and a natural one, formant shifting
+  beside it, and three pitch engines to choose between — the Graillon 2
+  sound, a reworked one, and the engine out of Inner Pitch.
+
+  A compressor, gate, chorus, preamp and bitcrusher sit in the same window,
+  all tuned for voice and all adding no latency, which is what makes it a
+  chain to sing through rather than one to print afterwards.
