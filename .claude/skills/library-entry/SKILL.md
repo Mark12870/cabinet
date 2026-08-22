@@ -1,6 +1,6 @@
 ---
 name: library-entry
-description: Add a plugin to Cabinet's Library — the bundled catalogue the Library page and `cabinet library` read. Use whenever a new VST should become installable in one click, or an existing entry needs its version bumped. Covers which fields are judgements rather than lookups, how to pin a download so it cannot drift, and the one check that actually proves an entry works.
+description: Add a plugin to Cabinet's Library — the bundled catalogue the Library page and `cabinet library` read. Use whenever a new VST should become installable in one click, or an existing entry needs its version bumped. Covers which fields are judgements rather than lookups, how to pin a download so it cannot drift, and the one check that actually proves an entry works. The gotchas behind these rules are in GOTCHAS.md.
 ---
 
 # Adding a plugin to the Library
