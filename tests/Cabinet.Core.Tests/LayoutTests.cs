@@ -64,10 +64,12 @@ public class LayoutTests
                 $"{prefix}/Program Files/Common Files/VST3",
                 $"{prefix}/Program Files/Common Files/CLAP",
                 $"{prefix}/Program Files/VstPlugins",
+                $"{prefix}/Program Files/Steinberg/VstPlugins",
                 $"{prefix}/Program Files (x86)/Common Files/VST2",
                 $"{prefix}/Program Files (x86)/Common Files/VST3",
                 $"{prefix}/Program Files (x86)/Common Files/CLAP",
                 $"{prefix}/Program Files (x86)/VstPlugins",
+                $"{prefix}/Program Files (x86)/Steinberg/VstPlugins",
             ],
             Layout.PrefixPluginDirs("serum"));
     }

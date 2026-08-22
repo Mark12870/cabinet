@@ -88,12 +88,24 @@ public sealed class PrefixRegistry(Layout layout)
         if (Quoted(line, 0) is not { } name
             || name.After >= line.Length
             || line[name.After] != '='
-            || Quoted(line, name.After + 1) is not { } text)
+            || Quoted(line, Untyped(line, name.After + 1)) is not { } text)
         {
             return null;
         }
 
         return (name.Text, text.Text);
+    }
+
+    private static int Untyped(string line, int at)
+    {
+        if (!line.AsSpan(at).StartsWith("str"))
+        {
+            return at;
+        }
+
+        var colon = line.IndexOf(':', at);
+
+        return colon < 0 ? at : colon + 1;
     }
 
     private static (string Text, int After)? Quoted(string line, int at)

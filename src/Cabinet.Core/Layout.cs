@@ -176,6 +176,7 @@ public sealed class Layout
             yield return Path.Combine(driveC, programFiles, "Common Files", "VST3");
             yield return Path.Combine(driveC, programFiles, "Common Files", "CLAP");
             yield return Path.Combine(driveC, programFiles, "VstPlugins");
+            yield return Path.Combine(driveC, programFiles, "Steinberg", "VstPlugins");
         }
     }
 

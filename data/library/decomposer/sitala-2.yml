@@ -1,0 +1,27 @@
+Name: Sitala 2
+Kind: windows
+Category: Drums
+Summary: The same drum sampler over a 4×4 grid, with pitch snapping.
+Developer: Decomposer
+Version: 2.1
+Licence: Commercial
+Licensing:
+  Sitala 2 needs a $20 licence from Decomposer. Without one it opens an
+  activation panel asking for a serial and will not do anything else.
+Formats: VST3
+Homepage: https://decomposer.de/sitala/
+Source: download
+Url: https://decomposer.de/sitala/releases/Sitala-2.1-Setup.msi
+Sha256: 124f237999e44f7c2b102c540b9f4f162f5e3a017854d60704ee6f0828d75b25
+Script: sitala.sh
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  The sixteen pads laid out four by four with the six knobs beside them, tuning
+  that snaps to notes and names them, kits switched over MIDI, and a whole folder
+  of samples dropped in at once. Three factory kits rather than one.
+
+  It has no Linux build at all, so Cabinet gives it a Wine prefix of its own with
+  the Wine version its editor needs. Version 1 is still free and installs
+  separately, into a prefix of its own.

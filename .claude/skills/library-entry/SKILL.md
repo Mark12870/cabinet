@@ -50,7 +50,9 @@ curl -sSfL -O "$url" && sha256sum "$(basename "$url")"
   quotes. A checksum copied from the same page that served a bad file proves nothing.
 - Keep the version in the filename. That is what makes a stale entry visible in a diff.
 - Windows entries take an **installer `.exe`**; `Prefixes.Install` runs it under Wine. A zip of
-  loose plugin files is not something an entry can install.
+  loose plugin files is not something an entry can install. An `.msi` is, but only through a
+  `Script:` — `"$WINE" msiexec /i "$CABINET_ARCHIVE" /qn`, since `Prefixes.Install` would hand
+  the database to `wine` as an executable.
 
 Two vendors do not allow a pinned file at all — see *an account-gated download* and *one
 always-current URL* below.
