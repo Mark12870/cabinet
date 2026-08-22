@@ -25,7 +25,7 @@ internal static class Program
           cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [prefix] [file]
                                                install one; some need a file you download
-          cabinet library remove <id>          remove a Linux plugin and its links
+          cabinet library remove <id>          uninstall one, links, prefix and all
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one
@@ -339,15 +339,13 @@ internal static class Program
         }
 
         Console.Write($"Delete '{prefix.Name}' and every plugin installed in it? [y/N] ");
-        if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        if (!Yes())
         {
             Console.WriteLine("Left alone.");
             return 1;
         }
 
-        prefixes.Delete(prefix.Name);
-        Console.WriteLine($"Deleted {prefix.Path}");
-        Console.WriteLine("Run `cabinet sync` to unbridge what it held.");
+        prefixes.Delete(prefix.Name, Console.WriteLine);
         return 0;
     }
 
@@ -554,22 +552,72 @@ internal static class Program
     private static int RemoveFromLibrary(Layout layout, IProcessRunner runner, string id)
     {
         var library = new Library(layout, runner);
-        var data = library.Entries().FirstOrDefault(entry => entry.Id == id)?.Data;
+        var entry = library.Find(id);
 
-        Console.Write(data is null
-            ? $"Remove {id} and the links your DAW scans? [y/N] "
-            : $"Remove {id}, the links your DAW scans, and ~/{data} with the presets in it? "
-              + "[y/N] ");
+        if (!library.Installed().TryGetValue(id, out var prefix))
+        {
+            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
+            return 1;
+        }
 
-        if (!string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase))
+        return entry.Kind == PluginKind.Native
+            ? RemoveNative(library, entry)
+            : RemoveWindows(library, entry, prefix!);
+    }
+
+    private static int RemoveNative(Library library, LibraryEntry entry)
+    {
+        Console.Write(entry.Data is { } data
+            ? $"Remove {entry.Name}, the links your DAW scans, and ~/{data} with the presets "
+              + "in it? [y/N] "
+            : $"Remove {entry.Name} and the links your DAW scans? [y/N] ");
+
+        if (!Yes())
         {
             Console.WriteLine("Left alone.");
             return 1;
         }
 
-        library.RemoveNative(id, Console.WriteLine);
+        library.Remove(entry, onOutput: Console.WriteLine);
         return 0;
     }
+
+    private static int RemoveWindows(Library library, LibraryEntry entry, string prefix)
+    {
+        var sharing = library.Sharing(prefix, entry.Id);
+
+        if (sharing.Count == 0)
+        {
+            Console.WriteLine(
+                $"{entry.Name} is the only plugin Cabinet installed in prefix '{prefix}'.");
+            Console.Write("Delete the prefix and everything in it? [y/N] ");
+
+            if (Yes())
+            {
+                library.Remove(entry, prefix, takePrefix: true, onOutput: Console.WriteLine);
+                return 0;
+            }
+        }
+        else
+        {
+            Console.WriteLine(
+                $"Prefix '{prefix}' also holds {string.Join(" and ", sharing)}, so it stays.");
+        }
+
+        Console.Write($"Run {entry.Name}'s own uninstaller? It may open a window. [y/N] ");
+
+        if (!Yes())
+        {
+            Console.WriteLine("Left alone.");
+            return 1;
+        }
+
+        library.Remove(entry, prefix, onOutput: Console.WriteLine);
+        return 0;
+    }
+
+    private static bool Yes() =>
+        string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase);
 
     private static int Sync(Layout layout, IProcessRunner runner)
     {

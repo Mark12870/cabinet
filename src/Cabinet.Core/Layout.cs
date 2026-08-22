@@ -151,6 +151,12 @@ public sealed class Layout
     public string PrefixPluginsFile(string name) =>
         Path.Combine(PrefixPath(name), PluginsMarker);
 
+    public string PrefixSystemReg(string name) =>
+        Path.Combine(PrefixPath(name), "system.reg");
+
+    public string PrefixUserReg(string name) =>
+        Path.Combine(PrefixPath(name), "user.reg");
+
     public string PrefixSystem32(string name) =>
         Path.Combine(PrefixPath(name), "drive_c", "windows", "system32");
 

@@ -62,6 +62,22 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
         return Sync();
     }
 
+    public void Bridge(IReadOnlyList<Prefix> prefixes, Action<string>? onOutput)
+    {
+        onOutput?.Invoke("Bridging what is installed…");
+        var result = SyncPrefixes(prefixes);
+
+        foreach (var line in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            onOutput?.Invoke(line);
+        }
+
+        if (!result.Ok)
+        {
+            throw new InvalidOperationException($"yabridgectl exited with {result.ExitCode}");
+        }
+    }
+
     private ProcessResult Run(IReadOnlyList<string> arguments)
     {
         if (!File.Exists(Binary))

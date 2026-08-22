@@ -112,6 +112,40 @@ internal static class Ui
         dialog.Present(parent);
     }
 
+    public static void Choose(
+        Gtk.Widget parent,
+        string heading,
+        string body,
+        string first,
+        Action chose,
+        string second,
+        Action alsoChose)
+    {
+        var dialog = Adw.AlertDialog.New(heading, body);
+
+        dialog.AddResponse("cancel", "Cancel");
+        dialog.AddResponse("first", first);
+        dialog.AddResponse("second", second);
+        dialog.SetResponseAppearance("first", Adw.ResponseAppearance.Destructive);
+        dialog.SetResponseAppearance("second", Adw.ResponseAppearance.Destructive);
+        dialog.SetDefaultResponse("cancel");
+        dialog.SetCloseResponse("cancel");
+
+        dialog.OnResponse += (_, args) =>
+        {
+            if (args.Response == "first")
+            {
+                chose();
+            }
+            else if (args.Response == "second")
+            {
+                alsoChose();
+            }
+        };
+
+        dialog.Present(parent);
+    }
+
     public static void Report(Gtk.Widget parent, string heading, string body)
     {
         var dialog = Adw.AlertDialog.New(heading, body);

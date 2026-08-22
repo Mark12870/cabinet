@@ -18,8 +18,9 @@ public sealed class PrefixesTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(plugin)!);
         File.WriteAllText(plugin, "");
 
-        Subject.Delete("serum");
+        var bridged = Assert.Throws<InvalidOperationException>(() => Subject.Delete("serum"));
 
+        Assert.Contains("yabridgectl", bridged.Message);
         Assert.False(Directory.Exists(Layout.PrefixPath("serum")));
     }
 
