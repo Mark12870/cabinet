@@ -1,0 +1,30 @@
+Name: Sumu
+Kind: windows
+Category: Synth
+Summary: Additive synthesizer that takes a sound apart into 64 partials.
+Developer: Madrona Labs
+Version: 1.3.0
+Licence: Commercial
+Licensing:
+  Every download runs in demo mode, sounding a reminder tone about once a minute and
+  saving no patches, until a licence key from Madrona Labs unlocks it.
+Formats: VST3
+Homepage: https://madronalabs.com/products/sumu
+Source: download
+Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/sumu/SumuInstaller1.3.0.exe
+Sha256: b37fbe1a7fcec02a237b418306ad98cc429aad0a66ead32c3b9d83176f3d8469
+Script: madrona-labs.sh
+Prefix: madrona
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  A sampled sound becomes up to 64 bandwidth-enhanced partials, each with its own
+  frequency, loudness and noisiness over time, and every patch cord carries all 64
+  channels. Modulate a handful of harmonics, delay each partial by its own frequency,
+  or scatter them across the stereo field and watch them move.
+
+  A Moog ladder filter at the end keeps it from getting too clinical. There is no Linux
+  build, so Cabinet puts it in a shared madrona prefix with the Wine version its editor
+  needs. Making partials from your own sounds needs Vutu, Madrona's free companion app,
+  which Cabinet does not install.

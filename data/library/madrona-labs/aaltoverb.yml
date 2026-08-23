@@ -1,0 +1,29 @@
+Name: Aaltoverb
+Kind: windows
+Category: Effect
+Summary: Reverb whose room you can resize while it rings.
+Developer: Madrona Labs
+Version: 2.0.3
+Licence: Commercial
+Licensing:
+  Every download runs in demo mode, sounding a reminder tone about once a minute and
+  saving no patches, until a licence key from Madrona Labs unlocks it.
+Formats: VST3
+Homepage: https://madronalabs.com/products/aaltoverb
+Source: download
+Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/aaltoverb/AaltoverbInstaller2.0.3.exe
+Sha256: 4ea1b274a4c3039f6e3a1fbf31375beb4fc2651f522790154963c8809c40ccec
+Script: madrona-labs.sh
+Prefix: madrona
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  Aalto's reverb pulled out as an effect worth performing with, after the vintage spring
+  reverbs that inspired it. The size control shifts the whole space as it moves, the way a
+  tape delay shifts pitch with speed, and at the top of its range the decay slides into a
+  freeze that never loops.
+
+  Four knobs, and the tone control is an isolator rather than an EQ. There is no Linux
+  build, so Cabinet puts it in a shared madrona prefix with the Wine version its editor
+  needs.

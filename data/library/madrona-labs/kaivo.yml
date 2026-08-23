@@ -1,0 +1,28 @@
+Name: Kaivo
+Kind: windows
+Category: Synth
+Summary: Granular synthesis played through physically modelled strings and bodies.
+Developer: Madrona Labs
+Version: 1.9.4
+Licence: Commercial
+Licensing:
+  Every download runs in demo mode, sounding a reminder tone about once a minute and
+  saving no patches, until a licence key from Madrona Labs unlocks it.
+Formats: VST2
+Homepage: https://madronalabs.com/products/kaivo
+Source: download
+Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/kaivo/KaivoInstaller1.9.4.exe
+Sha256: 1988445197d1c1466908f882727d87e035bd3a476889659b7e4b446bdeac6f73
+Script: madrona-labs.sh
+Prefix: madrona
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  A granulator reads a two-dimensional map of sound and feeds it into finite difference
+  models of strings, chimes and springs, and then into a body — wood, a metal plate, a
+  frame drum — with a pickup at each side. Struck twice, it never rings quite the same.
+
+  Aalto's patcher with a different engine behind it. There is no Linux build, so Cabinet
+  puts it in a shared madrona prefix with the Wine version its editor needs; the download
+  is a hundred megabytes, most of it the sample maps the granulator reads.

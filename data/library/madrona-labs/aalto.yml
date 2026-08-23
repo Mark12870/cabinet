@@ -1,0 +1,27 @@
+Name: Aalto
+Kind: windows
+Category: Synth
+Summary: Semi-modular West Coast synthesizer you patch with cords.
+Developer: Madrona Labs
+Version: 1.9.4
+Licence: Commercial
+Licensing:
+  Every download runs in demo mode, sounding a reminder tone about once a minute and
+  saving no patches, until a licence key from Madrona Labs unlocks it.
+Formats: VST2
+Homepage: https://madronalabs.com/products/aalto
+Source: download
+Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/aalto/AaltoInstaller1.9.4.exe
+Sha256: 4679b6edd6f6d0f4772c53ed16e5057d9a63644f071d73b4fef061bc083f8ac8
+Script: madrona-labs.sh
+Prefix: madrona
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  A complex oscillator after Buchla's, with FM and waveshaping into a lowpass gate
+  that has a vactrol's slur, a sequencer inside every voice, and a waveguide short
+  enough to be a third oscillator. You wire it by dragging cords between the modules.
+
+  There is no Linux build, so Cabinet puts it in a shared madrona prefix with the Wine
+  version its editor needs, and Madrona's other four plugins install into the same one.

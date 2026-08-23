@@ -1,0 +1,28 @@
+Name: Virta
+Kind: windows
+Category: Effect
+Summary: Vocoder and resynthesizer that turns a voice into a synth.
+Developer: Madrona Labs
+Version: 1.9.3
+Licence: Commercial
+Licensing:
+  Every download runs in demo mode, sounding a reminder tone about once a minute and
+  saving no patches, until a licence key from Madrona Labs unlocks it.
+Formats: VST2
+Homepage: https://madronalabs.com/products/virta
+Source: download
+Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/virta/VirtaInstaller1.9.3.exe
+Sha256: f8466af69525a3890c1de6807a212c1db54c21f317659e3c1cb217eb72d1ecdb
+Script: madrona-labs.sh
+Prefix: madrona
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  Low-latency analysis of whatever you sing or play into it — pitch, envelope, vowel —
+  patched onto oscillators, a pitch shifter with a feedback delay and a compressor. Aalto's
+  patcher again, with an input where the keyboard would be.
+
+  Gentle enough to be a channel effect at low settings and unrecognisable at high ones.
+  There is no Linux build, so Cabinet puts it in a shared madrona prefix with the Wine
+  version its editor needs.
