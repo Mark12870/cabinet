@@ -29,6 +29,7 @@ public sealed record LibraryEntry(
     bool Dxvk,
     SyncMode Sync,
     string? Script,
+    string? Launch,
     string? Data,
     string? Developer,
     string? Version,
@@ -72,12 +73,13 @@ public sealed record LibraryEntry(
         }
 
         if (kind == PluginKind.Native
-            && new[] { "Prefix", "Runner", "Dxvk", "Sync" }.FirstOrDefault(fields.ContainsKey)
+            && new[] { "Prefix", "Runner", "Dxvk", "Sync", "Launch" }
+                .FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
         {
             throw new InvalidOperationException(
                 $"{id}.yml is native and carries {windowsOnly} — a native plugin has no prefix, "
-                + "no Wine and no Direct3D to replace");
+                + "no Wine, no Direct3D to replace and nothing to open");
         }
 
         if (source != PluginSource.Byo && fields.ContainsKey("Account"))
@@ -103,6 +105,7 @@ public sealed record LibraryEntry(
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
+            Value(fields, "Launch") is { } launch ? ParseLaunch(id, launch) : null,
             Value(fields, "Data") is { } data ? ParseData(id, data) : null,
             Value(fields, "Developer"),
             Value(fields, "Version"),
@@ -123,6 +126,18 @@ public sealed record LibraryEntry(
         }
 
         return name;
+    }
+
+    private static string ParseLaunch(string id, string path)
+    {
+        if (path is not [var drive, ':', '\\', ..] || !char.IsAsciiLetter(drive))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Launch: {path} — the Windows path of an executable its own "
+                + @"installer leaves in the prefix, such as C:\Program Files\Thing\Thing.exe");
+        }
+
+        return path;
     }
 
     private static string ParseData(string id, string relative)
@@ -356,6 +371,77 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
     public IReadOnlyList<string> Sharing(string prefix, string id) =>
         [.. Recorded(prefix).Where(other => other != id)];
+
+    private static readonly TimeSpan Glance = TimeSpan.FromSeconds(15);
+
+    public void Launch(
+        LibraryEntry entry, string? prefix = null, Action<string>? onOutput = null)
+    {
+        if (entry.Launch is null)
+        {
+            throw new InvalidOperationException(
+                $"{entry.Name} is a plugin, not an application Cabinet can open");
+        }
+
+        var where = prefix ?? entry.Prefix;
+
+        if (!Recorded(where).Contains(entry.Id, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException($"{entry.Name} is not installed in {where}");
+        }
+
+        var prefixes = new Prefixes(layout, runner);
+        var watch = new PluginWatch(Bundled(where));
+        using var closed = new CancellationTokenSource();
+
+        var watching = Task.Run(() =>
+        {
+            while (!closed.Token.WaitHandle.WaitOne(Glance))
+            {
+                Bridge(prefixes, watch.Appeared(Bundled(where)), onOutput);
+            }
+        });
+
+        onOutput?.Invoke($"Opening {entry.Name}. What it installs is bridged as it lands.");
+
+        ProcessResult ran;
+
+        try
+        {
+            ran = prefixes.Run(where, "wine", [entry.Launch], onOutput);
+        }
+        finally
+        {
+            closed.Cancel();
+            watching.Wait();
+        }
+
+        Bridge(prefixes, watch.Closed(Bundled(where)), onOutput);
+
+        if (!ran.Ok)
+        {
+            throw new InvalidOperationException(
+                $"{entry.Name} exited with {ran.ExitCode}");
+        }
+
+        onOutput?.Invoke($"{entry.Name} closed.");
+    }
+
+    private void Bridge(
+        Prefixes prefixes, IReadOnlyList<string>? appeared, Action<string>? onOutput)
+    {
+        if (appeared is null)
+        {
+            return;
+        }
+
+        foreach (var bundle in appeared)
+        {
+            onOutput?.Invoke($"  {Path.GetFileName(bundle)} appeared");
+        }
+
+        Bridge(prefixes, onOutput);
+    }
 
     public void Remove(
         LibraryEntry entry,
@@ -683,7 +769,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Action<double>? onProgress)
     {
         var url = entry.Url!;
-        var target = Path.Combine(staging, url[(url.LastIndexOf('/') + 1)..]);
+        var target = Path.Combine(staging, ArchiveName(entry));
 
         http.ToFile(url, target, onOutput, onProgress);
 
@@ -698,6 +784,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         return target;
+    }
+
+    public static string ArchiveName(LibraryEntry entry)
+    {
+        var path = entry.Url!.TrimEnd('/');
+        var name = path[(path.LastIndexOf('/') + 1)..];
+
+        return entry.Kind == PluginKind.Windows && !Path.HasExtension(name)
+            ? name + ".exe"
+            : name;
     }
 
     public static string Command(LibraryEntry entry, string? prefix = null) =>

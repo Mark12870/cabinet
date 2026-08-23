@@ -84,6 +84,38 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryAppCabinetOpensIsAWindowsOneAndSaysWhereItLands()
+    {
+        var wrong = Shipped
+            .Where(entry => entry.Launch is not null)
+            .Where(entry => entry.Kind != PluginKind.Windows
+                            || entry.Launch is not [var drive, ':', '\\', ..]
+                            || !char.IsAsciiLetter(drive))
+            .Select(entry => $"{entry.Id} -> {entry.Launch}");
+
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
+    public void AVendorTheManifestHoldsBackSaysWhyBesideItsEntries()
+    {
+        var held = Shipped
+            .Select(entry => entry.Vendor)
+            .Distinct(StringComparer.Ordinal)
+            .Where(vendor => Directory
+                .EnumerateFiles(Repo.Path($"data/library/{vendor}"), "*.md")
+                .Any());
+
+        var installs = Manifest.Any(line =>
+            line.Contains("\"$vendor\"*.md", StringComparison.Ordinal)
+            && line.Contains("continue", StringComparison.Ordinal));
+
+        Assert.True(
+            !held.Any() || installs,
+            $"{string.Join(", ", held)} carries a .md but the manifest installs every vendor");
+    }
+
+    [Fact]
     public void AVersionIsPinnedInTheUrlThatFetchesIt()
     {
         var drifting = Shipped

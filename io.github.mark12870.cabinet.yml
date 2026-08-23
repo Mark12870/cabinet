@@ -155,6 +155,9 @@ modules:
       # entries, its install script and its artwork. Bundled, so the list works offline.
       - |
         for vendor in data/library/*/; do
+          # A vendor whose directory carries a .md is held back: the entry is written and
+          # the tests check it, but the app does not offer it. That .md says why.
+          if ls "$vendor"*.md >/dev/null 2>&1; then continue; fi
           dest=${FLATPAK_DEST}/share/cabinet/library/$(basename "$vendor")
           install -Dm644 "$vendor"*.yml -t "$dest"/
           for art in "$vendor"*.jpg "$vendor"*.png; do

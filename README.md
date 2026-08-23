@@ -32,6 +32,7 @@ flatpak run $cabinet library install surge-xt               # a Linux build, so 
 flatpak run $cabinet library install fabfilter-total-bundle # downloaded for you, prefix and all
 flatpak run $cabinet library install vital ~/Downloads/VitalInstaller.zip  # yours to download
 flatpak run $cabinet library remove valhalla-supermassive   # its own uninstaller, then unbridged
+flatpak run $cabinet library launch spitfire-audio          # a manager; what it installs, bridged
 
 flatpak run $cabinet new serum                              # a prefix of its own
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
@@ -61,11 +62,10 @@ their own by name, as the u-he ones do `~/.u-he/<Product>`; Cabinet fills that a
 deleting it.
 
 `library remove` works on a Windows plugin too: if nothing else Cabinet installed is left in its
-prefix it offers to delete the prefix outright — the Wine tree, the registry and the settings
-with it — and otherwise runs the plugin's own uninstaller, silent or a wizard as the vendor
-chose, leaving the prefix for the plugins sharing it, as the three free Valhalla ones do. One
-installed before Cabinet started recording uninstallers is matched by name; where nothing in the
-prefix looks like it, Cabinet says so rather than guessing, and `delete` is still there.
+prefix it offers to delete the prefix outright, Wine tree and registry with it, and otherwise runs
+the plugin's own uninstaller and leaves the prefix for the plugins sharing it. Where nothing looks
+like it, it says so rather than guessing. A manager is the exception: `library launch` opens it
+and bridges each plugin it installs as that lands, and removing one takes its prefix.
 
 The four commands after it are the same thing by hand, and still the whole workflow for a plugin
 the library has never heard of. `set` is per prefix and reaches the bridged plugin too: a sync

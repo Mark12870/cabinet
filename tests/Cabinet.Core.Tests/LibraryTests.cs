@@ -55,6 +55,7 @@ public class LibraryTests : IDisposable
         Assert.True(entry.Dxvk);
         Assert.Equal(SyncMode.Fsync, entry.Sync);
         Assert.Null(entry.Script);
+        Assert.Null(entry.Launch);
         Assert.Null(entry.Data);
         Assert.Equal("Surge Synth Team", entry.Developer);
         Assert.Equal("1.3.4", entry.Version);
@@ -165,6 +166,55 @@ public class LibraryTests : IDisposable
             () => LibraryEntry.Parse(
                 "thing",
                 $"Name: Thing\nKind: native\nUrl: file:///none\nSha256: {Zeros}\nData: {data}\n"));
+    }
+
+    [Theory]
+    [InlineData("windows", "https://x.invalid/a/setup-2.1.exe", "setup-2.1.exe")]
+    [InlineData("windows", "https://x.invalid/library-manager/download/win/", "win.exe")]
+    [InlineData("windows", "https://x.invalid/download/win", "win.exe")]
+    [InlineData("native", "https://x.invalid/a/thing_linux.tar.xz", "thing_linux.tar.xz")]
+    public void ADownloadWithNoFilenameIsNamedAfterTheLastThingInItsUrl(
+        string kind, string url, string expected)
+    {
+        var entry = LibraryEntry.Parse(
+            "thing", $"Name: Thing\nKind: {kind}\nSource: rolling\nUrl: {url}\n");
+
+        Assert.Equal(expected, Library.ArchiveName(entry));
+    }
+
+    [Fact]
+    public void AnAppCabinetOpensKeepsTheWindowsPathItWasGiven()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files (x86)\Thing\Thing.exe" + "\n");
+
+        Assert.Equal(@"C:\Program Files (x86)\Thing\Thing.exe", entry.Launch);
+    }
+
+    [Theory]
+    [InlineData("Thing.exe")]
+    [InlineData("/opt/thing/thing")]
+    [InlineData("C:/Program Files/Thing/Thing.exe")]
+    [InlineData(@"\Program Files\Thing\Thing.exe")]
+    public void ALaunchThatIsNotAWindowsPathIsRefused(string path)
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "thing", $"Name: Thing\nKind: windows\nSource: byo\nLaunch: {path}\n"));
+
+        Assert.Contains(path, thrown.Message);
+    }
+
+    [Fact]
+    public void ANativePluginIsRefusedALaunchBecauseTheDawLoadsItItself()
+    {
+        Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "thing",
+                "Name: Thing\nKind: native\nSource: byo\n"
+                + @"Launch: C:\Thing\Thing.exe" + "\n"));
     }
 
     [Fact]

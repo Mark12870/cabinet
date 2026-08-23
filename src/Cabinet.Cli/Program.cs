@@ -26,6 +26,7 @@ internal static class Program
           cabinet library install <id> [prefix] [file]
                                                install one; some need a file you download
           cabinet library remove <id>          uninstall one, links, prefix and all
+          cabinet library launch <id>          open a manager, bridging what it installs
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one
@@ -384,6 +385,7 @@ internal static class Program
             "show" => ShowFromLibrary(layout, runner, Require(args, 1, "a plugin id"), json),
             "install" => InstallFromLibrary(layout, runner, args.Skip(1).ToArray()),
             "remove" => RemoveFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
+            "launch" => LaunchFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
             var unknown => Unknown($"library {unknown}"),
         };
 
@@ -582,8 +584,52 @@ internal static class Program
         return 0;
     }
 
+    private static int LaunchFromLibrary(Layout layout, IProcessRunner runner, string id)
+    {
+        var library = new Library(layout, runner);
+        var entry = library.Find(id);
+
+        if (entry.Launch is null)
+        {
+            Console.Error.WriteLine(
+                $"cabinet: {entry.Name} is a plugin — your DAW opens it, not Cabinet");
+            return 1;
+        }
+
+        if (!library.Installed().TryGetValue(id, out var prefix))
+        {
+            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
+            return 1;
+        }
+
+        library.Launch(entry, prefix, Console.WriteLine);
+        return 0;
+    }
+
+    private static int RemoveManager(Library library, LibraryEntry entry, string prefix)
+    {
+        Console.WriteLine(
+            $"{entry.Name}'s own uninstaller leaves everything it downloaded in prefix "
+            + $"'{prefix}', so it is the prefix or nothing.");
+        Console.Write($"Delete '{prefix}' and every library {entry.Name} put in it? [y/N] ");
+
+        if (!Yes())
+        {
+            Console.WriteLine("Left alone.");
+            return 1;
+        }
+
+        library.Remove(entry, prefix, takePrefix: true, onOutput: Console.WriteLine);
+        return 0;
+    }
+
     private static int RemoveWindows(Library library, LibraryEntry entry, string prefix)
     {
+        if (entry.Launch is not null)
+        {
+            return RemoveManager(library, entry, prefix);
+        }
+
         var sharing = library.Sharing(prefix, entry.Id);
 
         if (sharing.Count == 0)

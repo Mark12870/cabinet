@@ -19,6 +19,7 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | aalto, aaltoverb, kaivo, sumu, virta | Madrona Labs' product pages, `madronalabs.com/assets/site/` — `size_911_aalto_ui….png`, `size_911_aaltoverb_ui….png`, `size_1151_kaivo_ui….png`, `size_911_sumu_ui….jpg`, `size_937_virta_ui….png` |
 | sitala-1 | captured here, from Sitala 1.0's own standalone running in a Wine prefix |
 | sitala-2 | `decomposer.de/images/sitala-features/4x4-layout.png`, the 4×4 pad grid version 2 is built around |
+| spitfire-audio | `spitfireaudio.com/cdn/shop/files/spitfire-app-product-view.jpg`, the app's own library grid. Its icon is not a crop of that: four dark sleeves are unreadable at the 32px a row draws, so it repeats the roundel below, cropped tighter than the logo |
 
 Each `<vendor>/logo.png` is that vendor's own mark on the background that keeps it legible in
 both GNOME themes — Xfer's and TAL's are white, so they sit on near-black; Surge Synth Team's
@@ -37,6 +38,7 @@ own. Digital Suburban ships none, so Dexed's page falls back to a symbolic icon.
 | valhalla-dsp | the horned helmet from `valhalladsp.com/wp-content/uploads/2020/01/cropped-valhalla_helmet_black-webicon-192x192.png`, black on transparent, so it sits on white |
 | madrona-labs | the tree-ring mark at the left of `madronalabs.com/assets/site/logotype….svg`; the wordmark beside it is 3:1 and unreadable at this size, and the mark is near-black on transparent, so it sits on white |
 | decomposer | the loop badge at the left of `decomposer.de/images/decomposer-logo.png`; the wordmark beside it is 9:1, and the mark is white on transparent, so it sits on near-black |
+| spitfire-audio | the circular SPITFIRE AUDIO roundel, `spitfireaudio.com/cdn/shop/files/favicon.png`, upscaled from the 64px they publish; the header lockup is an 11:1 wordmark, and the mark is black on transparent, so it sits on white |
 
 The u-he, Xfer Records, FabFilter, Vital Audio, TAL Software, Auburn Sounds, Valhalla DSP,
 Decomposer and Madrona Labs images are those companies' own artwork of their own products, used
@@ -45,7 +47,9 @@ is GPL-3.0 and its free binary is Vital Audio's to give away, but its presets ar
 separately and Cabinet ships none of them. Auburn Sounds' EULA forbids redistributing the
 software and grants no right to the company's logo, and Valhalla DSP's says the same — its
 plugins may not be distributed without permission, and the wordmark and helmet are trademarks.
-Madrona Labs sell every plugin they make, and the tree-ring mark is theirs. Cabinet redistributes
+Madrona Labs sell every plugin they make, and the tree-ring mark is theirs. Spitfire Audio sell
+their libraries and licence them per seat; Cabinet ships neither, only their manager's own
+screenshot and roundel to say whose catalogue it opens. Cabinet redistributes
 none of it: it downloads each plugin, and each Madrona demo installer, from its vendor over
 HTTPS, and the mark is here to say whose it is. Ask before adding a vendor whose terms you have
 not read.

@@ -82,7 +82,12 @@ internal sealed class LibraryPage
     private void Open(LibraryEntry entry, string? prefix, bool installed)
     {
         var page = new PluginPage(
-            layout, window, entry, one => Begin(one, prefix), one => ConfirmRemove(one, prefix));
+            layout,
+            window,
+            entry,
+            one => Begin(one, prefix),
+            one => ConfirmRemove(one, prefix),
+            one => Launch(one, prefix));
         page.Show(entry, prefix, installed);
 
         open = page;
@@ -384,8 +389,23 @@ internal sealed class LibraryPage
             return;
         }
 
-        var library = new Library(layout, runner);
         var where = prefix ?? entry.Prefix;
+
+        if (entry.Launch is not null)
+        {
+            Ui.Confirm(
+                window,
+                $"Delete “{where}”?",
+                $"{entry.Name}'s own uninstaller leaves everything it downloaded behind, so it "
+                + $"is the prefix or nothing: its Wine, its registry and every library "
+                + $"{entry.Name} put in it go together.",
+                "Delete Prefix",
+                () => Take(entry, where),
+                Adw.ResponseAppearance.Destructive);
+            return;
+        }
+
+        var library = new Library(layout, runner);
         var sharing = library.Sharing(where, entry.Id);
 
         if (sharing.Count > 0)
@@ -432,6 +452,13 @@ internal sealed class LibraryPage
             output => new Library(layout, runner).Remove(entry, onOutput: output),
             changed),
         Adw.ResponseAppearance.Destructive);
+
+    private void Launch(LibraryEntry entry, string? prefix) =>
+        Operation.Run(
+            window,
+            $"Running {entry.Name}",
+            output => new Library(layout, runner).Launch(entry, prefix, output),
+            changed);
 
     private void Uninstall(LibraryEntry entry, string prefix) =>
         Operation.Run(

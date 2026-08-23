@@ -7,6 +7,7 @@ internal sealed class PluginPage
     private readonly Layout layout;
     private readonly Action<LibraryEntry> install;
     private readonly Action<LibraryEntry> remove;
+    private readonly Action<LibraryEntry> launch;
     private readonly Gtk.Window window;
     private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
 
@@ -15,12 +16,14 @@ internal sealed class PluginPage
         Gtk.Window window,
         LibraryEntry entry,
         Action<LibraryEntry> install,
-        Action<LibraryEntry> remove)
+        Action<LibraryEntry> remove,
+        Action<LibraryEntry> launch)
     {
         this.layout = layout;
         this.window = window;
         this.install = install;
         this.remove = remove;
+        this.launch = launch;
         Id = entry.Id;
 
         var content = Ui.Page();
@@ -154,26 +157,29 @@ internal sealed class PluginPage
 
     private Gtk.Widget Act(LibraryEntry entry, bool installed)
     {
-        var removable = installed;
+        var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
+        row.SetHalign(Gtk.Align.Center);
 
-        var button = Gtk.Button.NewWithLabel(removable
-            ? $"Remove {entry.Name}"
-            : installed ? "Install again" : $"Install {entry.Name}");
-
-        button.SetHalign(Gtk.Align.Center);
-        button.AddCssClass("pill");
-        button.AddCssClass(removable ? "destructive-action" : "suggested-action");
-        button.OnClicked += (_, _) =>
+        if (installed && entry.Launch is not null)
         {
-            if (removable)
-            {
-                remove(entry);
-            }
-            else
-            {
-                install(entry);
-            }
-        };
+            row.Append(Pill($"Open {entry.Name}", "suggested-action", () => launch(entry)));
+            row.Append(Pill("Remove", "destructive-action", () => remove(entry)));
+            return row;
+        }
+
+        row.Append(installed
+            ? Pill($"Remove {entry.Name}", "destructive-action", () => remove(entry))
+            : Pill($"Install {entry.Name}", "suggested-action", () => install(entry)));
+
+        return row;
+    }
+
+    private static Gtk.Widget Pill(string label, string appearance, Action clicked)
+    {
+        var button = Gtk.Button.NewWithLabel(label);
+        button.AddCssClass("pill");
+        button.AddCssClass(appearance);
+        button.OnClicked += (_, _) => clicked();
 
         return button;
     }
