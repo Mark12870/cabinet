@@ -46,6 +46,27 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.8.0" date="2026-08-23">
+      <description>
+        <p>Eighteen more plugins, and Windows plugins that come back out again</p>
+        <ul>
+          <li>Auburn Sounds' eight free editions — Graillon 3, Couture, Panagement 2, Lens,
+          Renegate, Inner Pitch 2, Psypan 2 and Selene — as Linux builds, so none of them
+          needs Wine</li>
+          <li>Valhalla's three free plugins — Supermassive, Freq Echo and Space Modulator —
+          sharing one prefix between them</li>
+          <li>Madrona Labs' five — Aalto, Aaltoverb, Kaivo, Sumu and Virta — sharing one
+          prefix, each installing with no wizard to click through</li>
+          <li>Sitala, both the free version 1 and the current one</li>
+          <li>Removing a Windows plugin runs the plugin's own uninstaller and leaves
+          everything else in the prefix standing, instead of asking you to delete the
+          prefix and start again</li>
+          <li>Doctor says when a prefix points at a runner that is no longer installed, and
+          when a plugin sits in a prefix that has drifted off the Wine its editor needs</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.7.0" date="2026-08-21">
       <description>
         <p>Eight more plugins, and prefixes that stop writing into your home</p>
