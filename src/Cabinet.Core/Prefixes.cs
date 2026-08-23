@@ -155,8 +155,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public ProcessResult Run(
         string name, string command, IReadOnlyList<string> arguments,
-        Action<string>? onOutput = null) =>
-        Wine(name, command, arguments, onOutput);
+        Action<string>? onOutput = null, bool capture = true) =>
+        Wine(name, command, arguments, onOutput, capture: capture);
 
     public IReadOnlyDictionary<string, string> Variables(string name)
     {
@@ -175,7 +175,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         string command,
         IReadOnlyList<string> arguments,
         Action<string>? onOutput,
-        string? dllOverrides = null)
+        string? dllOverrides = null,
+        bool capture = true)
     {
         var selected = runners.Resolve(RunnerOf(prefix));
 
@@ -183,7 +184,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             Executable(selected, command),
             arguments,
             WineVariables(prefix, selected, dllOverrides),
-            onOutput);
+            onOutput,
+            capture: capture);
     }
 
     private Dictionary<string, string> WineVariables(

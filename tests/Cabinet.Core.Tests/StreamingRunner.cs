@@ -11,7 +11,8 @@ internal sealed class StreamingRunner(params string[] lines) : IProcessRunner
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
-        string? workingDirectory = null)
+        string? workingDirectory = null,
+        bool capture = true)
     {
         LastArguments = args;
 

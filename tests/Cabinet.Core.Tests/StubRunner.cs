@@ -9,6 +9,7 @@ internal sealed class StubRunner(ProcessResult result) : IProcessRunner
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
-        string? workingDirectory = null) =>
+        string? workingDirectory = null,
+        bool capture = true) =>
         result;
 }

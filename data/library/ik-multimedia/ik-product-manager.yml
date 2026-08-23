@@ -1,0 +1,33 @@
+Name: IK Product Manager
+Kind: windows
+Category: Manager
+Summary: IK Multimedia's own manager, which downloads and installs their plugins.
+Developer: IK Multimedia
+Version: 1.1.12
+Licence: Freeware
+Licensing:
+  The app is free and signs in to an IK Multimedia account. What it will install
+  is what that account owns; AmpliTube 5 CS, SampleTank 4 CS and T-RackS 5 CS
+  cost nothing.
+Formats: VST3, VST2
+Homepage: https://www.ikmultimedia.com/products/productmanager/
+Source: download
+Url: https://g2.ikmultimedia.com/plugins/ProductManager/ik_product_manager_1.1.12.zip
+Sha256: f00ccce0c7cc4b1ebd1fa857e1955f4a4476e2982f8889f57e0926cf3b07f353
+Prefix: ik-multimedia
+Launch: C:\Program Files\IK Multimedia\IK Product Manager\IK Product Manager.exe
+Script: ik-multimedia.sh
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  Not a plugin but the door to IK's catalogue: AmpliTube, SampleTank, T-RackS,
+  MODO. You sign in, register and authorise what you own, and the app fetches
+  each product and installs its plugin for you. The Custom Shop editions of
+  AmpliTube 5, SampleTank 4 and T-RackS 5 are free and live only in here.
+
+  So installing this installs nothing you can play yet. Cabinet opens it, and
+  bridges each plugin the moment it lands — the app can stay open while it
+  downloads. Its prefix is where the sounds live too, so expect it to grow, and
+  removing the app takes that prefix with it: its own uninstaller leaves every
+  product behind.

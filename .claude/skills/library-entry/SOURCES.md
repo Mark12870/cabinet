@@ -21,11 +21,7 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | sitala-2 | `decomposer.de/images/sitala-features/4x4-layout.png`, the 4×4 pad grid version 2 is built around |
 | spitfire-audio | `spitfireaudio.com/cdn/shop/files/spitfire-app-product-view.jpg`, the app's own library grid. Its icon is not a crop of that: four dark sleeves are unreadable at the 32px a row draws, so it repeats the roundel below, cropped tighter than the logo |
 | decent-sampler | Decent Samples' product page, `decentsamples.com/wp-content/uploads/2020/06/Screen-Shot-2022-08-06-at-7.11.22-AM.png` — the plugin with their own Basic Piano loaded, a 1.x build and the shot they still sell it with; 1.25.0's standalone was run here and draws an empty panel until an instrument is in it |
-
-Each `<vendor>/logo.png` is that vendor's own mark on transparency, cut from the largest copy
-the vendor publishes and recoloured white where the original was too dark to read on `#222226`.
-FabFilter's is a square badge that brings its own ground, so it keeps it.
-Digital Suburban ships none, so Dexed's page falls back to a symbolic icon.
+| ik-product-manager | IK's product page, `ikmultimedia.com/products/productmanager/images/1.0/ik_pm_gui_software@2x.jpg` — the manager's Software tab, the list every IK plugin is installed and authorised from |
 
 | Vendor | Logo |
 | --- | --- |
@@ -41,17 +37,4 @@ Digital Suburban ships none, so Dexed's page falls back to a symbolic icon.
 | decomposer | the loop badge, their YouTube channel avatar at 400px, `youtube.com/channel/UCFD4oFUHDIEexdF-pU1vzaw` — the badge in their own header is 40px; white, keyed off its black ground |
 | spitfire-audio | the circular SPITFIRE AUDIO roundel, their YouTube channel avatar at 900px, `youtube.com/user/spitfireaudiollp` — the favicon they serve is capped at 64px; white, keyed off its near-black ground |
 | decent-samples | the `ds` mark, their own favicon at `decentsamples.com/wp-content/uploads/2018/09/cropped-Favicon_512x512.png`, 512×512, black on an opaque white square, keyed off it and recoloured white |
-
-The u-he, Xfer Records, FabFilter, Vital Audio, TAL Software, Auburn Sounds, Valhalla DSP,
-Decomposer, Madrona Labs and Decent Samples images are those companies' own artwork of their own
-products, used to identify the plugin the entry installs. Dexed is GPL-3.0 and Surge XT GPL-3.0;
-Vital's source is GPL-3.0 and its free binary is Vital Audio's to give away, but its presets are
-licensed separately and Cabinet ships none of them. Auburn Sounds' EULA forbids redistributing
-the software and grants no right to the company's logo, and Valhalla DSP's says the same — its
-plugins may not be distributed without permission, and the wordmark and helmet are trademarks.
-Madrona Labs sell every plugin they make, and the tree-ring mark is theirs. Decent Sampler is
-free but not open source, and the instrument in its shot is Decent Samples' own. Spitfire Audio
-sell their libraries and licence them per seat; Cabinet ships neither, only their manager's own
-screenshot and roundel to say whose catalogue it opens. Cabinet redistributes none of it: it
-downloads each plugin, and each Madrona demo installer, from its vendor over HTTPS, and the mark
-is here to say whose it is. Ask before adding a vendor whose terms you have not read.
+| ik-multimedia | the hexagonal IK mark at the left of `ikmultimedia.com/images/layout/IK_LOGO_DL_RGB_WHITE_FFF.svg`, vector and already white; the MULTIMEDIA wordmark beside it is 3.6:1 and unreadable at this size. The manager's icon is not a crop of its screenshot: a product list is unreadable at the 32px a row draws, so it is the app's own 256px icon, the same hexagon filled red, out of the shortcut its installer leaves in the prefix |

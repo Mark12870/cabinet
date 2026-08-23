@@ -14,7 +14,8 @@ public interface IProcessRunner
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
-        string? workingDirectory = null);
+        string? workingDirectory = null,
+        bool capture = true);
 }
 
 public sealed class ProcessRunner : IProcessRunner
@@ -24,12 +25,13 @@ public sealed class ProcessRunner : IProcessRunner
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
-        string? workingDirectory = null)
+        string? workingDirectory = null,
+        bool capture = true)
     {
         var info = new ProcessStartInfo(file)
         {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
+            RedirectStandardOutput = capture,
+            RedirectStandardError = capture,
             UseShellExecute = false,
             WorkingDirectory = workingDirectory ?? "",
         };
@@ -56,6 +58,13 @@ public sealed class ProcessRunner : IProcessRunner
 
         using var process = Process.Start(info)
                             ?? throw new InvalidOperationException($"could not start {file}");
+
+        if (!capture)
+        {
+            process.WaitForExit();
+
+            return new ProcessResult(process.ExitCode, "", "");
+        }
 
         var stdout = new StringWriter();
         var stderr = new StringWriter();

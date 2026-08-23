@@ -208,6 +208,26 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void OpeningAnAppLeavesItsOutputAloneSoElectronCanOpenItsOwnStdout()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        var opened = Assert.Single(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
+
+        Assert.False(opened.Capture);
+    }
+
+    [Fact]
     public void ANativePluginIsRefusedALaunchBecauseTheDawLoadsItItself()
     {
         Assert.Throws<InvalidOperationException>(

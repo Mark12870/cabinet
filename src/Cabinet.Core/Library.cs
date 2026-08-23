@@ -408,7 +408,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         try
         {
-            ran = prefixes.Run(where, "wine", [entry.Launch], onOutput);
+            ran = prefixes.Run(where, "wine", [entry.Launch], capture: false);
         }
         finally
         {
