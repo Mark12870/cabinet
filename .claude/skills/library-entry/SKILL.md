@@ -117,6 +117,12 @@ magick shot.jpg -strip -gravity center -crop 1:1 +repage -resize 192x192 data/li
 The logo must be in high quality image found on internet. Prefer icons without background. Remove the background if possible.
 Also change the logo color if the contrast with #222226 is bad - Probably to white color. 
 
+Record where every image came from in `SOURCES.md` at the repo root. Give the entry a row
+naming the URL the screenshot was taken from, or `captured here` and what was running; add the
+id to an existing row where a vendor's entries share one source rather than opening a
+near-copy. A new vendor takes a row in the second table too, naming what was keyed off or
+recoloured out of its logo.
+
 **7. Check the entry, then install it and read what landed.** `scripts/checks.sh` reads the
 real `data/library`; `CatalogueTests` fails an entry before you spend an install on it.
 
