@@ -21,24 +21,24 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | sitala-2 | `decomposer.de/images/sitala-features/4x4-layout.png`, the 4×4 pad grid version 2 is built around |
 | spitfire-audio | `spitfireaudio.com/cdn/shop/files/spitfire-app-product-view.jpg`, the app's own library grid. Its icon is not a crop of that: four dark sleeves are unreadable at the 32px a row draws, so it repeats the roundel below, cropped tighter than the logo |
 
-Each `<vendor>/logo.png` is that vendor's own mark on the background that keeps it legible in
-both GNOME themes — Xfer's and TAL's are white, so they sit on near-black; Surge Synth Team's
-has black nodes, so it sits on white; u-he's and FabFilter's are square badges that bring their
-own. Digital Suburban ships none, so Dexed's page falls back to a symbolic icon.
+Each `<vendor>/logo.png` is that vendor's own mark on transparency, cut from the largest copy
+the vendor publishes and recoloured white where the original was too dark to read on `#222226`.
+FabFilter's is a square badge that brings its own ground, so it keeps it.
+Digital Suburban ships none, so Dexed's page falls back to a symbolic icon.
 
 | Vendor | Logo |
 | --- | --- |
-| u-he | their Mastodon avatar, `mastodon.social/@uheplugins` — the square badge; the press kit has only the wide wordmark |
-| xfer-records | `xferrecords.com/assets/logo-…png` |
+| u-he | the wordmark out of their own press kit, `press-cdn.u-he.com/company/u-he_company_epk.zip`, the flat 800×464 PNG, keyed off the near-black plate it sits on |
+| xfer-records | `xferrecords.com/assets/logo-…png`, 276×194, already white on transparent |
 | fabfilter | `commons.wikimedia.org/wiki/File:FabFilter_Logo.svg`, PD-textlogo, from `fabfilter.com/press` |
-| surge-synth-team | `surge-synthesizer.github.io/_astro/sst-logo…svg` |
-| vital-audio | the V badge from `vital.audio/images/social.png`, which brings its own dark ground |
-| tal-software | `tal-software.com/logo.svg`, a light grey wordmark, so it sits on near-black |
-| auburn-sounds | the impossible-triangle A out of `auburnsounds.com/images/logo-auburn.png`; the wordmark beside it is 3:1 and unreadable at this size, and the mark is pale, so it sits on near-black |
-| valhalla-dsp | the horned helmet from `valhalladsp.com/wp-content/uploads/2020/01/cropped-valhalla_helmet_black-webicon-192x192.png`, black on transparent, so it sits on white |
-| madrona-labs | the tree-ring mark at the left of `madronalabs.com/assets/site/logotype….svg`; the wordmark beside it is 3:1 and unreadable at this size, and the mark is near-black on transparent, so it sits on white |
-| decomposer | the loop badge at the left of `decomposer.de/images/decomposer-logo.png`; the wordmark beside it is 9:1, and the mark is white on transparent, so it sits on near-black |
-| spitfire-audio | the circular SPITFIRE AUDIO roundel, `spitfireaudio.com/cdn/shop/files/favicon.png`, upscaled from the 64px they publish; the header lockup is an 11:1 wordmark, and the mark is black on transparent, so it sits on white |
+| surge-synth-team | `logo_sst_white.svg` from `github.com/surge-synthesizer/surge-synth-team.org`, `src/images/` — their own dark-background variant; the mark is the left 100 units of a 655×100 lockup |
+| vital-audio | the V badge out of `vital.audio/images/social.png`, 1200×630, keyed off the dark ground behind it |
+| tal-software | `tal-software.com/logo.svg`, a light grey wordmark, which reads as it is |
+| auburn-sounds | the impossible-triangle A out of `auburnsounds.com/images/logo-auburn.png`, 579×175; the wordmark beside it is 3:1 and unreadable at this size, and the gradient reads on the dark ground |
+| valhalla-dsp | the horned helmet from `valhalladsp.com/wp-content/uploads/2020/01/cropped-valhalla_helmet_black-webicon.png`, the 512px original behind the 192px webicon, black on transparent, recoloured white |
+| madrona-labs | the tree-ring mark at the left of `madronalabs.com/assets/site/logotype….svg`; the wordmark beside it is 3:1 and unreadable at this size, and the mark is near-black, recoloured white |
+| decomposer | the loop badge, their YouTube channel avatar at 400px, `youtube.com/channel/UCFD4oFUHDIEexdF-pU1vzaw` — the badge in their own header is 40px; white, keyed off its black ground |
+| spitfire-audio | the circular SPITFIRE AUDIO roundel, their YouTube channel avatar at 900px, `youtube.com/user/spitfireaudiollp` — the favicon they serve is capped at 64px; white, keyed off its near-black ground |
 
 The u-he, Xfer Records, FabFilter, Vital Audio, TAL Software, Auburn Sounds, Valhalla DSP,
 Decomposer and Madrona Labs images are those companies' own artwork of their own products, used

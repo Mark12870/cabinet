@@ -114,18 +114,8 @@ magick shot.jpg -strip -resize '1000x600>' -quality 80 data/library/<vendor>/<id
 magick shot.jpg -strip -gravity center -crop 1:1 +repage -resize 192x192 data/library/<vendor>/<id>.png
 ```
 
-The icon is a square centre crop of the screenshot: the plugin's own face reads better at 32px
-than a wordmark, and a wordmark in the vendor's brand colour disappears in one of the two GNOME
-themes. A logo needs a background chosen for it — white-on-transparent vanishes in the light
-theme and black in the dark one, so pad each onto near-black or white as it needs, unless the
-mark is a self-contained badge as u-he's and FabFilter's are. A vendor with no logo worth
-shipping ships none, as Digital Suburban does. Take artwork from the vendor's own product page,
-or, where a project publishes no screenshot at all, **run the thing and photograph it** — Dexed's
-came from its own standalone build, started under `GDK_BACKEND=x11` and captured with
-`import -window`, which beats borrowing a stranger's screenshot. Record where a new logo came
-from in `SOURCES.md` beside this skill, because shipping it makes Cabinet redistribute that
-vendor's artwork. An entry with no files there falls back to the category icon and shows no
-screenshot, which is a supported state, not a broken one.
+The logo must be in high quality image found on internet. Prefer icons without background. Remove the background if possible.
+Also change the logo color if the contrast with #222226 is bad - Probably to white color. 
 
 **7. Check the entry, then install it and read what landed.** `scripts/checks.sh` reads the
 real `data/library`; `CatalogueTests` fails an entry before you spend an install on it.
