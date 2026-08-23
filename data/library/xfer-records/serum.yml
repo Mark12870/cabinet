@@ -8,8 +8,7 @@ Formats: VST3
 Homepage: https://xferrecords.com/products/serum-2
 Source: byo
 Script: serum.sh
-Runner: 9.21
-Dxvk: true
+Runner: wine-d2d1-11.0
 Sync: fsync
 Description:
   The wavetable synth most of the last decade's electronic music was made
@@ -17,5 +16,8 @@ Description:
   dragging onto it.
 
   There is no Linux build, so Cabinet gives it a Wine prefix of its own with
-  the Wine version its editor needs and DXVK for the drawing. You supply the
-  installer you bought, and it runs through on its own with no wizard to click.
+  the Direct2D build its JUCE 8 editor needs. DXVK is left off — paired with
+  that build it stops the editor from painting at all; without it, the editor
+  needs a nudge (resize or move the window) after opening before it draws.
+  You supply the installer you bought, and it runs through on its own with
+  no wizard to click.
