@@ -9,6 +9,7 @@ internal sealed class MainWindow
     private readonly Adw.ApplicationWindow window;
     private readonly Adw.ViewStack stack = Adw.ViewStack.New();
     private readonly Adw.NavigationView navigation = Adw.NavigationView.New();
+    private readonly Adw.ToastOverlay toasts = Adw.ToastOverlay.New();
 
     private readonly PrefixesPage prefixes;
     private readonly LibraryPage library;
@@ -26,7 +27,7 @@ internal sealed class MainWindow
         window.SetDefaultSize(920, 640);
 
         prefixes = new PrefixesPage(layout, runner, window, navigation, RefreshAll);
-        library = new LibraryPage(layout, runner, window, navigation, RefreshAll);
+        library = new LibraryPage(layout, runner, window, navigation, RefreshAll, Toast);
         runners = new RunnersPage(layout, runner, window, RefreshAll);
         doctor = new DoctorPage(layout, runner);
         about = new AboutPage(layout, runner, window);
@@ -43,12 +44,15 @@ internal sealed class MainWindow
         view.SetContent(stack);
 
         navigation.Add(Adw.NavigationPage.New(view, "Cabinet"));
-        window.SetContent(navigation);
+        toasts.SetChild(navigation);
+        window.SetContent(toasts);
 
         RefreshAll();
     }
 
     public void Present() => window.Present();
+
+    private void Toast(string message) => toasts.AddToast(Adw.Toast.New(message));
 
     private Adw.HeaderBar Header()
     {

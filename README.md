@@ -64,8 +64,8 @@ deleting it.
 `library remove` works on a Windows plugin too: if nothing else Cabinet installed is left in its
 prefix it offers to delete the prefix outright, Wine tree and registry with it, and otherwise runs
 the plugin's own uninstaller and leaves the prefix for the plugins sharing it. Where nothing looks
-like it, it says so rather than guessing. A manager is the exception: `library launch` opens it
-and bridges each plugin it installs as that lands, and removing one takes its prefix.
+like it, it says so. A manager is the exception: `library launch` opens it and bridges what it
+installs as it lands, `library log` says what it printed, and removing one takes its prefix.
 
 The four commands after it are the same thing by hand, and still the whole workflow for a plugin
 the library has never heard of. `set` is per prefix and reaches the bridged plugin too: a sync

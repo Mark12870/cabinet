@@ -9,7 +9,9 @@ internal sealed class LibraryPage
     private readonly Gtk.Window window;
     private readonly Adw.NavigationView navigation;
     private readonly Action changed;
+    private readonly Action<string> toast;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly HashSet<string> running = new(StringComparer.Ordinal);
 
     private PluginPage? open;
 
@@ -18,13 +20,15 @@ internal sealed class LibraryPage
         IProcessRunner runner,
         Gtk.Window window,
         Adw.NavigationView navigation,
-        Action changed)
+        Action changed,
+        Action<string> toast)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
         this.navigation = navigation;
         this.changed = changed;
+        this.toast = toast;
 
         navigation.OnPopped += (_, _) => open = null;
 
@@ -76,7 +80,11 @@ internal sealed class LibraryPage
             return;
         }
 
-        open.Show(still, installed.GetValueOrDefault(still.Id), installed.ContainsKey(still.Id));
+        open.Show(
+            still,
+            installed.GetValueOrDefault(still.Id),
+            installed.ContainsKey(still.Id),
+            running.Contains(still.Id));
     }
 
     private void Open(LibraryEntry entry, string? prefix, bool installed)
@@ -87,8 +95,9 @@ internal sealed class LibraryPage
             entry,
             one => Begin(one, prefix),
             one => ConfirmRemove(one, prefix),
-            one => Launch(one, prefix));
-        page.Show(entry, prefix, installed);
+            one => Launch(one, prefix),
+            one => new Library(layout, runner).LaunchLog(one, prefix));
+        page.Show(entry, prefix, installed, running.Contains(entry.Id));
 
         open = page;
         navigation.Push(page.Page);
@@ -453,12 +462,28 @@ internal sealed class LibraryPage
             changed),
         Adw.ResponseAppearance.Destructive);
 
-    private void Launch(LibraryEntry entry, string? prefix) =>
-        Operation.Run(
-            window,
-            $"Running {entry.Name}",
-            output => new Library(layout, runner).Launch(entry, prefix, output),
-            changed);
+    private void Launch(LibraryEntry entry, string? prefix)
+    {
+        running.Add(entry.Id);
+        toast($"Opening {entry.Name}.");
+        changed();
+
+        Task.Run(() =>
+        {
+            try
+            {
+                new Library(layout, runner).Launch(entry, prefix);
+            }
+            catch (Exception exception)
+            {
+                Ui.OnMainLoop(() => toast(exception.Message));
+            }
+        }).ContinueWith(_ => Ui.OnMainLoop(() =>
+        {
+            running.Remove(entry.Id);
+            changed();
+        }));
+    }
 
     private void Uninstall(LibraryEntry entry, string prefix) =>
         Operation.Run(

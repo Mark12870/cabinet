@@ -155,6 +155,30 @@ internal static class Ui
         dialog.Present(parent);
     }
 
+    public static void Log(Gtk.Widget parent, string title, string text)
+    {
+        var dialog = Adw.Dialog.New();
+        dialog.SetTitle(title);
+        dialog.SetContentWidth(720);
+        dialog.SetContentHeight(480);
+
+        var view = Gtk.TextView.New();
+        view.SetMonospace(true);
+        view.SetEditable(false);
+        view.AddCssClass("card");
+        view.GetBuffer().SetText(text, -1);
+
+        var body = Page();
+        body.Append(Scrolled(view));
+
+        var bars = Adw.ToolbarView.New();
+        bars.AddTopBar(Adw.HeaderBar.New());
+        bars.SetContent(body);
+        dialog.SetChild(bars);
+
+        dialog.Present(parent);
+    }
+
     public static void ChooseFile(Gtk.Window parent, string title, Action<string> chosen)
     {
         var chooser = Gtk.FileDialog.New();

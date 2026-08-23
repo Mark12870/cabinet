@@ -27,6 +27,7 @@ internal static class Program
                                                install one; some need a file you download
           cabinet library remove <id>          uninstall one, links, prefix and all
           cabinet library launch <id>          open a manager, bridging what it installs
+          cabinet library log <id>             what the last launch of a manager printed
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one
@@ -386,6 +387,7 @@ internal static class Program
             "install" => InstallFromLibrary(layout, runner, args.Skip(1).ToArray()),
             "remove" => RemoveFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
             "launch" => LaunchFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
+            "log" => LogFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
             var unknown => Unknown($"library {unknown}"),
         };
 
@@ -603,6 +605,27 @@ internal static class Program
         }
 
         library.Launch(entry, prefix, Console.WriteLine);
+        return 0;
+    }
+
+    private static int LogFromLibrary(Layout layout, IProcessRunner runner, string id)
+    {
+        var library = new Library(layout, runner);
+        var entry = library.Find(id);
+
+        if (!library.Installed().TryGetValue(id, out var prefix))
+        {
+            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
+            return 1;
+        }
+
+        if (library.LaunchLog(entry, prefix) is not { } written)
+        {
+            Console.Error.WriteLine($"cabinet: {entry.Name} has not been opened from Cabinet");
+            return 1;
+        }
+
+        Console.Write(written);
         return 0;
     }
 

@@ -87,7 +87,7 @@ public sealed class ProcessRunner : IProcessRunner
         var info = new ProcessStartInfo("/bin/sh");
 
         info.ArgumentList.Add("-c");
-        info.ArgumentList.Add(@"exec ""$@"" >""$0"" 2>&1 </dev/null");
+        info.ArgumentList.Add(@"exec ""$@"" >>""$0"" 2>&1 </dev/null");
         info.ArgumentList.Add(logTo);
         info.ArgumentList.Add(file);
 

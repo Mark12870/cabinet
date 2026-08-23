@@ -8,6 +8,7 @@ internal sealed class PluginPage
     private readonly Action<LibraryEntry> install;
     private readonly Action<LibraryEntry> remove;
     private readonly Action<LibraryEntry> launch;
+    private readonly Func<LibraryEntry, string?> log;
     private readonly Gtk.Window window;
     private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
 
@@ -17,13 +18,15 @@ internal sealed class PluginPage
         LibraryEntry entry,
         Action<LibraryEntry> install,
         Action<LibraryEntry> remove,
-        Action<LibraryEntry> launch)
+        Action<LibraryEntry> launch,
+        Func<LibraryEntry, string?> log)
     {
         this.layout = layout;
         this.window = window;
         this.install = install;
         this.remove = remove;
         this.launch = launch;
+        this.log = log;
         Id = entry.Id;
 
         var content = Ui.Page();
@@ -40,7 +43,7 @@ internal sealed class PluginPage
 
     public Adw.NavigationPage Page { get; }
 
-    public void Show(LibraryEntry entry, string? prefix, bool installed)
+    public void Show(LibraryEntry entry, string? prefix, bool installed, bool running)
     {
         Ui.Clear(body);
 
@@ -59,7 +62,7 @@ internal sealed class PluginPage
         }
 
         body.Append(Details(entry, prefix, installed));
-        body.Append(Act(entry, installed));
+        body.Append(Act(entry, installed, running));
     }
 
     private Gtk.Widget Heading(LibraryEntry entry)
@@ -155,14 +158,27 @@ internal sealed class PluginPage
         return group;
     }
 
-    private Gtk.Widget Act(LibraryEntry entry, bool installed)
+    private Gtk.Widget Act(LibraryEntry entry, bool installed, bool running)
     {
         var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
         row.SetHalign(Gtk.Align.Center);
 
         if (installed && entry.Launch is not null)
         {
-            row.Append(Pill($"Open {entry.Name}", "suggested-action", () => launch(entry)));
+            var open = Pill(
+                running ? "Running" : $"Open {entry.Name}",
+                "suggested-action",
+                () => launch(entry));
+
+            open.SetSensitive(!running);
+            row.Append(open);
+
+            if (log(entry) is { } written)
+            {
+                row.Append(Pill(
+                    "Log", null, () => Ui.Log(window, $"{entry.Name} log", written)));
+            }
+
             row.Append(Pill("Remove", "destructive-action", () => remove(entry)));
             return row;
         }
@@ -174,12 +190,16 @@ internal sealed class PluginPage
         return row;
     }
 
-    private static Gtk.Widget Pill(string label, string appearance, Action clicked)
+    private static Gtk.Button Pill(string label, string? appearance, Action clicked)
     {
         var button = Gtk.Button.NewWithLabel(label);
         button.AddCssClass("pill");
-        button.AddCssClass(appearance);
         button.OnClicked += (_, _) => clicked();
+
+        if (appearance is not null)
+        {
+            button.AddCssClass(appearance);
+        }
 
         return button;
     }

@@ -395,15 +395,22 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         var watch = new PluginWatch(Bundled(where));
         using var closed = new CancellationTokenSource();
 
+        void Say(string line)
+        {
+            File.AppendAllText(log, line + Environment.NewLine);
+            onOutput?.Invoke(line);
+        }
+
+        File.WriteAllText(log, "");
+        Say($"Opening {entry.Name}. What it installs is bridged as it lands.");
+
         var watching = Task.Run(() =>
         {
             while (!closed.Token.WaitHandle.WaitOne(Glance))
             {
-                Bridge(prefixes, watch.Appeared(Bundled(where)), onOutput);
+                Bridge(prefixes, watch.Appeared(Bundled(where)), Say);
             }
         });
-
-        onOutput?.Invoke($"Opening {entry.Name}. What it installs is bridged as it lands.");
 
         ProcessResult ran;
 
@@ -417,7 +424,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             watching.Wait();
         }
 
-        Bridge(prefixes, watch.Closed(Bundled(where)), onOutput);
+        Bridge(prefixes, watch.Closed(Bundled(where)), Say);
 
         if (!ran.Ok)
         {
@@ -430,8 +437,13 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 $"{entry.Name} exited with {ran.ExitCode}");
         }
 
-        onOutput?.Invoke($"{entry.Name} closed.");
+        Say($"{entry.Name} closed.");
     }
+
+    public string? LaunchLog(LibraryEntry entry, string? prefix = null) =>
+        layout.PrefixLaunchLog(prefix ?? entry.Prefix) is { } log && File.Exists(log)
+            ? File.ReadAllText(log) is { Length: > 0 } text ? text : null
+            : null;
 
     private static IEnumerable<string> Tail(string log) =>
         File.Exists(log)

@@ -228,6 +228,29 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void OpeningAnAppNarratesIntoTheLogSoOneFileHoldsTheWholeLaunch()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
+
+        var layout = Layout();
+        var library = new Library(layout, new RecordingRunner());
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        Assert.Null(library.LaunchLog(entry));
+
+        library.Launch(entry);
+
+        var written = Assert.IsType<string>(library.LaunchLog(entry));
+
+        Assert.Contains("Opening Thing.", written);
+        Assert.Contains("Thing closed.", written);
+    }
+
+    [Fact]
     public void ANativePluginIsRefusedALaunchBecauseTheDawLoadsItItself()
     {
         Assert.Throws<InvalidOperationException>(

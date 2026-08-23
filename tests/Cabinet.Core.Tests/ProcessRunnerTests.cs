@@ -109,6 +109,19 @@ public sealed class ProcessRunnerTests
     }
 
     [Fact]
+    public void ALoggedRunAppendsToWhatIsAlreadyInTheLog()
+    {
+        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        File.WriteAllText(log, "opening" + Environment.NewLine);
+
+        Subject.Run("sh", ["-c", "echo printed"], logTo: log);
+
+        Assert.Equal(["opening", "printed"], File.ReadAllLines(log));
+
+        File.Delete(log);
+    }
+
+    [Fact]
     public void TheEnvironmentReachesAChildWritingToALogToo()
     {
         var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
