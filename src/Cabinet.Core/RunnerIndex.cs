@@ -42,6 +42,15 @@ public sealed record RunnerFamily(
         AssetPrefix: "wine-",
         AssetSuffix: "-staging-tkg-amd64.tar.xz",
         SumsFile: "sha256sums.txt");
+
+    public static readonly RunnerFamily D2D1Dcomp = new(
+        "wine-d2d1-dcomp",
+        "mklnln's Wine with Direct2D 1.3 and DirectComposition, for JUCE 8 plugin GUIs.",
+        NamePrefix: "wine-d2d1-",
+        NameSuffix: "",
+        AssetPrefix: "wine-d2d1-",
+        AssetSuffix: "-x86_64.tar.zst",
+        SumsFile: null);
 }
 
 public sealed record RunnerRelease(
@@ -57,11 +66,25 @@ public sealed class RunnerIndex(IProcessRunner runner)
     public static readonly IReadOnlyList<RunnerFamily> Families =
         [RunnerFamily.Soda, RunnerFamily.Kron4ek];
 
+    private sealed record FixedRunner(RunnerRelease Release, string Url, string Sha256);
+
+    private static readonly IReadOnlyList<FixedRunner> Fixed =
+    [
+        new(
+            new RunnerRelease(
+                RunnerFamily.D2D1Dcomp, "d2d1-11.0", RunnerFamily.D2D1Dcomp.AssetFor("11.0"), ""),
+            "https://github.com/mklnln/wine-d2d1-dcomp/releases/download/v11.0/"
+            + "wine-d2d1-11.0-x86_64.tar.zst",
+            "909e283e1e087a93e196defffd2a67120ab2df6ea4edd7f6f45b97528bf8646b"),
+    ];
+
     public IReadOnlyList<RunnerRelease> Available()
     {
         var entries = Components.Entries(http.Text(Components.IndexUrl));
 
-        return Families.SelectMany(family => ReleasesFrom(family, entries)).ToList();
+        return Families.SelectMany(family => ReleasesFrom(family, entries))
+            .Concat(Fixed.Select(known => known.Release))
+            .ToList();
     }
 
     public RunnerRelease Find(string spec)
@@ -88,6 +111,14 @@ public sealed class RunnerIndex(IProcessRunner runner)
         Action<double>? onProgress = null)
     {
         Directory.CreateDirectory(directory);
+
+        if (Fixed.FirstOrDefault(known => known.Release == release) is { } found)
+        {
+            var downloaded = Path.Combine(directory, release.Asset);
+            http.ToFile(found.Url, downloaded, onOutput, onProgress);
+            Checksum.Expect(downloaded, found.Sha256);
+            return downloaded;
+        }
 
         var listed = Components.Manifest(http.Text(release.ManifestUrl));
         if (listed.Url.Length == 0 || listed.FileName != release.Asset)

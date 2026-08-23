@@ -119,6 +119,25 @@ public sealed class RunnersTests : IDisposable
     }
 
     [Fact]
+    public void AWow64OnlyBuildIsAcceptedButSaidToBe64BitOnly()
+    {
+        var staging = Path.Combine(root, "staging", "wine-d2d1");
+        Directory.CreateDirectory(Path.Combine(staging, "bin"));
+        File.WriteAllText(Path.Combine(staging, "bin", "wine"), "");
+
+        var archive = Path.Combine(root, "wine-d2d1-11.0-x86_64.tar.zst");
+        var real = new ProcessRunner();
+        Assert.True(real
+            .Run("tar", ["-cf", archive, "-C", Path.Combine(root, "staging"), "wine-d2d1"]).Ok);
+
+        var said = new List<string>();
+        var found = new Runners(Layout, real).Add(archive, "wine-d2d1-11.0", said.Add);
+
+        Assert.False(found.Multilib);
+        Assert.Contains(said, line => line.Contains("carries no 32-bit tree"));
+    }
+
+    [Fact]
     public void ARunnerAPrefixStillUsesIsNotRemoved()
     {
         GiveRunner("wine-9.21-staging");

@@ -100,6 +100,13 @@ be used.
 - **`Sync: fsync`** alongside `Runner: 9.21`, which is a TkG build and has fsync. Do **not** set
   it for a runner that lacks fsync — Soda reports `( TkG Plain )` — and leave it out entirely to
   inherit whatever launched the DAW.
+- **`Runner: wine-d2d1-11.0`** instead of `Runner: 9.21` when a JUCE-8-era editor renders solid
+  black or stays blank — stock Wine has no DirectComposition device and only Direct2D 1.2, and
+  JUCE 8 needs 1.3. Only for a plugin confirmed 64-bit-only: this build is new-WoW64 (no 32-bit
+  Unix host), so yabridge's 32-bit host cannot run under it at all — `cabinet runners install
+  wine-d2d1-11.0` unpacks it anyway but says so. It is also Wine 11.0, so pairing it back in the
+  click-offset bug above is a known, unresolved tradeoff, not a fix for it. `Dxvk: true` targets
+  Direct3D, a separate concern from what this runner fixes — don't pair them by default.
 
 `Kind: native` refuses all four of those outright: a Linux plugin is loaded by the DAW directly,
 so there is no prefix, runner, DXVK or sync to set.

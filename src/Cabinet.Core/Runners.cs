@@ -201,9 +201,9 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
 
             if (!unpacked.Multilib)
             {
-                throw new InvalidOperationException(
-                    $"{tarball} carries no 32-bit tree, so yabridge's 32-bit host cannot run "
-                    + "under it — this is what a wow64 build looks like; take the amd64 one");
+                onOutput?.Invoke(
+                    $"{name} carries no 32-bit tree — only 64-bit plugins can be bridged "
+                    + "under it.");
             }
 
             ShareBundledRuntimes(path);

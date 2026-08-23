@@ -137,8 +137,18 @@ public class RunnerIndexTests
     {
         var available = Answering("200", Index).Available();
 
-        Assert.Equal(4, available.Count);
+        Assert.Equal(5, available.Count);
         Assert.Equal("wine-9.21-staging-tkg", Answering("200", Index).Find("9.21").Name);
+    }
+
+    [Fact]
+    public void TheD2D1DcompBuildIsOfferedWithoutTouchingBottlesAtAll()
+    {
+        var release = Answering("200", Index).Find("d2d1-11.0");
+
+        Assert.Equal(RunnerFamily.D2D1Dcomp, release.Family);
+        Assert.Equal("wine-d2d1-11.0-x86_64.tar.zst", release.Asset);
+        Assert.Equal("wine-d2d1-11.0", release.Name);
     }
 
     [Fact]
