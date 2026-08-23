@@ -11,7 +11,7 @@ internal sealed class RecordingRunner(Action<IReadOnlyList<string>>? acts = null
         IReadOnlyList<string> Arguments,
         IReadOnlyDictionary<string, string> Environment,
         string? WorkingDirectory,
-        bool Capture);
+        string? LogTo);
 
     public IReadOnlyList<Call> Calls => calls;
 
@@ -28,10 +28,10 @@ internal sealed class RecordingRunner(Action<IReadOnlyList<string>>? acts = null
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        bool capture = true)
+        string? logTo = null)
     {
         Environment = env ?? new Dictionary<string, string>();
-        calls.Add(new Call(file, args, Environment, workingDirectory, capture));
+        calls.Add(new Call(file, args, Environment, workingDirectory, logTo));
         LastFile = file;
         LastArguments = args;
         acts?.Invoke(args);

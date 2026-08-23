@@ -10,6 +10,6 @@ internal sealed class UnusedRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        bool capture = true) =>
+        string? logTo = null) =>
         throw new NotSupportedException($"this operation should run no process, got '{file}'");
 }

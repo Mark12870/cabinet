@@ -15,7 +15,7 @@ public interface IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        bool capture = true);
+        string? logTo = null);
 }
 
 public sealed class ProcessRunner : IProcessRunner
@@ -26,15 +26,18 @@ public sealed class ProcessRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        bool capture = true)
+        string? logTo = null)
     {
-        var info = new ProcessStartInfo(file)
-        {
-            RedirectStandardOutput = capture,
-            RedirectStandardError = capture,
-            UseShellExecute = false,
-            WorkingDirectory = workingDirectory ?? "",
-        };
+        var info = logTo is null
+            ? new ProcessStartInfo(file)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            }
+            : Redirected(file, logTo);
+
+        info.UseShellExecute = false;
+        info.WorkingDirectory = workingDirectory ?? "";
 
         foreach (var arg in args)
         {
@@ -59,7 +62,7 @@ public sealed class ProcessRunner : IProcessRunner
         using var process = Process.Start(info)
                             ?? throw new InvalidOperationException($"could not start {file}");
 
-        if (!capture)
+        if (logTo is not null)
         {
             process.WaitForExit();
 
@@ -77,6 +80,18 @@ public sealed class ProcessRunner : IProcessRunner
         draining.GetAwaiter().GetResult();
 
         return new ProcessResult(process.ExitCode, stdout.ToString(), stderr.ToString());
+    }
+
+    private static ProcessStartInfo Redirected(string file, string logTo)
+    {
+        var info = new ProcessStartInfo("/bin/sh");
+
+        info.ArgumentList.Add("-c");
+        info.ArgumentList.Add(@"exec ""$@"" >""$0"" 2>&1 </dev/null");
+        info.ArgumentList.Add(logTo);
+        info.ArgumentList.Add(file);
+
+        return info;
     }
 
     private static Task Drain(StreamReader reader, TextWriter collected, Action<string>? onOutput) =>

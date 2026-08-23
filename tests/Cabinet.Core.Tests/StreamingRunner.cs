@@ -12,7 +12,7 @@ internal sealed class StreamingRunner(params string[] lines) : IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        bool capture = true)
+        string? logTo = null)
     {
         LastArguments = args;
 

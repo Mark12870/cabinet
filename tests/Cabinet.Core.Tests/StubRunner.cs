@@ -10,6 +10,6 @@ internal sealed class StubRunner(ProcessResult result) : IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        bool capture = true) =>
+        string? logTo = null) =>
         result;
 }

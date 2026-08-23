@@ -208,7 +208,7 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void OpeningAnAppLeavesItsOutputAloneSoElectronCanOpenItsOwnStdout()
+    public void OpeningAnAppSendsItsOutputToAFileSoElectronCanOpenItsOwnStdout()
     {
         var entry = LibraryEntry.Parse(
             "thing",
@@ -224,7 +224,7 @@ public class LibraryTests : IDisposable
 
         var opened = Assert.Single(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
 
-        Assert.False(opened.Capture);
+        Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), opened.LogTo);
     }
 
     [Fact]

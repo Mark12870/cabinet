@@ -80,4 +80,46 @@ public sealed class ProcessRunnerTests
 
         Assert.Equal(["", "###  10.0%", "##### 50.0%", "####100.0%"], lines);
     }
+
+    [Fact]
+    public void AChildWritingToALogNeverInheritsTheStdioItWasStartedWith()
+    {
+        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+        Subject.Run("sh", ["-c", "readlink /proc/self/fd/1"], logTo: log);
+
+        Assert.Equal(log, File.ReadAllText(log).Trim());
+
+        File.Delete(log);
+    }
+
+    [Fact]
+    public void ALoggedRunCollectsNothingButStillCarriesItsExitCode()
+    {
+        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+        var result = Subject.Run("sh", ["-c", "echo out; echo boom >&2; exit 3"], logTo: log);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Empty(result.Stdout);
+        Assert.Empty(result.Stderr);
+        Assert.Equal(["out", "boom"], File.ReadAllLines(log));
+
+        File.Delete(log);
+    }
+
+    [Fact]
+    public void TheEnvironmentReachesAChildWritingToALogToo()
+    {
+        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+        Subject.Run(
+            "sh", ["-c", "echo $CABINET_TEST"],
+            new Dictionary<string, string> { ["CABINET_TEST"] = "carried" },
+            logTo: log);
+
+        Assert.Equal("carried", File.ReadAllText(log).Trim());
+
+        File.Delete(log);
+    }
 }

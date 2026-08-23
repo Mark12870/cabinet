@@ -391,6 +391,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         var prefixes = new Prefixes(layout, runner);
+        var log = layout.PrefixLaunchLog(where);
         var watch = new PluginWatch(Bundled(where));
         using var closed = new CancellationTokenSource();
 
@@ -408,7 +409,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         try
         {
-            ran = prefixes.Run(where, "wine", [entry.Launch], capture: false);
+            ran = prefixes.Run(where, "wine", [entry.Launch], logTo: log);
         }
         finally
         {
@@ -420,12 +421,24 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         if (!ran.Ok)
         {
+            foreach (var line in Tail(log))
+            {
+                onOutput?.Invoke(line);
+            }
+
             throw new InvalidOperationException(
                 $"{entry.Name} exited with {ran.ExitCode}");
         }
 
         onOutput?.Invoke($"{entry.Name} closed.");
     }
+
+    private static IEnumerable<string> Tail(string log) =>
+        File.Exists(log)
+            ? File.ReadLines(log)
+                .Where(line => line.Trim().Length > 0)
+                .TakeLast(20)
+            : [];
 
     private void Bridge(
         Prefixes prefixes, IReadOnlyList<string>? appeared, Action<string>? onOutput)
