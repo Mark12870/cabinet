@@ -19,6 +19,4 @@ Description:
   tuning, volume, compression, tone and pan — and the waveform of whichever pad
   you are on. Drop samples onto the pads and it is ready to play.
 
-  Decomposer still give version 1 away; version 2 is the one they sell. There is
-  a Linux build, but it wants Debian's libcurl-gnutls, which no DAW's runtime
-  carries, so Cabinet installs the Windows one into a Wine prefix of its own.
+  Decomposer still give version 1 away; version 2 is the one they sell.

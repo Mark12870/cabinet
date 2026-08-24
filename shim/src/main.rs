@@ -33,6 +33,8 @@ const CANON_VARS: &[&str] = &[
 
 const CANON_LIST_VARS: &[&str] = &["WINEDLLPATH"];
 
+const BLANKED: &[&str] = &["WAYLAND_DISPLAY"];
+
 const RUNNER_MARKER: &str = ".cabinet-runner";
 const SYNC_MARKER: &str = ".cabinet-sync";
 const ENV_MARKER: &str = ".cabinet-env";
@@ -205,6 +207,13 @@ where
         flag.push(var);
         flag.push("=");
         flag.push(&value);
+        argv.push(flag);
+    }
+
+    for var in BLANKED {
+        let mut flag = OsString::from("--env=");
+        flag.push(var);
+        flag.push("=");
         argv.push(flag);
     }
 
@@ -418,7 +427,16 @@ mod tests {
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
-        assert_eq!(argv, vec!["flatpak", "run", "--command=wine", "some.App"]);
+        assert_eq!(
+            argv,
+            vec![
+                "flatpak",
+                "run",
+                "--command=wine",
+                "--env=WAYLAND_DISPLAY=",
+                "some.App"
+            ]
+        );
     }
 
     const PREFIX: &str = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/serum";
@@ -453,6 +471,31 @@ mod tests {
                 "marker {marker:?} should fall back"
             );
         }
+    }
+
+    #[test]
+    fn wine_never_inherits_the_sandboxs_wayland_socket() {
+        let argv = build(&[], &[], false);
+        assert!(argv.iter().any(|a| a == "--env=WAYLAND_DISPLAY="));
+    }
+
+    #[test]
+    fn a_prefix_can_hand_wayland_back_to_wine() {
+        let argv = build_with_markers(
+            &[("WINEPREFIX", PREFIX)],
+            &[],
+            false,
+            &[(ENV_MARKER, Some("WAYLAND_DISPLAY=wayland-0\n"))],
+        );
+        let blanked = argv
+            .iter()
+            .position(|a| a == "--env=WAYLAND_DISPLAY=")
+            .unwrap();
+        let given = argv
+            .iter()
+            .position(|a| a == "--env=WAYLAND_DISPLAY=wayland-0")
+            .unwrap();
+        assert!(given > blanked);
     }
 
     #[test]
@@ -525,7 +568,9 @@ mod tests {
             &[(ENV_MARKER, Some("\n# a note\nnonsense\n=orphan\nKEEP=1\n"))],
         );
         assert_eq!(
-            argv.iter().filter(|a| a.starts_with("--env=")).count(),
+            argv.iter()
+                .filter(|a| a.starts_with("--env=") && a != &"--env=WAYLAND_DISPLAY=")
+                .count(),
             2,
             "{argv:?}"
         );

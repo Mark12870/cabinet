@@ -20,7 +20,3 @@ Description:
   equalisers are compared to, with Pro-C, Pro-L, Pro-R, Pro-MB, Pro-DS and Pro-G
   beside it; Saturn, Timeless, Volcano and Twin for the creative half; and One,
   Simplon and Micro for the basics.
-
-  None of them has a Linux build, so Cabinet gives the bundle a Wine prefix of its
-  own with the Wine version their editors need and DXVK for the drawing. Which
-  plugins and which formats land in it is the installer's own first question.

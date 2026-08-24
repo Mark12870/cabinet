@@ -24,6 +24,4 @@ Description:
   tape delay shifts pitch with speed, and at the top of its range the decay slides into a
   freeze that never loops.
 
-  Four knobs, and the tone control is an isolator rather than an EQ. There is no Linux
-  build, so Cabinet puts it in a shared madrona prefix with the Wine version its editor
-  needs.
+  Four knobs, and the tone control is an isolator rather than an EQ.

@@ -19,7 +19,3 @@ Description:
   A frequency shifter after the Bode 735, feeding an echo that shifts again on
   every repeat. Small shifts thicken a sound; larger ones send the tail sliding
   off the scale, since nothing here is in tune with anything.
-
-  There is no Linux build, so Cabinet puts it in a shared valhalla prefix with
-  the Wine version its editor needs, and Valhalla's other two free plugins
-  install into the same one.

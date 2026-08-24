@@ -145,6 +145,35 @@ public sealed class PrefixRegistryTests : IDisposable
         "UninstallString"="\"C:\\users\\testuser\\AppData\\Local\\Xfer\\Uninstall_Serum2.exe\""
         """;
 
+    [Fact]
+    public void AValueIsFoundUnderTheKeyThatHoldsIt()
+    {
+        User("""
+             [Software\\Wine\\Explorer\\Desktops] 1787567817
+             "Default"="1920x1080"
+
+             [Software\\Wine\\Explorer] 1787567817
+             "Desktop"="Default"
+             """);
+
+        Assert.Equal("Default", Subject.Lookup("valhalla", @"Software\Wine\Explorer", "Desktop"));
+        Assert.Equal(
+            "1920x1080",
+            Subject.Lookup("valhalla", @"Software\Wine\Explorer\Desktops", "Default"));
+    }
+
+    [Fact]
+    public void AValueIsNotFoundUnderSomeOtherKey()
+    {
+        User("""
+             [Software\\Wine\\Explorer\\Desktops] 1787567817
+             "Default"="1920x1080"
+             """);
+
+        Assert.Null(Subject.Lookup("valhalla", @"Software\Wine\Explorer", "Desktop"));
+        Assert.Null(Subject.Lookup("valhalla", @"Software\Wine\Explorer\Desktops", "Other"));
+    }
+
     private void System(string text) => File.WriteAllText(
         Layout.PrefixSystemReg("valhalla"),
         "WINE REGISTRY Version 2\n;; All keys relative to REGISTRY\\\\Machine\n\n" + text + "\n");

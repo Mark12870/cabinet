@@ -18,6 +18,34 @@ public sealed class PrefixRegistry(Layout layout)
         .. Entries(layout.PrefixUserReg(prefix), "HKCU"),
     ];
 
+    public string? Lookup(string prefix, string key, string name)
+    {
+        var path = layout.PrefixUserReg(prefix);
+
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        string? section = null;
+
+        foreach (var line in File.ReadLines(path))
+        {
+            if (line.StartsWith('['))
+            {
+                section = Section(line);
+            }
+            else if (string.Equals(section, key, StringComparison.OrdinalIgnoreCase)
+                     && Value(line) is { } pair
+                     && string.Equals(pair.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return pair.Text;
+            }
+        }
+
+        return null;
+    }
+
     private static IEnumerable<UninstallEntry> Entries(string path, string root)
     {
         if (!File.Exists(path))

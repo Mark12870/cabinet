@@ -36,7 +36,7 @@ flatpak run $cabinet library launch spitfire-audio          # a manager; what it
 
 flatpak run $cabinet new serum                              # a prefix of its own
 flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
-flatpak run $cabinet dxvk serum                             # JUCE editors need this
+flatpak run $cabinet dxvk serum                             # Direct3D, which some editors want
 flatpak run $cabinet sync                                   # bridge what it installed
 flatpak run $cabinet doctor                                 # check both sides
 

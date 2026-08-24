@@ -23,6 +23,4 @@ Description:
   models of strings, chimes and springs, and then into a body — wood, a metal plate, a
   frame drum — with a pickup at each side. Struck twice, it never rings quite the same.
 
-  Aalto's patcher with a different engine behind it. There is no Linux build, so Cabinet
-  puts it in a shared madrona prefix with the Wine version its editor needs; the download
-  is a hundred megabytes, most of it the sample maps the granulator reads.
+  Aalto's patcher with a different engine behind it.

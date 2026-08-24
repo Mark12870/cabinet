@@ -28,6 +28,7 @@ public sealed record LibraryEntry(
     string? Runner,
     bool Dxvk,
     SyncMode Sync,
+    string? Desktop,
     string? Script,
     string? Launch,
     string? Data,
@@ -73,7 +74,7 @@ public sealed record LibraryEntry(
         }
 
         if (kind == PluginKind.Native
-            && new[] { "Prefix", "Runner", "Dxvk", "Sync", "Launch" }
+            && new[] { "Prefix", "Runner", "Dxvk", "Sync", "Desktop", "Launch" }
                 .FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
         {
@@ -104,6 +105,7 @@ public sealed record LibraryEntry(
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
+            Value(fields, "Desktop") is { } desktop ? VirtualDesktop.ParseSize(desktop) : null,
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
             Value(fields, "Launch") is { } launch ? ParseLaunch(id, launch) : null,
             Value(fields, "Data") is { } data ? ParseData(id, data) : null,
@@ -692,6 +694,13 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         if (entry.Dxvk && dxvk.InstalledIn(prefix) is null)
         {
             dxvk.Install(prefix, onOutput, onProgress);
+        }
+
+        var desktop = new VirtualDesktop(layout, runner);
+
+        if (entry.Desktop is { } size && desktop.SizeIn(prefix) is null)
+        {
+            desktop.Set(prefix, size, onOutput);
         }
 
         if (existing is null && entry.Sync != SyncMode.System)

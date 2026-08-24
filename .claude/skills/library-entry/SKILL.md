@@ -87,6 +87,10 @@ ships one binary that is a VST3 for every product and also a CLAP for two of the
 `grep -qa clap_entry` on the binary decides it, and AU and AAX never appear. Two short
 paragraphs is the right length for `Description` — what it is, then what it costs to run.
 
+`Description` is written for the person choosing the plugin, so it carries **no technical
+detail about how Cabinet runs it**: no runner names, no DXVK, no registry keys, no Wine
+versions, no rendering APIs.
+
 **5. Decide the three fields that are judgements.** Everything above is a lookup; these are
 decisions, and getting one wrong shows up much later as a plugin that installs and then cannot
 be used.
@@ -94,9 +98,11 @@ be used.
 - **`Runner: 9.21`** for anything with a plugin editor. From Wine 9.22 on, clicks land offset by
   the window's distance from the screen origin — yabridge#382, acknowledged upstream and
   unfixed. Leave `Runner` out only for a plugin with no editor at all.
-- **`Dxvk: true`** for any JUCE editor. The symptom without it is a UI that draws once and then
-  only when the window is moved; Surge XT and Dexed both need it. When in doubt set it — DXVK
-  backs up the DLLs it replaces and the switch reverses.
+- **`Dxvk: true`** for a JUCE editor on a *stock* runner. The symptom without it is a UI that
+  draws once and then only when the window is moved; Surge XT and Dexed both need it, and DXVK
+  backs up the DLLs it replaces, so the switch reverses. It is an **alternative** to the
+  Direct2D runner below, never a pair: DXVK replaces the `d3d11` and `dxgi` that build's
+  Direct2D sits on, and together they stop the editor painting at all.
 - **`Sync: fsync`** alongside `Runner: 9.21`, which is a TkG build and has fsync. Do **not** set
   it for a runner that lacks fsync — Soda reports `( TkG Plain )` — and leave it out entirely to
   inherit whatever launched the DAW.

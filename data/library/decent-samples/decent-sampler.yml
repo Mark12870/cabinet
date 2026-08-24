@@ -14,7 +14,3 @@ Description:
   Loads .dspreset and .dslibrary instruments — the format a large part of the
   free sample-library scene publishes in — with browsing, per-instrument
   controls and a keyboard that shows what is mapped.
-
-  Free, and the Linux build is Decent Samples' own, so nothing here goes
-  through Wine. Cabinet takes the static build, which links its dependencies
-  in and runs on hosts the dynamic one does not.

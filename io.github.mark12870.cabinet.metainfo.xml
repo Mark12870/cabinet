@@ -46,6 +46,26 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.9.0" date="2026-08-24">
+      <description>
+        <p>A virtual desktop for editors that need one, and prefixes that say when they have
+        drifted</p>
+        <ul>
+          <li>`cabinet set &lt;name&gt; desktop &lt;WxH&gt;` runs a prefix's windows inside one
+          Wine desktop of that size, keeping a bridged editor's clicks landing where you point
+          them; the prefix page carries the same switch</li>
+          <li>Doctor warns when a prefix's sync mode has drifted from what an installed plugin's
+          entry asks for</li>
+          <li>Wine launched through the shim can no longer end up on Wayland either, closing the
+          same door already closed for a prefix launched directly</li>
+          <li>Serum 2 turns off two of its own preferences that fought its Direct2D runner's
+          drawing</li>
+          <li>Plugin descriptions no longer explain how Cabinet installs a plugin, only what it
+          is and what it costs to run</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.8.0" date="2026-08-23">
       <description>
         <p>Eighteen more plugins, and Windows plugins that come back out again</p>

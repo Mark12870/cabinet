@@ -373,6 +373,27 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void ANativeEntryCarryingADesktopIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "vital", "Name: Vital\nKind: native\nSource: byo\nDesktop: 1920x1080\n"));
+
+        Assert.Contains("is native and carries Desktop", refused.Message);
+    }
+
+    [Fact]
+    public void ADesktopSizeIsReadAsWidthByHeightAndNothingElse()
+    {
+        Assert.Equal("1920x1080", VirtualDesktop.ParseSize(" 1920X1080 "));
+
+        foreach (var wrong in new[] { "1920", "1920x", "0x1080", "-1x8", "big", "1920x1080x1" })
+        {
+            Assert.Throws<ArgumentException>(() => VirtualDesktop.ParseSize(wrong));
+        }
+    }
+
+    [Fact]
     public void TheListIsOrderedByNameAndIgnoresWhatIsNotAnEntry()
     {
         Catalogue(

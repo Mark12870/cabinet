@@ -1,13 +1,17 @@
 namespace Cabinet.Core;
 
 public sealed record Prefix(
-    string Name, string Path, bool Initialised, string Runner, string? Dxvk, SyncMode Sync);
+    string Name, string Path, bool Initialised, string Runner, string? Dxvk, SyncMode Sync,
+    string? Desktop);
 
 public sealed class Prefixes(Layout layout, IProcessRunner runner)
 {
     private readonly Runners runners = new(layout, runner);
     private readonly Dxvk dxvk = new(layout, runner);
+    private readonly VirtualDesktop desktop = new(layout, runner);
     private readonly PrefixSettings settings = new(layout);
+
+    public static readonly IReadOnlyList<string> Blanked = ["WAYLAND_DISPLAY"];
 
     public IReadOnlyList<Prefix> List()
     {
@@ -25,7 +29,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
                 Directory.Exists(Path.Combine(layout.PrefixPath(name), "dosdevices")),
                 RunnerOf(name),
                 dxvk.InstalledIn(name),
-                settings.Sync(name)))
+                settings.Sync(name),
+                desktop.SizeIn(name)))
             .ToList();
     }
 
@@ -87,7 +92,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         }
 
         return new Prefix(
-            name, path, true, RunnerOf(name), dxvk.InstalledIn(name), settings.Sync(name));
+            name, path, true, RunnerOf(name), dxvk.InstalledIn(name), settings.Sync(name),
+            desktop.SizeIn(name));
     }
 
     public void ContainProfile(string name)
@@ -206,7 +212,11 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         environment["WINEPREFIX"] = layout.PrefixPath(prefix);
         environment["YABRIDGE_TEMP_DIR"] = layout.SocketDir;
         environment["WINELOADER"] = selected.Wine;
-        environment["WAYLAND_DISPLAY"] = "";
+
+        foreach (var name in Blanked)
+        {
+            environment[name] = "";
+        }
 
         if (dllOverrides is not null)
         {

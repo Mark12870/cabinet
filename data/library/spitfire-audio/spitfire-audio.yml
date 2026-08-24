@@ -22,8 +22,5 @@ Description:
   BBC Symphony Orchestra. You sign in, pick from what your account owns, and
   the app fetches each library and installs its plugin for you.
 
-  So installing this installs nothing you can play yet. Cabinet opens it, and
-  bridges each library the moment it lands — the app can stay open while it
-  downloads. Its prefix is where the samples live too, so expect it to grow,
-  and removing the app takes that prefix with it: its own uninstaller leaves
-  every library behind.
+  So installing this installs nothing you can play yet — it is the door, and
+  what you own arrives through it.

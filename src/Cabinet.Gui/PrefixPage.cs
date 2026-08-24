@@ -42,6 +42,7 @@ internal sealed class PrefixPage
         settings.Add(RunnerRow(prefix, runnerNames));
         settings.Add(SyncRow(prefix));
         settings.Add(DxvkRow(prefix));
+        settings.Add(DesktopRow(prefix));
 
         var actions = Adw.PreferencesGroup.New();
         actions.SetTitle("Prefix");
@@ -142,6 +143,49 @@ internal sealed class PrefixPage
 
         return row;
     }
+
+    private Adw.ActionRow DesktopRow(Prefix prefix)
+    {
+        var row = Adw.ActionRow.New();
+        row.SetTitle("Virtual desktop");
+        row.SetSubtitle(prefix.Desktop ?? "off");
+
+        var button = Ui.RowButton(Icons.Desktop, "Virtual desktop");
+        button.OnClicked += (_, _) => AskForDesktop(prefix);
+        row.AddSuffix(button);
+        row.SetActivatableWidget(button);
+
+        return row;
+    }
+
+    private void AskForDesktop(Prefix prefix) =>
+        Ui.Prompt(
+            window,
+            $"A desktop of its own for {Name}",
+            "Wine draws every window from this prefix inside one window of that size. "
+            + "It keeps clicks landing where you point them in a bridged editor. "
+            + "Enter off to stop.",
+            prefix.Desktop ?? "1920x1080",
+            entered => UseDesktop(entered));
+
+    private void UseDesktop(string entered) =>
+        Operation.Run(
+            window,
+            $"Setting the desktop for {Name}",
+            output =>
+            {
+                var desktop = new VirtualDesktop(layout, runner);
+
+                if (entered.Trim().Equals("off", StringComparison.OrdinalIgnoreCase))
+                {
+                    desktop.Unset(Name, output);
+                }
+                else
+                {
+                    desktop.Set(Name, entered, output);
+                }
+            },
+            changed);
 
     private static string Label(SyncMode mode) =>
         mode == SyncMode.System ? "System" : PrefixSettings.Word(mode);

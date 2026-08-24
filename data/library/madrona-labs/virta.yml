@@ -24,5 +24,3 @@ Description:
   patcher again, with an input where the keyboard would be.
 
   Gentle enough to be a channel effect at low settings and unrecognisable at high ones.
-  There is no Linux build, so Cabinet puts it in a shared madrona prefix with the Wine
-  version its editor needs.

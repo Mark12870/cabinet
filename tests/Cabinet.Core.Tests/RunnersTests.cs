@@ -57,14 +57,43 @@ public sealed class RunnersTests : IDisposable
 
     private IReadOnlyList<Check> Checks() => new Doctor(Layout, new UnusedRunner()).Run();
 
-    private void GiveEntry(string vendor, string id, string name, string runner)
+    private void GiveEntry(string vendor, string id, string name, string runner,
+        string? sync = null)
     {
         var dir = Path.Combine(root, "library", vendor);
         Directory.CreateDirectory(dir);
 
         File.WriteAllText(
             Path.Combine(dir, id + ".yml"),
-            $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\n");
+            $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\n"
+            + (sync is null ? "" : $"Sync: {sync}\n"));
+    }
+
+    [Fact]
+    public void APrefixOnTheSyncModeItsPluginAsksForIsNotComplainedAbout()
+    {
+        GiveRunner("wine-9.21-staging-tkg");
+        GivePrefix("serum", "wine-9.21-staging-tkg");
+        GiveEntry("xfer-records", "serum", "Serum 2", "9.21", "fsync");
+        GiveRecord("serum", "serum");
+        File.WriteAllText(Layout.PrefixSyncFile("serum"), "fsync");
+
+        Assert.DoesNotContain(Checks(), c => c.Name == "plugin sync");
+    }
+
+    [Fact]
+    public void APrefixThatNeverTookTheSyncModeItsPluginAsksForIsWarnedAbout()
+    {
+        GiveRunner("wine-9.21-staging-tkg");
+        GivePrefix("serum", "wine-9.21-staging-tkg");
+        GiveEntry("xfer-records", "serum", "Serum 2", "9.21", "fsync");
+        GiveRecord("serum", "serum");
+
+        var check = Checks().Single(c => c.Name == "plugin sync");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.Contains("serum runs on system", check.Detail);
+        Assert.Contains("Serum 2 asks for fsync", check.Detail);
     }
 
     private void GiveRecord(string prefix, string id) =>

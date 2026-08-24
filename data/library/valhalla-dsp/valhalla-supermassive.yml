@@ -19,7 +19,3 @@ Description:
   Delays and reverbs at a scale nothing else gives away: up to 32 seconds of
   feedback through modes named after things in the sky, from the short slapback
   of Gemini out to Great Annihilator holding a chord until you stop it.
-
-  There is no Linux build, so Cabinet puts it in a shared valhalla prefix with
-  the Wine version its editor needs, and Valhalla's other two free plugins
-  install into the same one.

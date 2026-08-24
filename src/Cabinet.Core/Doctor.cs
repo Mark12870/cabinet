@@ -25,6 +25,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
         checks.AddRange(PrefixRunners());
         checks.AddRange(PluginRunners());
+        checks.AddRange(PluginSync());
         checks.AddRange(EnrolledDaws());
         return checks;
     }
@@ -96,6 +97,36 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             string.Join("; ", drifted)
             + ". A plugin's entry pins the Wine its editor was tried on, and moving a prefix "
             + "to it needs the DAW closed: `cabinet use <prefix> <runner>`.");
+    }
+
+    private IEnumerable<Check> PluginSync()
+    {
+        var library = new Library(layout, runner);
+        var entries = library.Entries().ToDictionary(entry => entry.Id, StringComparer.Ordinal);
+        var settings = new PrefixSettings(layout);
+
+        var drifted = PrefixesAndRunners()
+            .SelectMany(
+                prefix => library.Recorded(prefix.Prefix),
+                (prefix, id) => (prefix.Prefix, Mode: settings.Sync(prefix.Prefix),
+                    Entry: entries.GetValueOrDefault(id)))
+            .Where(held => held.Entry is { Sync: not SyncMode.System } entry
+                           && entry.Sync != held.Mode)
+            .Select(held =>
+                $"{held.Prefix} runs on {PrefixSettings.Word(held.Mode)}, where "
+                + $"{held.Entry!.Name} asks for {PrefixSettings.Word(held.Entry.Sync)}")
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (drifted.Count == 0)
+        {
+            yield break;
+        }
+
+        yield return new Check("plugin sync", Status.Warn,
+            string.Join("; ", drifted)
+            + ". A prefix that already existed when the plugin was installed keeps the sync "
+            + "mode it was made with: `cabinet set <prefix> sync <mode>`.");
     }
 
     private Check BundledYabridge()

@@ -16,6 +16,3 @@ Description:
   Winner of the 2006 KVR Developer Challenge, and unlike anything else here:
   no oscillators, no wavetables, no FM, no modelled analogue filter. Three
   cascaded comb-filter modules make the sound instead.
-
-  The Linux build is u-he's own, and they call it beta: stable, but supported
-  through their forum rather than their support desk.

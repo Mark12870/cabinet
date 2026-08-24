@@ -17,6 +17,12 @@ public class ShimParityTests
     }
 
     [Fact]
+    public void BothSidesKeepWineOffTheSameSockets()
+    {
+        Assert.Equal(Prefixes.Blanked, List("BLANKED"));
+    }
+
+    [Fact]
     public void BothSidesSetTheSameVariablesForTheSameSyncMode()
     {
         var variables = List("SYNC_VARS");
@@ -46,7 +52,7 @@ public class ShimParityTests
         Match($"""const {name}: &str = "([^"]*)";""");
 
     private static string[] List(string name) =>
-        Regex.Matches(Match($@"const {name}:[^=]*= \[([^\]]*)\];"), @"""([^""]*)""")
+        Regex.Matches(Match($@"const {name}:[^=]*= &?\[([^\]]*)\];"), @"""([^""]*)""")
             .Select(found => found.Groups[1].Value)
             .ToArray();
 

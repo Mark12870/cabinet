@@ -57,8 +57,8 @@ finish-args:
   - --share=ipc                            # X11 MIT-SHM, for editor embedding
   - --share=network                        # plugin activation / licence servers
   # X11 is Wine's: yabridge's editor embedding and drag-and-drop are built on it.
-  # Wayland is the GUI's alone -- Prefixes unsets WAYLAND_DISPLAY for every Wine
-  # process, so granting it here cannot move Wine off X11.
+  # Wayland is the GUI's alone -- both Prefixes and the shim blank WAYLAND_DISPLAY,
+  # so granting it here cannot move Wine off X11 on either path into a prefix.
   - --socket=x11
   - --socket=wayland
   - --socket=pulseaudio

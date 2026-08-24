@@ -22,6 +22,4 @@ Description:
   that snaps to notes and names them, kits switched over MIDI, and a whole folder
   of samples dropped in at once. Three factory kits rather than one.
 
-  It has no Linux build at all, so Cabinet gives it a Wine prefix of its own with
-  the Wine version its editor needs. Version 1 is still free and installs
-  separately, into a prefix of its own.
+  Version 1 is still free, and installs separately.

@@ -19,7 +19,3 @@ Description:
   A flanger whose delay passes through zero, so the notch sweeps out the other
   side the way two tape machines do and nothing else does. The barberpole modes
   flange in one direction forever, up or down, without ever arriving.
-
-  There is no Linux build, so Cabinet puts it in a shared valhalla prefix with
-  the Wine version its editor needs, and Valhalla's other two free plugins
-  install into the same one.

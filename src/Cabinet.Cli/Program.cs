@@ -16,11 +16,12 @@ internal static class Program
           cabinet delete <name>                delete a prefix and everything in it
           cabinet list                         list prefixes
           cabinet use <name> <runner>          point a prefix at a runner
-          cabinet dxvk <name>                  install DXVK, which JUCE editors need
+          cabinet dxvk <name>                  install DXVK, the Direct3D some editors want
           cabinet show <name>                  everything a prefix is set to
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
+          cabinet set <name> desktop <WxH>     a Wine desktop of its own, or off
           cabinet library                      plugins Cabinet knows how to install
           cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [prefix] [file]
@@ -237,6 +238,7 @@ internal static class Program
             "sync" => SetSync(layout, name, Require(args, 1, "a sync mode")),
             "dxvk" => SetDxvk(layout, runner, name, Require(args, 1, "on or off")),
             "env" => SetVariable(layout, name, Require(args, 1, "KEY=VALUE")),
+            "desktop" => SetDesktop(layout, runner, name, Require(args, 1, "a size, or off")),
             var unknown => Unknown($"set {name} {unknown}"),
         };
 
@@ -247,6 +249,23 @@ internal static class Program
             "off" => RemoveDxvk(layout, runner, name),
             _ => throw new ArgumentException($"not on or off: '{word}'"),
         };
+
+    private static int SetDesktop(
+        Layout layout, IProcessRunner runner, string name, string word)
+    {
+        var desktop = new VirtualDesktop(layout, runner);
+
+        if (word.Trim().Equals("off", StringComparison.OrdinalIgnoreCase))
+        {
+            desktop.Unset(name, Console.WriteLine);
+        }
+        else
+        {
+            desktop.Set(name, word, Console.WriteLine);
+        }
+
+        return 0;
+    }
 
     private static int SetSync(Layout layout, string name, string word)
     {
@@ -293,6 +312,7 @@ internal static class Program
         Console.WriteLine($"{"runner",-16}  {prefix.Runner}");
         Console.WriteLine($"{"dxvk",-16}  {prefix.Dxvk ?? "off"}");
         Console.WriteLine($"{"sync",-16}  {PrefixSettings.Word(prefix.Sync)}");
+        Console.WriteLine($"{"desktop",-16}  {prefix.Desktop ?? "off"}");
 
         Describe("env", new PrefixSettings(layout).Variables(name));
 

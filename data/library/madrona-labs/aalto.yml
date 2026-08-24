@@ -22,6 +22,3 @@ Description:
   A complex oscillator after Buchla's, with FM and waveshaping into a lowpass gate
   that has a vactrol's slur, a sequencer inside every voice, and a waveguide short
   enough to be a third oscillator. You wire it by dragging cords between the modules.
-
-  There is no Linux build, so Cabinet puts it in a shared madrona prefix with the Wine
-  version its editor needs, and Madrona's other four plugins install into the same one.

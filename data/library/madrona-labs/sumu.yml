@@ -24,7 +24,6 @@ Description:
   channels. Modulate a handful of harmonics, delay each partial by its own frequency,
   or scatter them across the stereo field and watch them move.
 
-  A Moog ladder filter at the end keeps it from getting too clinical. There is no Linux
-  build, so Cabinet puts it in a shared madrona prefix with the Wine version its editor
-  needs. Making partials from your own sounds needs Vutu, Madrona's free companion app,
-  which Cabinet does not install.
+  A Moog ladder filter at the end keeps it from getting too clinical. Making partials
+  from your own sounds needs Vutu, Madrona's free companion app, which Cabinet does
+  not install.

@@ -17,6 +17,5 @@ Description:
   they play by spectral modes that bend and fold the wave itself, over a
   sample source, two filters and a modulation matrix you build by dragging.
 
-  The Linux build is Vital Audio's own, so nothing here goes through Wine.
-  Cabinet cannot fetch it — it sits behind your account — so you log in,
-  download it, and hand Cabinet the file.
+  Free, but it sits behind your account: you log in, download it, and hand
+  Cabinet the file.
