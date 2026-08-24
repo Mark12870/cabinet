@@ -29,6 +29,23 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void NoInstallScriptSetsAnEnvironmentAnEntryCouldDeclare()
+    {
+        var layout = Catalogue.Layout();
+
+        var poking = Shipped
+            .Where(entry => entry.Script is not null)
+            .SelectMany(
+                entry => File.ReadAllLines(layout.LibraryScript(entry.Vendor, entry.Script!))
+                    .Select(line => line.Trim())
+                    .Where(line => line.StartsWith("export ", StringComparison.Ordinal)
+                                   || line.Contains(@"Wine\\DllOverrides", StringComparison.Ordinal)),
+                (entry, line) => $"{entry.Vendor}/{entry.Script} has {line} — that is Env:");
+
+        Assert.Empty(poking);
+    }
+
+    [Fact]
     public void EveryDataDirectoryAnEntryClaimsIsGrantedByTheManifest()
     {
         var granted = Manifest

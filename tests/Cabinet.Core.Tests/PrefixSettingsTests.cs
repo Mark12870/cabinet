@@ -123,6 +123,17 @@ public sealed class PrefixSettingsTests : IDisposable
     }
 
     [Fact]
+    public void AVariableCabinetPinsItselfIsRefusedRatherThanQuietlyIgnored()
+    {
+        foreach (var owned in PrefixSettings.Owned)
+        {
+            Assert.Throws<ArgumentException>(() => Subject.SetVariable("serum", owned, "1"));
+        }
+
+        Assert.False(File.Exists(Layout.PrefixEnvFile("serum")));
+    }
+
+    [Fact]
     public void SettingAnythingOnAPrefixThatIsNotThereSaysSo()
     {
         Assert.Throws<DirectoryNotFoundException>(

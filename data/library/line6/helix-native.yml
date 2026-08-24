@@ -16,6 +16,7 @@ Account: https://line6.com/account/
 Script: helix-native.sh
 Runner: 9.21
 Sync: fsync
+Env: WINEDLLOVERRIDES=*wbemprox,*wbemcomn=n
 Description:
   The HX modelling out of Line 6's Helix hardware, as a plugin: amps, cabs,
   mics and effects wired together on a signal path you drag into shape, with

@@ -28,6 +28,7 @@ public sealed record LibraryEntry(
     string? Runner,
     bool Dxvk,
     SyncMode Sync,
+    IReadOnlyDictionary<string, string> Env,
     string? Desktop,
     string? Script,
     string? Launch,
@@ -74,13 +75,13 @@ public sealed record LibraryEntry(
         }
 
         if (kind == PluginKind.Native
-            && new[] { "Prefix", "Runner", "Dxvk", "Sync", "Desktop", "Launch" }
+            && new[] { "Prefix", "Runner", "Dxvk", "Sync", "Env", "Desktop", "Launch" }
                 .FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
         {
             throw new InvalidOperationException(
                 $"{id}.yml is native and carries {windowsOnly} — a native plugin has no prefix, "
-                + "no Wine, no Direct3D to replace and nothing to open");
+                + "no Wine, no Direct3D to replace, no environment to set and nothing to open");
         }
 
         if (source != PluginSource.Byo && fields.ContainsKey("Account"))
@@ -105,6 +106,7 @@ public sealed record LibraryEntry(
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
+            ParseEnv(id, Value(fields, "Env")),
             Value(fields, "Desktop") is { } desktop ? VirtualDesktop.ParseSize(desktop) : null,
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
             Value(fields, "Launch") is { } launch ? ParseLaunch(id, launch) : null,
@@ -140,6 +142,34 @@ public sealed record LibraryEntry(
         }
 
         return path;
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseEnv(string id, string? text)
+    {
+        var found = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var line in (text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var at = line.IndexOf('=');
+
+            if (at < 1 || line[..at].Trim() is not { Length: > 0 } key)
+            {
+                throw new InvalidOperationException(
+                    $"{id}.yml has Env: {line.Trim()} — one KEY=VALUE a line, such as "
+                    + "WINEDLLOVERRIDES=wbemprox=n");
+            }
+
+            if (PrefixSettings.Owned.Contains(key, StringComparer.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"{id}.yml sets {key}, which Cabinet sets itself — the shim drops it, so "
+                    + "the entry would only look as though it took effect");
+            }
+
+            found[key] = line[(at + 1)..];
+        }
+
+        return found;
     }
 
     private static string ParseData(string id, string relative)
@@ -648,6 +678,18 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 ? EnsureRunner(spec, onOutput, onProgress)
                 : null,
             onOutput);
+
+        if (existing is null && entry.Env.Count > 0)
+        {
+            var settings = new PrefixSettings(layout);
+
+            foreach (var (key, value) in entry.Env)
+            {
+                settings.SetVariable(prefix, key, value);
+            }
+
+            onOutput?.Invoke($"Set {string.Join(", ", entry.Env.Keys)}.");
+        }
 
         var staging = Path.Combine(Path.GetTempPath(), "cabinet-library");
 

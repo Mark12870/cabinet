@@ -255,6 +255,11 @@ internal sealed class PluginPage
             costs.Add(PrefixSettings.Word(entry.Sync));
         }
 
+        if (entry.Env.Count > 0)
+        {
+            costs.Add(string.Join(", ", entry.Env.Keys));
+        }
+
         return string.Join("  ·  ", costs);
     }
 }

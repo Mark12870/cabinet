@@ -26,6 +26,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         checks.AddRange(PrefixRunners());
         checks.AddRange(PluginRunners());
         checks.AddRange(PluginSync());
+        checks.AddRange(PluginEnv());
         checks.AddRange(EnrolledDaws());
         return checks;
     }
@@ -127,6 +128,38 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             string.Join("; ", drifted)
             + ". A prefix that already existed when the plugin was installed keeps the sync "
             + "mode it was made with: `cabinet set <prefix> sync <mode>`.");
+    }
+
+    private IEnumerable<Check> PluginEnv()
+    {
+        var library = new Library(layout, runner);
+        var entries = library.Entries().ToDictionary(entry => entry.Id, StringComparer.Ordinal);
+        var settings = new PrefixSettings(layout);
+
+        var missing = PrefixesAndRunners()
+            .SelectMany(
+                prefix => library.Recorded(prefix.Prefix),
+                (prefix, id) => (prefix.Prefix, Held: settings.Variables(prefix.Prefix),
+                    Entry: entries.GetValueOrDefault(id)))
+            .Where(held => held.Entry is not null)
+            .SelectMany(
+                held => held.Entry!.Env.Where(
+                    wanted => held.Held.GetValueOrDefault(wanted.Key) != wanted.Value),
+                (held, wanted) =>
+                    $"{held.Prefix} does not set {wanted.Key}={wanted.Value}, which "
+                    + $"{held.Entry!.Name} asks for")
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (missing.Count == 0)
+        {
+            yield break;
+        }
+
+        yield return new Check("plugin env", Status.Warn,
+            string.Join("; ", missing)
+            + ". A prefix that already existed when the plugin was installed keeps the "
+            + "environment it was made with: `cabinet set <prefix> env KEY=VALUE`.");
     }
 
     private Check BundledYabridge()

@@ -13,6 +13,9 @@ public sealed class PrefixSettings(Layout layout)
     public static readonly IReadOnlyList<SyncMode> SyncModes =
         [SyncMode.System, SyncMode.Esync, SyncMode.Fsync, SyncMode.Ntsync];
 
+    public static readonly IReadOnlyList<string> Owned =
+        ["WINEPREFIX", "WINELOADER", "WINEDLLPATH", "YABRIDGE_TEMP_DIR"];
+
     public static string Word(SyncMode mode) => mode.ToString().ToLowerInvariant();
 
     public static SyncMode ParseSync(string word)
@@ -96,6 +99,11 @@ public sealed class PrefixSettings(Layout layout)
         if (key.Trim() is not { Length: > 0 } name || name.Contains('=') || name.StartsWith('#'))
         {
             throw new ArgumentException($"not a variable name: '{key}'", nameof(key));
+        }
+
+        if (Owned.Contains(name, StringComparer.Ordinal))
+        {
+            throw new ArgumentException($"{name} is Cabinet's to set, not yours", nameof(key));
         }
 
         var kept = new Dictionary<string, string>(Variables(prefix), StringComparer.Ordinal);

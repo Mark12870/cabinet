@@ -168,10 +168,9 @@ public sealed class PrefixesTests : IDisposable
     public void APrefixVariableCannotDisplaceWhatCabinetPins()
     {
         Directory.CreateDirectory(Layout.PrefixPath("serum"));
-        var settings = new PrefixSettings(Layout);
-        settings.SetVariable("serum", "WINEPREFIX", "/elsewhere");
-        settings.SetVariable("serum", "WINELOADER", "/bin/false");
-        settings.SetVariable("serum", "WAYLAND_DISPLAY", "wayland-0");
+        File.WriteAllLines(
+            Layout.PrefixEnvFile("serum"),
+            ["WINEPREFIX=/elsewhere", "WINELOADER=/bin/false", "WAYLAND_DISPLAY=wayland-0"]);
 
         var recorder = new RecordingRunner();
         new Prefixes(Layout, recorder).Run("serum", "winecfg", []);

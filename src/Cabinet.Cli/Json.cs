@@ -78,6 +78,7 @@ internal static class Json
                 writer.WriteString("runner", entry.Runner);
                 writer.WriteBoolean("dxvk", entry.Dxvk);
                 writer.WriteString("sync", PrefixSettings.Word(entry.Sync));
+                Pairs(writer, "env", entry.Env);
                 writer.WriteString("script", entry.Script);
                 writer.WriteString("data", entry.Data);
                 writer.WriteString("developer", entry.Developer);
@@ -93,6 +94,19 @@ internal static class Json
 
             writer.WriteEndArray();
         });
+
+    private static void Pairs(
+        Utf8JsonWriter writer, string name, IReadOnlyDictionary<string, string> values)
+    {
+        writer.WriteStartObject(name);
+
+        foreach (var (key, value) in values)
+        {
+            writer.WriteString(key, value);
+        }
+
+        writer.WriteEndObject();
+    }
 
     private static void Strings(
         Utf8JsonWriter writer, string name, IReadOnlyList<string> values)

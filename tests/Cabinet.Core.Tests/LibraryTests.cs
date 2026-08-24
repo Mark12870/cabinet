@@ -17,6 +17,7 @@ public class LibraryTests : IDisposable
         Runner: 9.21
         Dxvk: true
         Sync: fsync
+        Env: WINEDLLOVERRIDES=wbemprox=n
         Developer: Surge Synth Team
         Version: 1.3.4
         Licence: GPL-3.0
@@ -54,6 +55,7 @@ public class LibraryTests : IDisposable
         Assert.Equal("9.21", entry.Runner);
         Assert.True(entry.Dxvk);
         Assert.Equal(SyncMode.Fsync, entry.Sync);
+        Assert.Equal("wbemprox=n", entry.Env["WINEDLLOVERRIDES"]);
         Assert.Null(entry.Script);
         Assert.Null(entry.Launch);
         Assert.Null(entry.Data);
@@ -380,6 +382,59 @@ public class LibraryTests : IDisposable
                 "vital", "Name: Vital\nKind: native\nSource: byo\nDesktop: 1920x1080\n"));
 
         Assert.Contains("is native and carries Desktop", refused.Message);
+    }
+
+    [Fact]
+    public void ANativeEntryCarryingAnEnvironmentIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "vital", "Name: Vital\nKind: native\nSource: byo\nEnv: WINEDEBUG=-all\n"));
+
+        Assert.Contains("is native and carries Env", refused.Message);
+    }
+
+    [Fact]
+    public void AnEnvironmentBlockCarriesAVariableALine()
+    {
+        var entry = LibraryEntry.Parse(
+            "helix",
+            "Name: Helix\nKind: windows\nSource: byo\n"
+            + "Env:\n  WINEDLLOVERRIDES=*wbemprox,*wbemcomn=n\n  PULSE_LATENCY_MSEC=60\n");
+
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["WINEDLLOVERRIDES"] = "*wbemprox,*wbemcomn=n",
+                ["PULSE_LATENCY_MSEC"] = "60",
+            },
+            entry.Env);
+    }
+
+    [Fact]
+    public void AnEnvironmentLineThatIsNotAnAssignmentIsRefused()
+    {
+        foreach (var wrong in new[] { "WINEDEBUG", "=orphan" })
+        {
+            var refused = Assert.Throws<InvalidOperationException>(
+                () => LibraryEntry.Parse(
+                    "helix", $"Name: Helix\nKind: windows\nSource: byo\nEnv: {wrong}\n"));
+
+            Assert.Contains("one KEY=VALUE a line", refused.Message);
+        }
+    }
+
+    [Fact]
+    public void AnEntryIsRefusedTheVariablesCabinetPinsItself()
+    {
+        foreach (var owned in PrefixSettings.Owned)
+        {
+            var refused = Assert.Throws<InvalidOperationException>(
+                () => LibraryEntry.Parse(
+                    "helix", $"Name: Helix\nKind: windows\nSource: byo\nEnv: {owned}=/x\n"));
+
+            Assert.Contains($"sets {owned}, which Cabinet sets itself", refused.Message);
+        }
     }
 
     [Fact]
@@ -1041,6 +1096,38 @@ public class LibraryTests : IDisposable
         Assert.Contains("WINE", script.Environment.Keys);
         Assert.DoesNotContain(recording.Calls, call => call.Arguments.Contains(installer)
             && call.File != "sh");
+    }
+
+    [Fact]
+    public void AnEntrysEnvironmentIsSetBeforeItsInstallerEverRuns()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Prefix: thing
+            Script: fixture.sh
+            Env: WINEDLLOVERRIDES=wbemprox=n
+            """));
+
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var recording = new RecordingRunner();
+        var installer = Path.Combine(root, "thing-setup.exe");
+        File.WriteAllText(installer, "");
+
+        var library = new Library(layout, recording);
+
+        Assert.Throws<InvalidOperationException>(
+            () => library.Install(library.Find("thing"), installer: installer));
+
+        var script = Assert.Single(recording.Calls, call => call.File == "sh");
+
+        Assert.Equal("wbemprox=n", script.Environment["WINEDLLOVERRIDES"]);
+        Assert.Equal(
+            "WINEDLLOVERRIDES=wbemprox=n",
+            File.ReadAllText(layout.PrefixEnvFile("thing")).Trim());
     }
 
     private string Fixture()

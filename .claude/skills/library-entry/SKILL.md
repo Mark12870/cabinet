@@ -91,7 +91,7 @@ paragraphs is the right length for `Description` — what it is, then what it co
 detail about how Cabinet runs it**: no runner names, no DXVK, no registry keys, no Wine
 versions, no rendering APIs.
 
-**5. Decide the three fields that are judgements.** Everything above is a lookup; these are
+**5. Decide the four fields that are judgements.** Everything above is a lookup; these are
 decisions, and getting one wrong shows up much later as a plugin that installs and then cannot
 be used.
 
@@ -106,10 +106,14 @@ be used.
 - **`Sync: fsync`** alongside `Runner: 9.21`, which is a TkG build and has fsync. Do **not** set
   it for a runner that lacks fsync — Soda reports `( TkG Plain )` — and leave it out entirely to
   inherit whatever launched the DAW.
+- **`Env: KEY=VALUE`** for a variable the plugin needs in its Wine environment; indent one a
+  line under a bare `Env:` for several. Cabinet sets it on the prefix before the installer runs,
+  so it reaches the install too. Prefer it to a script writing
+  `HKCU\Software\Wine\DllOverrides`.
 - Always use **`Runner: wine-d2d1-11.0`** when the plugin uses the JUCE-8 framework. More info here: https://github.com/mklnln/wine-d2d1-dcomp
 
-`Kind: native` refuses all four of those outright: a Linux plugin is loaded by the DAW directly,
-so there is no prefix, runner, DXVK or sync to set.
+`Kind: native` refuses every one of those outright: a Linux plugin is loaded by the DAW
+directly, so there is no prefix, runner, DXVK, sync or environment to set.
 
 **6. Add the artwork.** `<vendor>/<id>.png` is a 192×192 icon for the row, `<id>.jpg` a
 screenshot no wider than 1000px, and `<vendor>/logo.png` the vendor's own mark, shown in a

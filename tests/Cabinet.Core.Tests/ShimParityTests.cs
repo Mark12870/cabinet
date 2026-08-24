@@ -23,6 +23,12 @@ public class ShimParityTests
     }
 
     [Fact]
+    public void NeitherSideLetsAPrefixTakeOverWhatCabinetPins()
+    {
+        Assert.Equal(PrefixSettings.Owned, List("CABINET_OWNED"));
+    }
+
+    [Fact]
     public void BothSidesSetTheSameVariablesForTheSameSyncMode()
     {
         var variables = List("SYNC_VARS");
