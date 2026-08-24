@@ -78,6 +78,14 @@ Also tried and made no difference:
   `--no-sandbox`, and combinations. Wasted effort: the app is not Chromium. The
   `DxgiFactory::CreateSwapChainForComposition: Not implemented` spam (~22,600 lines) is DXVK
   answering JUCE's Direct2D backend, and it is a symptom, not the cause.
+- **`Runner: wine-d2d1-11.0`, DXVK off** — Serum 2's JUCE-8 fix, tried on a fresh prefix once the
+  runner existed. Installs cleanly, same as every other runner. `lm.log` even gets two lines
+  further than the `soda-11.0-5` capture above — `Received url arguments` and `greeted` — but a
+  `.run`/`.run.lock` still lands in `CrashReports/` at the same instant, `level: fatal`,
+  `sentry.native 0.9.0`, `crashpad`, identical to every other runner's. The extra log lines are
+  IPC handshake noise before the same fatal crash, not progress past it. Confirms again that this
+  is not a rendering-API problem — it's the one runner built specifically for JUCE 8's renderer,
+  and it crashes identically.
 
 ## Older versions
 
@@ -96,7 +104,10 @@ Not obtainable from the vendor, so an older build could not be tested.
 
 ## If you revisit
 
-1. Read `lm.log`. If it now gets past `UUIDs:`, the licensing crash is fixed and this file can go.
+1. Read `lm.log`, but don't trust it alone — `wine-d2d1-11.0` got two lines past `UUIDs:` and
+   still crashed. Check `CrashReports/` for a fresh `.run` at the same timestamp too; only a
+   revisit with **no** new crash report and real activity in `lm.log` means the licensing crash
+   is fixed and this file can go.
 2. The crash is in Spitfire's own code under Wine, so the realistic fixes are upstream: a newer
    Wine, or a Spitfire release that stops crashing. A symbolised minidump from
    `Settings/App/CrashReports/` would name the faulting call, if it is worth that much.

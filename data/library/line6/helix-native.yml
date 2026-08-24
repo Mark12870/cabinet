@@ -1,0 +1,25 @@
+Name: Helix Native
+Kind: windows
+Category: Effect
+Summary: Line 6's guitar amp and effects modelling plugin.
+Developer: Line 6
+Version: 3.82
+Licence: Commercial
+Licensing:
+  A 15-day free trial runs fully featured. New licences are sold only to
+  registered owners of Helix and HX hardware; everyone else buys the newer
+  Helix Stadium Native instead.
+Formats: VST3
+Homepage: https://line6.com/helix/helixnative.html
+Source: byo
+Account: https://line6.com/account/
+Script: helix-native.sh
+Runner: 9.21
+Sync: fsync
+Description:
+  The HX modelling out of Line 6's Helix hardware, as a plugin: amps, cabs,
+  mics and effects wired together on a signal path you drag into shape, with
+  eight snapshots to switch between per preset.
+
+  It signs in to a Line 6 account to authorise, so you supply the installer
+  you downloaded from yours.
