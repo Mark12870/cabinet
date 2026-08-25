@@ -1,6 +1,6 @@
 ---
 name: library-entry
-description: Add a plugin to Cabinet's Library — the bundled catalogue the Library page and `cabinet library` read. Use whenever a new VST should be added.
+description: Add a plugin to Cabinet's bundled Library catalogue. Use when adding a VST, CLAP, LV2, or other catalogue entry under `data/library`.
 ---
 
 # Adding a plugin to the Library

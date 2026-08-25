@@ -1,6 +1,6 @@
 ---
 name: gui-shot
-description: Screenshot a page of Cabinet's GTK4 GUI so a change to it can actually be looked at. Use whenever GUI work needs visual confirmation — "does the About page look right", "show me the window", "check the runners list renders" — and before calling any Cabinet.Gui change done.
+description: Capture and inspect Cabinet's installed GTK4/libadwaita GUI. Use for GUI changes, visual confirmation, page screenshots, or before declaring `Cabinet.Gui` work complete.
 ---
 
 # Looking at Cabinet's GUI

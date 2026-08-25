@@ -1,6 +1,6 @@
 ---
 name: build-and-test
-description: Build, check and install Cabinet — what CI runs, what the pre-commit hook runs, and the two build steps no test reaches. Use before pushing, whenever `scripts/checks.sh` or `dotnet format` is involved, when building the flatpak or installing it locally, or when a change to Cabinet.Cli or Cabinet.Gui has to be proven to compile.
+description: Build and verify Cabinet with CI checks, focused .NET/Rust commands, or a local Flatpak install. Use when working with `scripts/checks.sh`, `dotnet format`, `Cabinet.Cli`, `Cabinet.Gui`, Flatpak builds, or before pushing.
 ---
 
 # Building and checking Cabinet

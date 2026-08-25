@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut and publish a Cabinet release — what the version means, where it lives, and what publishing can and cannot undo. Use when bumping the version, adding a metainfo <release>, committing a fix or feature that ships, running update-yabridge.py, or touching signing and the OSTree repo. Read before editing the metainfo, because a published version cannot be corrected afterwards.
+description: Cut and publish a Cabinet release safely. Use when changing the metainfo `<release>`, updating yabridge, signing or publishing the OSTree repository, or committing a shipping change.
 ---
 
 # Releasing Cabinet

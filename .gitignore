@@ -18,4 +18,8 @@
 
 # python
 __pycache__/
+
+# AI
+.claude/settings.local.json
 .aider*
+opencode.json

@@ -1,6 +1,6 @@
 ---
 name: palette
-description: Cabinet's colours and the rule about when they may be used at all. Use when picking a colour for anything Cabinet draws rather than themes — the app icon, the site, a diagram, an SVG — or when tempted to put a hex into the GUI.
+description: Apply Cabinet's palette rules to artwork and other non-theme output. Use when choosing colours for the app icon, site, diagrams, SVGs, or GUI elements that might use hex values.
 ---
 
 # Cabinet's palette
