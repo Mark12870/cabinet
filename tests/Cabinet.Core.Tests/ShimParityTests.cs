@@ -23,6 +23,12 @@ public class ShimParityTests
     }
 
     [Fact]
+    public void BothSidesRecogniseWinesDesktopWindow()
+    {
+        Assert.Equal(Layout.WineDesktopTitle, Constant("DESKTOP_TITLE"));
+    }
+
+    [Fact]
     public void NeitherSideLetsAPrefixTakeOverWhatCabinetPins()
     {
         Assert.Equal(PrefixSettings.Owned, List("CABINET_OWNED"));

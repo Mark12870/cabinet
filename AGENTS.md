@@ -170,3 +170,14 @@ Publishing is automatic and irreversible: a push to `main` touching
 differs from the version already published, keeping ten commits of rollback. So a metainfo bump
 on `main` is the release. Read the `release` skill before changing the metainfo, signing, or the
 published OSTree repository.
+
+## When stuck
+
+If progress depends on information, a runtime observation, or a decision
+that only the user can provide, ask the user instead of guessing.
+
+If two substantially different attempts fail, stop and either:
+- delegate to the debugger subagent, or
+- ask the user a focused question if user input could resolve the blocker.
+
+Do not consume the remaining step budget repeating similar investigations.

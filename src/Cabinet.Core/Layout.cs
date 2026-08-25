@@ -14,6 +14,8 @@ public sealed class Layout
 
     public const string BundledWineShare = "/app/share/wine";
 
+    public const string WineDesktopTitle = "Wine Desktop";
+
     public const string MetainfoPath = "/app/share/metainfo/" + AppId + ".metainfo.xml";
 
     public const string RunnerMarker = ".cabinet-runner";

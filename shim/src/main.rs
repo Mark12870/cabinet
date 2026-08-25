@@ -1,11 +1,14 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::process::CommandExt;
+use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod x11;
+
 const DEFAULT_APP: &str = "io.github.mark12870.cabinet";
+const DESKTOP_TITLE: &str = "Wine Desktop";
 
 const FORWARD: &[&str] = &[
     "WINEPREFIX",
@@ -258,9 +261,45 @@ fn main() {
         }
     }
 
-    let error = Command::new(&argv[0]).args(&argv[1..]).exec();
-    eprintln!("cabinet-wine: cannot exec {:?}: {error}", argv[0]);
-    std::process::exit(127);
+    let mut command = Command::new(&argv[0]);
+    command.args(&argv[1..]);
+
+    unsafe {
+        command.pre_exec(|| {
+            if prctl(PR_SET_PDEATHSIG, SIGTERM) == -1 {
+                return Err(std::io::Error::last_os_error());
+            }
+
+            Ok(())
+        });
+    }
+
+    let mut child = match command.spawn() {
+        Ok(child) => child,
+        Err(error) => {
+            eprintln!("cabinet-wine: cannot start {:?}: {error}", argv[0]);
+            std::process::exit(127);
+        }
+    };
+    let watcher = x11::Watcher::start();
+    let status = child.wait().unwrap_or_else(|error| {
+        eprintln!("cabinet-wine: cannot wait for {:?}: {error}", argv[0]);
+        std::process::exit(127);
+    });
+    drop(watcher);
+
+    std::process::exit(
+        status
+            .code()
+            .unwrap_or_else(|| 128 + status.signal().unwrap_or(1)),
+    );
+}
+
+const PR_SET_PDEATHSIG: i32 = 1;
+const SIGTERM: i32 = 15;
+
+extern "C" {
+    fn prctl(option: i32, ...) -> i32;
 }
 
 #[cfg(test)]
