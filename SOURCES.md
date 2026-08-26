@@ -25,6 +25,7 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | helix-native | the *GUI Overview* figure in Line 6's own *Helix Native Pilot's Guide*, which the installer leaves at `ProgramData/Line 6/Helix Native/res/` and Line 6 also publish; the page draws its red callout lines as vector overlays, so the raster underneath comes out clean. Their product page has only a marketing composite with the plugin too small to crop |
 | drumgizmo | `drumgizmo.org/wiki/lib/exe/fetch.php?media=drumgizmo-0.9.15.png`, the official DrumGizmo Wiki interface screenshot |
 | neural-amp-modeler | `github.com/mikeoliphant/neural-amp-modeler-lv2/releases/tag/v0.2.3`, the LV2 port's supplied `resources/modgui/screenshot-nam.png`; its icon is the project's `NeuralAmpModeler/resources/Images.xcassets/AppIcon.appiconset/icon_512x512.png` |
+| mt-power-drum-kit-2 | `powerdrumkit.com/images/drum_sampler.jpg`, the official MT Power Drum Kit interface screenshot |
 
 | Vendor | Logo |
 | --- | --- |
@@ -44,3 +45,4 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | line6 | the LINE 6 pill mark, `commons.wikimedia.org/wiki/File:Line_6_logo.svg`, PD-textlogo; solid black ink on transparent, recoloured white |
 | drumgizmo | `drumgizmo-0.9.20.tar.gz` from `drumgizmo.org/releases/drumgizmo-0.9.20/`, `plugingui/resources/logo.png`, recoloured white |
 | neural-amp-modeler | `neuralampmodeler.com`, the project's 192px favicon containing the NAM mark |
+| manda-audio | `powerdrumkit.com/images/manda-audio.gif`, Manda Audio's own 300px logo, keyed off its black background |

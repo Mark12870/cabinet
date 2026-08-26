@@ -1,0 +1,19 @@
+Name: MT Power Drum Kit 2
+Kind: native
+Category: Drums
+Summary: Free acoustic drum sampler with a mixer and groove library.
+Developer: Manda Audio
+Version: 2.1.5.1
+Licence: Freeware
+Licensing: Free for personal and commercial music projects
+Formats: VST3
+Homepage: https://www.powerdrumkit.com/
+Source: download
+Url: https://cdn2.resources.manda-audio.com/DOWNLOADS/products/mtpdk2_free/2.1.5/MTPDK-2.1.5.1-VST3-64bit-Linux-FULL.zip
+Sha256: 95bf11b8874b8030b6cbd29217a86559758a96de2323cb6775693f5956a7a46a
+Description:
+  A free acoustic drum sampler with a complete kit, channel compressors and EQ,
+  separate mixer outputs, and controls for tuning and dynamics.
+
+  Its groove library provides ready-made rhythms and fills, while MIDI mapping
+  and e-drum support make it practical for building realistic drum parts.
