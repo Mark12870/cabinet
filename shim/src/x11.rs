@@ -1,5 +1,5 @@
 use crate::DESKTOP_TITLE;
-use std::os::raw::{c_char, c_int, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void};
+use std::os::raw::{c_char, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void};
 use std::ptr;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
@@ -73,7 +73,27 @@ type Free = unsafe extern "C" fn(*mut c_void) -> c_int;
 type InternAtom = unsafe extern "C" fn(*mut Display, *const c_char, c_int) -> Atom;
 type ChangeProperty =
     unsafe extern "C" fn(*mut Display, Window, Atom, Atom, c_int, c_int, *const c_uchar, c_int);
+type SendEvent =
+    unsafe extern "C" fn(*mut Display, Window, c_int, c_long, *mut ClientMessage) -> c_int;
 type Flush = unsafe extern "C" fn(*mut Display) -> c_int;
+
+const CLIENT_MESSAGE: c_int = 33;
+const SUBSTRUCTURE_NOTIFY: c_long = 1 << 19;
+const SUBSTRUCTURE_REDIRECT: c_long = 1 << 20;
+const NET_WM_STATE_ADD: c_long = 1;
+
+#[repr(C)]
+struct ClientMessage {
+    kind: c_int,
+    serial: c_ulong,
+    send_event: c_int,
+    display: *mut Display,
+    window: Window,
+    message_type: Atom,
+    format: c_int,
+    data: [c_long; 5],
+    _pad: [c_long; 12],
+}
 
 struct X11 {
     _library: Library,
@@ -85,6 +105,7 @@ struct X11 {
     free: Free,
     intern_atom: InternAtom,
     change_property: ChangeProperty,
+    send_event: SendEvent,
     flush: Flush,
 }
 
@@ -102,6 +123,7 @@ impl X11 {
                 free: library.symbol(b"XFree\0")?,
                 intern_atom: library.symbol(b"XInternAtom\0")?,
                 change_property: library.symbol(b"XChangeProperty\0")?,
+                send_event: library.symbol(b"XSendEvent\0")?,
                 flush: library.symbol(b"XFlush\0")?,
                 _library: library,
             })
@@ -111,9 +133,9 @@ impl X11 {
     unsafe fn hide_tree(
         &self,
         display: *mut Display,
+        root: Window,
         window: Window,
-        opacity: Atom,
-        cardinal: Atom,
+        atoms: &Atoms,
         shape: Option<&Shape>,
         depth: u8,
     ) {
@@ -130,8 +152,8 @@ impl X11 {
                 (self.change_property)(
                     display,
                     window,
-                    opacity,
-                    cardinal,
+                    atoms.opacity,
+                    atoms.cardinal,
                     32,
                     PROP_MODE_REPLACE,
                     (&value as *const u32).cast(),
@@ -141,12 +163,51 @@ impl X11 {
                 if let Some(shape) = shape {
                     shape.hide_input(display, window);
                 }
+
+                let skip = [atoms.skip_taskbar, atoms.skip_pager];
+
+                (self.change_property)(
+                    display,
+                    window,
+                    atoms.net_wm_state,
+                    atoms.atom,
+                    32,
+                    PROP_MODE_REPLACE,
+                    skip.as_ptr().cast(),
+                    skip.len() as c_int,
+                );
+
+                let mut message = ClientMessage {
+                    kind: CLIENT_MESSAGE,
+                    serial: 0,
+                    send_event: 1,
+                    display,
+                    window,
+                    message_type: atoms.net_wm_state,
+                    format: 32,
+                    data: [
+                        NET_WM_STATE_ADD,
+                        atoms.skip_taskbar as c_long,
+                        atoms.skip_pager as c_long,
+                        1,
+                        0,
+                    ],
+                    _pad: [0; 12],
+                };
+
+                (self.send_event)(
+                    display,
+                    root,
+                    0,
+                    SUBSTRUCTURE_REDIRECT | SUBSTRUCTURE_NOTIFY,
+                    &mut message,
+                );
             }
 
             (self.free)(title.cast());
         }
 
-        let mut root = 0;
+        let mut tree_root = 0;
         let mut parent = 0;
         let mut children = ptr::null_mut();
         let mut count = 0;
@@ -154,7 +215,7 @@ impl X11 {
         if (self.query_tree)(
             display,
             window,
-            &mut root,
+            &mut tree_root,
             &mut parent,
             &mut children,
             &mut count,
@@ -175,9 +236,18 @@ impl X11 {
         }
 
         for child in children {
-            self.hide_tree(display, child, opacity, cardinal, shape, depth + 1);
+            self.hide_tree(display, root, child, atoms, shape, depth + 1);
         }
     }
+}
+
+struct Atoms {
+    opacity: Atom,
+    cardinal: Atom,
+    net_wm_state: Atom,
+    atom: Atom,
+    skip_taskbar: Atom,
+    skip_pager: Atom,
 }
 
 type ShapeQueryExtension = unsafe extern "C" fn(*mut Display, *mut c_int, *mut c_int) -> c_int;
@@ -296,15 +366,31 @@ unsafe fn watch_display(
     stop: Arc<AtomicBool>,
 ) {
     let root = (x11.default_root_window)(display);
-    let opacity = (x11.intern_atom)(display, b"_NET_WM_WINDOW_OPACITY\0".as_ptr().cast(), 0);
-    let cardinal = (x11.intern_atom)(display, b"CARDINAL\0".as_ptr().cast(), 0);
+    let atoms = Atoms {
+        opacity: (x11.intern_atom)(display, b"_NET_WM_WINDOW_OPACITY\0".as_ptr().cast(), 0),
+        cardinal: (x11.intern_atom)(display, b"CARDINAL\0".as_ptr().cast(), 0),
+        net_wm_state: (x11.intern_atom)(display, b"_NET_WM_STATE\0".as_ptr().cast(), 0),
+        atom: (x11.intern_atom)(display, b"ATOM\0".as_ptr().cast(), 0),
+        skip_taskbar: (x11.intern_atom)(
+            display,
+            b"_NET_WM_STATE_SKIP_TASKBAR\0".as_ptr().cast(),
+            0,
+        ),
+        skip_pager: (x11.intern_atom)(display, b"_NET_WM_STATE_SKIP_PAGER\0".as_ptr().cast(), 0),
+    };
 
-    if opacity == 0 || cardinal == 0 {
+    if atoms.opacity == 0
+        || atoms.cardinal == 0
+        || atoms.net_wm_state == 0
+        || atoms.atom == 0
+        || atoms.skip_taskbar == 0
+        || atoms.skip_pager == 0
+    {
         return;
     }
 
     while !stop.load(Ordering::Relaxed) {
-        x11.hide_tree(display, root, opacity, cardinal, shape, 0);
+        x11.hide_tree(display, root, root, &atoms, shape, 0);
         (x11.flush)(display);
         thread::sleep(Duration::from_millis(250));
     }
@@ -317,5 +403,18 @@ mod tests {
     #[test]
     fn desktop_title_is_the_wine_title() {
         assert_eq!(DESKTOP_TITLE, "Wine Desktop");
+    }
+
+    #[test]
+    fn a_client_message_matches_what_xlib_reads() {
+        assert_eq!(std::mem::size_of::<ClientMessage>(), 192);
+        assert_eq!(std::mem::offset_of!(ClientMessage, kind), 0);
+        assert_eq!(std::mem::offset_of!(ClientMessage, serial), 8);
+        assert_eq!(std::mem::offset_of!(ClientMessage, send_event), 16);
+        assert_eq!(std::mem::offset_of!(ClientMessage, display), 24);
+        assert_eq!(std::mem::offset_of!(ClientMessage, window), 32);
+        assert_eq!(std::mem::offset_of!(ClientMessage, message_type), 40);
+        assert_eq!(std::mem::offset_of!(ClientMessage, format), 48);
+        assert_eq!(std::mem::offset_of!(ClientMessage, data), 56);
     }
 }

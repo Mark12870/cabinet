@@ -183,11 +183,10 @@ Do not consume the remaining step budget repeating similar investigations.
   known.
 - Use a `general` subagent for complex, independent multi-step work that can be completed without duplicating the main
   task.
-- You must use the `code-reviewer` subagent for an independent review focused on bugs, regressions, and missing tests.
-  Do it always after you finish your code changes.
-- You must use the `code-tester` subagent to design or run verification for a new feature or fix. Use it also for GUI
+- Use the `debugger` subagent when the task requires difficult reasoning, the correct approach is unclear, or you are
+  not confident in the solution. You MUST use `debugger` after two substantially different approaches have failed.
+- You MUST use the `code-tester` subagent to design or run verification for a new feature or fix. Use it also for GUI
   verifications.
-- You must use the `debugger` subagent when diagnosing a difficult failure, especially after two substantially different
-  approaches have failed.
-- Run independent subagent tasks in parallel when possible. Give each task its scope, expected output, and verification
-  command, and do not repeat work already delegated.
+- You MUST run the `code-reviewer` subagent exactly once after all implementation, testing, and resulting fixes are
+  complete, immediately before the final response, and never during intermediate changes.
+- Run independent subagent tasks in parallel when possible, except `code-reviewer`.
