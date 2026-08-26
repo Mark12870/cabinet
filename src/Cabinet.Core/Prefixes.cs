@@ -23,14 +23,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         return Directory.EnumerateDirectories(layout.PrefixesDir)
             .OrderBy(path => path, StringComparer.Ordinal)
             .Select(path => Path.GetFileName(path))
-            .Select(name => new Prefix(
-                name,
-                layout.PrefixPath(name),
-                Directory.Exists(Path.Combine(layout.PrefixPath(name), "dosdevices")),
-                RunnerOf(name),
-                dxvk.InstalledIn(name),
-                settings.Sync(name),
-                desktop.SizeIn(name)))
+            .Select(Describe)
             .ToList();
     }
 
@@ -91,9 +84,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             Directory.CreateDirectory(directory);
         }
 
-        return new Prefix(
-            name, path, true, RunnerOf(name), dxvk.InstalledIn(name), settings.Sync(name),
-            desktop.SizeIn(name));
+        return Describe(name);
     }
 
     public void ContainProfile(string name)
@@ -128,6 +119,16 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             Path.IsPathRooted(target)
                 ? target
                 : Path.Combine(Path.GetDirectoryName(link)!, target));
+
+    private Prefix Describe(string name) =>
+        new(
+            name,
+            layout.PrefixPath(name),
+            Directory.Exists(Path.Combine(layout.PrefixPath(name), "dosdevices")),
+            RunnerOf(name),
+            dxvk.InstalledIn(name),
+            settings.Sync(name),
+            desktop.SizeIn(name));
 
     public void Delete(string name, Action<string>? onOutput = null)
     {

@@ -10,6 +10,8 @@ identical: a check that only CI runs is a check that only fails after a push, wh
 script exists rather than a block to copy. Both toolchains come from SDK extensions the script
 enters on its own.
 
+You must use the code-tester subagent for this.
+
 ## Run the checks
 
 **1. Enable the hook, once per clone.**

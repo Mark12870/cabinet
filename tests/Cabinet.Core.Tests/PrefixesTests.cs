@@ -115,6 +115,25 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void CreatingAPrefixReportsItsCompleteState()
+    {
+        var path = Layout.PrefixPath("serum");
+        Directory.CreateDirectory(Path.Combine(path, "dosdevices"));
+        File.WriteAllText(Layout.PrefixDxvkFile("serum"), "2.7.1");
+        File.WriteAllText(Layout.PrefixSyncFile("serum"), "fsync");
+        File.WriteAllText(
+            Layout.PrefixUserReg("serum"),
+            "[Software\\\\Wine\\\\Explorer]\n\"Desktop\"=\"Default\"\n"
+            + "[Software\\\\Wine\\\\Explorer\\\\Desktops]\n\"Default\"=\"1280x720\"\n");
+
+        var expected = new Prefix(
+            "serum", path, true, Layout.BundledRunner, "2.7.1", SyncMode.Fsync, "1280x720");
+
+        Assert.Equal(expected, Subject.Create("serum"));
+        Assert.Equal(expected, Assert.Single(Subject.List()));
+    }
+
+    [Fact]
     public void SettingARunnerRecordsItWhereTheShimLooks()
     {
         Directory.CreateDirectory(Layout.PrefixPath("serum"));
