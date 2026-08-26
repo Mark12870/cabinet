@@ -24,6 +24,7 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | ik-product-manager | IK's product page, `ikmultimedia.com/products/productmanager/images/1.0/ik_pm_gui_software@2x.jpg` — the manager's Software tab, the list every IK plugin is installed and authorised from |
 | helix-native | the *GUI Overview* figure in Line 6's own *Helix Native Pilot's Guide*, which the installer leaves at `ProgramData/Line 6/Helix Native/res/` and Line 6 also publish; the page draws its red callout lines as vector overlays, so the raster underneath comes out clean. Their product page has only a marketing composite with the plugin too small to crop |
 | drumgizmo | `drumgizmo.org/wiki/lib/exe/fetch.php?media=drumgizmo-0.9.15.png`, the official DrumGizmo Wiki interface screenshot |
+| neural-amp-modeler | `github.com/mikeoliphant/neural-amp-modeler-lv2/releases/tag/v0.2.3`, the LV2 port's supplied `resources/modgui/screenshot-nam.png`; its icon is the project's `NeuralAmpModeler/resources/Images.xcassets/AppIcon.appiconset/icon_512x512.png` |
 
 | Vendor | Logo |
 | --- | --- |
@@ -42,3 +43,4 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | ik-multimedia | the hexagonal IK mark at the left of `ikmultimedia.com/images/layout/IK_LOGO_DL_RGB_WHITE_FFF.svg`, vector and already white; the MULTIMEDIA wordmark beside it is 3.6:1 and unreadable at this size. The manager's icon is not a crop of its screenshot: a product list is unreadable at the 32px a row draws, so it is the app's own 256px icon, the same hexagon filled red, out of the shortcut its installer leaves in the prefix |
 | line6 | the LINE 6 pill mark, `commons.wikimedia.org/wiki/File:Line_6_logo.svg`, PD-textlogo; solid black ink on transparent, recoloured white |
 | drumgizmo | `drumgizmo-0.9.20.tar.gz` from `drumgizmo.org/releases/drumgizmo-0.9.20/`, `plugingui/resources/logo.png`, recoloured white |
+| neural-amp-modeler | `neuralampmodeler.com`, the project's 192px favicon containing the NAM mark |
