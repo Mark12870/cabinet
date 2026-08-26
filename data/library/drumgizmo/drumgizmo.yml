@@ -1,0 +1,20 @@
+Name: DrumGizmo
+Kind: native
+Category: Drums
+Summary: Open-source multichannel drum sampler with an open kit format.
+Developer: DrumGizmo Team
+Version: 0.9.20-1
+Licence: LGPL-3.0
+Formats: LV2
+Homepage: https://drumgizmo.org
+Url: https://deb.debian.org/debian/pool/main/d/drumgizmo/drumgizmo_0.9.20-1_amd64.deb
+Sha256: 9521f2e6a9e14f3f36366ceb21d68203b972fdfe24360cc6ee90248a9d2944fd
+Source: download
+Script: drumgizmo.sh
+Description:
+  A drum sampler built for detailed acoustic kits, with multiple velocity layers,
+  humanisation, mic bleed and up to sixteen separate audio outputs for mixing.
+
+  DrumGizmo uses an open drumkit format, so community-made kits can be edited and
+  shared instead of locking the sounds to one vendor's library. Kits are separate
+  downloads from the plugin.

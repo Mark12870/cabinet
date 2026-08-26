@@ -23,6 +23,7 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | decent-sampler | Decent Samples' product page, `decentsamples.com/wp-content/uploads/2020/06/Screen-Shot-2022-08-06-at-7.11.22-AM.png` — the plugin with their own Basic Piano loaded, a 1.x build and the shot they still sell it with; 1.25.0's standalone was run here and draws an empty panel until an instrument is in it |
 | ik-product-manager | IK's product page, `ikmultimedia.com/products/productmanager/images/1.0/ik_pm_gui_software@2x.jpg` — the manager's Software tab, the list every IK plugin is installed and authorised from |
 | helix-native | the *GUI Overview* figure in Line 6's own *Helix Native Pilot's Guide*, which the installer leaves at `ProgramData/Line 6/Helix Native/res/` and Line 6 also publish; the page draws its red callout lines as vector overlays, so the raster underneath comes out clean. Their product page has only a marketing composite with the plugin too small to crop |
+| drumgizmo | `drumgizmo.org/wiki/lib/exe/fetch.php?media=drumgizmo-0.9.15.png`, the official DrumGizmo Wiki interface screenshot |
 
 | Vendor | Logo |
 | --- | --- |
@@ -40,3 +41,4 @@ interface and each `<vendor>/<id>.png` a square crop of it, resized here; nothin
 | decent-samples | the `ds` mark, their own favicon at `decentsamples.com/wp-content/uploads/2018/09/cropped-Favicon_512x512.png`, 512×512, black on an opaque white square, keyed off it and recoloured white |
 | ik-multimedia | the hexagonal IK mark at the left of `ikmultimedia.com/images/layout/IK_LOGO_DL_RGB_WHITE_FFF.svg`, vector and already white; the MULTIMEDIA wordmark beside it is 3.6:1 and unreadable at this size. The manager's icon is not a crop of its screenshot: a product list is unreadable at the 32px a row draws, so it is the app's own 256px icon, the same hexagon filled red, out of the shortcut its installer leaves in the prefix |
 | line6 | the LINE 6 pill mark, `commons.wikimedia.org/wiki/File:Line_6_logo.svg`, PD-textlogo; solid black ink on transparent, recoloured white |
+| drumgizmo | `drumgizmo-0.9.20.tar.gz` from `drumgizmo.org/releases/drumgizmo-0.9.20/`, `plugingui/resources/logo.png`, recoloured white |

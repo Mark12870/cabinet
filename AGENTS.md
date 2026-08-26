@@ -181,3 +181,17 @@ If two substantially different attempts fail, stop and either:
 - ask the user a focused question if user input could resolve the blocker.
 
 Do not consume the remaining step budget repeating similar investigations.
+
+## Subagents
+
+- Use an `explore` subagent for open-ended repository searches or when the relevant files and
+  conventions are not yet known.
+- Use a `general` subagent for complex, independent multi-step work that can be completed without
+  duplicating the main task.
+- Use a `code-reviewer` subagent for an independent review focused on bugs, regressions, and missing
+  tests.
+- Use a `code-tester` subagent to design or run verification for a new feature or fix.
+- Use a `debugger` subagent when diagnosing a difficult failure, especially after two substantially
+  different approaches have failed.
+- Run independent subagent tasks in parallel when possible. Give each task its scope, expected
+  output, and verification command, and do not repeat work already delegated.
