@@ -15,12 +15,13 @@ amber-flame today), the site, a diagram, anything drawn rather than themed.
 
 | Color | Hex | Preview |
 |---|---|---|
+| watermelon | `#ee4266` | <span style="display:inline-block;width:80px;height:24px;background:#ee4266;"></span> |
+| peach-mist | `#f6c7a1` | <span style="display:inline-block;width:80px;height:24px;background:#f6c7a1;"></span> |
+| ivory-mist | `#fff8eb` | <span style="display:inline-block;width:80px;height:24px;background:#fff8eb;"></span> |
 | espresso | `#663322` | <span style="display:inline-block;width:80px;height:24px;background:#663322;"></span> |
 | amber-flame | `#ffbb00` | <span style="display:inline-block;width:80px;height:24px;background:#ffbb00;"></span> |
 | pale-sky | `#bfdbf7` | <span style="display:inline-block;width:80px;height:24px;background:#bfdbf7;"></span> |
 | jungle-teal | `#227d66` | <span style="display:inline-block;width:80px;height:24px;background:#227d66;"></span> |
-| watermelon | `#ee4266` | <span style="display:inline-block;width:80px;height:24px;background:#ee4266;"></span> |
-| ivory-mist | `#fff8eb` | <span style="display:inline-block;width:80px;height:24px;background:#fff8eb;border:1px solid #ccc;"></span> |
 | roast-black | `#211814` | <span style="display:inline-block;width:80px;height:24px;background:#211814;"></span> |
 | soft-sand | `#e8d6bd` | <span style="display:inline-block;width:80px;height:24px;background:#e8d6bd;"></span> |
 | dusky-violet | `#76658a` | <span style="display:inline-block;width:80px;height:24px;background:#76658a;"></span> |
