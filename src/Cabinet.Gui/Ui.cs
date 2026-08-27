@@ -57,6 +57,29 @@ internal static class Ui
         return button;
     }
 
+    public static Adw.ActionRow ActionRow(
+        string title,
+        string subtitle,
+        string iconName,
+        Action clicked,
+        bool destructive = false)
+    {
+        var row = Adw.ActionRow.New();
+        row.SetTitle(title);
+
+        if (subtitle.Length > 0)
+        {
+            row.SetSubtitle(subtitle);
+        }
+
+        var button = RowButton(iconName, title, destructive);
+        button.OnClicked += (_, _) => clicked();
+        row.AddSuffix(button);
+        row.SetActivatableWidget(button);
+
+        return row;
+    }
+
     public static void Prompt(
         Gtk.Widget parent,
         string heading,

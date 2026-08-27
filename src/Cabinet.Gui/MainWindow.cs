@@ -4,8 +4,6 @@ namespace Cabinet.Gui;
 
 internal sealed class MainWindow
 {
-    private readonly Layout layout;
-    private readonly IProcessRunner runner;
     private readonly Adw.ApplicationWindow window;
     private readonly Adw.ViewStack stack = Adw.ViewStack.New();
     private readonly Adw.NavigationView navigation = Adw.NavigationView.New();
@@ -19,9 +17,6 @@ internal sealed class MainWindow
 
     public MainWindow(Adw.Application application, Layout layout, IProcessRunner runner)
     {
-        this.layout = layout;
-        this.runner = runner;
-
         window = Adw.ApplicationWindow.New(application);
         window.SetTitle("Cabinet");
         window.SetDefaultSize(920, 640);
@@ -29,7 +24,7 @@ internal sealed class MainWindow
         prefixes = new PrefixesPage(layout, runner, window, navigation, RefreshAll);
         library = new LibraryPage(layout, runner, window, navigation, RefreshAll, Toast);
         runners = new RunnersPage(layout, runner, window, RefreshAll);
-        doctor = new DoctorPage(layout, runner);
+        doctor = new DoctorPage(layout, runner, window, RefreshAll);
         about = new AboutPage(layout, runner, window);
 
         stack.AddTitledWithIcon(library.Widget, "library", "Library", Icons.Library);
@@ -39,7 +34,7 @@ internal sealed class MainWindow
         stack.AddTitledWithIcon(about.Widget, "about", "About", Icons.About);
 
         var view = Adw.ToolbarView.New();
-        view.AddTopBar(Header());
+        view.AddTopBar(Adw.HeaderBar.New());
         view.AddBottomBar(Switcher());
         view.SetContent(stack);
 
@@ -53,25 +48,6 @@ internal sealed class MainWindow
     public void Present() => window.Present();
 
     private void Toast(string message) => toasts.AddToast(Adw.Toast.New(message));
-
-    private Adw.HeaderBar Header()
-    {
-        var header = Adw.HeaderBar.New();
-
-        var refresh = Ui.IconButton(Icons.Refresh, "Look at everything again");
-        refresh.OnClicked += (_, _) => RefreshAll();
-        header.PackEnd(refresh);
-
-        var sync = Ui.IconButton(Icons.Sync, "Bridge what is installed");
-        sync.OnClicked += (_, _) => Sync();
-        header.PackEnd(sync);
-
-        var enrol = Ui.IconButton(Icons.Enrol, "Enrol a DAW");
-        enrol.OnClicked += (_, _) => AskForDaw();
-        header.PackEnd(enrol);
-
-        return header;
-    }
 
     private Adw.ViewSwitcherBar Switcher()
     {
@@ -88,50 +64,5 @@ internal sealed class MainWindow
         runners.Refresh();
         doctor.Refresh();
         about.Refresh();
-    }
-
-    private void Sync() =>
-        Operation.Run(
-            window,
-            "Bridging plugins",
-            output =>
-            {
-                var found = new Prefixes(layout, runner).List();
-                var result = new Yabridgectl(layout, runner).SyncPrefixes(found);
-
-                foreach (var line in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-                {
-                    output(line);
-                }
-
-                Operation.Ensure(result, "yabridgectl");
-            },
-            RefreshAll);
-
-    private void AskForDaw() =>
-        Ui.Prompt(
-            window,
-            "Enrol a DAW",
-            "The Flatpak id of the DAW it should bridge plugins into.",
-            "fm.reaper.Reaper",
-            EnrolDaw);
-
-    private void EnrolDaw(string dawId)
-    {
-        string link;
-
-        try
-        {
-            link = Enrolment.Link(dawId, layout);
-        }
-        catch (Exception exception)
-        {
-            Ui.Report(window, "Could not enrol", exception.Message);
-            return;
-        }
-
-        new EnrolmentDialog(window, layout, dawId, link).Present();
-
-        RefreshAll();
     }
 }

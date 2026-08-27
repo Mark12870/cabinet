@@ -46,11 +46,13 @@ internal sealed class PrefixPage
 
         var actions = Adw.PreferencesGroup.New();
         actions.SetTitle("Prefix");
-        actions.Add(Action("Environment variables", Icons.Variables, EditVariables));
-        actions.Add(Action("Windows installer", Icons.Install, ChooseInstaller));
-        actions.Add(Action("Wine configuration", Icons.Configure, () => Run("winecfg", [])));
-        actions.Add(Action("Run a command", Icons.Command, AskForCommand));
-        actions.Add(Action("Delete", Icons.Delete, ConfirmDelete, destructive: true));
+        actions.Add(Ui.ActionRow("Environment variables", "", Icons.Variables, EditVariables));
+        actions.Add(Ui.ActionRow("Windows installer", "", Icons.Install, ChooseInstaller));
+        actions.Add(
+            Ui.ActionRow("Wine configuration", "", Icons.Configure, () => Run("winecfg", [])));
+        actions.Add(Ui.ActionRow("Run a command", "", Icons.Command, AskForCommand));
+        actions.Add(
+            Ui.ActionRow("Delete", "", Icons.Delete, ConfirmDelete, destructive: true));
 
         body.Append(settings);
         body.Append(actions);
@@ -189,20 +191,6 @@ internal sealed class PrefixPage
 
     private static string Label(SyncMode mode) =>
         mode == SyncMode.System ? "System" : PrefixSettings.Word(mode);
-
-    private static Adw.ActionRow Action(
-        string title, string iconName, Action clicked, bool destructive = false)
-    {
-        var row = Adw.ActionRow.New();
-        row.SetTitle(title);
-
-        var button = Ui.RowButton(iconName, title, destructive);
-        button.OnClicked += (_, _) => clicked();
-        row.AddSuffix(button);
-        row.SetActivatableWidget(button);
-
-        return row;
-    }
 
     private void UseRunner(string runnerName) =>
         Operation.Run(

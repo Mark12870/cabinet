@@ -120,7 +120,7 @@ pipeline ends in a failing `xdotool search` aborts the caller under `set -euo pi
   `Library.Install`.
 - **The root page while a subpage is pushed** — trigger the refresh from an operation the
   subpage itself offers. `Adw.NavigationView` drops the hidden page from the accessibility
-  tree, so the header's *Look at everything again* button is not there to click.
+  tree, so Doctor's *Look at everything again* button is not there to click.
 - **A stray GUI to kill** — `pkill -x cabinet-gui`. Never `-f`: the pattern matches the shell
   running it and kills the session.
 
