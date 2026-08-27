@@ -166,6 +166,9 @@ modules:
           for script in "$vendor"*.sh; do
             if [ -f "$script" ]; then install -Dm755 "$script" -t "$dest"/; fi
           done
+          for response in "$vendor"*.iss; do
+            if [ -f "$response" ]; then install -Dm644 "$response" -t "$dest"/; fi
+          done
         done
     sources:
       - type: dir

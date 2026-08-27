@@ -163,7 +163,7 @@ verification from here stops at what the disk shows.
 
 ### An account-gated download
 
-Anything behind a login, a licence agreement, an account or a download manager is `Source: byo`.
+Anything behind a login is `Source: byo`.
 The entry still carries the prefix, runner, DXVK and sync knowledge — that is most of its value —
 and only the file comes from the user. **Do not try to script a login.** Omit `Url` and `Sha256`;
 the error `Library.Install` raises already tells the user exactly what to pass.

@@ -1,0 +1,26 @@
+Name: Melodyne
+Kind: windows
+Category: Effect
+Summary: Note-based pitch, timing and audio editing for vocals and instruments.
+Developer: Celemony
+Version: 5.4.2
+Licence: Commercial
+Licensing:
+  The download is a fully functional 30-day trial of Melodyne 5 studio. It needs
+  internet access to register and launch; a purchased licence unlocks it.
+Formats: VST3
+Homepage: https://www.celemony.com/en/trial?checkLang=1
+Source: download
+Url: https://s3.eu-west-1.amazonaws.com/assets.celemony.com/Demos/Melodyne.5.4.2.006-Demo.exe
+Sha256: 53310eaffdf5ab9198a076a683943e516011366f81aa49813b20006fbffccef7
+Runner: 9.21
+Sync: fsync
+Script: melodyne.sh
+Description:
+  Melodyne turns recordings into notes you can see and edit: correct pitch and
+  timing, reshape phrasing, and work on vocals, instruments, drums or samples.
+  The editor and studio editions also work with polyphonic material such as piano
+  and guitar.
+
+  This is the full Melodyne studio trial for 30 days. It can be unlocked with a
+  Celemony licence, and you can switch to another edition from the licence menu.

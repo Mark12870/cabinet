@@ -1,0 +1,26 @@
+[InstallShield Silent]
+Version=v7.00
+File=Response File
+[File Transfer]
+OverwrittenReadOnly=NoToAll
+[{16DF894D-FC3F-4B87-908D-671E201CD7A8}-DlgOrder]
+Dlg0={16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdWelcome-0
+Count=4
+Dlg1={16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdLicense2-0
+Dlg2={16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdStartCopy2-0
+Dlg3={16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdFinish-0
+[{16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdWelcome-0]
+Result=1
+[{16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdLicense2-0]
+Result=1
+[{16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdStartCopy2-0]
+Result=1
+[Application]
+Name=Melodyne 5
+Version=5.04.02006
+Company=Celemony Software GmbH
+Lang=0409
+[{16DF894D-FC3F-4B87-908D-671E201CD7A8}-SdFinish-0]
+Result=1
+bOpt1=0
+bOpt2=0
