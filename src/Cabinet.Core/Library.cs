@@ -449,6 +449,14 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         try
         {
             ran = prefixes.Run(where, "wine", [entry.Launch], logTo: log);
+
+            var settled = prefixes.Run(where, "wineserver", ["-w"], logTo: log);
+
+            if (!settled.Ok)
+            {
+                throw new InvalidOperationException(
+                    $"Wine processes did not finish for '{entry.Name}' (exit code {settled.ExitCode})");
+            }
         }
         finally
         {

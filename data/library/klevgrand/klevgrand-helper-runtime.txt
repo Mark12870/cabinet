@@ -1,0 +1,80 @@
+Klevgrand Helper archive runtime
+
+This archive contains unmodified x86-64 MinGW runtime files from MSYS2. The
+MSYS2 package archives, exact versions, and SHA-256 values used to build it
+are listed below. The package archives are available from:
+https://mirror.msys2.org/mingw/mingw64/
+
+mingw-w64-x86_64-libarchive-3.8.9-5-any.pkg.tar.zst
+  431016c393e3f0fec64c143eedd77c93c4003f8a6d04230ce44325937f4b8880
+mingw-w64-x86_64-bzip2-1.0.8-4-any.pkg.tar.zst
+  123768f30ae14ba654a6feb70f8526146a331bc85f831a91a549ffb3f6cbffc7
+mingw-w64-x86_64-expat-2.8.3-1-any.pkg.tar.zst
+  1150633696e2cad490c03517b4a3e240dfb23b8937afef7e7fc45e2dc8751f55
+mingw-w64-x86_64-libb2-0.98.1-3-any.pkg.tar.zst
+  3c898f08c5f19e25dc6d7e39aa36b6f323141f0e62c5c50f089cd3f89711854c
+mingw-w64-x86_64-libiconv-1.19-1-any.pkg.tar.zst
+  21e334d0911f25de75d3e18e0697648bcecfa9658256d600cad0827d719c2f35
+mingw-w64-x86_64-lz4-1.10.0-1-any.pkg.tar.zst
+  a4c5a3bcd26111554c87591275b8a681bfa4473d1607647e24c22ef6213c055c
+mingw-w64-x86_64-pcre2-10.47-1-any.pkg.tar.zst
+  7c9e3cd47af02a096c0c1810d1021f63c5fb1d22dbec91fa019d8b37eda00d98
+mingw-w64-x86_64-xz-5.8.3-1-any.pkg.tar.zst
+  075bfaf1c7527f2fdd02ad5b973378e1e8d426ba7b614f122cebd81a8fe5d1c1
+mingw-w64-x86_64-zlib-1.3.2-2-any.pkg.tar.zst
+  9e75842a070ba648e986e12424e1c92c9d7d77200e85f6a34eeb600819f2e694
+mingw-w64-x86_64-zstd-1.5.7-2-any.pkg.tar.zst
+  1add6705b344664f6aca108c85f79ab5bdd9e1162662bb06a4cf40a34f6e0907
+
+The corresponding MSYS2 build recipes are pinned below. Each immutable recipe
+contains the complete source input list, including patches and their hashes,
+and provides the Corresponding Source and build flags needed to relink the
+LGPL-covered libraries.
+
+  libarchive  c57a377fd98912190af377689a27faf282df1063
+  bzip2       4660b7d07063b222cfe8f7c20d465e6948f1ba41
+  expat       9888f78f470b812f52d62ec3cc3576cc1d333f27
+  libb2       34d592ba9f4f1fc1153f09b1398032003c4e45b8
+  libiconv    045d46aedb9fdbd93b0900b1e20c1a6c73f23072
+  lz4         26b20edb402699905eeb07184038e4f1915b2d5b
+  pcre2       44099a566c9544d23d462e480d9ce216d4e15649
+  xz          8e4843ab9722888216a4cc4cd60208ebc06a92f0
+  zlib        6430831b570304e48982fce7d65af399b801ceab
+  zstd        72f950d88ac5e5d29e23ded555db81e4b3077ccf
+
+The recipe URLs are formed as:
+https://github.com/msys2/MINGW-packages/blob/<commit>/mingw-w64-<package>/PKGBUILD
+
+The primary upstream source archives and SHA-256 values in those recipes are:
+
+  libarchive  https://github.com/libarchive/libarchive/releases/download/v3.8.9/libarchive-3.8.9.tar.xz
+              888c934f9d95648ecb9163dc8e23ab80a476ecb81a8f1154704a227b5b676dde
+  bzip2       https://sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz
+              ab5a03176ee106d3f0fa90e381da478ddae405918153cca248e682cd0c4a2269
+  expat       https://github.com/libexpat/libexpat/releases/download/R_2_8_3/expat-2.8.3.tar.xz
+              f6256df90c906773d344da084402b7d3e4f22ed41b1a59c989098a83d3ea0c85
+  libb2       https://github.com/BLAKE2/libb2/releases/download/v0.98.1/libb2-0.98.1.tar.gz
+              53626fddce753c454a3fea581cbbc7fe9bbcf0bc70416d48fdbbf5d87ef6c72e
+  libiconv    https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz
+              88dd96a8c0464eca144fc791ae60cd31cd8ee78321e67397e25fc095c4a19aa6
+  lz4         https://github.com/lz4/lz4/archive/v1.10.0.tar.gz
+              537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b
+  pcre2       https://github.com/PhilipHazel/pcre2/releases/download/pcre2-10.47/pcre2-10.47.tar.bz2
+              47fe8c99461250d42f89e6e8fdaeba9da057855d06eb7fc08d9ca03fd08d7bc7
+  xz          https://github.com/tukaani-project/xz/releases/download/v5.8.3/xz-5.8.3.tar.xz
+              fff1ffcf2b0da84d308a14de513a1aa23d4e9aa3464d17e64b9714bfdd0bbfb6
+  zlib        https://github.com/madler/zlib/releases/download/v1.3.2/zlib-1.3.2.tar.xz
+              d7a0654783a4da529d1bb793b7ad9c3318020af77667bcae35f95d0e42a792f3
+  zstd        https://github.com/facebook/zstd/releases/download/v1.5.7/zstd-1.5.7.tar.gz
+              eb33e51f49a15e023950cd7825ca74a4a2b43db8354825ac24fc1b7ee09e6fa3
+
+The runtime files selected from those packages are:
+
+  bsdtar.exe renamed to tar.exe
+  libarchive-13.dll, libb2-1.dll, libbz2-1.dll, libexpat-1.dll
+  libiconv-2.dll, liblz4.dll, liblzma-5.dll, libpcre2-8-0.dll
+  libpcre2-posix-3.dll, libzstd.dll, zlib1.dll
+
+The archive was assembled by extracting those files and the complete package
+licence notices, without recompiling or modifying the binaries. The archive
+SHA-256 is recorded in SOURCES.md.

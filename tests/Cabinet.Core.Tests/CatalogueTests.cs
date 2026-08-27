@@ -1,3 +1,6 @@
+using System.IO.Compression;
+using System.Security.Cryptography;
+
 using Cabinet.Core;
 
 namespace Cabinet.Core.Tests;
@@ -151,6 +154,76 @@ public class CatalogueTests
             .Select(entry => entry.Id);
 
         Assert.Empty(drifting);
+    }
+
+    [Fact]
+    public void TheKlevgrandHelperShipsAValidArchiveRuntime()
+    {
+        var path = Repo.Path("data/library/klevgrand/klevgrand-helper-runtime.zip");
+        Assert.True(File.Exists(path));
+        var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+        const string expectedHash =
+            "50faa6b30310fbe8cd5807405153fcdf61a020321fb58428cc74a98bf2e39790";
+
+        Assert.Equal(expectedHash, hash);
+        Assert.Contains(expectedHash, Repo.Read("SOURCES.md"), StringComparison.Ordinal);
+
+        using var archive = ZipFile.OpenRead(path);
+        var files = archive.Entries
+            .Where(entry => entry.Length > 0)
+            .ToDictionary(entry => entry.FullName, StringComparer.Ordinal);
+
+        string[] required =
+        [
+            "tar.exe",
+            "libarchive-13.dll",
+            "libb2-1.dll",
+            "libbz2-1.dll",
+            "libexpat-1.dll",
+            "libiconv-2.dll",
+            "liblz4.dll",
+            "liblzma-5.dll",
+            "libpcre2-8-0.dll",
+            "libpcre2-posix-3.dll",
+            "libzstd.dll",
+            "zlib1.dll",
+        ];
+
+        var missing = required.Where(file => !files.ContainsKey(file));
+        Assert.Empty(missing);
+
+        string[] licences =
+        [
+            "licenses/SOURCES.txt",
+            "licenses/bzip2.txt",
+            "licenses/expat.txt",
+            "licenses/libarchive-LICENSE.txt",
+            "licenses/libb2.txt",
+            "licenses/libcharset-COPYING.LIB.txt",
+            "licenses/libiconv-COPYING.LIB.txt",
+            "licenses/libiconv-COPYING.txt",
+            "licenses/lz4-LICENSE.txt",
+            "licenses/pcre2-LICENCE.md",
+            "licenses/xz-COPYING.0BSD.txt",
+            "licenses/xz-COPYING.GPLv2.txt",
+            "licenses/xz-COPYING.GPLv3.txt",
+            "licenses/xz-COPYING.LGPLv2.1.txt",
+            "licenses/xz-COPYING.txt",
+            "licenses/zlib.txt",
+            "licenses/zstd.txt",
+        ];
+
+        var actualLicences = files.Keys
+            .Where(file => file.StartsWith("licenses/", StringComparison.Ordinal))
+            .OrderBy(file => file, StringComparer.Ordinal);
+
+        Assert.Equal(licences.OrderBy(file => file, StringComparer.Ordinal), actualLicences);
+
+        foreach (var entry in files.Values)
+        {
+            using var content = entry.Open();
+            content.CopyTo(Stream.Null);
+        }
     }
 }
 

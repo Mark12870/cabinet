@@ -225,8 +225,57 @@ public class LibraryTests : IDisposable
         new Library(layout, recorder).Launch(entry);
 
         var opened = Assert.Single(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
+        var settled = Assert.Single(recorder.Calls, call =>
+            call.File == "wineserver" && call.Arguments.SequenceEqual(["-w"]));
 
         Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), opened.LogTo);
+        Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), settled.LogTo);
+    }
+
+    [Fact]
+    public async Task OpeningAnAppWaitsForPluginsThatAppearDuringWineSettling()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
+        var layout = Layout();
+        var pluginDirectory = layout.PrefixVst3Dir(entry.Prefix);
+        var plugin = Path.Combine(pluginDirectory, "Detached.vst3");
+        var started = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        var recorder = new RecordingRunner(args =>
+        {
+            if (!args.SequenceEqual(["-w"]))
+            {
+                return;
+            }
+
+            File.WriteAllText(plugin, "");
+            started.Set();
+            release.Wait();
+            File.Delete(plugin);
+        });
+
+        Directory.CreateDirectory(pluginDirectory);
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var task = Task.Run(() => new Library(layout, recorder).Launch(entry));
+
+        try
+        {
+            Assert.True(started.Wait(TimeSpan.FromSeconds(1)));
+            Assert.False(task.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+        }
+
+        await task;
+        Assert.False(File.Exists(plugin));
+        Assert.Contains(recorder.Calls, call =>
+            call.File == "wineserver" && call.Arguments.SequenceEqual(["-w"]));
     }
 
     [Fact]

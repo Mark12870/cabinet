@@ -169,6 +169,9 @@ modules:
           for response in "$vendor"*.iss; do
             if [ -f "$response" ]; then install -Dm644 "$response" -t "$dest"/; fi
           done
+          for payload in "$vendor"*.zip; do
+            if [ -f "$payload" ]; then install -Dm644 "$payload" -t "$dest"/; fi
+          done
         done
     sources:
       - type: dir

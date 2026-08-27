@@ -95,6 +95,14 @@ public class ManifestTests
                     && line.Contains("-p:UseSharedCompilation=false", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void CataloguePayloadArchivesAreInstalled()
+    {
+        Assert.Contains(
+            Lines,
+            line => line.Contains("for payload in \"$vendor\"*.zip", StringComparison.Ordinal));
+    }
+
     private static string Field(string key)
     {
         var prefix = key + ":";

@@ -46,6 +46,20 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.11.0" date="2026-08-27">
+      <description>
+        <p>Klevgrand's whole catalogue joins the Library</p>
+        <ul>
+          <li>The Klevgrand Helper installs and authorises every Klevgrand product an account
+          owns, and every one of them as a fully functional demo</li>
+          <li>A Library entry can ship a payload archive of its own alongside its script, which
+          is how the Helper gets the archive tool its prefix lacks</li>
+          <li>Opening an app waits for the prefix's own Wine processes to finish, so plugins an
+          installer writes on its way out are seen instead of missed</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.10.0" date="2026-08-27">
       <description>
         <p>Melodyne joins the Library</p>
