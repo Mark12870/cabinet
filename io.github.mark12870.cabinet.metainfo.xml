@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.10.0" date="2026-08-27">
+      <description>
+        <p>Melodyne joins the Library</p>
+        <ul>
+          <li>Melodyne 5 studio's 30-day trial can be downloaded, installed silently and
+          bridged as a VST3 plugin</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.9.0" date="2026-08-24">
       <description>
         <p>A virtual desktop for editors that need one, and prefixes that say when they have
