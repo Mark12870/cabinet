@@ -141,7 +141,7 @@ modules:
         DOTNET_NOLOGO: '1'
     build-commands:
       - dotnet publish src/Cabinet.Cli -c Release --source ./nuget-sources -o publish
-      - dotnet publish src/Cabinet.Gui -c Release --source ./nuget-sources -o publish-gui
+      - dotnet publish src/Cabinet.Gui -c Release --source ./nuget-sources -o publish-gui -p:UseSharedCompilation=false
       - install -Dm755 publish/cabinet ${FLATPAK_DEST}/bin/cabinet
       - cp -a publish-gui ${FLATPAK_DEST}/lib/cabinet-gui
       - ln -s ../lib/cabinet-gui/cabinet-gui ${FLATPAK_DEST}/bin/cabinet-gui

@@ -86,6 +86,15 @@ public class ManifestTests
         Assert.Equal("cabinet", Field("command"));
     }
 
+    [Fact]
+    public void TheGuiPublishDisablesSharedCompilation()
+    {
+        Assert.Contains(
+            Lines,
+            line => line.Contains("dotnet publish src/Cabinet.Gui", StringComparison.Ordinal)
+                    && line.Contains("-p:UseSharedCompilation=false", StringComparison.Ordinal));
+    }
+
     private static string Field(string key)
     {
         var prefix = key + ":";
