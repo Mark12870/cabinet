@@ -13,10 +13,16 @@ overriding the accent someone chose is the one case this rule excludes.
 Use the palette only where there is no GNOME colour to inherit: the app icon (espresso and
 amber-flame today), the site, a diagram, anything drawn rather than themed.
 
-```
-espresso      #663322
-amber-flame   #ffbb00
-jungle-teal   #227d66
-pale-sky      #bfdbf7
-watermelon    #ee4266
-```
+| Color | Hex | Preview |
+|---|---|---|
+| espresso | `#663322` | <span style="display:inline-block;width:80px;height:24px;background:#663322;"></span> |
+| amber-flame | `#ffbb00` | <span style="display:inline-block;width:80px;height:24px;background:#ffbb00;"></span> |
+| pale-sky | `#bfdbf7` | <span style="display:inline-block;width:80px;height:24px;background:#bfdbf7;"></span> |
+| jungle-teal | `#227d66` | <span style="display:inline-block;width:80px;height:24px;background:#227d66;"></span> |
+| watermelon | `#ee4266` | <span style="display:inline-block;width:80px;height:24px;background:#ee4266;"></span> |
+| ivory-mist | `#fff8eb` | <span style="display:inline-block;width:80px;height:24px;background:#fff8eb;border:1px solid #ccc;"></span> |
+| roast-black | `#211814` | <span style="display:inline-block;width:80px;height:24px;background:#211814;"></span> |
+| soft-sand | `#e8d6bd` | <span style="display:inline-block;width:80px;height:24px;background:#e8d6bd;"></span> |
+| dusky-violet | `#76658a` | <span style="display:inline-block;width:80px;height:24px;background:#76658a;"></span> |
+| deep-navy | `#243447` | <span style="display:inline-block;width:80px;height:24px;background:#243447;"></span> |
+| sage-leaf | `#8fa58c` | <span style="display:inline-block;width:80px;height:24px;background:#8fa58c;"></span> |

@@ -60,10 +60,10 @@ always-current URL* below.
 **3. Prefer a silent install, and measure which switch works.** Run `file` on the `.exe`: NSIS
 takes `/S`, Inno `/VERYSILENT`, MSI-based ones `/qn`. Where one works, give the entry a
 `Script:` that passes it — `xfer-records/serum.sh` installs all 1.9 GB of Serum 2 with nothing
-to click. Measure rather than trusting the family: FabFilter's is its own installer and every
-switch opened the wizard and installed nothing. A wizard is the fallback, not the default. A
-silent install takes the vendor's default paths, so **check the prefix afterwards** — the script
-is the place to fail loudly when the plugin or its content did not land.
+to click. Measure rather than trusting the family: FabFilter's own installer supports
+`/Unattended`, which needs no clicks but still shows its window. A wizard is the fallback, not
+the default. A silent install takes the vendor's default paths, so **check the prefix afterwards** —
+the script is the place to fail loudly when the plugin or its content did not land.
 
 **4. Fill in the fields.** The Library page lists rows; a row opens a page of its own, and these
 are what it shows. `cabinet library show <id>` renders the same facts.

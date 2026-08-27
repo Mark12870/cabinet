@@ -15,6 +15,7 @@ Prefix: fabfilter
 Runner: soda-11.0-5
 Dxvk: true
 Sync: system
+Script: fabfilter.sh
 Description:
   All fourteen FabFilter plugins in one installer: Pro-Q 4, the equaliser other
   equalisers are compared to, with Pro-C, Pro-L, Pro-R, Pro-MB, Pro-DS and Pro-G

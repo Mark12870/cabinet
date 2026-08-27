@@ -29,6 +29,16 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryWindowsEntryNamesAnInstallScript()
+    {
+        var interactive = Shipped
+            .Where(entry => entry.Kind == PluginKind.Windows && entry.Script is null)
+            .Select(entry => entry.Id);
+
+        Assert.Empty(interactive);
+    }
+
+    [Fact]
     public void NoInstallScriptSetsAnEnvironmentAnEntryCouldDeclare()
     {
         var layout = Catalogue.Layout();

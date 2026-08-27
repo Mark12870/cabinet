@@ -94,6 +94,6 @@ flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet
 
 ## License
 
-GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE). The app icon is the *dresser* icon
-from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see
+GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE). The app icon combines the *dresser*
+and *piano-keys* icons from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see
 [data/LICENSE.phosphor](data/LICENSE.phosphor).
