@@ -31,3 +31,5 @@ purpose: which release the bump amounts to is a judgement it cannot make.
 reads it back out of each published commit to build the table. Nothing goes in a csproj.
 Bumping is manual on purpose: yabridge releases rarely, and an unattended rebuild — which is
 beeper-flatpak's daily workflow — would publish a commit every client sees as an update.
+
+**4. Don't commit or push anything without approval.**
