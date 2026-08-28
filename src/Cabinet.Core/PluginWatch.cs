@@ -1,16 +1,21 @@
 namespace Cabinet.Core;
 
+public sealed record PluginChange(IReadOnlyList<string> Appeared, IReadOnlyList<string> Gone);
+
 public sealed class PluginWatch(IReadOnlySet<string> bridged)
 {
     private IReadOnlySet<string> settled = bridged;
     private IReadOnlySet<string> seen = bridged;
 
-    public IReadOnlyList<string>? Appeared(IReadOnlySet<string> now) =>
-        Since(now, now.SetEquals(seen));
+    public PluginChange? Changed(IReadOnlySet<string> now) => Since(now, now.SetEquals(seen));
 
-    public IReadOnlyList<string>? Closed(IReadOnlySet<string> now) => Since(now, true);
+    public PluginChange? Closed(IReadOnlySet<string> now) => Since(now, true);
 
-    private IReadOnlyList<string>? Since(IReadOnlySet<string> now, bool steady)
+    public bool Pending => !seen.SetEquals(settled);
+
+    public void Accept() => settled = seen;
+
+    private PluginChange? Since(IReadOnlySet<string> now, bool steady)
     {
         seen = now;
 
@@ -19,11 +24,12 @@ public sealed class PluginWatch(IReadOnlySet<string> bridged)
             return null;
         }
 
-        var appeared = now.Except(settled, StringComparer.Ordinal)
-            .OrderBy(path => path, StringComparer.Ordinal)
-            .ToList();
+        var appeared = Sorted(now.Except(settled, StringComparer.Ordinal));
+        var gone = Sorted(settled.Except(now, StringComparer.Ordinal));
 
-        settled = now;
-        return appeared.Count > 0 ? appeared : null;
+        return appeared.Count > 0 || gone.Count > 0 ? new PluginChange(appeared, gone) : null;
     }
+
+    private static IReadOnlyList<string> Sorted(IEnumerable<string> bundles) =>
+        [.. bundles.OrderBy(path => path, StringComparer.Ordinal)];
 }

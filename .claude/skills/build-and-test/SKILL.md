@@ -39,7 +39,7 @@ reaches only `Cabinet.Core`, and `dotnet format` does not fail on a broken build
 would not compile once passed every check and died in the flatpak build twenty minutes later.
 That is what the two `dotnet build` steps in the script are for.
 
-**4. Run the Reaper and search for errors. Make sure it doesn't crash. Don't try to interact with the Reaper UI.
+**4. Run the plugin over carla-single. Make sure it doesn't crash or report errors.
 
 ```sh
 # The GUI needs the compiler server off, or every GirCore assembly comes back as CS0006.
@@ -66,7 +66,3 @@ Confirm with `flatpak info --user io.github.mark12870.cabinet` against
 # Look at a page of the installed GUI. Needs the toolbox its header describes, once.
 scripts/gui-shot.sh About about.png
 ```
-
-For plugin runtime verification, start the installed Reaper Flatpak with the existing
-`CabinetTest` project and inspect its startup and plugin-scan output. Do not automate Reaper's
-UI or alter the project during this check.

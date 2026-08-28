@@ -404,7 +404,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     public IReadOnlyList<string> Sharing(string prefix, string id) =>
         [.. Recorded(prefix).Where(other => other != id)];
 
-    private static readonly TimeSpan Glance = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan Stability = TimeSpan.FromSeconds(1);
 
     public void Launch(
         LibraryEntry entry, string? prefix = null, Action<string>? onOutput = null)
@@ -424,8 +424,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         var prefixes = new Prefixes(layout, runner);
         var log = layout.PrefixLaunchLog(where);
+        var pluginDirectories = layout.PrefixPluginDirs(where).ToList();
+
+        foreach (var directory in pluginDirectories)
+        {
+            Directory.CreateDirectory(directory);
+        }
+
         var watch = new PluginWatch(Bundled(where));
         using var closed = new CancellationTokenSource();
+        using var monitor = new PluginMonitor(pluginDirectories);
 
         void Say(string line)
         {
@@ -438,25 +446,33 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         var watching = Task.Run(() =>
         {
-            while (!closed.Token.WaitHandle.WaitOne(Glance))
+            while (monitor.Wait(
+                closed.Token,
+                watch.Pending ? Stability : Timeout.InfiniteTimeSpan))
             {
-                Bridge(prefixes, watch.Appeared(Bundled(where)), Say);
+                try
+                {
+                    if (watch.Changed(Bundled(where)) is { } change)
+                    {
+                        Narrate(change, Say);
+                        Bridge(prefixes, Say);
+                        watch.Accept();
+                    }
+                }
+                catch (Exception failure)
+                {
+                    Say(failure.Message);
+                }
             }
         });
 
         ProcessResult ran;
+        ProcessResult settled;
 
         try
         {
             ran = prefixes.Run(where, "wine", [entry.Launch], logTo: log);
-
-            var settled = prefixes.Run(where, "wineserver", ["-w"], logTo: log);
-
-            if (!settled.Ok)
-            {
-                throw new InvalidOperationException(
-                    $"Wine processes did not finish for '{entry.Name}' (exit code {settled.ExitCode})");
-            }
+            settled = prefixes.Run(where, "wineserver", ["-w"], logTo: log);
         }
         finally
         {
@@ -464,7 +480,29 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             watching.Wait();
         }
 
-        Bridge(prefixes, watch.Closed(Bundled(where)), Say);
+        if (watch.Closed(Bundled(where)) is { } change)
+        {
+            Narrate(change, Say);
+        }
+
+        Exception? bridgeFailure = null;
+
+        try
+        {
+            Bridge(prefixes, Say);
+        }
+        catch (Exception failure)
+        {
+            bridgeFailure = failure;
+        }
+
+        var failures = new List<Exception>();
+
+        if (!settled.Ok)
+        {
+            failures.Add(new InvalidOperationException(
+                $"Wine processes did not finish for '{entry.Name}' (exit code {settled.ExitCode})"));
+        }
 
         if (!ran.Ok)
         {
@@ -473,8 +511,22 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 onOutput?.Invoke(line);
             }
 
-            throw new InvalidOperationException(
-                $"{entry.Name} exited with {ran.ExitCode}");
+            failures.Add(new InvalidOperationException($"{entry.Name} exited with {ran.ExitCode}"));
+        }
+
+        if (bridgeFailure is not null)
+        {
+            failures.Add(bridgeFailure);
+        }
+
+        if (failures.Count == 1)
+        {
+            throw failures[0];
+        }
+
+        if (failures.Count > 1)
+        {
+            throw new AggregateException(failures);
         }
 
         Say($"{entry.Name} closed.");
@@ -492,20 +544,17 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 .TakeLast(20)
             : [];
 
-    private void Bridge(
-        Prefixes prefixes, IReadOnlyList<string>? appeared, Action<string>? onOutput)
+    private static void Narrate(PluginChange change, Action<string>? onOutput)
     {
-        if (appeared is null)
-        {
-            return;
-        }
-
-        foreach (var bundle in appeared)
+        foreach (var bundle in change.Appeared)
         {
             onOutput?.Invoke($"  {Path.GetFileName(bundle)} appeared");
         }
 
-        Bridge(prefixes, onOutput);
+        foreach (var bundle in change.Gone)
+        {
+            onOutput?.Invoke($"  removed {Path.GetFileName(bundle)}");
+        }
     }
 
     public void Remove(

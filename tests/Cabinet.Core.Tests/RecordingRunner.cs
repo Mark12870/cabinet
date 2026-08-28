@@ -2,7 +2,10 @@ using Cabinet.Core;
 
 namespace Cabinet.Core.Tests;
 
-internal sealed class RecordingRunner(Action<IReadOnlyList<string>>? acts = null) : IProcessRunner
+internal sealed class RecordingRunner(
+    Action<IReadOnlyList<string>>? acts = null,
+    Func<IReadOnlyList<string>, int>? exits = null,
+    Func<IReadOnlyList<string>, string>? outputs = null) : IProcessRunner
 {
     private readonly List<Call> calls = [];
 
@@ -35,6 +38,6 @@ internal sealed class RecordingRunner(Action<IReadOnlyList<string>>? acts = null
         LastFile = file;
         LastArguments = args;
         acts?.Invoke(args);
-        return new ProcessResult(0, "", "");
+        return new ProcessResult(exits?.Invoke(args) ?? 0, outputs?.Invoke(args) ?? "", "");
     }
 }

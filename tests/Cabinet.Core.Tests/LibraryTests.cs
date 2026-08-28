@@ -279,6 +279,187 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public async Task APluginIsBridgedWhileAnAppIsStillOpen()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var plugin = Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Landed.vst3");
+        var started = new ManualResetEventSlim();
+        var bridged = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual([entry.Launch]))
+            {
+                File.WriteAllText(plugin, "");
+                started.Set();
+                release.Wait();
+            }
+
+            if (args.SequenceEqual(["sync", "--prune"]))
+            {
+                bridged.Set();
+            }
+        });
+
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath(entry.Prefix), "dosdevices"));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var task = Task.Run(() =>
+            new Library(layout, recorder).Launch(entry));
+
+        try
+        {
+            Assert.True(started.Wait(TimeSpan.FromSeconds(1)));
+            Assert.True(bridged.Wait(TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            release.Set();
+            await task;
+        }
+        Assert.Contains(recorder.Calls, Synced);
+    }
+
+    [Fact]
+    public async Task AFailedLiveBridgeIsRetriedWhileAnAppIsStillOpen()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var plugin = Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Landed.vst3");
+        var started = new ManualResetEventSlim();
+        var retried = new ManualResetEventSlim();
+        var release = new ManualResetEventSlim();
+        var attempts = 0;
+        var recorder = new RecordingRunner(
+            args =>
+            {
+                if (args.SequenceEqual([entry.Launch]))
+                {
+                    File.WriteAllText(plugin, "");
+                    started.Set();
+                    release.Wait();
+                }
+
+                if (args.SequenceEqual(["sync", "--prune"]))
+                {
+                    if (Interlocked.Increment(ref attempts) >= 2)
+                    {
+                        retried.Set();
+                    }
+                }
+            },
+            args => args.SequenceEqual(["sync", "--prune"]) && Volatile.Read(ref attempts) == 1 ? 1 : 0);
+
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath(entry.Prefix), "dosdevices"));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var library = new Library(layout, recorder);
+        var task = Task.Run(() => library.Launch(entry));
+
+        try
+        {
+            Assert.True(started.Wait(TimeSpan.FromSeconds(1)));
+            Assert.True(retried.Wait(TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            release.Set();
+            await task;
+        }
+        Assert.True(attempts >= 2);
+        Assert.Contains("yabridgectl exited with 1", library.LaunchLog(entry));
+    }
+
+    [Fact]
+    public void ClosingAnAppBridgesEvenWhenNothingInThePrefixChanged()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.Contains(recorder.Calls, Synced);
+    }
+
+    [Fact]
+    public void WineThatDoesNotSettleStillBridgesWhatTheAppInstalled()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var plugin = Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Landed.vst3");
+        var recorder = new RecordingRunner(
+            args =>
+            {
+                if (args.SequenceEqual(["-w"]))
+                {
+                    File.WriteAllText(plugin, "");
+                }
+            },
+            args => args.SequenceEqual(["-w"]) ? 1 : 0);
+
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var library = new Library(layout, recorder);
+        var thrown = Assert.Throws<InvalidOperationException>(() => library.Launch(entry));
+
+        Assert.Contains("did not finish", thrown.Message);
+        Assert.Contains(recorder.Calls, Synced);
+        Assert.Contains("Landed.vst3 appeared", library.LaunchLog(entry));
+    }
+
+    [Fact]
+    public void BridgeAndWineSettlingFailuresAreBothReported()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            exits: args => args.SequenceEqual(["-w"]) || args.SequenceEqual(["sync", "--prune"])
+                ? 1
+                : 0);
+
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var thrown = Assert.Throws<AggregateException>(
+            () => new Library(layout, recorder).Launch(entry));
+
+        Assert.Contains("did not finish", thrown.ToString());
+        Assert.Contains("yabridgectl exited with 1", thrown.ToString());
+    }
+
+    [Fact]
+    public void APluginTakenAwayWhileAnAppWasOpenIsBridgedAwayOnClose()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var plugin = Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Uninstalled.vst3");
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual(["-w"]))
+            {
+                File.Delete(plugin);
+            }
+        });
+
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        File.WriteAllText(plugin, "");
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var library = new Library(layout, recorder);
+        library.Launch(entry);
+
+        Assert.Contains(recorder.Calls, Synced);
+        Assert.Contains("removed Uninstalled.vst3", library.LaunchLog(entry));
+    }
+
+    [Fact]
     public void OpeningAnAppNarratesIntoTheLogSoOneFileHoldsTheWholeLaunch()
     {
         var entry = LibraryEntry.Parse(
@@ -626,14 +807,15 @@ public class LibraryTests : IDisposable
         var recording = new RecordingRunner();
         var library = new Library(Layout(), recording);
 
-        var stopped = Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("dexed"), null, installer));
+        library.Install(library.Find("dexed"), null, installer);
 
         Assert.Equal(
             ["wineboot", "wine"],
-            recording.Calls.Select(call => Path.GetFileName(call.File)));
+            recording.Calls
+                .TakeWhile(call => Path.GetFileName(call.File) != "yabridgectl")
+                .Select(call => Path.GetFileName(call.File)));
         Assert.Equal([installer], recording.Calls[1].Arguments);
-        Assert.Contains("yabridgectl", stopped.Message);
+        Assert.Contains(recording.Calls, Synced);
         Assert.Equal("dexed", library.Installed()["dexed"]);
     }
 
@@ -652,9 +834,9 @@ public class LibraryTests : IDisposable
         var library = new Library(layout, recording);
         var said = new List<string>();
 
-        Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("dexed"), null, installer, said.Add));
+        library.Install(library.Find("dexed"), null, installer, said.Add);
 
+        Assert.Contains(recording.Calls, Synced);
         Assert.DoesNotContain(recording.Calls, call => call.File == "curl");
         Assert.Contains(said, line => line.Contains("keeps bundled"));
     }
@@ -838,13 +1020,14 @@ public class LibraryTests : IDisposable
             "UninstallString"="\"C:\\unins000.exe\""
             """);
 
-        var library = new Library(layout, new RecordingRunner(
-            _ => File.Delete(Path.Combine(vst3, "ValhallaSupermassive.vst3"))));
+        var recording = new RecordingRunner(
+            _ => File.Delete(Path.Combine(vst3, "ValhallaSupermassive.vst3")));
 
-        var failed = Assert.Throws<InvalidOperationException>(
-            () => library.Remove(library.Find("supermassive"), "valhalla"));
+        var library = new Library(layout, recording);
 
-        Assert.Contains("yabridgectl", failed.Message);
+        library.Remove(library.Find("supermassive"), "valhalla");
+
+        Assert.Contains(recording.Calls, Synced);
         Assert.Equal("freq-echo", Assert.Single(library.Installed()).Key);
         Assert.True(File.Exists(Path.Combine(vst3, "ValhallaFreqEcho.vst3")));
     }
@@ -993,9 +1176,11 @@ public class LibraryTests : IDisposable
         Directory.CreateDirectory(layout.PrefixPath("serum"));
         File.WriteAllText(layout.PrefixPluginsFile("serum"), "serum\n");
 
-        Assert.Throws<InvalidOperationException>(
-            () => new Prefixes(layout, new RecordingRunner()).Delete("serum"));
+        var recording = new RecordingRunner();
 
+        new Prefixes(layout, recording).Delete("serum");
+
+        Assert.Contains(recording.Calls, Synced);
         Assert.Empty(Subject().Installed());
     }
 
@@ -1131,13 +1316,11 @@ public class LibraryTests : IDisposable
 
         var library = new Library(layout, recording);
 
-        Assert.Contains(
-            "yabridgectl",
-            Assert.Throws<InvalidOperationException>(
-                () => library.Install(library.Find("thing"), installer: installer)).Message);
+        library.Install(library.Find("thing"), installer: installer);
 
         var script = Assert.Single(recording.Calls, call => call.File == "sh");
 
+        Assert.Contains(recording.Calls, Synced);
         Assert.Equal(["-e", layout.LibraryScript(Vendor, "fixture.sh")], script.Arguments);
         Assert.Equal(layout.PrefixPath("thing"), script.WorkingDirectory);
         Assert.Equal(layout.PrefixPath("thing"), script.Environment["WINEPREFIX"]);
@@ -1168,8 +1351,7 @@ public class LibraryTests : IDisposable
 
         var library = new Library(layout, recording);
 
-        Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing"), installer: installer));
+        library.Install(library.Find("thing"), installer: installer);
 
         var script = Assert.Single(recording.Calls, call => call.File == "sh");
 
@@ -1195,10 +1377,32 @@ public class LibraryTests : IDisposable
 
     private void Script(string name, string body) => Write(Vendor, name, body + "\n");
 
-    private Layout Layout() =>
-        new(root, "/run/user/1000", Path.Combine(root, "data"), null, Path.Combine(root, "library"));
+    private Layout Layout()
+    {
+        var yabridge = Path.Combine(root, "yabridge");
+        Directory.CreateDirectory(yabridge);
+        File.WriteAllText(Path.Combine(yabridge, "yabridgectl"), "");
+
+        return new(
+            root,
+            "/run/user/1000",
+            Path.Combine(root, "data"),
+            null,
+            Path.Combine(root, "library"),
+            yabridge);
+    }
 
     private Library Subject() => new(Layout(), new RecordingRunner());
+
+    private static bool Synced(RecordingRunner.Call call) =>
+        Path.GetFileName(call.File) == "yabridgectl"
+        && call.Arguments.SequenceEqual(["sync", "--prune"]);
+
+    private static LibraryEntry Manager() =>
+        LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
 
     private static LibraryEntry Native(string id) =>
         LibraryEntry.Parse(id, $"Name: {id}\nKind: native\nSource: byo\n");

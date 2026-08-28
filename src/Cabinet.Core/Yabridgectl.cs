@@ -2,7 +2,7 @@ namespace Cabinet.Core;
 
 public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 {
-    private static string Binary => Path.Combine(Layout.BundledYabridgeDir, "yabridgectl");
+    private string Binary => Path.Combine(layout.BundledYabridgeDir, "yabridgectl");
 
     public ProcessResult Add(string pluginDirectory) => Run(["add", pluginDirectory]);
 
@@ -26,8 +26,10 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
         return line?.Split(' ').LastOrDefault() is { Length: > 0 } version ? version : "unknown";
     }
 
-    public IReadOnlyList<string> Registered() =>
-        Run(["list"]).Stdout
+    public IReadOnlyList<string> Registered() => ParseRegistered(Run(["list"]).Stdout);
+
+    private static IReadOnlyList<string> ParseRegistered(string stdout) =>
+        stdout
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(line => line.TrimEnd('\r'))
             .ToList();
@@ -48,18 +50,32 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
             .SelectMany(prefix => layout.PrefixPluginDirs(prefix.Name))
             .Where(Directory.Exists)
             .ToHashSet(StringComparer.Ordinal);
+        ProcessResult? failure = null;
 
         foreach (var directory in wanted)
         {
-            Add(directory);
+            var result = Add(directory);
+            if (!result.Ok)
+            {
+                failure ??= result;
+            }
         }
 
-        foreach (var directory in StaleRegistrations(Registered(), wanted))
+        var registered = Run(["list"]);
+        if (!registered.Ok)
         {
-            Remove(directory);
+            failure ??= registered;
+        }
+        else foreach (var directory in StaleRegistrations(ParseRegistered(registered.Stdout), wanted))
+        {
+            var result = Remove(directory);
+            if (!result.Ok)
+            {
+                failure ??= result;
+            }
         }
 
-        return Sync();
+        return failure ?? Sync();
     }
 
     public void Bridge(IReadOnlyList<Prefix> prefixes, Action<string>? onOutput)

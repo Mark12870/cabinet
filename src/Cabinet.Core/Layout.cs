@@ -4,7 +4,7 @@ public sealed class Layout
 {
     public const string AppId = "io.github.mark12870.cabinet";
 
-    public const string BundledYabridgeDir = "/app/lib/yabridge";
+    private const string DefaultYabridgeDir = "/app/lib/yabridge";
 
     public const string Wine = "/app/bin/wine";
 
@@ -45,13 +45,15 @@ public sealed class Layout
         string runtimeDir,
         string? sandboxDataHome = null,
         string? hostAppFiles = null,
-        string? libraryDir = null)
+        string? libraryDir = null,
+        string? yabridgeDir = null)
     {
         Home = home;
         RuntimeDir = runtimeDir;
         SandboxDataHome = sandboxDataHome ?? Path.Combine(home, ".var", "app", AppId, "data");
         HostAppFiles = hostAppFiles ?? DefaultHostAppFiles(home);
         LibraryDir = libraryDir ?? BundledLibraryDir;
+        BundledYabridgeDir = yabridgeDir ?? DefaultYabridgeDir;
     }
 
     public static Layout FromEnvironment()
@@ -78,6 +80,8 @@ public sealed class Layout
     public string HostAppFiles { get; }
 
     public string LibraryDir { get; }
+
+    public string BundledYabridgeDir { get; }
 
     public string HostYabridgeDir => Path.Combine(HostAppFiles, "lib", "yabridge");
 

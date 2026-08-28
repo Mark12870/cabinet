@@ -183,8 +183,8 @@ Do not consume the remaining step budget repeating similar investigations.
   known.
 - Use a `general` subagent for complex, independent multi-step work that can be completed without duplicating the main
   task.
-- Use the `debugger` subagent when the task requires difficult reasoning, the correct approach is unclear, or you are
-  not confident in the solution. You MUST use `debugger` after two substantially different approaches have failed.
+- Use `debugger` subagent for difficult or uncertain reasoning, or when verification or user feedback shows acceptance criteria
+  are unmet. Apply its advice before asking, giving up, or finalising.
 - You MUST use the `code-tester` subagent to design or run verification for a new feature or fix. Use it also for GUI
   verifications.
 - You MUST run the `code-reviewer` subagent exactly once after all implementation, testing, and resulting fixes are
