@@ -9,6 +9,7 @@ bridges them with upstream yabridge. There is deliberately no arm build.
 - Every feature must be available over GUI and over CLI
 - README.md must be under 100 lines
 - CLAUDE.md must be under 500 lines
+- Never commit personal, account or machine-specific data, including usernames, home paths, credentials or local tool state, in source, tests, fixtures, documentation, generated files or commit messages; use neutral synthetic values instead.
 
 ### Code style
 
