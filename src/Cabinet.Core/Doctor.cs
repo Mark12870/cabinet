@@ -236,9 +236,9 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             ? new Check("memlock limit", Status.Ok, $"{limit / 1024 / 1024} MB")
             : new Check("memlock limit", Status.Warn,
                 $"{limit / 1024 / 1024} MB — yabridge may not lock its audio buffers. "
-                + "Put `[Manager]` and `DefaultLimitMEMLOCK=1G` in "
-                + "/etc/systemd/user.conf.d/60-memlock.conf (and in system.conf.d/ for a "
-                + "DAW started outside the user session), then log out and back in. "
+                + "Put `[Manager]` and `DefaultLimitMEMLOCK=1G` in both "
+                + "/etc/systemd/system.conf.d/60-memlock.conf and "
+                + "/etc/systemd/user.conf.d/60-memlock.conf, then reboot. "
                 + "Not limits.conf: pam_limits does not reach a systemd-started app.");
     }
 
