@@ -100,6 +100,20 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void AByoDemoIsAWindowsDownloadWithAChecksum()
+    {
+        var demos = Shipped.Where(entry => entry.DemoUrl is not null).ToList();
+
+        Assert.NotEmpty(demos);
+        Assert.All(demos, entry =>
+        {
+            Assert.Equal(PluginKind.Windows, entry.Kind);
+            Assert.Equal(PluginSource.Byo, entry.Source);
+            Assert.NotNull(entry.DemoSha256);
+        });
+    }
+
+    [Fact]
     public void EveryEntryCarriesWhatBothFrontEndsRender()
     {
         var bare = Shipped

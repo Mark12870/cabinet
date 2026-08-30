@@ -10,9 +10,9 @@ Licensing:
   internet access to register and launch; a purchased licence unlocks it.
 Formats: VST3
 Homepage: https://www.celemony.com/en/trial?checkLang=1
-Source: download
-Url: https://s3.eu-west-1.amazonaws.com/assets.celemony.com/Demos/Melodyne.5.4.2.006-Demo.exe
-Sha256: 53310eaffdf5ab9198a076a683943e516011366f81aa49813b20006fbffccef7
+Source: byo
+DemoUrl: https://s3.eu-west-1.amazonaws.com/assets.celemony.com/Demos/Melodyne.5.4.2.006-Demo.exe
+DemoSha256: 53310eaffdf5ab9198a076a683943e516011366f81aa49813b20006fbffccef7
 Runner: 9.21
 Sync: fsync
 Script: melodyne.sh

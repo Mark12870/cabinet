@@ -24,6 +24,8 @@ public sealed record LibraryEntry(
     string? Url,
     string? Account,
     string? Sha256,
+    string? DemoUrl,
+    string? DemoSha256,
     string Prefix,
     string? Runner,
     bool Dxvk,
@@ -46,11 +48,50 @@ public sealed record LibraryEntry(
         var fields = Fields(text);
         var kind = ParseKind(id, Required(id, fields, "Kind"));
         var source = ParseSource(id, Value(fields, "Source") ?? "download");
+        var demo = Value(fields, "DemoUrl");
 
         if (source != PluginSource.Byo && Value(fields, "Url") is null)
         {
             throw new InvalidOperationException(
                 $"{id}.yml says Source: {source.ToString().ToLowerInvariant()} but has no Url");
+        }
+
+        if (source == PluginSource.Byo && Value(fields, "Url") is not null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml is byo and carries Url — use DemoUrl for its downloadable demo");
+        }
+
+        if (source == PluginSource.Byo && Value(fields, "Sha256") is not null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml is byo and carries Sha256 — use DemoSha256 for its downloadable demo");
+        }
+
+        if (Value(fields, "DemoSha256") is not null && demo is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml carries DemoSha256 but has no DemoUrl");
+        }
+
+        if (demo is not null && Value(fields, "DemoSha256") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has a DemoUrl but no DemoSha256 — a download nobody checked "
+                + "is not one Cabinet will run");
+        }
+
+        if (demo is not null && source != PluginSource.Byo)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml carries DemoUrl but is not Source: byo — the demo and your "
+                + "installer share one entry");
+        }
+
+        if (demo is not null && kind != PluginKind.Windows)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml carries DemoUrl but is not a Windows plugin — only Wine can install it");
         }
 
         if (source == PluginSource.Download && Value(fields, "Sha256") is null)
@@ -102,6 +143,8 @@ public sealed record LibraryEntry(
             Value(fields, "Url"),
             Value(fields, "Account"),
             Value(fields, "Sha256"),
+            demo,
+            Value(fields, "DemoSha256"),
             Value(fields, "Prefix") ?? id,
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
@@ -715,9 +758,14 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Action<string>? onOutput,
         Action<double>? onProgress)
     {
-        if (entry.Source == PluginSource.Byo && installer is null)
+        if (entry.Source == PluginSource.Byo && installer is null && entry.DemoUrl is null)
         {
             throw new InvalidOperationException(BringYourOwn(entry, prefix));
+        }
+
+        if (installer is not null && !File.Exists(installer))
+        {
+            throw new FileNotFoundException($"no such file: {installer}", installer);
         }
 
         var prefixes = new Prefixes(layout, runner);
@@ -901,12 +949,13 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Action<string>? onOutput,
         Action<double>? onProgress)
     {
-        var url = entry.Url!;
-        var target = Path.Combine(staging, ArchiveName(entry));
+        var url = entry.DemoUrl ?? entry.Url!;
+        var checksum = entry.DemoSha256 ?? entry.Sha256;
+        var target = Path.Combine(staging, ArchiveName(url, entry.Kind));
 
         http.ToFile(url, target, onOutput, onProgress);
 
-        if (entry.Sha256 is { } expected)
+        if (checksum is { } expected)
         {
             onOutput?.Invoke($"Checking sha256 {expected[..12]}…");
             Checksum.Expect(target, expected);
@@ -919,17 +968,25 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         return target;
     }
 
-    public static string ArchiveName(LibraryEntry entry)
+    public static string ArchiveName(LibraryEntry entry) =>
+        ArchiveName(entry.Url ?? entry.DemoUrl!, entry.Kind);
+
+    private static string ArchiveName(string url, PluginKind kind)
     {
-        var path = entry.Url!.TrimEnd('/');
+        var path = url.TrimEnd('/');
         var name = path[(path.LastIndexOf('/') + 1)..];
 
-        return entry.Kind == PluginKind.Windows && !Path.HasExtension(name)
+        return kind == PluginKind.Windows && !Path.HasExtension(name)
             ? name + ".exe"
             : name;
     }
 
     public static string Command(LibraryEntry entry, string? prefix = null) =>
+        entry.DemoUrl is not null
+            ? $"cabinet library install {entry.Id}"
+            : OwnCommand(entry, prefix);
+
+    public static string OwnCommand(LibraryEntry entry, string? prefix = null) =>
         (entry.Source, entry.Kind) switch
         {
             (PluginSource.Byo, PluginKind.Native) => $"cabinet library install {entry.Id} <file>",
@@ -939,10 +996,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         };
 
     public static string BringYourOwn(LibraryEntry entry, string? prefix = null) =>
-        $"{entry.Name} cannot be downloaded — "
-        + (entry.Account is { } account
-            ? $"log in at {account}, download it, then `{Command(entry, prefix)}`"
-            : $"pass the installer you already have: `{Command(entry, prefix)}`");
+        entry.DemoUrl is not null
+            ? $"{entry.Name} offers a demo — install it with `{Command(entry, prefix)}`, or "
+              + (entry.Account is { } account
+                  ? $"log in at {account}, download your installer, then "
+                    + $"`{OwnCommand(entry, prefix)}`"
+                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`")
+            : $"{entry.Name} cannot be downloaded — "
+              + (entry.Account is { } accountPage
+                  ? $"log in at {accountPage}, download it, then `{OwnCommand(entry, prefix)}`"
+                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`");
 
     public static string Unverifiable(string url) =>
         $"{new Uri(url).Host} publishes no checksum and changes this download with every "

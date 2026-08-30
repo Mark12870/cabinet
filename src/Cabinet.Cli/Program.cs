@@ -25,7 +25,7 @@ internal static class Program
           cabinet library                      plugins Cabinet knows how to install
           cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [prefix] [file]
-                                               install one; some need a file you download
+                                               install one; demo entries download without a file
           cabinet library remove <id>          uninstall one, links, prefix and all
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library log <id>             what the last launch of a manager printed
@@ -476,6 +476,7 @@ internal static class Program
         Field("Version", entry.Version);
         Field("Category", entry.Category);
         Field("Licence", entry.Licence);
+        Field("Account", entry.Account);
         Field("Formats", entry.Formats.Count > 0 ? string.Join(", ", entry.Formats) : null);
         Field("Runs", entry.Kind == PluginKind.Native ? "natively on Linux" : Bridged(entry));
         Field("Presets", entry.Data is { } data ? "~/" + data : null);

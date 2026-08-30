@@ -203,7 +203,11 @@ internal sealed class LibraryPage
             parts.Add(entry.Summary);
         }
 
-        if (entry.Source == PluginSource.Byo)
+        if (entry.DemoUrl is not null)
+        {
+            parts.Add("offers a demo or your own installer");
+        }
+        else if (entry.Source == PluginSource.Byo)
         {
             parts.Add(entry.Account is null
                 ? "needs the installer you bought"
@@ -313,6 +317,15 @@ internal sealed class LibraryPage
         name.SetText(entry.Prefix);
         name.SetVisible(where.GetSelected() == 0);
 
+        Adw.ComboRow? installer = null;
+
+        if (entry.DemoUrl is not null)
+        {
+            installer = Adw.ComboRow.New();
+            installer.SetTitle("Installer");
+            installer.SetModel(Gtk.StringList.New(["Download demo", "Use my installation file"]));
+        }
+
         where.OnNotify += (_, args) =>
         {
             if (args.Pspec.GetName() == "selected")
@@ -326,6 +339,11 @@ internal sealed class LibraryPage
         if (AccountRow(entry) is { } account)
         {
             fields.Add(account);
+        }
+
+        if (installer is not null)
+        {
+            fields.Add(installer);
         }
 
         fields.Add(where);
@@ -346,7 +364,8 @@ internal sealed class LibraryPage
                     return;
                 }
 
-                if (entry.Source == PluginSource.Byo)
+                if (entry.Source == PluginSource.Byo
+                    && (installer is null || installer.GetSelected() == 1))
                 {
                     Ui.ChooseFile(
                         window,
@@ -362,6 +381,16 @@ internal sealed class LibraryPage
 
     private static string Prospect(LibraryEntry entry, string? into)
     {
+        var prefix = into is null
+            ? "A prefix of its own keeps this plugin's dependencies away from every other."
+            : $"It goes into the {into} prefix you already have, beside whatever is in it.";
+
+        if (entry.DemoUrl is not null)
+        {
+            return "Download the demo, or choose an installation file you already have. Both "
+                   + $"use the same Cabinet prefix and Wine settings.\n\n{prefix}";
+        }
+
         if (entry.Source == PluginSource.Byo)
         {
             return entry.Account is null
@@ -370,10 +399,6 @@ internal sealed class LibraryPage
                 : $"{entry.Name} cannot be downloaded. Log in, download it, and you will be "
                   + "asked for the file.";
         }
-
-        var prefix = into is null
-            ? "A prefix of its own keeps this plugin's dependencies away from every other."
-            : $"It goes into the {into} prefix you already have, beside whatever is in it.";
 
         return entry.Source == PluginSource.Rolling
             ? "Cabinet downloads it and runs its installer under Wine. "

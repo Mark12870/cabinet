@@ -569,6 +569,106 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void AByoEntryMayOfferAPinnedWindowsDemo()
+    {
+        var entry = LibraryEntry.Parse("thing", $"""
+            Name: Thing
+            Kind: windows
+            Source: byo
+            DemoUrl: https://example.invalid/thing-demo.exe
+            DemoSha256: {Zeros}
+            """);
+
+        Assert.Equal(PluginSource.Byo, entry.Source);
+        Assert.Null(entry.Url);
+        Assert.Equal("https://example.invalid/thing-demo.exe", entry.DemoUrl);
+        Assert.Equal(Zeros, entry.DemoSha256);
+    }
+
+    [Fact]
+    public void AByoDemoWithoutAChecksumIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            DemoUrl: https://example.invalid/thing.exe
+            """));
+
+        Assert.Contains("has a DemoUrl but no DemoSha256", refused.Message);
+    }
+
+    [Fact]
+    public void AByoChecksumWithoutADemoIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", $"""
+            Name: Thing
+            Kind: windows
+            Source: byo
+            DemoSha256: {Zeros}
+            """));
+
+        Assert.Contains("carries DemoSha256 but has no DemoUrl", refused.Message);
+    }
+
+    [Fact]
+    public void ADemoUrlIsRefusedOutsideAByoEntry()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", $"""
+            Name: Thing
+            Kind: windows
+            Source: download
+            Url: https://example.invalid/thing.exe
+            Sha256: {Zeros}
+            DemoUrl: https://example.invalid/thing-demo.exe
+            DemoSha256: {Zeros}
+            """));
+
+        Assert.Contains("is not Source: byo", refused.Message);
+    }
+
+    [Fact]
+    public void ADemoUrlIsRefusedOnANativeEntry()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", $"""
+            Name: Thing
+            Kind: native
+            Source: byo
+            DemoUrl: https://example.invalid/thing.zip
+            DemoSha256: {Zeros}
+            """));
+
+        Assert.Contains("not a Windows plugin", refused.Message);
+    }
+
+    [Fact]
+    public void ARegularUrlIsRefusedOnAByoEntry()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", $"""
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Url: https://example.invalid/thing.exe
+            Sha256: {Zeros}
+            """));
+
+        Assert.Contains("use DemoUrl", refused.Message);
+    }
+
+    [Fact]
+    public void ARegularChecksumIsRefusedOnAByoEntry()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", $"""
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Sha256: {Zeros}
+            """));
+
+        Assert.Contains("use DemoSha256", refused.Message);
+    }
+
+    [Fact]
     public void ANativeEntryMayCarryALoginPageInsteadOfADownload()
     {
         var entry = LibraryEntry.Parse(
@@ -817,6 +917,70 @@ public class LibraryTests : IDisposable
         Assert.Equal([installer], recording.Calls[1].Arguments);
         Assert.Contains(recording.Calls, Synced);
         Assert.Equal("dexed", library.Installed()["dexed"]);
+    }
+
+    [Fact]
+    public void AByoDemoAndItsOwnInstallerUseTheSamePrefixSettingsAndScript()
+    {
+        var demo = Path.Combine(root, "thing-demo.exe");
+        File.WriteAllText(demo, "demo");
+        var own = Path.Combine(root, "thing-own.exe");
+        File.WriteAllText(own, "own");
+
+        Catalogue(("thing", $"""
+            Name: Thing
+            Kind: windows
+            Source: byo
+            DemoUrl: {new Uri(demo).AbsoluteUri}
+            DemoSha256: {Checksum.Sha256(demo)}
+            Env: TEST_SETTING=shared
+            Sync: fsync
+            Script: fixture.sh
+            """));
+        Script("fixture.sh", "exit 0");
+
+        var recording = new RecordingRunner(args =>
+        {
+            if (args is ["-fL", "--progress-bar", "--retry", "2", "-o", var target, _])
+            {
+                File.Copy(demo, target, overwrite: true);
+            }
+        });
+        var layout = Layout();
+        var library = new Library(layout, recording);
+        var entry = library.Find("thing");
+
+        library.Install(entry, "demo");
+        library.Install(entry, "own", own);
+
+        var scripts = recording.Calls.Where(call => call.File == "sh").ToList();
+
+        Assert.Equal(2, scripts.Count);
+        Assert.Equal("TEST_SETTING=shared", File.ReadAllText(layout.PrefixEnvFile("demo")).Trim());
+        Assert.Equal("TEST_SETTING=shared", File.ReadAllText(layout.PrefixEnvFile("own")).Trim());
+        Assert.Equal(SyncMode.Fsync, new PrefixSettings(layout).Sync("demo"));
+        Assert.Equal(SyncMode.Fsync, new PrefixSettings(layout).Sync("own"));
+        Assert.Equal(own, scripts[1].Environment["CABINET_ARCHIVE"]);
+        Assert.Equal(scripts[0].Environment["WINE"], scripts[1].Environment["WINE"]);
+        Assert.Equal("shared", scripts[0].Environment["TEST_SETTING"]);
+        Assert.Equal("shared", scripts[1].Environment["TEST_SETTING"]);
+        Assert.Single(recording.Calls, call => call.File == "curl");
+    }
+
+    [Fact]
+    public void AMissingOwnInstallerIsRefusedBeforeThePrefixIsCreated()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));
+        var missing = Path.Combine(root, "missing.exe");
+        var recording = new RecordingRunner();
+        var library = new Library(Layout(), recording);
+
+        var thrown = Assert.Throws<FileNotFoundException>(() =>
+            library.Install(library.Find("thing"), installer: missing));
+
+        Assert.Equal(missing, thrown.FileName);
+        Assert.DoesNotContain(recording.Calls, call => call.File == "wineboot");
+        Assert.False(Directory.Exists(Layout().PrefixPath("thing")));
     }
 
     [Fact]
