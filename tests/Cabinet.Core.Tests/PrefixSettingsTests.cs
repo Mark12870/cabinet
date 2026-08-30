@@ -10,39 +10,39 @@ public sealed class PrefixSettingsTests : IDisposable
 
     private PrefixSettings Subject => new(Layout);
 
-    public PrefixSettingsTests() => Directory.CreateDirectory(Layout.PrefixPath("serum"));
+    public PrefixSettingsTests() => Directory.CreateDirectory(Layout.PrefixPath("gadget"));
 
     [Fact]
     public void APrefixWaitsTheWayTheSystemDoesUntilItIsToldOtherwise()
     {
-        Assert.Equal(SyncMode.System, Subject.Sync("serum"));
+        Assert.Equal(SyncMode.System, Subject.Sync("gadget"));
         Assert.Empty(PrefixSettings.SyncVariables(SyncMode.System));
     }
 
     [Fact]
     public void SettingASyncModeRecordsItWhereTheShimLooks()
     {
-        Subject.SetSync("serum", SyncMode.Fsync);
+        Subject.SetSync("gadget", SyncMode.Fsync);
 
-        Assert.Equal(SyncMode.Fsync, Subject.Sync("serum"));
-        Assert.Equal("fsync", File.ReadAllText(Layout.PrefixSyncFile("serum")).Trim());
+        Assert.Equal(SyncMode.Fsync, Subject.Sync("gadget"));
+        Assert.Equal("fsync", File.ReadAllText(Layout.PrefixSyncFile("gadget")).Trim());
     }
 
     [Fact]
     public void GoingBackToSystemRemovesTheMarker()
     {
-        Subject.SetSync("serum", SyncMode.Ntsync);
-        Subject.SetSync("serum", SyncMode.System);
+        Subject.SetSync("gadget", SyncMode.Ntsync);
+        Subject.SetSync("gadget", SyncMode.System);
 
-        Assert.False(File.Exists(Layout.PrefixSyncFile("serum")));
+        Assert.False(File.Exists(Layout.PrefixSyncFile("gadget")));
     }
 
     [Fact]
     public void AWordNobodyRecognisesReadsBackAsSystem()
     {
-        File.WriteAllText(Layout.PrefixSyncFile("serum"), "gsync\n");
+        File.WriteAllText(Layout.PrefixSyncFile("gadget"), "gsync\n");
 
-        Assert.Equal(SyncMode.System, Subject.Sync("serum"));
+        Assert.Equal(SyncMode.System, Subject.Sync("gadget"));
     }
 
     [Theory]
@@ -68,14 +68,14 @@ public sealed class PrefixSettingsTests : IDisposable
     [Fact]
     public void APrefixCarriesNoVariablesUntilItIsGivenOne()
     {
-        Assert.Empty(Subject.Variables("serum"));
+        Assert.Empty(Subject.Variables("gadget"));
     }
 
     [Fact]
     public void VariablesSurviveARoundTripThroughTheFile()
     {
-        Subject.SetVariable("serum", "WINEDEBUG", "warn+all");
-        Subject.SetVariable("serum", "MESA_LOADER_DRIVER_OVERRIDE", "zink");
+        Subject.SetVariable("gadget", "WINEDEBUG", "warn+all");
+        Subject.SetVariable("gadget", "MESA_LOADER_DRIVER_OVERRIDE", "zink");
 
         Assert.Equal(
             new Dictionary<string, string>
@@ -83,43 +83,43 @@ public sealed class PrefixSettingsTests : IDisposable
                 ["MESA_LOADER_DRIVER_OVERRIDE"] = "zink",
                 ["WINEDEBUG"] = "warn+all",
             },
-            Subject.Variables("serum"));
+            Subject.Variables("gadget"));
     }
 
     [Fact]
     public void RemovingTheLastVariableRemovesTheFile()
     {
-        Subject.SetVariable("serum", "WINEDEBUG", "warn+all");
-        Subject.SetVariable("serum", "WINEDEBUG", null);
+        Subject.SetVariable("gadget", "WINEDEBUG", "warn+all");
+        Subject.SetVariable("gadget", "WINEDEBUG", null);
 
-        Assert.False(File.Exists(Layout.PrefixEnvFile("serum")));
+        Assert.False(File.Exists(Layout.PrefixEnvFile("gadget")));
     }
 
     [Fact]
     public void AnEmptyValueIsKeptBecauseItMeansUnsetToTheRunner()
     {
-        Subject.SetVariable("serum", "DISPLAY", "");
+        Subject.SetVariable("gadget", "DISPLAY", "");
 
-        Assert.Equal("", Subject.Variables("serum")["DISPLAY"]);
+        Assert.Equal("", Subject.Variables("gadget")["DISPLAY"]);
     }
 
     [Fact]
     public void BlankCommentAndKeylessLinesAreSkipped()
     {
         File.WriteAllText(
-            Layout.PrefixEnvFile("serum"),
+            Layout.PrefixEnvFile("gadget"),
             "\n# a note\nnonsense\n=orphan\n  KEEP =1\nWITH=an=equals\n");
 
         Assert.Equal(
             new Dictionary<string, string> { ["KEEP"] = "1", ["WITH"] = "an=equals" },
-            Subject.Variables("serum"));
+            Subject.Variables("gadget"));
     }
 
     [Fact]
     public void ANameThatWouldNotSurviveTheFileIsRefused()
     {
-        Assert.Throws<ArgumentException>(() => Subject.SetVariable("serum", "A=B", "1"));
-        Assert.Throws<ArgumentException>(() => Subject.SetVariable("serum", "  ", "1"));
+        Assert.Throws<ArgumentException>(() => Subject.SetVariable("gadget", "A=B", "1"));
+        Assert.Throws<ArgumentException>(() => Subject.SetVariable("gadget", "  ", "1"));
     }
 
     [Fact]
@@ -127,10 +127,10 @@ public sealed class PrefixSettingsTests : IDisposable
     {
         foreach (var owned in PrefixSettings.Owned)
         {
-            Assert.Throws<ArgumentException>(() => Subject.SetVariable("serum", owned, "1"));
+            Assert.Throws<ArgumentException>(() => Subject.SetVariable("gadget", owned, "1"));
         }
 
-        Assert.False(File.Exists(Layout.PrefixEnvFile("serum")));
+        Assert.False(File.Exists(Layout.PrefixEnvFile("gadget")));
     }
 
     [Fact]

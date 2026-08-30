@@ -47,11 +47,11 @@ public sealed class PrefixRegistryTests : IDisposable
     [Fact]
     public void UserRegistrationsAreReadToo()
     {
-        User(Serum);
+        User(Gadget);
 
         var entry = Assert.Single(Subject.Uninstallers("valhalla"));
 
-        Assert.Equal("Xfer Records Serum 2", entry.Name);
+        Assert.Equal("Acme Gadget 2", entry.Name);
         Assert.StartsWith(@"HKCU\", entry.Key, StringComparison.Ordinal);
     }
 
@@ -97,10 +97,10 @@ public sealed class PrefixRegistryTests : IDisposable
     public void EveryProductInTheSamePrefixIsListed()
     {
         System(Valhalla + "\n" + FabFilter);
-        User(Serum);
+        User(Gadget);
 
         Assert.Equal(
-            ["FabFilter Total Bundle", "ValhallaSupermassive version 5.0.0", "Xfer Records Serum 2"],
+            ["Acme Gadget 2", "FabFilter Total Bundle", "ValhallaSupermassive version 5.0.0"],
             Subject.Uninstallers("valhalla").Select(one => one.Name).Order());
     }
 
@@ -139,10 +139,10 @@ public sealed class PrefixRegistryTests : IDisposable
         "UninstallString"="C:\\Program Files\\FabFilter\\Uninst.exe"
         """;
 
-    private const string Serum = """
-        [Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Serum2] 1787344290
-        "DisplayName"="Xfer Records Serum 2"
-        "UninstallString"="\"C:\\users\\testuser\\AppData\\Local\\Xfer\\Uninstall_Serum2.exe\""
+    private const string Gadget = """
+        [Software\\Wow6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Gadget2] 1787344290
+        "DisplayName"="Acme Gadget 2"
+        "UninstallString"="\"C:\\users\\testuser\\AppData\\Local\\Acme\\Uninstall_Gadget2.exe\""
         """;
 
     [Fact]

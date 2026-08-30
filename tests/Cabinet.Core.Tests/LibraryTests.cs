@@ -96,7 +96,7 @@ public class LibraryTests : IDisposable
     [Fact]
     public void AnEntryWithNoExtrasReadsAsEmptyRatherThanNull()
     {
-        var entry = LibraryEntry.Parse("serum", "Name: Serum\nKind: windows\nSource: byo\n");
+        var entry = LibraryEntry.Parse("gadget", "Name: Gadget\nKind: windows\nSource: byo\n");
 
         Assert.Null(entry.Developer);
         Assert.Empty(entry.Formats);
@@ -503,9 +503,9 @@ public class LibraryTests : IDisposable
     [Fact]
     public void AnEntryWithNoPrefixIsNamedAfterItsFile()
     {
-        var entry = LibraryEntry.Parse("serum", "Name: Serum\nKind: windows\nSource: byo\n");
+        var entry = LibraryEntry.Parse("gadget", "Name: Gadget\nKind: windows\nSource: byo\n");
 
-        Assert.Equal("serum", entry.Prefix);
+        Assert.Equal("gadget", entry.Prefix);
         Assert.Equal(SyncMode.System, entry.Sync);
         Assert.False(entry.Dxvk);
         Assert.Null(entry.Runner);
@@ -813,14 +813,14 @@ public class LibraryTests : IDisposable
     [Fact]
     public void APluginYouHadToBuySaysWhichInstallerToPass()
     {
-        Catalogue(("serum", "Name: Serum\nKind: windows\nSource: byo\n"));
+        Catalogue(("gadget", "Name: Gadget\nKind: windows\nSource: byo\n"));
 
         var refused = Assert.Throws<InvalidOperationException>(
-            () => Subject().Install(Subject().Find("serum")));
+            () => Subject().Install(Subject().Find("gadget")));
 
         Assert.Equal(
-            "Serum cannot be downloaded — pass the installer you already have: "
-            + "`cabinet library install serum serum <installer.exe>`",
+            "Gadget cannot be downloaded — pass the installer you already have: "
+            + "`cabinet library install gadget gadget <installer.exe>`",
             refused.Message);
     }
 
@@ -1023,18 +1023,18 @@ public class LibraryTests : IDisposable
         var library = new Library(layout, new UnusedRunner());
 
         Assert.Equal(["valhalla-freq-echo"], library.Sharing("valhalla", "valhalla-supermassive"));
-        Assert.Empty(library.Sharing("serum", "serum"));
+        Assert.Empty(library.Sharing("gadget", "gadget"));
     }
 
     [Fact]
     public void ARecordOfBareIdsStillReads()
     {
         var layout = Layout();
-        Directory.CreateDirectory(layout.PrefixPath("serum"));
-        File.WriteAllText(layout.PrefixPluginsFile("serum"), "serum\n");
+        Directory.CreateDirectory(layout.PrefixPath("gadget"));
+        File.WriteAllText(layout.PrefixPluginsFile("gadget"), "gadget\n");
 
         Assert.Equal(
-            "serum",
+            "gadget",
             Assert.Single(new Library(layout, new UnusedRunner()).Installed()).Key);
     }
 
@@ -1133,31 +1133,31 @@ public class LibraryTests : IDisposable
     [Fact]
     public void AnUninstallerThatRemovedNothingLeavesTheRecordAlone()
     {
-        Catalogue(("serum", "Name: Serum\nKind: windows\nSource: byo\n"));
+        Catalogue(("gadget", "Name: Gadget\nKind: windows\nSource: byo\n"));
 
         var layout = Layout();
-        var key = @"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Serum2";
+        var key = @"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Gadget2";
 
-        Directory.CreateDirectory(layout.PrefixVst3Dir("serum"));
-        File.WriteAllText(Path.Combine(layout.PrefixVst3Dir("serum"), "Serum2.vst3"), "");
-        File.WriteAllText(layout.PrefixPluginsFile("serum"), $"serum\t{key}\n");
-        File.WriteAllText(layout.PrefixSystemReg("serum"), """
+        Directory.CreateDirectory(layout.PrefixVst3Dir("gadget"));
+        File.WriteAllText(Path.Combine(layout.PrefixVst3Dir("gadget"), "Gadget2.vst3"), "");
+        File.WriteAllText(layout.PrefixPluginsFile("gadget"), $"gadget\t{key}\n");
+        File.WriteAllText(layout.PrefixSystemReg("gadget"), """
             WINE REGISTRY Version 2
 
-            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Serum2] 1787344290
-            "DisplayName"="Xfer Records Serum 2"
-            "UninstallString"="C:\\Uninstall_Serum2.exe"
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Gadget2] 1787344290
+            "DisplayName"="Xfer Records Gadget 2"
+            "UninstallString"="C:\\Uninstall_Gadget2.exe"
             """);
 
         var recording = new RecordingRunner();
         var library = new Library(layout, recording);
         var refused = Assert.Throws<InvalidOperationException>(
-            () => library.Remove(library.Find("serum"), "serum"));
+            () => library.Remove(library.Find("gadget"), "gadget"));
 
         Assert.Contains("nothing has been removed", refused.Message);
         Assert.Equal(
             ["cmd", "/c", @"C:\cabinet-uninstall.bat"], recording.Calls.Single().Arguments);
-        Assert.Equal("serum", Assert.Single(library.Installed()).Key);
+        Assert.Equal("gadget", Assert.Single(library.Installed()).Key);
     }
 
     [Fact]
@@ -1314,13 +1314,13 @@ public class LibraryTests : IDisposable
     public void AWindowsPluginIsInstalledWhereItsPrefixSaysSo()
     {
         var layout = Layout();
-        Directory.CreateDirectory(layout.PrefixPath("serum"));
-        File.WriteAllText(layout.PrefixPluginsFile("serum"), "serum\n\n");
+        Directory.CreateDirectory(layout.PrefixPath("gadget"));
+        File.WriteAllText(layout.PrefixPluginsFile("gadget"), "gadget\n\n");
         Directory.CreateDirectory(layout.NativePath("thing"));
 
         var installed = Subject().Installed();
 
-        Assert.Equal("serum", installed["serum"]);
+        Assert.Equal("gadget", installed["gadget"]);
         Assert.Null(installed["thing"]);
         Assert.Equal(2, installed.Count);
     }
@@ -1337,12 +1337,12 @@ public class LibraryTests : IDisposable
     public void DeletingAPrefixTakesWhatItHeldWithIt()
     {
         var layout = Layout();
-        Directory.CreateDirectory(layout.PrefixPath("serum"));
-        File.WriteAllText(layout.PrefixPluginsFile("serum"), "serum\n");
+        Directory.CreateDirectory(layout.PrefixPath("gadget"));
+        File.WriteAllText(layout.PrefixPluginsFile("gadget"), "gadget\n");
 
         var recording = new RecordingRunner();
 
-        new Prefixes(layout, recording).Delete("serum");
+        new Prefixes(layout, recording).Delete("gadget");
 
         Assert.Contains(recording.Calls, Synced);
         Assert.Empty(Subject().Installed());

@@ -23,7 +23,6 @@ public sealed class CarlaTests
             [new PluginCase("windows-vst3-valhalla", "Windows", "vst3",
                 HomePath(".vst3", "yabridge", "ValhallaSupermassive.vst3"), false)],
             [new PluginCase("windows-clap-surge", "Windows", "clap", HomePath(".clap", "yabridge", "Surge XT.clap"), true)],
-            [new PluginCase("windows-vst3-serum", "Windows", "vst3", HomePath(".vst3", "yabridge", "Serum2.vst3"), false)],
         ];
 
         var selected = Environment.GetEnvironmentVariable("CABINET_RUNTIME_CASE");

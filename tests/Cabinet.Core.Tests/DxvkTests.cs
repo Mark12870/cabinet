@@ -13,35 +13,35 @@ public sealed class DxvkTests : IDisposable
     [Fact]
     public void APrefixReportsNoDxvkUntilItIsInstalled()
     {
-        Directory.CreateDirectory(Layout.PrefixPath("serum"));
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
 
-        Assert.Null(Subject.InstalledIn("serum"));
+        Assert.Null(Subject.InstalledIn("gadget"));
     }
 
     [Fact]
     public void TheMarkerNamesTheVersionThatWasUnpacked()
     {
-        Directory.CreateDirectory(Layout.PrefixPath("serum"));
-        File.WriteAllText(Layout.PrefixDxvkFile("serum"), "2.7.1\n");
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        File.WriteAllText(Layout.PrefixDxvkFile("gadget"), "2.7.1\n");
 
-        Assert.Equal("2.7.1", Subject.InstalledIn("serum"));
+        Assert.Equal("2.7.1", Subject.InstalledIn("gadget"));
     }
 
     [Fact]
     public void AnEmptyMarkerCountsAsNoDxvk()
     {
-        Directory.CreateDirectory(Layout.PrefixPath("serum"));
-        File.WriteAllText(Layout.PrefixDxvkFile("serum"), "  \n");
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        File.WriteAllText(Layout.PrefixDxvkFile("gadget"), "  \n");
 
-        Assert.Null(Subject.InstalledIn("serum"));
+        Assert.Null(Subject.InstalledIn("gadget"));
     }
 
     [Fact]
     public void APrefixThatWasNeverBootedIsRefused()
     {
-        Directory.CreateDirectory(Layout.PrefixPath("serum"));
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
 
-        Assert.Throws<DirectoryNotFoundException>(() => Subject.Install("serum"));
+        Assert.Throws<DirectoryNotFoundException>(() => Subject.Install("gadget"));
     }
 
     [Fact]
@@ -54,29 +54,29 @@ public sealed class DxvkTests : IDisposable
     [Fact]
     public void TakingDxvkOutPutsBackWhatItReplaced()
     {
-        Booted("serum");
-        var system32 = Path.Combine(Layout.PrefixSystem32("serum"), "d3d11.dll");
-        var backup = Path.Combine(Layout.PrefixDxvkBackup("serum", "system32"), "d3d11.dll");
+        Booted("gadget");
+        var system32 = Path.Combine(Layout.PrefixSystem32("gadget"), "d3d11.dll");
+        var backup = Path.Combine(Layout.PrefixDxvkBackup("gadget", "system32"), "d3d11.dll");
         Write(backup, "wine");
         Write(system32, "dxvk");
 
-        Installed("serum").Remove("serum");
+        Installed("gadget").Remove("gadget");
 
         Assert.Equal("wine", File.ReadAllText(system32));
-        Assert.False(Directory.Exists(Layout.PrefixDxvkBackupDir("serum")));
-        Assert.Null(Subject.InstalledIn("serum"));
+        Assert.False(Directory.Exists(Layout.PrefixDxvkBackupDir("gadget")));
+        Assert.Null(Subject.InstalledIn("gadget"));
     }
 
     [Fact]
     public void APrefixDxvkdBeforeBackupsExistedIsHandedBackToWineRatherThanLeftEmpty()
     {
-        Booted("serum");
-        var system32 = Path.Combine(Layout.PrefixSystem32("serum"), "dxgi.dll");
+        Booted("gadget");
+        var system32 = Path.Combine(Layout.PrefixSystem32("gadget"), "dxgi.dll");
         Write(system32, "dxvk");
 
         var recorder = new RecordingRunner();
-        File.WriteAllText(Layout.PrefixDxvkFile("serum"), Dxvk.Version);
-        new Dxvk(Layout, recorder).Remove("serum");
+        File.WriteAllText(Layout.PrefixDxvkFile("gadget"), Dxvk.Version);
+        new Dxvk(Layout, recorder).Remove("gadget");
 
         Assert.False(File.Exists(system32));
         Assert.Equal(["-u"], recorder.LastArguments);
@@ -86,11 +86,11 @@ public sealed class DxvkTests : IDisposable
     [Fact]
     public void TakingDxvkOutOfAPrefixThatNeverHadItKeepsWinesOwnDirect3D()
     {
-        Booted("serum");
-        var system32 = Path.Combine(Layout.PrefixSystem32("serum"), "d3d11.dll");
+        Booted("gadget");
+        var system32 = Path.Combine(Layout.PrefixSystem32("gadget"), "d3d11.dll");
         Write(system32, "wine");
 
-        Assert.Throws<InvalidOperationException>(() => Subject.Remove("serum"));
+        Assert.Throws<InvalidOperationException>(() => Subject.Remove("gadget"));
 
         Assert.Equal("wine", File.ReadAllText(system32));
     }
@@ -98,10 +98,10 @@ public sealed class DxvkTests : IDisposable
     [Fact]
     public void EveryOverrideDxvkAddedIsTakenBackOut()
     {
-        Backed("serum");
+        Backed("gadget");
 
         var recorder = new RecordingRunner();
-        new Dxvk(Layout, recorder).Remove("serum");
+        new Dxvk(Layout, recorder).Remove("gadget");
 
         var deleted = recorder.Calls
             .Where(call => call.Arguments.Contains("delete"))
@@ -114,21 +114,21 @@ public sealed class DxvkTests : IDisposable
     [Fact]
     public void AnOverrideWineHasAlreadyForgottenIsNotAFailure()
     {
-        Backed("serum");
+        Backed("gadget");
 
         var refusing = new StubRunner(new ProcessResult(1, "", "reg: Unable to find"));
-        new Dxvk(Layout, refusing).Remove("serum");
+        new Dxvk(Layout, refusing).Remove("gadget");
 
-        Assert.Null(Subject.InstalledIn("serum"));
+        Assert.Null(Subject.InstalledIn("gadget"));
     }
 
     [Fact]
     public void APrefixWithEveryBackupIsNeverHandedToWineboot()
     {
-        Backed("serum");
+        Backed("gadget");
 
         var recorder = new RecordingRunner();
-        new Dxvk(Layout, recorder).Remove("serum");
+        new Dxvk(Layout, recorder).Remove("gadget");
 
         Assert.DoesNotContain(recorder.Calls, call => call.File.Contains("wineboot"));
     }
@@ -136,23 +136,23 @@ public sealed class DxvkTests : IDisposable
     [Fact]
     public void APrefixWineCouldNotRecoverStillReadsAsDxvkd()
     {
-        Booted("serum");
-        Write(Path.Combine(Layout.PrefixSystem32("serum"), "dxgi.dll"), "dxvk");
-        File.WriteAllText(Layout.PrefixDxvkFile("serum"), Dxvk.Version);
+        Booted("gadget");
+        Write(Path.Combine(Layout.PrefixSystem32("gadget"), "dxgi.dll"), "dxvk");
+        File.WriteAllText(Layout.PrefixDxvkFile("gadget"), Dxvk.Version);
 
         var failing = new StubRunner(new ProcessResult(1, "", ""));
 
-        Assert.Throws<InvalidOperationException>(() => new Dxvk(Layout, failing).Remove("serum"));
+        Assert.Throws<InvalidOperationException>(() => new Dxvk(Layout, failing).Remove("gadget"));
 
-        Assert.Equal(Dxvk.Version, Subject.InstalledIn("serum"));
+        Assert.Equal(Dxvk.Version, Subject.InstalledIn("gadget"));
     }
 
     [Fact]
     public void TakingDxvkOutOfAPrefixThatWasNeverBootedIsRefused()
     {
-        Directory.CreateDirectory(Layout.PrefixPath("serum"));
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
 
-        Assert.Throws<DirectoryNotFoundException>(() => Subject.Remove("serum"));
+        Assert.Throws<DirectoryNotFoundException>(() => Subject.Remove("gadget"));
     }
 
     [Fact]

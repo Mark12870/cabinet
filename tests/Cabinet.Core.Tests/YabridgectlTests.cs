@@ -56,12 +56,12 @@ public sealed class YabridgectlTests : IDisposable
     public void AFailedPluginRegistrationIsReturnedInsteadOfBeingAccepted()
     {
         var layout = TestLayout();
-        var pluginDirectory = layout.PrefixVst3Dir("serum");
+        var pluginDirectory = layout.PrefixVst3Dir("gadget");
         Directory.CreateDirectory(pluginDirectory);
         var runner = new RecordingRunner(
             exits: args => args.SequenceEqual(["add", pluginDirectory]) ? 1 : 0);
         var prefix = new Prefix(
-            "serum", layout.PrefixPath("serum"), true, Cabinet.Core.Layout.BundledRunner,
+            "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
             null, SyncMode.System, null);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
@@ -80,7 +80,7 @@ public sealed class YabridgectlTests : IDisposable
             exits: args => args.SequenceEqual(["rm", stale]) ? 1 : 0,
             outputs: args => args.SequenceEqual(["list"]) ? stale + "\n" : "");
         var prefix = new Prefix(
-            "serum", layout.PrefixPath("serum"), true, Cabinet.Core.Layout.BundledRunner,
+            "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
             null, SyncMode.System, null);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
@@ -97,7 +97,7 @@ public sealed class YabridgectlTests : IDisposable
         var runner = new RecordingRunner(
             exits: args => args.SequenceEqual(["list"]) ? 1 : 0);
         var prefix = new Prefix(
-            "serum", layout.PrefixPath("serum"), true, Cabinet.Core.Layout.BundledRunner,
+            "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
             null, SyncMode.System, null);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);

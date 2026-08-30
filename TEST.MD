@@ -9,12 +9,11 @@ its editor on a private Xvfb display with a lightweight X11 window manager, neve
 ## One-time setup
 
 The setup command creates the Toolbox if it does not exist, builds Carla, and installs
-the fixtures. On a clean machine, supply the purchased Serum installer; later runs
-reuse the Toolbox and only rebuild Carla when its pinned source commit changes.
+the fixtures. Later runs reuse the Toolbox and only rebuild Carla when its pinned
+source commit changes.
 
 ```sh
-CABINET_SERUM_INSTALLER=/path/to/Serum2-installer.exe \
-  scripts/setup-carla-tests.sh
+scripts/setup-carla-tests.sh
 ```
 
 Carla is built from a pinned 2.6 development commit because Fedora's packaged Carla
@@ -23,7 +22,7 @@ user's `~/.var/app/io.github.mark12870.cabinet/data/carla-tests/prefix` and the 
 is kept in its `source` sibling.
 
 The setup installs the pinned free catalogue entries, Xvfb and its lightweight window manager, a pinned Windows
-Surge XT archive for Windows CLAP coverage, Serum, and IK Product Manager. It does not log
+Surge XT archive for Windows CLAP coverage, and IK Product Manager. It does not log
 in to or install a product through IK Product Manager. The manager test only checks
 that the manager itself installs correctly.
 
@@ -43,7 +42,6 @@ process, Flatpak instance, display and socket.
 | Windows | Valhalla Supermassive | VST2 | Windows yabridge VST2 and ZIP installer |
 | Windows | Valhalla Supermassive | VST3 | Windows yabridge VST3 |
 | Windows | Surge XT | CLAP | Windows yabridge CLAP |
-| Windows | Serum 2 | VST3 | BYO Direct2D-sensitive plugin |
 
 Surge XT VST3 is excluded because Carla's VST3 loader asserts on its zero-size
 editor; Surge XT remains covered through native CLAP/LV2 and Windows CLAP.
@@ -60,7 +58,6 @@ Windows plugins are tested through Cabinet's yabridge wrappers and
 loaded from Cabinet's native links. Windows LV2 is intentionally absent: yabridge
 does not bridge LV2, so there is no supported Windows LV2 test for Cabinet.
 
-Serum and the manager are deliberately provisioned separately from acquisition.
-This keeps the test repeatable without storing credentials, account state or
-machine-specific files in the repository. The manager is not used to install a
-plugin.
+The manager is deliberately provisioned separately from acquisition. This keeps the
+test repeatable without storing credentials, account state or machine-specific files
+in the repository. The manager is not used to install a plugin.

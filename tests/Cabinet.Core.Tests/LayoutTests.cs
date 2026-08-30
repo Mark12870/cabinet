@@ -49,14 +49,14 @@ public class LayoutTests
     public void PrefixesGetTheConventionalWindowsVst3Directory()
     {
         Assert.Equal(
-            "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/serum/drive_c/Program Files/Common Files/VST3",
-            Layout.PrefixVst3Dir("serum"));
+            "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/gadget/drive_c/Program Files/Common Files/VST3",
+            Layout.PrefixVst3Dir("gadget"));
     }
 
     [Fact]
     public void PluginDirectoriesCoverBothBitnesses()
     {
-        var prefix = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/serum/drive_c";
+        var prefix = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/gadget/drive_c";
 
         Assert.Equal(
             [
@@ -71,12 +71,12 @@ public class LayoutTests
                 $"{prefix}/Program Files (x86)/VstPlugins",
                 $"{prefix}/Program Files (x86)/Steinberg/VstPlugins",
             ],
-            Layout.PrefixPluginDirs("serum"));
+            Layout.PrefixPluginDirs("gadget"));
     }
 
     [Fact]
     public void TheUnpackHereDirectoryIsOneOfTheRegisteredOnes()
     {
-        Assert.Contains(Layout.PrefixVst3Dir("serum"), Layout.PrefixPluginDirs("serum"));
+        Assert.Contains(Layout.PrefixVst3Dir("gadget"), Layout.PrefixPluginDirs("gadget"));
     }
 }

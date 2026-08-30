@@ -21,9 +21,9 @@ public sealed class RunnersTests : IDisposable
     public void AVersionSpecMatchesTheDirectoryTheRunnerWasUnpackedUnder()
     {
         GiveRunner("wine-9.21-staging-tkg");
-        GivePrefix("serum", "wine-9.21-staging-tkg");
-        GiveEntry("xfer-records", "serum", "Serum 2", "9.21");
-        GiveRecord("serum", "serum");
+        GivePrefix("gadget", "wine-9.21-staging-tkg");
+        GiveEntry("acme", "gadget", "Gadget 2", "9.21");
+        GiveRecord("gadget", "gadget");
 
         Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
     }
@@ -32,15 +32,15 @@ public sealed class RunnersTests : IDisposable
     public void APrefixMovedOffTheRunnerItsPluginAsksForIsWarnedAbout()
     {
         GiveRunner("wine-10.8-staging-tkg");
-        GivePrefix("serum", "wine-10.8-staging-tkg");
-        GiveEntry("xfer-records", "serum", "Serum 2", "9.21");
-        GiveRecord("serum", "serum");
+        GivePrefix("gadget", "wine-10.8-staging-tkg");
+        GiveEntry("acme", "gadget", "Gadget 2", "9.21");
+        GiveRecord("gadget", "gadget");
 
         var check = Checks().Single(c => c.Name == "plugin runners");
 
         Assert.Equal(Status.Warn, check.Status);
-        Assert.Contains("serum keeps wine-10.8-staging-tkg", check.Detail);
-        Assert.Contains("Serum 2 asks for Wine 9.21", check.Detail);
+        Assert.Contains("gadget keeps wine-10.8-staging-tkg", check.Detail);
+        Assert.Contains("Gadget 2 asks for Wine 9.21", check.Detail);
     }
 
     [Fact]
@@ -73,10 +73,10 @@ public sealed class RunnersTests : IDisposable
     public void APrefixOnTheSyncModeItsPluginAsksForIsNotComplainedAbout()
     {
         GiveRunner("wine-9.21-staging-tkg");
-        GivePrefix("serum", "wine-9.21-staging-tkg");
-        GiveEntry("xfer-records", "serum", "Serum 2", "9.21", "fsync");
-        GiveRecord("serum", "serum");
-        File.WriteAllText(Layout.PrefixSyncFile("serum"), "fsync");
+        GivePrefix("gadget", "wine-9.21-staging-tkg");
+        GiveEntry("acme", "gadget", "Gadget 2", "9.21", "fsync");
+        GiveRecord("gadget", "gadget");
+        File.WriteAllText(Layout.PrefixSyncFile("gadget"), "fsync");
 
         Assert.DoesNotContain(Checks(), c => c.Name == "plugin sync");
     }
@@ -85,15 +85,15 @@ public sealed class RunnersTests : IDisposable
     public void APrefixThatNeverTookTheSyncModeItsPluginAsksForIsWarnedAbout()
     {
         GiveRunner("wine-9.21-staging-tkg");
-        GivePrefix("serum", "wine-9.21-staging-tkg");
-        GiveEntry("xfer-records", "serum", "Serum 2", "9.21", "fsync");
-        GiveRecord("serum", "serum");
+        GivePrefix("gadget", "wine-9.21-staging-tkg");
+        GiveEntry("acme", "gadget", "Gadget 2", "9.21", "fsync");
+        GiveRecord("gadget", "gadget");
 
         var check = Checks().Single(c => c.Name == "plugin sync");
 
         Assert.Equal(Status.Warn, check.Status);
-        Assert.Contains("serum runs on system", check.Detail);
-        Assert.Contains("Serum 2 asks for fsync", check.Detail);
+        Assert.Contains("gadget runs on system", check.Detail);
+        Assert.Contains("Gadget 2 asks for fsync", check.Detail);
     }
 
     private void GiveRecord(string prefix, string id) =>

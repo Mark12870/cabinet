@@ -6,12 +6,10 @@ description: Test Cabinet plugin wrappers through the persistent Carla Toolbox.
 # Test Cabinet plugins
 
 1. Create or reuse the persistent Toolbox, build the pinned CLAP-capable Carla, and
-   prepare the deterministic catalogue fixtures. Supply a purchased Serum installer
-   when the fixture is not already installed:
+   prepare the deterministic catalogue fixtures:
 
    ```sh
-   CABINET_SERUM_INSTALLER=/path/to/Serum2-installer.exe \
-     scripts/setup-carla-tests.sh
+   scripts/setup-carla-tests.sh
    ```
 
 2. Run the complete headless Linux and Windows VST2, VST3, CLAP and LV2-compatible matrix:

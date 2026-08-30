@@ -8,7 +8,6 @@ DATA_ROOT=${CABINET_CARLA_DATA:-$HOME/.var/app/$APP/data/carla-tests}
 SOURCE=${CABINET_CARLA_SOURCE:-$DATA_ROOT/source}
 PREFIX=${CABINET_CARLA_PREFIX:-$DATA_ROOT/prefix}
 COMMIT=97a9e0740baf6df2df942495c02532a624c44682
-SERUM_INSTALLER=${CABINET_SERUM_INSTALLER:-}
 SURGE_PREFIX=carla-surge-windows
 SURGE_URL=https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-win64-1.3.4-pluginsonly.zip
 SURGE_SHA256=564e162c560af07ad4ed47fe1bfcd827cf97a575de30d06c48249aad2e7c35e6
@@ -135,14 +134,6 @@ install_entry valhalla-supermassive
 install_entry decent-sampler
 install_entry surge-xt
 install_entry ik-product-manager
-
-if ! installed serum; then
-    [ -n "$SERUM_INSTALLER" ] || die "Serum is not installed; set CABINET_SERUM_INSTALLER to its purchased installer"
-    [ -f "$SERUM_INSTALLER" ] || die "Serum installer does not exist: $SERUM_INSTALLER"
-    install_entry serum serum "$SERUM_INSTALLER"
-else
-    printf 'Already installed: serum\n'
-fi
 
 DATA=$HOME/.var/app/$APP/data
 SURGE_ROOT=$DATA/prefixes/$SURGE_PREFIX
