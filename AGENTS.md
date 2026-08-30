@@ -9,7 +9,9 @@ bridges them with upstream yabridge. There is deliberately no arm build.
 - Every feature must be available over GUI and over CLI
 - README.md must be under 100 lines
 - CLAUDE.md must be under 500 lines
-- Never commit personal, account or machine-specific data, including usernames, home paths, credentials or local tool state, in source, tests, fixtures, documentation, generated files or commit messages; use neutral synthetic values instead.
+- Never commit personal, account or machine-specific data, including usernames, home paths, credentials or local tool
+  state, in source, tests, fixtures, documentation, generated files or commit messages; use neutral synthetic values
+  instead.
 
 ### Code style
 
@@ -184,10 +186,11 @@ Do not consume the remaining step budget repeating similar investigations.
   known.
 - Use a `general` subagent for complex, independent multi-step work that can be completed without duplicating the main
   task.
-- Use `debugger` subagent for difficult or uncertain reasoning, or when verification or user feedback shows acceptance criteria
-  are unmet. Apply its advice before asking, giving up, or finalising.
+- Use `debugger` subagent for difficult or uncertain reasoning, or when verification or user feedback shows acceptance
+  criteria are unmet. Apply its advice before asking, giving up, or finalising.
 - You MUST use the `code-tester` subagent to design or run verification for a new feature or fix. Use it also for GUI
   verifications.
 - You MUST run the `code-reviewer` subagent exactly once after all implementation, testing, and resulting fixes are
-  complete, immediately before the final response, and never during intermediate changes.
+  complete, immediately before the final response, and never during intermediate changes. Run it only when you changed
+  the code!
 - Run independent subagent tasks in parallel when possible, except `code-reviewer`.
