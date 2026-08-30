@@ -259,6 +259,7 @@ internal static class CarlaProcess
 
         export YABRIDGE_TEMP_DIR=$state
         export YABRIDGE_NO_WATCHDOG=1
+        export CARLA_BRIDGE_DUMMY=1
         export CABINET_RUNTIME_RUN_ID=$run_id
         mkdir -p "$YABRIDGE_TEMP_DIR"
 

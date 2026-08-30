@@ -30,7 +30,8 @@ that the manager itself installs correctly.
 
 `Cabinet.Runtime.Tests` requires every fixture and fails if one is missing. It starts Carla
 through an in-Toolbox supervisor and `xvfb-run`, checks the load log, and cleans up each owned
-process, Flatpak instance, display and socket.
+process, Flatpak instance, display and socket. Carla runs on its dummy audio engine, so the
+Toolbox needs no JACK server.
 
 | Host side | Plugin | Format | Purpose |
 | --- | --- | --- | --- |
