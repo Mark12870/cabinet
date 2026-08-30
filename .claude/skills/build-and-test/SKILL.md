@@ -39,11 +39,14 @@ reaches only `Cabinet.Core`, and `dotnet format` does not fail on a broken build
 would not compile once passed every check and died in the flatpak build twenty minutes later.
 That is what the two `dotnet build` steps in the script are for.
 
-**4. Run the plugin over carla-single. Make sure it doesn't crash or report errors.
+**4. Run the deterministic plugin matrix over carla-single. Make sure no plugin crashes or reports errors.
 
 ```sh
 # The GUI needs the compiler server off, or every GirCore assembly comes back as CS0006.
 dotnet build src/Cabinet.Gui -p:UseSharedCompilation=false
+
+# Set up the persistent Toolbox and fixtures once, as described in TEST.MD, then run:
+CABINET_RUN_CARLA_TESTS=1 dotnet test tests/Cabinet.Runtime.Tests --nologo
 ```
 
 ## Build and install the flatpak

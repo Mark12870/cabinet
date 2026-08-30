@@ -4,7 +4,7 @@ name: Checks
 # push should still not be able to break the shim's tests.
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
   workflow_dispatch:
 
@@ -38,6 +38,7 @@ jobs:
           dotnet format --verify-no-changes
           dotnet build src/Cabinet.Cli --nologo -v q
           dotnet build src/Cabinet.Gui --nologo -v q -p:UseSharedCompilation=false
+          dotnet build tests/Cabinet.Runtime.Tests --nologo -v q
           dotnet test tests/Cabinet.Core.Tests --nologo
 
   metadata:
