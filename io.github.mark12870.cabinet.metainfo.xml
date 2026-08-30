@@ -46,6 +46,24 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.12.0" date="2026-08-30">
+      <description>
+        <p>Demos install themselves, and a closed DAW leaves nothing behind</p>
+        <ul>
+          <li>A plugin that offers a demo can download it instead of asking for an installer you
+          bought — Melodyne is the first, and either route lands in the same prefix with the same
+          Wine settings</li>
+          <li>Plugins appear as an installer writes them: the prefix is watched while a Library
+          app runs, so what an installer leaves on its way out is picked up</li>
+          <li>Closing a DAW now closes the Wine sandbox it started, instead of leaving bridge
+          processes running behind it</li>
+          <li>An error from the X server no longer takes Wine down with it, so a plugin's window
+          closing at the wrong moment does not end the plugin</li>
+          <li>Doctor's memlock advice names both systemd configuration files and says to reboot</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.11.0" date="2026-08-27">
       <description>
         <p>Klevgrand's whole catalogue joins the Library</p>

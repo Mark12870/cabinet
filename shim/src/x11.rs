@@ -76,6 +76,12 @@ type ChangeProperty =
 type SendEvent =
     unsafe extern "C" fn(*mut Display, Window, c_int, c_long, *mut ClientMessage) -> c_int;
 type Flush = unsafe extern "C" fn(*mut Display) -> c_int;
+type ErrorHandler = unsafe extern "C" fn(*mut Display, *mut c_void) -> c_int;
+type SetErrorHandler = unsafe extern "C" fn(ErrorHandler) -> Option<ErrorHandler>;
+
+unsafe extern "C" fn ignore_error(_: *mut Display, _: *mut c_void) -> c_int {
+    0
+}
 
 const CLIENT_MESSAGE: c_int = 33;
 const SUBSTRUCTURE_NOTIFY: c_long = 1 << 19;
@@ -107,6 +113,7 @@ struct X11 {
     change_property: ChangeProperty,
     send_event: SendEvent,
     flush: Flush,
+    set_error_handler: SetErrorHandler,
 }
 
 impl X11 {
@@ -125,6 +132,7 @@ impl X11 {
                 change_property: library.symbol(b"XChangeProperty\0")?,
                 send_event: library.symbol(b"XSendEvent\0")?,
                 flush: library.symbol(b"XFlush\0")?,
+                set_error_handler: library.symbol(b"XSetErrorHandler\0")?,
                 _library: library,
             })
         }
@@ -346,6 +354,8 @@ fn watch(stop: Arc<AtomicBool>) {
     let shape = Shape::load();
 
     unsafe {
+        (x11.set_error_handler)(ignore_error);
+
         let display = (x11.open_display)(ptr::null());
 
         if display.is_null() {
@@ -399,6 +409,13 @@ unsafe fn watch_display(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_x_error_never_ends_the_process() {
+        let handler: ErrorHandler = ignore_error;
+
+        assert_eq!(unsafe { handler(ptr::null_mut(), ptr::null_mut()) }, 0);
+    }
 
     #[test]
     fn desktop_title_is_the_wine_title() {
