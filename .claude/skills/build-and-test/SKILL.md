@@ -45,7 +45,7 @@ That is what the two `dotnet build` steps in the script are for.
 # The GUI needs the compiler server off, or every GirCore assembly comes back as CS0006.
 dotnet build src/Cabinet.Gui -p:UseSharedCompilation=false
 
-# Set up the persistent Toolbox and fixtures once, as described in TEST.MD, then run:
+# Set up the persistent Toolbox and fixtures once, as described in TESTS.MD, then run:
 CABINET_RUN_CARLA_TESTS=1 dotnet test tests/Cabinet.Runtime.Tests --nologo
 ```
 

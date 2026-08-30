@@ -182,10 +182,12 @@ where
     if in_sandbox {
         argv.push("flatpak-spawn".into());
         argv.push("--host".into());
+        argv.push("--watch-bus".into());
     }
 
     argv.push("flatpak".into());
     argv.push("run".into());
+    argv.push("--die-with-parent".into());
 
     let prefix = getenv("WINEPREFIX").map(|value| canonicalize(&value, &canon));
     let mut command = OsString::from("--command=");
@@ -374,14 +376,33 @@ mod tests {
     fn native_daw_does_not_hop_through_the_host() {
         let argv = build(&[], &[], false);
         assert_eq!(argv[0], "flatpak");
-        assert_eq!(&argv[..3], &["flatpak", "run", "--command=wine"]);
+        assert_eq!(
+            &argv[..4],
+            &["flatpak", "run", "--die-with-parent", "--command=wine"]
+        );
     }
 
     #[test]
     fn sandboxed_daw_hops_through_the_host() {
         let argv = build(&[], &[], true);
-        assert_eq!(&argv[..2], &["flatpak-spawn", "--host"]);
-        assert_eq!(argv[2], "flatpak");
+        assert_eq!(&argv[..3], &["flatpak-spawn", "--host", "--watch-bus"]);
+        assert_eq!(argv[3], "flatpak");
+    }
+
+    #[test]
+    fn a_native_daws_sandbox_dies_with_the_shim() {
+        let argv = build(&[], &[], false);
+        assert!(argv.iter().any(|a| a == "--die-with-parent"));
+        assert!(!argv.iter().any(|a| a == "--watch-bus"));
+    }
+
+    #[test]
+    fn a_sandboxed_daws_sandbox_dies_with_the_spawn_client() {
+        let argv = build(&[], &[], true);
+        let command = argv.iter().position(|a| a == "flatpak").unwrap();
+        let watch = argv.iter().position(|a| a == "--watch-bus").unwrap();
+        assert!(watch < command);
+        assert!(argv.iter().any(|a| a == "--die-with-parent"));
     }
 
     #[test]
@@ -471,6 +492,7 @@ mod tests {
             vec![
                 "flatpak",
                 "run",
+                "--die-with-parent",
                 "--command=wine",
                 "--env=WAYLAND_DISPLAY=",
                 "some.App"

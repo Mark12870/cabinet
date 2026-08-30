@@ -99,17 +99,7 @@ internal sealed record RuntimeConfiguration(string Toolbox, string Carla, string
         return new RuntimeConfiguration(toolbox, carla, cabinetFiles);
     }
 
-    private static string FlatpakLocation()
-    {
-        var result = Run("flatpak", ["info", "--user", "--show-location", "io.github.mark12870.cabinet"]);
-
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidOperationException("Cabinet is not installed for the current user: " + result.Error);
-        }
-
-        return result.Output.Trim();
-    }
+    private static string FlatpakLocation() => Host.Location();
 
     private static void RequireFile(string path, string name)
     {
@@ -117,30 +107,6 @@ internal sealed record RuntimeConfiguration(string Toolbox, string Carla, string
         {
             throw new FileNotFoundException($"{name} is missing", path);
         }
-    }
-
-    private static ProcessResult Run(string file, IReadOnlyList<string> arguments)
-    {
-        using var process = new Process
-        {
-            StartInfo = new ProcessStartInfo(file)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            },
-        };
-
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
-        }
-
-        process.Start();
-        var output = process.StandardOutput.ReadToEnd();
-        var error = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-        return new ProcessResult(process.ExitCode, output, error);
     }
 }
 

@@ -18,4 +18,4 @@ description: Test Cabinet plugin wrappers through the persistent Carla Toolbox.
    CABINET_RUN_CARLA_TESTS=1 dotnet test tests/Cabinet.Runtime.Tests --nologo
    ```
 
-3. Read the matrix and the unsupported Windows LV2 combination in `TEST.MD`.
+3. Read the matrix and the unsupported Windows LV2 combination in `TESTS.MD`.
