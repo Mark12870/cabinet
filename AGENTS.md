@@ -52,12 +52,23 @@ the name or the structure instead. Anything that genuinely will not fit there is
   installed Flatpak's `current/active/files`; `enrol` creates the DAW's
   `data/yabridge` link and prints, but does not apply, the required `flatpak override` because it grants
   `org.freedesktop.Flatpak` and lets the DAW run commands on the host.
-- The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which launches Cabinet with
-  `flatpak run`. Preserve `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. The shim duplicates three sets of constants,
+- The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which hands the plugin to a Wine
+  session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host.
+  Preserve `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. The shim duplicates three sets of constants,
   and `ShimParityTests` compares each against its C# side: marker names against `Layout`, sync and Cabinet-owned
   variables against
   `PrefixSettings`, blanked sockets against `Prefixes`. Prefixes need no registration: yabridge finds one by walking
   from a plugin `.dll` to its `dosdevices` directory.
+- One Wine session per prefix, never one per plugin. Flatpak gives every `flatpak run` its own PID namespace but binds
+  `/tmp` per app, so two sandboxes over one `WINEPREFIX` reach the same wineserver socket from either side of a
+  namespace boundary and wedge the DAW; that is what froze REAPER on a project holding five Klevgrand plugins.
+  `shim/src/session.rs` keys a session on the canonical `WINEPREFIX`, starts it once behind an `flock` in
+  `YABRIDGE_TEMP_DIR`, and every later plugin sends its argv to that session over the session socket. Because the
+  session outlives the shim that started it, it carries neither `--die-with-parent` nor `--watch-bus`: it exits once it
+  has been idle, and that is what tears the sandbox down.
+- Wine does not keep a job's processes under the process that started them, so a session finds and kills a job by
+  process group, never by ancestry. `wineserver` and `winedevice.exe` put themselves in their own groups and so
+  survive between jobs, which is exactly what sharing a session requires.
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`~/.vst3`, `~/.vst`,
@@ -76,6 +87,7 @@ the name or the structure instead. Anything that genuinely will not fit there is
 - Tests are xunit. `Repo` walks up to `Cabinet.slnx`, so `CatalogueTests`, `ManifestTests` and
   `ShimParityTests` read the real tree rather than a fixture. Substitute a runner with
   `StubRunner`, `RecordingRunner` or `StreamingRunner` instead of a mocking library.
+- Tests must be always deterministic. No conditions are allowed in them.
 - A new CLI verb also belongs in `Program.Usage`. `--json` is stripped from the arguments before dispatch, and JSON is
   written by hand with `Utf8JsonWriter` in `src/Cabinet.Cli/Json.cs` because NativeAOT has no reflection-based
   serializer.

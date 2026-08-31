@@ -1,14 +1,19 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
+use std::io;
 use std::os::unix::ffi::OsStrExt;
-use std::os::unix::process::{CommandExt, ExitStatusExt};
+use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod session;
 mod x11;
 
 const DEFAULT_APP: &str = "io.github.mark12870.cabinet";
 const DESKTOP_TITLE: &str = "Wine Desktop";
+const INNER_COMMAND: &str = "/app/lib/yabridge/cabinet-wine";
+const INNER_MODE: &str = "--cabinet-inner";
+const SOCKET_DIR: &str = "yabridge";
 
 const FORWARD: &[&str] = &[
     "WINEPREFIX",
@@ -167,7 +172,7 @@ where
 fn build_argv<E, C, R>(
     app: &str,
     in_sandbox: bool,
-    args: &[OsString],
+    socket: &OsStr,
     getenv: E,
     canon: C,
     read: R,
@@ -177,22 +182,19 @@ where
     C: Fn(&Path) -> Option<PathBuf>,
     R: Fn(&Path) -> Option<String>,
 {
-    let mut argv: Vec<OsString> = Vec::with_capacity(args.len() + FORWARD.len() + 5);
+    let mut argv: Vec<OsString> = Vec::with_capacity(FORWARD.len() + 8);
 
     if in_sandbox {
         argv.push("flatpak-spawn".into());
         argv.push("--host".into());
-        argv.push("--watch-bus".into());
     }
 
     argv.push("flatpak".into());
     argv.push("run".into());
-    argv.push("--die-with-parent".into());
+    argv.push(format!("--command={INNER_COMMAND}").into());
 
     let prefix = getenv("WINEPREFIX").map(|value| canonicalize(&value, &canon));
-    let mut command = OsString::from("--command=");
-    command.push(wine_command(prefix.as_deref(), &read));
-    argv.push(command);
+    let wine = wine_command(prefix.as_deref(), &read);
 
     for var in FORWARD {
         let Some(value) = getenv(var) else { continue };
@@ -226,12 +228,36 @@ where
     argv.extend(env_flags(prefix.as_deref(), &read));
 
     argv.push(app.into());
-
-    for arg in args {
-        argv.push(canonicalize(arg, &canon));
-    }
+    argv.push(INNER_MODE.into());
+    argv.push(socket.to_os_string());
+    argv.push(wine);
 
     argv
+}
+
+fn job_args<C>(args: &[OsString], canon: &C) -> Vec<OsString>
+where
+    C: Fn(&Path) -> Option<PathBuf>,
+{
+    args.iter().map(|arg| canonicalize(arg, canon)).collect()
+}
+
+fn session_dir<E, C>(getenv: &E, canon: &C) -> PathBuf
+where
+    E: Fn(&str) -> Option<OsString>,
+    C: Fn(&Path) -> Option<PathBuf>,
+{
+    let given = match getenv("YABRIDGE_TEMP_DIR").filter(|value| !value.is_empty()) {
+        Some(given) => PathBuf::from(given),
+        None => match getenv("XDG_RUNTIME_DIR").filter(|value| !value.is_empty()) {
+            Some(runtime) => PathBuf::from(runtime).join(SOCKET_DIR),
+            None => PathBuf::from("/tmp").join(SOCKET_DIR),
+        },
+    };
+
+    let _ = std::fs::create_dir_all(&given);
+
+    PathBuf::from(canonicalize(given.as_os_str(), canon))
 }
 
 fn main() {
@@ -243,13 +269,31 @@ fn main() {
         return;
     }
 
+    if args.first().is_some_and(|arg| arg == INNER_MODE) {
+        std::process::exit(session::run_broker(&args[1..]));
+    }
+
+    let getenv = |key: &str| env::var_os(key);
+    let canon = |path: &Path| std::fs::canonicalize(path).ok();
+    let read = |path: &Path| std::fs::read_to_string(path).ok();
+
+    let job = job_args(&args, &canon);
+    let seed = getenv("WINEPREFIX")
+        .map(|value| canonicalize(&value, &canon))
+        .or_else(|| job.first().cloned())
+        .unwrap_or_default();
+    let name = session::key(&seed);
+    let directory = session_dir(&getenv, &canon);
+    let socket = session::socket_path(&directory, &name);
+    let lock = session::lock_path(&directory, &name);
+
     let argv = build_argv(
         &app,
         Path::new("/.flatpak-info").exists(),
-        &args,
-        |key| env::var_os(key),
-        |path| std::fs::canonicalize(path).ok(),
-        |path| std::fs::read_to_string(path).ok(),
+        socket.as_os_str(),
+        getenv,
+        canon,
+        read,
     );
 
     if let Some(path) = env::var_os("CABINET_SHIM_LOG") {
@@ -259,49 +303,38 @@ fn main() {
             .append(true)
             .open(path)
         {
-            let _ = writeln!(log, "{argv:?}");
+            let _ = writeln!(log, "{argv:?}\n{job:?}");
         }
     }
 
+    match session::submit(&socket, &lock, &job, || start(&argv)) {
+        Ok(status) => std::process::exit(status),
+        Err(error) => {
+            eprintln!("cabinet-wine: cannot reach the Wine session {socket:?}: {error}");
+            std::process::exit(127);
+        }
+    }
+}
+
+fn start(argv: &[OsString]) -> io::Result<std::process::Child> {
     let mut command = Command::new(&argv[0]);
     command.args(&argv[1..]);
 
     unsafe {
         command.pre_exec(|| {
-            if prctl(PR_SET_PDEATHSIG, SIGTERM) == -1 {
-                return Err(std::io::Error::last_os_error());
+            if setsid() == -1 {
+                return Err(io::Error::last_os_error());
             }
 
             Ok(())
         });
     }
 
-    let mut child = match command.spawn() {
-        Ok(child) => child,
-        Err(error) => {
-            eprintln!("cabinet-wine: cannot start {:?}: {error}", argv[0]);
-            std::process::exit(127);
-        }
-    };
-    let watcher = x11::Watcher::start();
-    let status = child.wait().unwrap_or_else(|error| {
-        eprintln!("cabinet-wine: cannot wait for {:?}: {error}", argv[0]);
-        std::process::exit(127);
-    });
-    drop(watcher);
-
-    std::process::exit(
-        status
-            .code()
-            .unwrap_or_else(|| 128 + status.signal().unwrap_or(1)),
-    );
+    command.spawn()
 }
 
-const PR_SET_PDEATHSIG: i32 = 1;
-const SIGTERM: i32 = 15;
-
 extern "C" {
-    fn prctl(option: i32, ...) -> i32;
+    fn setsid() -> i32;
 }
 
 #[cfg(test)]
@@ -320,22 +353,22 @@ mod tests {
         None
     }
 
-    fn build(env: &[(&str, &str)], args: &[&str], in_sandbox: bool) -> Vec<String> {
-        build_with_runner(env, args, in_sandbox, None)
+    const SOCKET: &str = "/run/user/1000/yabridge/cabinet-0123456789abcdef.sock";
+
+    fn build(env: &[(&str, &str)], in_sandbox: bool) -> Vec<String> {
+        build_with_runner(env, in_sandbox, None)
     }
 
     fn build_with_runner(
         env: &[(&str, &str)],
-        args: &[&str],
         in_sandbox: bool,
         runner: Option<&str>,
     ) -> Vec<String> {
-        build_with_markers(env, args, in_sandbox, &[(RUNNER_MARKER, runner)])
+        build_with_markers(env, in_sandbox, &[(RUNNER_MARKER, runner)])
     }
 
     fn build_with_markers(
         env: &[(&str, &str)],
-        args: &[&str],
         in_sandbox: bool,
         markers: &[(&str, Option<&str>)],
     ) -> Vec<String> {
@@ -343,7 +376,6 @@ mod tests {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
-        let args: Vec<OsString> = args.iter().map(OsString::from).collect();
         let markers: Vec<(String, Option<String>)> = markers
             .iter()
             .map(|(name, body)| (name.to_string(), body.map(str::to_string)))
@@ -352,7 +384,7 @@ mod tests {
         build_argv(
             "io.github.mark12870.cabinet",
             in_sandbox,
-            &args,
+            OsStr::new(SOCKET),
             |key| {
                 env.iter()
                     .find(|(k, _)| k == key)
@@ -372,55 +404,101 @@ mod tests {
         .collect()
     }
 
+    fn canonical(args: &[&str]) -> Vec<String> {
+        let args: Vec<OsString> = args.iter().map(OsString::from).collect();
+        job_args(&args, &fake_canon)
+            .iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect()
+    }
+
     #[test]
     fn native_daw_does_not_hop_through_the_host() {
-        let argv = build(&[], &[], false);
+        let argv = build(&[], false);
         assert_eq!(argv[0], "flatpak");
         assert_eq!(
-            &argv[..4],
-            &["flatpak", "run", "--die-with-parent", "--command=wine"]
+            &argv[..3],
+            ["flatpak", "run", "--command=/app/lib/yabridge/cabinet-wine"]
         );
     }
 
     #[test]
     fn sandboxed_daw_hops_through_the_host() {
-        let argv = build(&[], &[], true);
-        assert_eq!(&argv[..3], &["flatpak-spawn", "--host", "--watch-bus"]);
-        assert_eq!(argv[3], "flatpak");
+        let argv = build(&[], true);
+        assert_eq!(&argv[..3], &["flatpak-spawn", "--host", "flatpak"]);
     }
 
     #[test]
-    fn a_native_daws_sandbox_dies_with_the_shim() {
-        let argv = build(&[], &[], false);
-        assert!(argv.iter().any(|a| a == "--die-with-parent"));
-        assert!(!argv.iter().any(|a| a == "--watch-bus"));
+    fn the_inner_command_keeps_the_runner_out_of_flatpak_options() {
+        let argv = build(&[], false);
+        let app = argv.iter().position(|arg| arg == DEFAULT_APP).unwrap();
+
+        assert_eq!(&argv[app + 1..], &[INNER_MODE, SOCKET, "wine"]);
     }
 
     #[test]
-    fn a_sandboxed_daws_sandbox_dies_with_the_spawn_client() {
-        let argv = build(&[], &[], true);
-        let command = argv.iter().position(|a| a == "flatpak").unwrap();
-        let watch = argv.iter().position(|a| a == "--watch-bus").unwrap();
-        assert!(watch < command);
-        assert!(argv.iter().any(|a| a == "--die-with-parent"));
+    fn a_wine_session_outlives_the_shim_that_started_it() {
+        for in_sandbox in [false, true] {
+            let argv = build(&[], in_sandbox);
+            assert!(!argv.iter().any(|a| a == "--die-with-parent"), "{argv:?}");
+            assert!(!argv.iter().any(|a| a == "--watch-bus"), "{argv:?}");
+        }
+    }
+
+    #[test]
+    fn one_prefix_is_one_session() {
+        let one = session::key(OsStr::new(PREFIX));
+        let again = session::key(OsStr::new(PREFIX));
+        let other = session::key(OsStr::new("/home/u/prefixes/klevgrand"));
+
+        assert_eq!(one, again);
+        assert_ne!(one, other);
+        assert!(one.starts_with("cabinet-"));
+    }
+
+    #[test]
+    fn a_session_socket_and_lock_share_one_name() {
+        let directory = Path::new("/run/user/1000/yabridge");
+        let name = session::key(OsStr::new(PREFIX));
+
+        assert_eq!(
+            session::socket_path(directory, &name).with_extension("lock"),
+            session::lock_path(directory, &name)
+        );
+    }
+
+    #[test]
+    fn a_job_survives_the_round_trip_to_the_session() {
+        let argv: Vec<OsString> = ["host.exe.so", "vst3", "/run/user/1000/yabridge/sock"]
+            .iter()
+            .map(OsString::from)
+            .collect();
+
+        assert_eq!(session::decode(&session::encode(&argv)), Some(argv));
+    }
+
+    #[test]
+    fn a_truncated_job_is_refused() {
+        let argv: Vec<OsString> = vec![OsString::from("host.exe.so")];
+        let payload = session::encode(&argv);
+
+        assert_eq!(session::decode(&payload[..payload.len() - 1]), None);
+        assert_eq!(session::decode(&[]), None);
     }
 
     #[test]
     fn only_set_and_non_empty_variables_are_forwarded() {
-        let argv = build(&[("WINEDEBUG", "-all"), ("WINEESYNC", "")], &[], false);
+        let argv = build(&[("WINEDEBUG", "-all"), ("WINEESYNC", "")], false);
         assert!(argv.iter().any(|a| a == "--env=WINEDEBUG=-all"));
         assert!(!argv.iter().any(|a| a.starts_with("--env=WINEESYNC")));
     }
 
     #[test]
-    fn masked_paths_are_resolved_in_argv() {
-        let argv = build(
-            &[],
-            &["/home/u/.var/app/fm.reaper.Reaper/data/yabridge/yabridge-host.exe.so"],
-            false,
-        );
+    fn masked_paths_are_resolved_in_a_job() {
+        let job =
+            canonical(&["/home/u/.var/app/fm.reaper.Reaper/data/yabridge/yabridge-host.exe.so"]);
         assert_eq!(
-            argv.last().unwrap(),
+            job.last().unwrap(),
             "/home/u/.local/share/yabridge/yabridge-host.exe.so"
         );
     }
@@ -432,7 +510,6 @@ mod tests {
                 "WINEPREFIX",
                 "/home/u/.var/app/fm.reaper.Reaper/data/yabridge/pfx",
             )],
-            &[],
             false,
         );
         assert!(argv
@@ -447,7 +524,6 @@ mod tests {
                 "WINEDLLPATH",
                 "/home/u/.var/app/fm.reaper.Reaper/data/yabridge:/opt/wine:",
             )],
-            &[],
             false,
         );
         assert!(argv
@@ -457,19 +533,23 @@ mod tests {
 
     #[test]
     fn bare_words_are_never_treated_as_paths() {
-        let argv = build(&[], &["vst3", "group", "./relative"], false);
-        assert_eq!(&argv[argv.len() - 3..], &["vst3", "group", "./relative"]);
+        assert_eq!(
+            canonical(&["vst3", "group", "./relative"]),
+            ["vst3", "group", "./relative"]
+        );
     }
 
     #[test]
     fn unresolvable_absolute_paths_are_passed_through_unchanged() {
-        let argv = build(&[], &["/run/user/1000/yabridge/sock"], false);
-        assert_eq!(argv.last().unwrap(), "/run/user/1000/yabridge/sock");
+        assert_eq!(
+            canonical(&["/run/user/1000/yabridge/sock"]),
+            ["/run/user/1000/yabridge/sock"]
+        );
     }
 
     #[test]
-    fn the_app_id_separates_flatpak_options_from_wine_arguments() {
-        let argv = build(&[("WINEDEBUG", "-all")], &["a.so", "vst3"], false);
+    fn the_app_id_separates_flatpak_options_from_the_session() {
+        let argv = build(&[("WINEDEBUG", "-all")], false);
         let app = argv
             .iter()
             .position(|a| a == "io.github.mark12870.cabinet")
@@ -477,12 +557,19 @@ mod tests {
         assert!(argv[..app]
             .iter()
             .all(|a| a.starts_with("--") || a == "flatpak" || a == "run"));
-        assert_eq!(&argv[app + 1..], &["a.so", "vst3"]);
+        assert_eq!(&argv[app + 1..], &[INNER_MODE, SOCKET, "wine"]);
     }
 
     #[test]
     fn an_empty_environment_still_produces_a_runnable_command() {
-        let argv = build_argv("some.App", false, &[], no_env, fake_canon, |_| None);
+        let argv = build_argv(
+            "some.App",
+            false,
+            OsStr::new(SOCKET),
+            no_env,
+            fake_canon,
+            |_| None,
+        );
         let argv: Vec<String> = argv
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
@@ -492,10 +579,12 @@ mod tests {
             vec![
                 "flatpak",
                 "run",
-                "--die-with-parent",
-                "--command=wine",
+                "--command=/app/lib/yabridge/cabinet-wine",
                 "--env=WAYLAND_DISPLAY=",
-                "some.App"
+                "some.App",
+                INNER_MODE,
+                SOCKET,
+                "wine"
             ]
         );
     }
@@ -504,21 +593,23 @@ mod tests {
 
     #[test]
     fn a_prefix_with_no_marker_uses_the_bundled_wine() {
-        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, None);
-        assert!(argv.iter().any(|a| a == "--command=wine"));
+        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], false, None);
+        assert!(argv.iter().any(|a| a == "wine"));
     }
 
     #[test]
     fn a_prefix_naming_a_runner_starts_that_runners_wine() {
-        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, Some("wine-9.21\n"));
-        assert!(argv.iter().any(|a| a
-            == "--command=/home/u/.var/app/io.github.mark12870.cabinet/data/runners/wine-9.21/bin/wine"));
+        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], false, Some("wine-9.21\n"));
+        assert!(argv
+            .iter()
+            .any(|a| a
+                == "/home/u/.var/app/io.github.mark12870.cabinet/data/runners/wine-9.21/bin/wine"));
     }
 
     #[test]
     fn the_runner_is_found_beside_the_prefixes_directory() {
-        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, Some("r"));
-        let command = argv.iter().find(|a| a.starts_with("--command=")).unwrap();
+        let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], false, Some("r"));
+        let command = argv.iter().find(|a| a.contains("/data/runners/")).unwrap();
         assert!(command.contains("/data/runners/r/bin/wine"));
         assert!(!command.contains("/prefixes/"));
     }
@@ -526,9 +617,9 @@ mod tests {
     #[test]
     fn the_bundled_name_and_a_path_are_both_refused() {
         for marker in ["bundled", "", "  ", "../../escape"] {
-            let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], &[], false, Some(marker));
+            let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], false, Some(marker));
             assert!(
-                argv.iter().any(|a| a == "--command=wine"),
+                argv.iter().any(|a| a == "wine"),
                 "marker {marker:?} should fall back"
             );
         }
@@ -536,7 +627,7 @@ mod tests {
 
     #[test]
     fn wine_never_inherits_the_sandboxs_wayland_socket() {
-        let argv = build(&[], &[], false);
+        let argv = build(&[], false);
         assert!(argv.iter().any(|a| a == "--env=WAYLAND_DISPLAY="));
     }
 
@@ -544,7 +635,6 @@ mod tests {
     fn a_prefix_can_hand_wayland_back_to_wine() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX)],
-            &[],
             false,
             &[(ENV_MARKER, Some("WAYLAND_DISPLAY=wayland-0\n"))],
         );
@@ -563,7 +653,6 @@ mod tests {
     fn a_prefix_sync_mode_sets_all_three_primitives() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX)],
-            &[],
             false,
             &[(SYNC_MARKER, Some("fsync\n"))],
         );
@@ -576,7 +665,6 @@ mod tests {
     fn the_prefix_sync_mode_wins_over_what_the_daw_was_launched_with() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX), ("WINEFSYNC", "1")],
-            &[],
             false,
             &[(SYNC_MARKER, Some("esync"))],
         );
@@ -587,12 +675,7 @@ mod tests {
 
     #[test]
     fn no_sync_marker_leaves_the_daws_own_choice_alone() {
-        let argv = build_with_markers(
-            &[("WINEPREFIX", PREFIX), ("WINEFSYNC", "1")],
-            &[],
-            false,
-            &[],
-        );
+        let argv = build_with_markers(&[("WINEPREFIX", PREFIX), ("WINEFSYNC", "1")], false, &[]);
         assert!(argv.iter().any(|a| a == "--env=WINEFSYNC=1"));
         assert!(!argv.iter().any(|a| a.starts_with("--env=WINENTSYNC")));
     }
@@ -601,7 +684,6 @@ mod tests {
     fn an_unknown_sync_word_sets_nothing() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX)],
-            &[],
             false,
             &[(SYNC_MARKER, Some("ntsyncc"))],
         );
@@ -612,7 +694,6 @@ mod tests {
     fn a_prefix_environment_file_reaches_the_plugin_load_path() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX)],
-            &[],
             false,
             &[(ENV_MARKER, Some("WINEDEBUG=warn+all\nSTEAM_COMPAT=1\n"))],
         );
@@ -624,7 +705,6 @@ mod tests {
     fn blank_comment_and_keyless_lines_are_skipped() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX)],
-            &[],
             false,
             &[(ENV_MARKER, Some("\n# a note\nnonsense\n=orphan\nKEEP=1\n"))],
         );
@@ -642,7 +722,6 @@ mod tests {
     fn a_prefix_cannot_take_over_the_variables_cabinet_owns() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX)],
-            &[],
             false,
             &[(
                 ENV_MARKER,
