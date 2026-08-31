@@ -31,6 +31,7 @@ public sealed record LibraryEntry(
     bool Dxvk,
     SyncMode Sync,
     IReadOnlyDictionary<string, string> Env,
+    IReadOnlyDictionary<string, string> Relink,
     string? Desktop,
     string? Script,
     string? Launch,
@@ -115,6 +116,13 @@ public sealed record LibraryEntry(
                 + "prefix");
         }
 
+        if (kind == PluginKind.Windows && fields.ContainsKey("Relink"))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml is a Windows plugin and carries Relink — its libraries come out of "
+                + "its prefix, not the DAW's runtime");
+        }
+
         if (kind == PluginKind.Native
             && new[] { "Prefix", "Runner", "Dxvk", "Sync", "Env", "Desktop", "Launch" }
                 .FirstOrDefault(fields.ContainsKey)
@@ -150,6 +158,7 @@ public sealed record LibraryEntry(
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
             ParseEnv(id, Value(fields, "Env")),
+            ParseRelink(id, Value(fields, "Relink")),
             Value(fields, "Desktop") is { } desktop ? VirtualDesktop.ParseSize(desktop) : null,
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
             Value(fields, "Launch") is { } launch ? ParseLaunch(id, launch) : null,
@@ -210,6 +219,36 @@ public sealed record LibraryEntry(
             }
 
             found[key] = line[(at + 1)..];
+        }
+
+        return found;
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseRelink(string id, string? text)
+    {
+        var found = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var line in (text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var at = line.IndexOf('=');
+
+            if (at < 1
+                || line[..at].Trim() is not { Length: > 0 } soname
+                || line[(at + 1)..].Trim() is not { Length: > 0 } replacement)
+            {
+                throw new InvalidOperationException(
+                    $"{id}.yml has Relink: {line.Trim()} — one OLD.so.N = NEW.so.N a line, such "
+                    + "as libcurl-gnutls.so.4 = libcurl.so.4");
+            }
+
+            if (replacement.Length > soname.Length)
+            {
+                throw new InvalidOperationException(
+                    $"{id}.yml relinks {soname} to the longer {replacement} — the name is "
+                    + "written back over the old one, and a string table cannot grow in place");
+            }
+
+            found[soname] = replacement;
         }
 
         return found;
@@ -906,6 +945,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             }
 
             Lay(entry, archive, root, data, staging, onOutput);
+            Relink(entry, root, onOutput);
             Link(entry, root, onOutput);
         }
         catch
@@ -1050,6 +1090,30 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         if (!result.Ok)
         {
             throw new InvalidOperationException($"could not unpack {Path.GetFileName(archive)}");
+        }
+    }
+
+    private static void Relink(LibraryEntry entry, string root, Action<string>? onOutput)
+    {
+        if (entry.Relink.Count == 0)
+        {
+            return;
+        }
+
+        var wanted = entry.Relink.OrderBy(one => one.Key, StringComparer.Ordinal).ToList();
+
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                     .Where(file => new FileInfo(file).LinkTarget is null)
+                     .OrderBy(path => path, StringComparer.Ordinal))
+        {
+            foreach (var (soname, replacement) in wanted)
+            {
+                if (Elf.Relink(file, soname, replacement))
+                {
+                    onOutput?.Invoke(
+                        $"  {Path.GetRelativePath(root, file)}: {soname} → {replacement}");
+                }
+            }
         }
     }
 

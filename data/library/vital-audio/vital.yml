@@ -9,6 +9,7 @@ Licensing:
   One download serves every tier: the free version is fully functional, and
   Plus and Pro add presets, wavetables and skins, unlocked by signing in.
 Formats: VST3, VST2, LV2
+Relink: libcurl-gnutls.so.4 = libcurl.so.4
 Homepage: https://vital.audio
 Source: byo
 Account: https://account.vital.audio

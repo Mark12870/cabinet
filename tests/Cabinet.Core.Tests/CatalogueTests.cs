@@ -59,6 +59,19 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryRelinkIsANativeEntryWritingAShorterSonameOverALongerOne()
+    {
+        var wrong = Shipped
+            .Where(entry => entry.Relink.Count > 0)
+            .SelectMany(
+                entry => entry.Relink.Where(
+                    one => entry.Kind != PluginKind.Native || one.Value.Length > one.Key.Length),
+                (entry, one) => $"{entry.Id} relinks {one.Key} to {one.Value}");
+
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
     public void EveryDataDirectoryAnEntryClaimsIsGrantedByTheManifest()
     {
         var granted = Manifest

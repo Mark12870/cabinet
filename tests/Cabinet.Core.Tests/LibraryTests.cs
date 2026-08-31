@@ -768,6 +768,60 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void ARelinkBlockCarriesASonameALine()
+    {
+        var entry = LibraryEntry.Parse(
+            "vital",
+            "Name: Vital\nKind: native\nSource: byo\n"
+            + "Relink:\n  libcurl-gnutls.so.4 = libcurl.so.4\n  libssl.so.3 = libtls.so.3\n");
+
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                ["libcurl-gnutls.so.4"] = "libcurl.so.4",
+                ["libssl.so.3"] = "libtls.so.3",
+            },
+            entry.Relink);
+    }
+
+    [Fact]
+    public void ARelinkLineThatNamesOnlyOneSonameIsRefused()
+    {
+        foreach (var wrong in new[] { "libcurl-gnutls.so.4", "= libcurl.so.4", "libssl.so.3 =" })
+        {
+            var refused = Assert.Throws<InvalidOperationException>(
+                () => LibraryEntry.Parse(
+                    "vital", $"Name: Vital\nKind: native\nSource: byo\nRelink: {wrong}\n"));
+
+            Assert.Contains("one OLD.so.N = NEW.so.N a line", refused.Message);
+        }
+    }
+
+    [Fact]
+    public void ARelinkToALongerSonameIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "vital",
+                "Name: Vital\nKind: native\nSource: byo\n"
+                + "Relink: libcurl.so.4 = libcurl-gnutls.so.4\n"));
+
+        Assert.Contains("a string table cannot grow in place", refused.Message);
+    }
+
+    [Fact]
+    public void AWindowsEntryCarryingARelinkIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "helix",
+                "Name: Helix\nKind: windows\nSource: byo\n"
+                + "Relink: libcurl-gnutls.so.4 = libcurl.so.4\n"));
+
+        Assert.Contains("is a Windows plugin and carries Relink", refused.Message);
+    }
+
+    [Fact]
     public void ADesktopSizeIsReadAsWidthByHeightAndNothingElse()
     {
         Assert.Equal("1920x1080", VirtualDesktop.ParseSize(" 1920X1080 "));
@@ -878,6 +932,51 @@ public class LibraryTests : IDisposable
         Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Vital.vst3")));
         Assert.True(File.Exists(archive));
         Assert.DoesNotContain(said, line => line.Contains("Checking sha256"));
+    }
+
+    [Fact]
+    public void ARelinkRewritesEveryElfThePayloadHoldsAndStepsOverWhatIsNotOne()
+    {
+        var staging = Path.Combine(root, "supplied");
+        var bundle = Path.Combine(staging, "Vital.vst3", "Contents", "x86_64-linux");
+        Directory.CreateDirectory(bundle);
+        File.WriteAllBytes(Path.Combine(staging, "Vital.so"), SharedObject.Bytes());
+        File.WriteAllBytes(Path.Combine(bundle, "Vital.so"), SharedObject.Bytes());
+        File.WriteAllText(Path.Combine(staging, "presets.ttl"), "not an elf");
+        File.CreateSymbolicLink(Path.Combine(staging, "wavetables"), "/nowhere/wavetables");
+
+        var archive = Path.Combine(root, "VitalInstaller.tar.gz");
+        var real = new ProcessRunner();
+        Assert.True(real.Run("tar", ["-czf", archive, "-C", staging, "."]).Ok);
+
+        Catalogue(("vital", """
+            Name: Vital
+            Kind: native
+            Source: byo
+            Relink: libcurl-gnutls.so.4 = libcurl.so.4
+            """));
+
+        var layout = Layout();
+        var library = new Library(layout, real);
+        var said = new List<string>();
+
+        library.Install(library.Find("vital"), installer: archive, onOutput: said.Add);
+
+        var loose = File.ReadAllBytes(Path.Combine(layout.NativePath("vital"), "Vital.so"));
+        var inside = File.ReadAllBytes(Path.Combine(
+            layout.NativePath("vital"), "Vital.vst3", "Contents", "x86_64-linux", "Vital.so"));
+
+        Assert.Equal("libcurl.so.4", SharedObject.Soname(loose, SharedObject.First));
+        Assert.Equal("libcurl.so.4", SharedObject.Soname(inside, SharedObject.First));
+        Assert.Equal("not an elf", File.ReadAllText(
+            Path.Combine(layout.NativePath("vital"), "presets.ttl")));
+        Assert.Equal(
+            [
+                "Vital.so: libcurl-gnutls.so.4 \u2192 libcurl.so.4",
+                "Vital.vst3/Contents/x86_64-linux/Vital.so: "
+                + "libcurl-gnutls.so.4 \u2192 libcurl.so.4",
+            ],
+            said.Where(line => line.Contains("libcurl")).Select(line => line.Trim()));
     }
 
     [Fact]
