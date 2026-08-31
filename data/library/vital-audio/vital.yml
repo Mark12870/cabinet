@@ -3,12 +3,15 @@ Kind: native
 Category: Synth
 Summary: Spectral warping wavetable synthesizer.
 Developer: Matt Tytel
-Version: 1.0.7
+Version: 1.0.7 stable / 1.6.4 early access
 Licence: Freeware
 Licensing:
   One download serves every tier: the free version is fully functional, and
   Plus and Pro add presets, wavetables and skins, unlocked by signing in.
-Formats: VST3, VST2, LV2
+  1.0.7 is the stable release. 1.6.4 is early access; presets saved in it
+  cannot be opened by older versions.
+Formats: VST3, VST2, LV2, CLAP
+Script: vital.sh
 Relink: libcurl-gnutls.so.4 = libcurl.so.4
 Homepage: https://vital.audio
 Source: byo
@@ -19,4 +22,6 @@ Description:
   sample source, two filters and a modulation matrix you build by dragging.
 
   Free, but it sits behind your account: you log in, download it, and hand
-  Cabinet the file.
+  Cabinet the file. The stable 1.0.7 archive provides VST3, VST2 and LV2. The
+  1.6.4 early-access archive provides VST3, VST2 and CLAP, but may have display
+  or host-compatibility problems on some Linux systems.
