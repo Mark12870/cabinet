@@ -163,7 +163,13 @@ internal sealed class PluginPage
         var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
         row.SetHalign(Gtk.Align.Center);
 
-        if (installed && entry.Launch is not null)
+        if (!installed)
+        {
+            row.Append(Pill($"Install {entry.Name}", "suggested-action", () => install(entry)));
+            return row;
+        }
+
+        if (entry.Launch is not null)
         {
             var open = Pill(
                 running ? "Running" : $"Open {entry.Name}",
@@ -178,14 +184,9 @@ internal sealed class PluginPage
                 row.Append(Pill(
                     "Log", null, () => Ui.Log(window, $"{entry.Name} log", written)));
             }
-
-            row.Append(Pill("Remove", "destructive-action", () => remove(entry)));
-            return row;
         }
 
-        row.Append(installed
-            ? Pill($"Remove {entry.Name}", "destructive-action", () => remove(entry))
-            : Pill($"Install {entry.Name}", "suggested-action", () => install(entry)));
+        row.Append(Pill($"Remove {entry.Name}", "destructive-action", () => remove(entry)));
 
         return row;
     }

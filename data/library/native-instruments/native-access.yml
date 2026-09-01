@@ -1,0 +1,29 @@
+Name: Native Access
+Kind: windows
+Category: Manager
+Summary: Native Instruments' manager for downloading and activating its software.
+Developer: Native Instruments
+Licence: Freeware
+Licensing:
+  The app is free, but its catalogue is tied to a Native Instruments account and
+  the licences and subscriptions that account owns.
+Formats: VST3
+Homepage: https://www.native-instruments.com/en/pages/native-access/
+Source: rolling
+Url: https://storage.googleapis.com/ni-assets/downloads/Native-Access_2.exe
+Prefix: native-instruments
+Launch: C:\Program Files\Native Instruments\Native Access\Native Access.exe
+LaunchService: NTKDaemonService
+LaunchArgs:
+  --disable-gpu
+  --disable-gpu-compositing
+Script: native-access.sh
+Keep: drive_c/users/Public/Documents/Native Instruments/Downloads
+Recover: kontakt-8.sh
+Runner: d2d1-11.0
+Dxvk: true
+Sync: fsync
+Description:
+  Not a plugin but the door to Native Instruments' catalogue: Kontakt, Battery,
+  Komplete Kontrol, Massive X, FM8, Reaktor and more. Sign in, then choose the
+  products and libraries your account owns.

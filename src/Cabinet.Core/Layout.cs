@@ -32,6 +32,8 @@ public sealed class Layout
 
     public const string LaunchLog = ".cabinet-launch.log";
 
+    public const string KeptMarker = ".cabinet-kept";
+
     public const string BundledLibraryDir = "/app/share/cabinet/library";
 
     public static readonly IReadOnlyList<string> PluginExtensions =
@@ -161,6 +163,9 @@ public sealed class Layout
 
     public string PrefixLaunchLog(string name) =>
         Path.Combine(PrefixPath(name), LaunchLog);
+
+    public string PrefixKeptDir(string name) =>
+        Path.Combine(PrefixPath(name), KeptMarker);
 
     public string PrefixSystemReg(string name) =>
         Path.Combine(PrefixPath(name), "system.reg");

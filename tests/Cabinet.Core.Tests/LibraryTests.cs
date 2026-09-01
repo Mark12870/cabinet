@@ -58,6 +58,10 @@ public class LibraryTests : IDisposable
         Assert.Equal("wbemprox=n", entry.Env["WINEDLLOVERRIDES"]);
         Assert.Null(entry.Script);
         Assert.Null(entry.Launch);
+        Assert.Null(entry.LaunchService);
+        Assert.Empty(entry.LaunchArgs);
+        Assert.Null(entry.Keep);
+        Assert.Null(entry.Recover);
         Assert.Null(entry.Data);
         Assert.Equal("Surge Synth Team", entry.Developer);
         Assert.Equal("1.3.4", entry.Version);
@@ -195,6 +199,83 @@ public class LibraryTests : IDisposable
         Assert.Equal(@"C:\Program Files (x86)\Thing\Thing.exe", entry.Launch);
     }
 
+    [Fact]
+    public void AnAppCanNameAServiceToStartBeforeItOpens()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchService: ThingService\n");
+
+        Assert.Equal("ThingService", entry.LaunchService);
+    }
+
+    [Fact]
+    public void AServiceWithoutAnAppIsRefused()
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\nLaunchService: ThingService\n"));
+
+        Assert.Contains("LaunchService but no Launch", thrown.Message);
+    }
+
+    [Fact]
+    public void AnAppCanCarryTheArgumentsItOpensWith()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchArgs:\n  --disable-gpu\n  --disable-gpu-compositing\n");
+
+        Assert.Equal(["--disable-gpu", "--disable-gpu-compositing"], entry.LaunchArgs);
+    }
+
+    [Fact]
+    public void OneArgumentCanSitOnTheLaunchArgsLine()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchArgs: --disable-gpu\n");
+
+        Assert.Equal(["--disable-gpu"], entry.LaunchArgs);
+    }
+
+    [Fact]
+    public void ArgumentsWithoutAnAppAreRefused()
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\nLaunchArgs: --disable-gpu\n"));
+
+        Assert.Contains("LaunchArgs but no Launch", thrown.Message);
+    }
+
+    [Fact]
+    public void OpeningAnAppPassesItsArgumentsAfterThePath()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchArgs:\n  --disable-gpu\n  --disable-gpu-compositing\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.Single(
+            recorder.Calls,
+            call => call.Arguments.SequenceEqual(
+                [entry.Launch!, "--disable-gpu", "--disable-gpu-compositing"]));
+    }
+
     [Theory]
     [InlineData("Thing.exe")]
     [InlineData("/opt/thing/thing")]
@@ -230,6 +311,70 @@ public class LibraryTests : IDisposable
 
         Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), opened.LogTo);
         Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), settled.LogTo);
+    }
+
+    [Fact]
+    public void OpeningAnAppStartsItsServiceBeforeTheApp()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchService: ThingService\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        var service = Assert.Single(
+            recorder.Calls,
+            call => call.Arguments.SequenceEqual(["sc", "start", "ThingService"]));
+        var app = Assert.Single(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
+
+        var calls = recorder.Calls.ToList();
+        Assert.True(calls.IndexOf(service) < calls.IndexOf(app));
+    }
+
+    [Fact]
+    public void OpeningAnAppAllowsItsAlreadyRunningService()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchService: ThingService\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            exits: args => args.SequenceEqual(["sc", "start", "ThingService"]) ? 32 : 0);
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.Contains(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
+    }
+
+    [Fact]
+    public void AServiceThatCannotStartPreventsTheAppOpening()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchService: ThingService\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            exits: args => args.SequenceEqual(["sc", "start", "ThingService"]) ? 1 : 0);
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Library(layout, recorder).Launch(entry));
+
+        Assert.Contains("ThingService service could not start", thrown.Message);
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
     }
 
     [Fact]
@@ -490,6 +635,91 @@ public class LibraryTests : IDisposable
                 "thing",
                 "Name: Thing\nKind: native\nSource: byo\n"
                 + @"Launch: C:\Thing\Thing.exe" + "\n"));
+    }
+
+    [Fact]
+    public void KeptDownloadsAreLinkedAsideWhileTheAppIsOpen()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Launch: C:\\Thing\\Thing.exe
+            Keep: drive_c/downloads
+            Recover: fixture.sh
+            """));
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        var downloads = Path.Combine(layout.PrefixPath("thing"), "drive_c", "downloads");
+        Directory.CreateDirectory(downloads);
+        File.WriteAllText(Path.Combine(downloads, "Kontakt_8_Installer.zip"), "payload");
+
+        new Library(layout, recorder).Launch(new Library(layout, recorder).Find("thing"));
+
+        var link = Assert.Single(recorder.Calls, call => call.File == "ln");
+        Assert.Equal(
+            [
+                Path.Combine(downloads, "Kontakt_8_Installer.zip"),
+                Path.Combine(layout.PrefixKeptDir("thing"), "Kontakt_8_Installer.zip"),
+            ],
+            link.Arguments);
+    }
+
+    [Fact]
+    public void ARecoverScriptRunsWhenTheAppClosesAndBeforeTheBridge()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Launch: C:\\Thing\\Thing.exe
+            Keep: drive_c/downloads
+            Recover: fixture.sh
+            """));
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        new Library(layout, recorder).Launch(new Library(layout, recorder).Find("thing"));
+
+        var script = Assert.Single(recorder.Calls, call => call.File == "sh");
+        Assert.Equal(["-e", layout.LibraryScript(Vendor, "fixture.sh")], script.Arguments);
+        Assert.Equal(layout.PrefixKeptDir("thing"), script.Environment["CABINET_KEPT"]);
+
+        var calls = recorder.Calls.ToList();
+        Assert.True(calls.IndexOf(script) < calls.FindIndex(Synced));
+    }
+
+    [Fact]
+    public void ClosingAnAppStopsItsServiceBeforeWaitingForWine()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Thing\Thing.exe" + "\n"
+            + "LaunchService: ThingService\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        var calls = recorder.Calls.ToList();
+        var stop = calls.FindIndex(
+            call => call.Arguments.SequenceEqual(["sc", "stop", "ThingService"]));
+        var wait = calls.FindIndex(
+            call => call.Arguments.SequenceEqual(["-w"]));
+
+        Assert.True(stop >= 0, "the service is stopped when the app closes");
+        Assert.True(stop < wait, "the service is stopped before wineserver is waited on");
     }
 
     [Fact]
@@ -1102,6 +1332,26 @@ public class LibraryTests : IDisposable
         Assert.Contains(recording.Calls, Synced);
         Assert.DoesNotContain(recording.Calls, call => call.File == "curl");
         Assert.Contains(said, line => line.Contains("keeps bundled"));
+    }
+
+    [Fact]
+    public void AnInstalledD2D1RunnerIsReusedForItsVersionSpec()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nRunner: d2d1-11.0\n"));
+
+        var layout = Layout();
+        Directory.CreateDirectory(Path.GetDirectoryName(layout.RunnerWine("wine-d2d1-11.0"))!);
+        File.WriteAllText(layout.RunnerWine("wine-d2d1-11.0"), "");
+
+        var installer = Path.Combine(root, "thing-setup.exe");
+        File.WriteAllText(installer, "");
+
+        var recording = new RecordingRunner();
+        new Library(layout, recording).Install(
+            new Library(layout, recording).Find("thing"), installer: installer);
+
+        Assert.DoesNotContain(recording.Calls, call => call.File == "curl");
+        Assert.Contains(recording.Calls, call => Path.GetFileName(call.File) == "wineboot");
     }
 
     [Fact]

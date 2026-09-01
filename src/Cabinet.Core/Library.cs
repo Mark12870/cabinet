@@ -35,6 +35,10 @@ public sealed record LibraryEntry(
     string? Desktop,
     string? Script,
     string? Launch,
+    string? LaunchService,
+    IReadOnlyList<string> LaunchArgs,
+    string? Keep,
+    string? Recover,
     string? Data,
     string? Developer,
     string? Version,
@@ -124,7 +128,11 @@ public sealed record LibraryEntry(
         }
 
         if (kind == PluginKind.Native
-            && new[] { "Prefix", "Runner", "Dxvk", "Sync", "Env", "Desktop", "Launch" }
+            && new[]
+            {
+                "Prefix", "Runner", "Dxvk", "Sync", "Env", "Desktop",
+                "Launch", "LaunchService", "LaunchArgs", "Keep", "Recover",
+            }
                 .FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
         {
@@ -138,6 +146,39 @@ public sealed record LibraryEntry(
             throw new InvalidOperationException(
                 $"{id}.yml carries Account but Cabinet downloads it — a login page is only of "
                 + "use where the file has to come from you");
+        }
+
+        if (Value(fields, "LaunchService") is not null && Value(fields, "Launch") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has LaunchService but no Launch");
+        }
+
+        if (Value(fields, "LaunchArgs") is not null && Value(fields, "Launch") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has LaunchArgs but no Launch");
+        }
+
+        if (Value(fields, "Recover") is not null && Value(fields, "Keep") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Recover but no Keep — a recovery script needs the directory "
+                + "whose downloads Cabinet holds on to");
+        }
+
+        if (Value(fields, "Keep") is not null && Value(fields, "Recover") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Keep but no Recover — keeping downloads is only of use to a "
+                + "script that recovers from them");
+        }
+
+        if (Value(fields, "Keep") is not null && Value(fields, "Launch") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Keep but no Launch — downloads are kept while an app of its "
+                + "own is open");
         }
 
         return new LibraryEntry(
@@ -162,6 +203,10 @@ public sealed record LibraryEntry(
             Value(fields, "Desktop") is { } desktop ? VirtualDesktop.ParseSize(desktop) : null,
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
             Value(fields, "Launch") is { } launch ? ParseLaunch(id, launch) : null,
+            Value(fields, "LaunchService"),
+            ParseLaunchArgs(id, Value(fields, "LaunchArgs")),
+            Value(fields, "Keep") is { } keep ? ParseKeep(id, keep) : null,
+            Value(fields, "Recover") is { } recover ? ParseScript(id, recover) : null,
             Value(fields, "Data") is { } data ? ParseData(id, data) : null,
             Value(fields, "Developer"),
             Value(fields, "Version"),
@@ -194,6 +239,29 @@ public sealed record LibraryEntry(
         }
 
         return path;
+    }
+
+    private static IReadOnlyList<string> ParseLaunchArgs(string id, string? text)
+    {
+        if (text is null)
+        {
+            return [];
+        }
+
+        var found = text
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .ToList();
+
+        if (found.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has LaunchArgs with nothing under it — one argument a line, such as "
+                + "--disable-gpu");
+        }
+
+        return found;
     }
 
     private static IReadOnlyDictionary<string, string> ParseEnv(string id, string? text)
@@ -252,6 +320,20 @@ public sealed record LibraryEntry(
         }
 
         return found;
+    }
+
+    private static string ParseKeep(string id, string relative)
+    {
+        var parts = relative.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+        if (Path.IsPathRooted(relative) || parts.Length == 0 || parts.Contains(".."))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Keep: {relative} — a directory inside the prefix whose "
+                + "downloads Cabinet holds on to, such as drive_c/users/Public/Downloads");
+        }
+
+        return string.Join('/', parts);
     }
 
     private static string ParseData(string id, string relative)
@@ -486,6 +568,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     public IReadOnlyList<string> Sharing(string prefix, string id) =>
         [.. Recorded(prefix).Where(other => other != id)];
 
+    private const int ServiceAlreadyRunning = 1056 & 0xff;
+
     private static readonly TimeSpan Stability = TimeSpan.FromSeconds(1);
 
     public void Launch(
@@ -513,9 +597,18 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             Directory.CreateDirectory(directory);
         }
 
+        var guarded = KeepDir(where, entry);
+        var kept = new HashSet<string>(StringComparer.Ordinal);
+
+        if (guarded is not null)
+        {
+            Directory.CreateDirectory(guarded);
+        }
+
         var watch = new PluginWatch(Bundled(where));
         using var closed = new CancellationTokenSource();
-        using var monitor = new PluginMonitor(pluginDirectories);
+        using var monitor = new PluginMonitor(
+            guarded is null ? pluginDirectories : [.. pluginDirectories, guarded]);
 
         void Say(string line)
         {
@@ -526,6 +619,18 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         File.WriteAllText(log, "");
         Say($"Opening {entry.Name}. What it installs is bridged as it lands.");
 
+        if (entry.LaunchService is { } service)
+        {
+            Say($"Starting {service}.");
+            var started = prefixes.Run(where, "wine", ["sc", "start", service], logTo: log);
+
+            if (!started.Ok && started.ExitCode != ServiceAlreadyRunning)
+            {
+                throw new InvalidOperationException(
+                    $"{entry.Name}'s {service} service could not start (exit code {started.ExitCode})");
+            }
+        }
+
         var watching = Task.Run(() =>
         {
             while (monitor.Wait(
@@ -534,6 +639,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             {
                 try
                 {
+                    Hold(guarded, layout.PrefixKeptDir(where), kept, Say);
+
                     if (watch.Changed(Bundled(where)) is { } change)
                     {
                         Narrate(change, Say);
@@ -553,7 +660,13 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         try
         {
-            ran = prefixes.Run(where, "wine", [entry.Launch], logTo: log);
+            ran = prefixes.Run(where, "wine", [entry.Launch, .. entry.LaunchArgs], logTo: log);
+
+            if (entry.LaunchService is { } stopping)
+            {
+                prefixes.Run(where, "wine", ["sc", "stop", stopping], logTo: log);
+            }
+
             settled = prefixes.Run(where, "wineserver", ["-w"], logTo: log);
         }
         finally
@@ -562,9 +675,30 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             watching.Wait();
         }
 
+        Hold(guarded, layout.PrefixKeptDir(where), kept, Say);
+
         if (watch.Closed(Bundled(where)) is { } change)
         {
             Narrate(change, Say);
+        }
+
+        Exception? recoverFailure = null;
+
+        if (entry.Recover is not null)
+        {
+            try
+            {
+                new InstallScript(layout, runner).Recover(
+                    entry,
+                    layout.PrefixPath(where),
+                    layout.PrefixKeptDir(where),
+                    prefixes.Variables(where),
+                    Say);
+            }
+            catch (Exception failure)
+            {
+                recoverFailure = failure;
+            }
         }
 
         Exception? bridgeFailure = null;
@@ -596,6 +730,11 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             failures.Add(new InvalidOperationException($"{entry.Name} exited with {ran.ExitCode}"));
         }
 
+        if (recoverFailure is not null)
+        {
+            failures.Add(recoverFailure);
+        }
+
         if (bridgeFailure is not null)
         {
             failures.Add(bridgeFailure);
@@ -625,6 +764,38 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 .Where(line => line.Trim().Length > 0)
                 .TakeLast(20)
             : [];
+
+    private string? KeepDir(string where, LibraryEntry entry) =>
+        entry.Keep is { } keep
+            ? Path.Combine(
+                layout.PrefixPath(where), keep.Replace('/', Path.DirectorySeparatorChar))
+            : null;
+
+    private void Hold(
+        string? source, string destination, ISet<string> kept, Action<string> onOutput)
+    {
+        if (source is null || !Directory.Exists(source))
+        {
+            return;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(source))
+        {
+            var name = Path.GetFileName(file);
+
+            if (!kept.Add(name))
+            {
+                continue;
+            }
+
+            Directory.CreateDirectory(destination);
+
+            if (runner.Run("ln", [file, Path.Combine(destination, name)]).Ok)
+            {
+                onOutput($"  keeping {name}");
+            }
+        }
+    }
 
     private static void Narrate(PluginChange change, Action<string>? onOutput)
     {
@@ -981,7 +1152,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
     public static bool Answers(string name, string spec) =>
         name == spec
-        || RunnerIndex.Families.Any(family => Runners.DeriveName(family.AssetFor(spec)) == name);
+        || RunnerIndex.Families.Any(family => Runners.DeriveName(family.AssetFor(spec)) == name)
+        || RunnerIndex.MatchesFixedRunner(name, spec);
 
     private string Fetch(
         LibraryEntry entry,

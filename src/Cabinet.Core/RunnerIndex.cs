@@ -104,6 +104,9 @@ public sealed class RunnerIndex(IProcessRunner runner)
         };
     }
 
+    public static bool MatchesFixedRunner(string name, string spec) =>
+        Fixed.Any(known => known.Release.Name == name && known.Release.Version == spec);
+
     public string Download(
         RunnerRelease release,
         string directory,

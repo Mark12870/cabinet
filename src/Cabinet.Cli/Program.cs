@@ -25,7 +25,7 @@ internal static class Program
           cabinet library                      plugins Cabinet knows how to install
           cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [prefix] [file]
-                                               install one; demo entries download without a file
+                                                install one; demo entries download without a file
           cabinet library remove <id>          uninstall one, links, prefix and all
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library log <id>             what the last launch of a manager printed

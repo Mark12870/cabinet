@@ -32,6 +32,19 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryRecoverScriptAnEntryNamesIsShippedBesideIt()
+    {
+        var layout = Catalogue.Layout();
+
+        var missing = Shipped
+            .Where(entry => entry.Recover is not null)
+            .Where(entry => !File.Exists(layout.LibraryScript(entry.Vendor, entry.Recover!)))
+            .Select(entry => $"{entry.Id} -> {entry.Vendor}/{entry.Recover}");
+
+        Assert.Empty(missing);
+    }
+
+    [Fact]
     public void EveryWindowsEntryNamesAnInstallScript()
     {
         var interactive = Shipped

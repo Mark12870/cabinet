@@ -81,6 +81,8 @@ internal static class Json
                 writer.WriteString("sync", PrefixSettings.Word(entry.Sync));
                 Pairs(writer, "env", entry.Env);
                 writer.WriteString("script", entry.Script);
+                writer.WriteString("launchService", entry.LaunchService);
+                Strings(writer, "launchArgs", entry.LaunchArgs);
                 writer.WriteString("data", entry.Data);
                 writer.WriteString("developer", entry.Developer);
                 writer.WriteString("version", entry.Version);
