@@ -32,6 +32,9 @@ public class LibraryTests : IDisposable
           Open sourced in 2018.
         """;
 
+    private const string Gone =
+        "INFO: No tasks are running which match the specified criteria.";
+
     private const string Zeros =
         "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -1873,6 +1876,176 @@ public class LibraryTests : IDisposable
         Assert.Equal(
             "WINEDLLOVERRIDES=wbemprox=n",
             File.ReadAllText(layout.PrefixEnvFile("thing")).Trim());
+    }
+
+    [Fact]
+    public void AnEntryWithALaunchIsAManagerAndNamesItsExecutable()
+    {
+        var entry = Manager();
+
+        Assert.True(entry.Manager);
+        Assert.Equal("Thing.exe", entry.LaunchExe);
+    }
+
+    [Fact]
+    public void APluginIsNoManagerAndNamesNoExecutable()
+    {
+        var entry = LibraryEntry.Parse("thing", SurgeXt);
+
+        Assert.False(entry.Manager);
+        Assert.Null(entry.LaunchExe);
+    }
+
+    [Fact]
+    public void AFilterOfNothingMatchesEverything()
+    {
+        Assert.True(new LibraryFilter().Matches(LibraryEntry.Parse("surge-xt", SurgeXt), false));
+        Assert.True(new LibraryFilter().Matches(Native("aalto"), true));
+    }
+
+    [Fact]
+    public void ASearchTermReadsTheNameTheDeveloperAndTheSummary()
+    {
+        var entry = LibraryEntry.Parse("surge-xt", SurgeXt);
+
+        Assert.True(new LibraryFilter(Search: "surge").Matches(entry, false));
+        Assert.True(new LibraryFilter(Search: "SYNTH TEAM").Matches(entry, false));
+        Assert.True(new LibraryFilter(Search: "hybrid").Matches(entry, false));
+        Assert.False(new LibraryFilter(Search: "reverb").Matches(entry, false));
+    }
+
+    [Fact]
+    public void EverySearchTermHasToMatch()
+    {
+        var entry = LibraryEntry.Parse("surge-xt", SurgeXt);
+
+        Assert.True(new LibraryFilter(Search: "surge  synthesizer").Matches(entry, false));
+        Assert.False(new LibraryFilter(Search: "surge reverb").Matches(entry, false));
+    }
+
+    [Fact]
+    public void CategoryDeveloperKindAndInstalledEachNarrow()
+    {
+        var entry = LibraryEntry.Parse("surge-xt", SurgeXt);
+
+        Assert.True(new LibraryFilter(Category: "synth").Matches(entry, true));
+        Assert.False(new LibraryFilter(Category: "Effect").Matches(entry, true));
+
+        Assert.True(new LibraryFilter(Developer: "Surge Synth Team").Matches(entry, true));
+        Assert.False(new LibraryFilter(Developer: "u-he").Matches(entry, true));
+
+        Assert.True(new LibraryFilter(Kind: PluginKind.Windows).Matches(entry, true));
+        Assert.False(new LibraryFilter(Kind: PluginKind.Native).Matches(entry, true));
+
+        Assert.True(new LibraryFilter(Installed: true).Matches(entry, true));
+        Assert.False(new LibraryFilter(Installed: true).Matches(entry, false));
+        Assert.True(new LibraryFilter(Installed: false).Matches(entry, false));
+    }
+
+    [Fact]
+    public void TheCategoriesAndDevelopersOnOfferAreDistinctAndSorted()
+    {
+        LibraryEntry[] entries =
+        [
+            LibraryEntry.Parse("surge-xt", SurgeXt),
+            Manager(),
+            Native("aalto"),
+        ];
+
+        Assert.Equal(["Plugin", "Synth"], Library.Categories(entries));
+        Assert.Equal(["Surge Synth Team"], Library.Developers(entries));
+    }
+
+    [Fact]
+    public void StoppingAnAppKillsItByNameAndLetsTheRestOfThePrefixBe()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var recorder = new RecordingRunner(outputs: _ => Gone);
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+
+        new Library(layout, recorder).Stop(entry);
+
+        var killed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("taskkill"));
+
+        Assert.Equal("wine", killed.File);
+        Assert.Equal(["taskkill", "/f", "/im", "Thing.exe"], killed.Arguments);
+        Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), killed.LogTo);
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("-k"));
+        Assert.Contains(
+            "Thing is closed.", File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
+    }
+
+    [Fact]
+    public void AnAppThatOutlivesTheGraceTakesTheWholePrefixWithIt()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var recorder = new RecordingRunner(outputs: _ => "Thing.exe   316 Console   1   64 K");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+
+        new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
+
+        var listed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("tasklist"));
+
+        Assert.Equal(["tasklist", "/fi", "imagename eq Thing.exe", "/nh"], listed.Arguments);
+        Assert.Single(recorder.Calls, call =>
+            call.File == "wineserver" && call.Arguments.SequenceEqual(["-k"]));
+
+        Assert.Contains(
+            "Ending every Wine process",
+            File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
+    }
+
+    [Fact]
+    public void StoppingAnAppStopsTheServiceItStarted()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + "LaunchService: ThingService\n");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner(outputs: _ => Gone);
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+
+        new Library(layout, recorder).Stop(entry);
+
+        var killed = recorder.Calls.ToList().FindIndex(call =>
+            call.Arguments.Contains("taskkill"));
+
+        var stopped = recorder.Calls.ToList().FindIndex(call =>
+            call.Arguments.SequenceEqual(["sc", "stop", "ThingService"]));
+
+        Assert.Equal(killed + 1, stopped);
+    }
+
+    [Fact]
+    public void StoppingKeepsWhatTheLaunchWroteToTheLog()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var log = layout.PrefixLaunchLog(entry.Prefix);
+
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(log, "Opening Thing.\n");
+
+        new Library(layout, new RecordingRunner(outputs: _ => Gone)).Stop(entry);
+
+        Assert.Equal(
+            "Opening Thing.\nClosing Thing.\nThing is closed.\n", File.ReadAllText(log));
+    }
+
+    [Fact]
+    public void APluginCannotBeStopped()
+    {
+        var entry = LibraryEntry.Parse("surge-xt", SurgeXt);
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Library(Layout(), new UnusedRunner()).Stop(entry));
+
+        Assert.Contains("not an application Cabinet can open", thrown.Message);
     }
 
     private string Fixture()

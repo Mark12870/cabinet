@@ -8,6 +8,7 @@ internal sealed class PluginPage
     private readonly Action<LibraryEntry> install;
     private readonly Action<LibraryEntry> remove;
     private readonly Action<LibraryEntry> launch;
+    private readonly Action<LibraryEntry> stop;
     private readonly Func<LibraryEntry, string?> log;
     private readonly Gtk.Window window;
     private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
@@ -19,6 +20,7 @@ internal sealed class PluginPage
         Action<LibraryEntry> install,
         Action<LibraryEntry> remove,
         Action<LibraryEntry> launch,
+        Action<LibraryEntry> stop,
         Func<LibraryEntry, string?> log)
     {
         this.layout = layout;
@@ -26,6 +28,7 @@ internal sealed class PluginPage
         this.install = install;
         this.remove = remove;
         this.launch = launch;
+        this.stop = stop;
         this.log = log;
         Id = entry.Id;
 
@@ -178,6 +181,12 @@ internal sealed class PluginPage
 
             open.SetSensitive(!running);
             row.Append(open);
+
+            if (running)
+            {
+                row.Append(Pill(
+                    $"Stop {entry.Name}", "destructive-action", () => stop(entry)));
+            }
 
             if (log(entry) is { } written)
             {

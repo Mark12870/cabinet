@@ -196,6 +196,18 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryAppCabinetOpensCanBeStoppedByName()
+    {
+        var nameless = Shipped
+            .Where(entry => entry.Manager)
+            .Where(entry => entry.LaunchExe is not { Length: > 0 } exe
+                            || !exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Id} -> {entry.Launch}");
+
+        Assert.Empty(nameless);
+    }
+
+    [Fact]
     public void AVendorTheManifestHoldsBackSaysWhyBesideItsEntries()
     {
         var held = Shipped

@@ -48,6 +48,10 @@ public sealed record LibraryEntry(
     IReadOnlyList<string> Description,
     string Vendor)
 {
+    public bool Manager => Launch is not null;
+
+    public string? LaunchExe => Launch?.Split('\\')[^1];
+
     public static LibraryEntry Parse(string id, string text, string vendor = "")
     {
         var fields = Fields(text);
@@ -455,6 +459,36 @@ public sealed record LibraryEntry(
     };
 }
 
+public sealed record LibraryFilter(
+    string? Search = null,
+    string? Category = null,
+    string? Developer = null,
+    PluginKind? Kind = null,
+    bool? Installed = null)
+{
+    public bool Matches(LibraryEntry entry, bool installed) =>
+        (Category is null
+            || string.Equals(Category, entry.Category, StringComparison.OrdinalIgnoreCase))
+        && (Developer is null
+            || string.Equals(Developer, entry.Developer, StringComparison.OrdinalIgnoreCase))
+        && (Kind is null || Kind == entry.Kind)
+        && (Installed is null || Installed == installed)
+        && Terms().All(term =>
+            Haystack(entry).Contains(term, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<string> Terms() =>
+        (Search ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+    private static string Haystack(LibraryEntry entry) => string.Join(
+        ' ',
+        entry.Name,
+        entry.Id,
+        entry.Developer,
+        entry.Category,
+        entry.Summary,
+        entry.Vendor);
+}
+
 public sealed class Library(Layout layout, IProcessRunner runner)
 {
     private readonly Http http = new(runner);
@@ -485,6 +519,19 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         return entries;
     }
+
+    public static IReadOnlyList<string> Categories(IEnumerable<LibraryEntry> entries) =>
+        [.. entries
+            .Select(entry => entry.Category)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(category => category, StringComparer.OrdinalIgnoreCase)];
+
+    public static IReadOnlyList<string> Developers(IEnumerable<LibraryEntry> entries) =>
+        [.. entries
+            .Select(entry => entry.Developer)
+            .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(developer => developer, StringComparer.OrdinalIgnoreCase)];
 
     public LibraryEntry Find(string id) =>
         Entries().FirstOrDefault(entry => entry.Id == id)
@@ -571,6 +618,10 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     private const int ServiceAlreadyRunning = 1056 & 0xff;
 
     private static readonly TimeSpan Stability = TimeSpan.FromSeconds(1);
+
+    public static readonly TimeSpan StopGrace = TimeSpan.FromSeconds(30);
+
+    private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
 
     public void Launch(
         LibraryEntry entry, string? prefix = null, Action<string>? onOutput = null)
@@ -752,6 +803,60 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         Say($"{entry.Name} closed.");
     }
+
+    public void Stop(
+        LibraryEntry entry,
+        string? prefix = null,
+        TimeSpan? grace = null,
+        Action<string>? onOutput = null)
+    {
+        if (entry.Launch is null)
+        {
+            throw new InvalidOperationException(
+                $"{entry.Name} is a plugin, not an application Cabinet can open");
+        }
+
+        var where = prefix ?? entry.Prefix;
+        var prefixes = new Prefixes(layout, runner);
+        var log = layout.PrefixLaunchLog(where);
+        var waiting = grace ?? StopGrace;
+
+        void Say(string line)
+        {
+            File.AppendAllText(log, line + Environment.NewLine);
+            onOutput?.Invoke(line);
+        }
+
+        Say($"Closing {entry.Name}.");
+        prefixes.Run(where, "wine", ["taskkill", "/f", "/im", entry.LaunchExe!], logTo: log);
+
+        if (entry.LaunchService is { } service)
+        {
+            Say($"Stopping {service}.");
+            prefixes.Run(where, "wine", ["sc", "stop", service], logTo: log);
+        }
+
+        var deadline = DateTime.UtcNow + waiting;
+
+        while (Running(prefixes, where, entry.LaunchExe!))
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                Say($"{entry.Name} was still running {waiting.TotalSeconds:0} seconds later. "
+                    + $"Ending every Wine process in {where}, Cabinet's own included.");
+                prefixes.Run(where, "wineserver", ["-k"], logTo: log);
+                return;
+            }
+
+            Thread.Sleep(Beat);
+        }
+
+        Say($"{entry.Name} is closed.");
+    }
+
+    private static bool Running(Prefixes prefixes, string where, string exe) =>
+        prefixes.Run(where, "wine", ["tasklist", "/fi", $"imagename eq {exe}", "/nh"])
+            .Stdout.Contains(exe, StringComparison.OrdinalIgnoreCase);
 
     public string? LaunchLog(LibraryEntry entry, string? prefix = null) =>
         layout.PrefixLaunchLog(prefix ?? entry.Prefix) is { } log && File.Exists(log)

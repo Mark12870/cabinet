@@ -11,7 +11,22 @@ internal sealed class LibraryPage
     private readonly Action changed;
     private readonly Action<string> toast;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly Gtk.Box filters = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly Gtk.SearchEntry search = Gtk.SearchEntry.New();
+    private readonly Gtk.DropDown categories = Gtk.DropDown.NewFromStrings(["Any category"]);
+    private readonly Gtk.DropDown developers = Gtk.DropDown.NewFromStrings(["Any developer"]);
+    private readonly Gtk.DropDown kinds =
+        Gtk.DropDown.NewFromStrings(["Any kind", "Windows", "Linux"]);
+
+    private readonly Gtk.DropDown states =
+        Gtk.DropDown.NewFromStrings(["Any state", "Installed", "Not installed"]);
+
     private readonly HashSet<string> running = new(StringComparer.Ordinal);
+    private readonly HashSet<string> stopping = new(StringComparer.Ordinal);
+
+    private IReadOnlyList<LibraryEntry> entries = [];
+    private IReadOnlyDictionary<string, string?> installed =
+        new Dictionary<string, string?>(StringComparer.Ordinal);
 
     private PluginPage? open;
 
@@ -33,6 +48,7 @@ internal sealed class LibraryPage
         navigation.OnPopped += (_, _) => open = null;
 
         var page = Ui.Page();
+        page.Append(Filters());
         page.Append(Ui.Scrolled(list));
         Widget = page;
     }
@@ -41,31 +57,141 @@ internal sealed class LibraryPage
 
     public void Refresh()
     {
-        Ui.Clear(list);
-
         var library = new Library(layout, runner);
-        var entries = library.Entries();
+        entries = library.Entries();
+        installed = entries.Count == 0
+            ? new Dictionary<string, string?>(StringComparer.Ordinal)
+            : library.Installed();
+
+        Fill(categories, "Any category", Library.Categories(entries));
+        Fill(developers, "Any developer", Library.Developers(entries));
+
+        Rebuild();
+    }
+
+    private Gtk.Widget Filters()
+    {
+        search.SetPlaceholderText("Search by name, developer or what it does");
+        search.SetHexpand(true);
+        search.OnSearchChanged += (_, _) => Rebuild();
+        filters.Append(search);
+
+        var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
+        row.Append(Narrowing(categories, "Category"));
+        row.Append(Narrowing(developers, "Developer"));
+        row.Append(Narrowing(kinds, "Kind"));
+        row.Append(Narrowing(states, "Installed"));
+
+        filters.Append(row);
+        return filters;
+    }
+
+    private Gtk.DropDown Narrowing(Gtk.DropDown drop, string what)
+    {
+        drop.SetTooltipText(what);
+        drop.SetHexpand(true);
+        drop.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() == "selected")
+            {
+                Rebuild();
+            }
+        };
+
+        return drop;
+    }
+
+    private void Clear()
+    {
+        search.SetText("");
+        categories.SetSelected(0);
+        developers.SetSelected(0);
+        kinds.SetSelected(0);
+        states.SetSelected(0);
+        Rebuild();
+    }
+
+    private static void Fill(Gtk.DropDown drop, string any, IReadOnlyList<string> values)
+    {
+        var chosen = Narrowed(drop);
+        string[] options = [any, .. values];
+        drop.SetModel(Gtk.StringList.New(options));
+        drop.SetSelected((uint)Math.Max(Array.IndexOf(options, chosen ?? any), 0));
+    }
+
+    private static string? Narrowed(Gtk.DropDown drop) =>
+        drop.GetSelected() == 0
+            ? null
+            : (drop.GetModel() as Gtk.StringList)?.GetString(drop.GetSelected());
+
+    private LibraryFilter Filter() => new(
+        search.GetText(),
+        Narrowed(categories),
+        Narrowed(developers),
+        kinds.GetSelected() switch
+        {
+            1 => PluginKind.Windows,
+            2 => PluginKind.Native,
+            _ => null,
+        },
+        states.GetSelected() switch
+        {
+            1 => true,
+            2 => false,
+            _ => null,
+        });
+
+    private void Rebuild()
+    {
+        Ui.Clear(list);
 
         if (entries.Count == 0)
         {
+            filters.SetVisible(false);
             list.Append(Empty());
-            Reopen(entries, new Dictionary<string, string?>());
+            Reopen();
             return;
         }
 
-        var installed = library.Installed();
+        filters.SetVisible(true);
 
-        Section("Windows plugins", "Each one gets a Wine prefix, bridged into your DAW.",
-            entries.Where(entry => entry.Kind == PluginKind.Windows), installed);
+        var filter = Filter();
+        var matching = entries
+            .Where(entry => filter.Matches(entry, installed.ContainsKey(entry.Id)))
+            .ToList();
 
-        Section("Linux plugins", "VST3, CLAP and LV2, in Cabinet's own directory and linked out.",
-            entries.Where(entry => entry.Kind == PluginKind.Native), installed);
+        var managers = matching
+            .Where(entry => entry.Manager && installed.ContainsKey(entry.Id))
+            .ToList();
 
-        Reopen(entries, installed);
+        var pinned = managers.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
+
+        Section(
+            "Managers",
+            "The applications that download and update plugins of their own.",
+            managers);
+
+        Section(
+            "Windows plugins",
+            "Each one gets a Wine prefix, bridged into your DAW.",
+            matching.Where(entry =>
+                entry.Kind == PluginKind.Windows && !pinned.Contains(entry.Id)));
+
+        Section(
+            "Linux plugins",
+            "VST3, CLAP and LV2, in Cabinet's own directory and linked out.",
+            matching.Where(entry =>
+                entry.Kind == PluginKind.Native && !pinned.Contains(entry.Id)));
+
+        if (matching.Count == 0)
+        {
+            list.Append(Nothing());
+        }
+
+        Reopen();
     }
 
-    private void Reopen(
-        IReadOnlyList<LibraryEntry> entries, IReadOnlyDictionary<string, string?> installed)
+    private void Reopen()
     {
         if (open is null)
         {
@@ -87,7 +213,7 @@ internal sealed class LibraryPage
             running.Contains(still.Id));
     }
 
-    private void Open(LibraryEntry entry, string? prefix, bool installed)
+    private void Open(LibraryEntry entry, string? prefix, bool here)
     {
         var page = new PluginPage(
             layout,
@@ -96,18 +222,15 @@ internal sealed class LibraryPage
             one => Begin(one, prefix),
             one => ConfirmRemove(one, prefix),
             one => Launch(one, prefix),
+            one => Stop(one, prefix),
             one => new Library(layout, runner).LaunchLog(one, prefix));
-        page.Show(entry, prefix, installed, running.Contains(entry.Id));
+        page.Show(entry, prefix, here, running.Contains(entry.Id));
 
         open = page;
         navigation.Push(page.Page);
     }
 
-    private void Section(
-        string title,
-        string description,
-        IEnumerable<LibraryEntry> entries,
-        IReadOnlyDictionary<string, string?> installed)
+    private void Section(string title, string description, IEnumerable<LibraryEntry> entries)
     {
         var found = entries.ToList();
 
@@ -122,7 +245,7 @@ internal sealed class LibraryPage
 
         foreach (var entry in found)
         {
-            group.Add(Row(entry, installed));
+            group.Add(Row(entry));
         }
 
         list.Append(group);
@@ -137,7 +260,23 @@ internal sealed class LibraryPage
         return empty;
     }
 
-    private Adw.ActionRow Row(LibraryEntry entry, IReadOnlyDictionary<string, string?> installed)
+    private Adw.StatusPage Nothing()
+    {
+        var empty = Adw.StatusPage.New();
+        empty.SetIconName(Icons.Library);
+        empty.SetTitle("Nothing matches");
+        empty.SetDescription("No plugin in the library answers to that search and those filters.");
+
+        var clear = Gtk.Button.NewWithLabel("Clear filters");
+        clear.SetHalign(Gtk.Align.Center);
+        clear.AddCssClass("pill");
+        clear.OnClicked += (_, _) => Clear();
+        empty.SetChild(clear);
+
+        return empty;
+    }
+
+    private Adw.ActionRow Row(LibraryEntry entry)
     {
         var here = installed.TryGetValue(entry.Id, out var prefix);
 
@@ -151,6 +290,11 @@ internal sealed class LibraryPage
             row.AddSuffix(Badge(prefix));
         }
 
+        if (entry.Manager && here)
+        {
+            row.AddSuffix(Control(entry, prefix));
+        }
+
         var enter = Ui.RowButton(Icons.Forward, $"About {entry.Name}");
         enter.OnClicked += (_, _) => Open(entry, prefix, here);
         row.AddSuffix(enter);
@@ -159,7 +303,22 @@ internal sealed class LibraryPage
         return row;
     }
 
-    private Gtk.Widget RowIcon(LibraryEntry entry, bool installed)
+    private Gtk.Button Control(LibraryEntry entry, string? prefix)
+    {
+        if (running.Contains(entry.Id))
+        {
+            var halt = Ui.RowButton(Icons.Stop, $"Stop {entry.Name}");
+            halt.SetSensitive(!stopping.Contains(entry.Id));
+            halt.OnClicked += (_, _) => Stop(entry, prefix);
+            return halt;
+        }
+
+        var start = Ui.RowButton(Icons.Play, $"Open {entry.Name}");
+        start.OnClicked += (_, _) => Launch(entry, prefix);
+        return start;
+    }
+
+    private Gtk.Widget RowIcon(LibraryEntry entry, bool here)
     {
         if (layout.LibraryIcon(entry.Vendor, entry.Id) is { } file)
         {
@@ -168,9 +327,9 @@ internal sealed class LibraryPage
             return art;
         }
 
-        var icon = Gtk.Image.NewFromIconName(installed ? Icons.Ok : Icons.Prefixes);
+        var icon = Gtk.Image.NewFromIconName(here ? Icons.Ok : Icons.Prefixes);
 
-        if (installed)
+        if (here)
         {
             icon.AddCssClass("success");
         }
@@ -501,13 +660,39 @@ internal sealed class LibraryPage
             }
             catch (Exception exception)
             {
-                Ui.OnMainLoop(() => toast(exception.Message));
+                Ui.OnMainLoop(() =>
+                {
+                    if (!stopping.Contains(entry.Id))
+                    {
+                        toast(exception.Message);
+                    }
+                });
             }
         }).ContinueWith(_ => Ui.OnMainLoop(() =>
         {
             running.Remove(entry.Id);
+            stopping.Remove(entry.Id);
             changed();
         }));
+    }
+
+    private void Stop(LibraryEntry entry, string? prefix)
+    {
+        stopping.Add(entry.Id);
+        toast($"Stopping {entry.Name}.");
+        changed();
+
+        Task.Run(() =>
+        {
+            try
+            {
+                new Library(layout, runner).Stop(entry, prefix);
+            }
+            catch (Exception exception)
+            {
+                Ui.OnMainLoop(() => toast(exception.Message));
+            }
+        }).ContinueWith(_ => Ui.OnMainLoop(changed));
     }
 
     private void Uninstall(LibraryEntry entry, string prefix) =>

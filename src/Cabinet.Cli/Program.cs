@@ -28,6 +28,7 @@ internal static class Program
                                                install one; demo entries download without a file
           cabinet library remove <id>          uninstall one, links, prefix and all
           cabinet library launch <id>          open a manager, bridging what it installs
+          cabinet library stop <id>            close a manager Cabinet opened
           cabinet library log <id>             what the last launch of a manager printed
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
@@ -41,6 +42,13 @@ internal static class Program
 
         Options:
           --json                               machine-readable output where it applies
+
+        Narrowing `cabinet library`:
+          --search <text>                      every word must appear somewhere in the entry
+          --category <name>                    Synth, Effect, Manager, Sampler, Drums, Bundle
+          --developer <name>                   who makes it
+          --kind <windows|linux>               under Wine, or native
+          --installed, --not-installed         only what is here, or only what is not
         """;
 
     private static int Main(string[] args)
@@ -398,24 +406,89 @@ internal static class Program
         return 0;
     }
 
-    private static int Library(
-        Layout layout, IProcessRunner runner, string[] args, bool json) =>
-        args.FirstOrDefault() switch
+    private static int Library(Layout layout, IProcessRunner runner, string[] args, bool json)
+    {
+        var (filter, rest) = Narrowing(args);
+
+        return rest.FirstOrDefault() switch
         {
-            null => ListLibrary(layout, runner, json),
-            "show" => ShowFromLibrary(layout, runner, Require(args, 1, "a plugin id"), json),
-            "install" => InstallFromLibrary(layout, runner, args.Skip(1).ToArray()),
-            "remove" => RemoveFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
-            "launch" => LaunchFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
-            "log" => LogFromLibrary(layout, runner, Require(args, 1, "a plugin id")),
+            null => ListLibrary(layout, runner, filter, json),
+            "show" => ShowFromLibrary(layout, runner, Require(rest, 1, "a plugin id"), json),
+            "install" => InstallFromLibrary(layout, runner, rest.Skip(1).ToArray()),
+            "remove" => RemoveFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
+            "launch" => LaunchFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
+            "stop" => StopFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
+            "log" => LogFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
             var unknown => Unknown($"library {unknown}"),
         };
+    }
 
-    private static int ListLibrary(Layout layout, IProcessRunner runner, bool json)
+    private static (LibraryFilter Filter, string[] Remaining) Narrowing(string[] args)
+    {
+        string? search = null;
+        string? category = null;
+        string? developer = null;
+        PluginKind? kind = null;
+        bool? installed = null;
+        var rest = new List<string>();
+
+        for (var index = 0; index < args.Length; index++)
+        {
+            switch (args[index])
+            {
+                case "--search":
+                    search = Follows(args, ref index);
+                    break;
+                case "--category":
+                    category = Follows(args, ref index);
+                    break;
+                case "--developer":
+                    developer = Follows(args, ref index);
+                    break;
+                case "--kind":
+                    kind = Kind(Follows(args, ref index));
+                    break;
+                case "--installed":
+                    installed = true;
+                    break;
+                case "--not-installed":
+                    installed = false;
+                    break;
+                default:
+                    rest.Add(args[index]);
+                    break;
+            }
+        }
+
+        return (new LibraryFilter(search, category, developer, kind, installed), [.. rest]);
+    }
+
+    private static string Follows(string[] args, ref int index)
+    {
+        var flag = args[index];
+
+        return ++index < args.Length
+            ? args[index]
+            : throw new InvalidOperationException($"{flag} needs something after it");
+    }
+
+    private static PluginKind Kind(string word) => word.ToLowerInvariant() switch
+    {
+        "windows" => PluginKind.Windows,
+        "linux" or "native" => PluginKind.Native,
+        _ => throw new InvalidOperationException($"--kind takes windows or linux, not {word}"),
+    };
+
+    private static int ListLibrary(
+        Layout layout, IProcessRunner runner, LibraryFilter filter, bool json)
     {
         var library = new Library(layout, runner);
-        var entries = library.Entries();
+        var all = library.Entries();
         var installed = library.Installed();
+
+        var entries = all
+            .Where(entry => filter.Matches(entry, installed.ContainsKey(entry.Id)))
+            .ToList();
 
         if (json)
         {
@@ -423,9 +496,15 @@ internal static class Program
             return 0;
         }
 
-        if (entries.Count == 0)
+        if (all.Count == 0)
         {
             Console.WriteLine("This build shipped no library.");
+            return 0;
+        }
+
+        if (entries.Count == 0)
+        {
+            Console.WriteLine("Nothing in the library matches that.");
             return 0;
         }
 
@@ -631,6 +710,28 @@ internal static class Program
         }
 
         library.Launch(entry, prefix, Console.WriteLine);
+        return 0;
+    }
+
+    private static int StopFromLibrary(Layout layout, IProcessRunner runner, string id)
+    {
+        var library = new Library(layout, runner);
+        var entry = library.Find(id);
+
+        if (entry.Launch is null)
+        {
+            Console.Error.WriteLine(
+                $"cabinet: {entry.Name} is a plugin — your DAW opens it, not Cabinet");
+            return 1;
+        }
+
+        if (!library.Installed().TryGetValue(id, out var prefix))
+        {
+            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
+            return 1;
+        }
+
+        library.Stop(entry, prefix, onOutput: Console.WriteLine);
         return 0;
     }
 
