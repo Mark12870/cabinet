@@ -46,6 +46,23 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.13.0" date="2026-09-02">
+      <description>
+        <p>Find a plugin in the Library, and close a manager you opened</p>
+        <ul>
+          <li>The Library has a search box and filters for category, developer, kind and whether
+          it is installed, so a growing catalogue stays something you can look through</li>
+          <li>The managers you have installed sit in their own section at the top of the Library,
+          each with a button that opens it and turns into one that closes it</li>
+          <li>A manager can be closed from its own page as well, and from the command line with
+          <code>cabinet library stop</code></li>
+          <li>The same narrowing works on the command line, as <code>--search</code>,
+          <code>--category</code>, <code>--developer</code>, <code>--kind</code> and
+          <code>--installed</code></li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.12.0" date="2026-08-30">
       <description>
         <p>Demos install themselves, and a closed DAW leaves nothing behind</p>
