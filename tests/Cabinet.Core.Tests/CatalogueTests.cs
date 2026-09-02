@@ -72,6 +72,35 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void NoScriptSpellsAPrefixPluginDirectoryTheWayTheCreatedOneIsNot()
+    {
+        var layout = Catalogue.Layout();
+
+        var created = layout.PrefixPluginDirs("any")
+            .SelectMany(path => path.Split(Path.DirectorySeparatorChar)
+                .SkipWhile(part => part != "drive_c")
+                .Skip(1))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var wrong = Shipped
+            .Where(entry => entry.Kind == PluginKind.Windows)
+            .SelectMany(entry => new[] { entry.Script, entry.Recover }
+                .OfType<string>()
+                .Select(name => (entry.Vendor, Name: name)))
+            .Distinct()
+            .SelectMany(
+                script => Misspelt(
+                    File.ReadAllText(layout.LibraryScript(script.Vendor, script.Name)),
+                    created),
+                (script, found) =>
+                    $"{script.Vendor}/{script.Name} looks in {found.Written}, "
+                    + $"but a prefix only has {found.Created}");
+
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
     public void EveryRelinkIsANativeEntryWritingAShorterSonameOverALongerOne()
     {
         var wrong = Shipped
@@ -265,6 +294,31 @@ public class CatalogueTests
             content.CopyTo(Stream.Null);
         }
     }
+
+    private static IEnumerable<(string Written, string Created)> Misspelt(
+        string script, IEnumerable<string> created)
+    {
+        foreach (var name in created)
+        {
+            for (var at = script.IndexOf(name, StringComparison.OrdinalIgnoreCase);
+                 at >= 0;
+                 at = script.IndexOf(name, at + 1, StringComparison.OrdinalIgnoreCase))
+            {
+                var written = script.Substring(at, name.Length);
+
+                if (IsSegment(script, at, name.Length)
+                    && !string.Equals(written, name, StringComparison.Ordinal))
+                {
+                    yield return (written, name);
+                }
+            }
+        }
+    }
+
+    private static bool IsSegment(string script, int at, int length) =>
+        at > 0
+        && script[at - 1] == '/'
+        && (at + length == script.Length || script[at + length] is '/' or '"' or '\'');
 }
 
 internal static class Catalogue
