@@ -663,6 +663,7 @@ public class LibraryTests : IDisposable
         var link = Assert.Single(recorder.Calls, call => call.File == "ln");
         Assert.Equal(
             [
+                "-f",
                 Path.Combine(downloads, "Kontakt_8_Installer.zip"),
                 Path.Combine(layout.PrefixKeptDir("thing"), "Kontakt_8_Installer.zip"),
             ],

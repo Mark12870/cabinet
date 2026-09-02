@@ -39,8 +39,9 @@ if [ -z "$source" ] || [ ! -s "$source" ]; then
     exit 1
 fi
 
-version=$(LC_ALL=C grep -aobP -m 1 '8\x00\.\x00[0-9]\x00(?:[0-9]\x00)*\.\x00[0-9]\x00(?:[0-9]\x00)*' "$source" | \
-    cut -d: -f2- | tr -d '\000' | awk 'NR == 1 { print; exit }')
+version=$(LC_ALL=C grep -aoP -m 1 \
+    'P\x00r\x00o\x00d\x00u\x00c\x00t\x00V\x00e\x00r\x00s\x00i\x00o\x00n\x00\x00\x00\K(?:[0-9]\x00)+(?:\.\x00(?:[0-9]\x00)+)+' \
+    "$source" | tr -d '\000')
 
 if [ -z "$version" ]; then
     echo "Could not determine the Kontakt version from the recovered VST3" >&2
@@ -62,6 +63,7 @@ printf '%s\n' "{\"InstallVST64Dir\":\"C:\\\\Program Files\\\\Common Files\\\\VST
     > "$products/Kontakt 8.json"
 
 rm -rf "$work"
+rm -f "$archive" "$archive".*
 "$(dirname "$WINE")/wineserver" -k >/dev/null 2>&1 || true
 
 echo "Recovered Kontakt 8 $version"

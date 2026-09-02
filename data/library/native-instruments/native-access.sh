@@ -30,16 +30,6 @@ if [ -z "$daemon" ]; then
     exit 1
 fi
 
-daemon_work="$CABINET_WORK/native-access-daemon"
-rm -rf "$daemon_work"
-mkdir -p "$daemon_work"
-7z x -y "-o$daemon_work" "$daemon" >/dev/null
-
-if [ ! -s "$daemon_work/NTKDaemon Setup PC.msi" ]; then
-    echo "$CABINET_NAME's daemon installer contained no NTKDaemon Setup PC.msi" >&2
-    exit 1
-fi
-
 timeout -k 5s 180s "$WINE" "$daemon" /s IAgree=Yes '/l=C:\cabinet-ntk-install.log' \
     </dev/null >/dev/null 2>&1 &
 daemon_pid=$!

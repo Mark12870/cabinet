@@ -2,7 +2,7 @@
 
 drive="$CABINET_PREFIX/drive_c/Program Files"
 vst3="$drive/Common Files/VST3/SINE Player.vst3/Contents/x86_64-win/SINE Player.vst3"
-vst2="$drive/Vstplugins/SINE Player.dll"
+vst2="$drive/VstPlugins/SINE Player.dll"
 app="$drive/SINE Player/SINE Player.exe"
 
 if [ ! -f "$vst3" ]; then

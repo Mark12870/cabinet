@@ -790,10 +790,11 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
             Directory.CreateDirectory(destination);
 
-            if (runner.Run("ln", [file, Path.Combine(destination, name)]).Ok)
-            {
-                onOutput($"  keeping {name}");
-            }
+            var linked = runner.Run("ln", ["-f", file, Path.Combine(destination, name)]);
+
+            onOutput(linked.Ok
+                ? $"  keeping {name}"
+                : $"  could not keep {name} (exit code {linked.ExitCode})");
         }
     }
 
