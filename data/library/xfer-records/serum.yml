@@ -10,7 +10,6 @@ Source: byo
 Script: serum.sh
 Runner: wine-d2d1-11.0
 Sync: fsync
-Desktop: 1920x1080
 Description:
   The wavetable synth most of the last decade's electronic music was made
   with: draw or import a wavetable, watch it move, and modulate anything by

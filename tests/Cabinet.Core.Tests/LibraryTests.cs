@@ -276,7 +276,7 @@ public class LibraryTests : IDisposable
         Assert.Single(
             recorder.Calls,
             call => call.Arguments.SequenceEqual(
-                [entry.Launch!, "--disable-gpu", "--disable-gpu-compositing"]));
+                [Prefixes.JoinMode, entry.Launch!, "--disable-gpu", "--disable-gpu-compositing"]));
     }
 
     [Theory]
@@ -317,6 +317,97 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void OpeningAnAppOnAVirtualDesktopSaysItWillBeConfinedToIt()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+        File.WriteAllText(
+            layout.PrefixUserReg(entry.Prefix),
+            "[Software\\\\Wine\\\\Explorer]\n\"Desktop\"=\"Default\"\n"
+            + "[Software\\\\Wine\\\\Explorer\\\\Desktops]\n\"Default\"=\"1280x720\"\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.Contains(
+            "confined to it", File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("reg"));
+    }
+
+    [Fact]
+    public void OpeningAnAppOnAPlainPrefixSaysNothingAboutADesktop()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.DoesNotContain(
+            "confined to it", File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("reg"));
+    }
+
+    [Fact]
+    public void OpeningAnAppLeavesWineToTheSessionAlreadyBridgingThePrefix()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
+                ? Prefixes.SessionLiveWord
+                : "");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.Single(
+            recorder.Calls,
+            call => call.File == layout.ShimPath
+                    && call.Arguments.SequenceEqual([Prefixes.JoinMode, entry.Launch!]));
+        Assert.DoesNotContain(recorder.Calls, call => call.File == "wineserver");
+    }
+
+    [Fact]
+    public void AnAppTheSessionEndedIsNotReportedAsWineFailingToFinish()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            exits: args => args.SequenceEqual([Prefixes.JoinMode, @"C:\Program Files\Thing\Thing.exe"])
+                ? 137
+                : 0,
+            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
+                ? Prefixes.SessionLiveWord
+                : "");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Library(layout, recorder).Launch(entry));
+
+        Assert.DoesNotContain("did not finish", thrown.Message);
+        Assert.Contains("137", thrown.Message);
+    }
+
+    [Fact]
     public void OpeningAnAppStartsItsServiceBeforeTheApp()
     {
         var entry = LibraryEntry.Parse(
@@ -333,7 +424,7 @@ public class LibraryTests : IDisposable
 
         var service = Assert.Single(
             recorder.Calls,
-            call => call.Arguments.SequenceEqual(["sc", "start", "ThingService"]));
+            call => call.Arguments.SequenceEqual([Prefixes.JoinMode, "sc", "start", "ThingService"]));
         var app = Assert.Single(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
 
         var calls = recorder.Calls.ToList();
@@ -350,7 +441,7 @@ public class LibraryTests : IDisposable
             + "LaunchService: ThingService\n");
         var layout = Layout();
         var recorder = new RecordingRunner(
-            exits: args => args.SequenceEqual(["sc", "start", "ThingService"]) ? 32 : 0);
+            exits: args => args.SequenceEqual([Prefixes.JoinMode, "sc", "start", "ThingService"]) ? 32 : 0);
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
 
@@ -369,7 +460,7 @@ public class LibraryTests : IDisposable
             + "LaunchService: ThingService\n");
         var layout = Layout();
         var recorder = new RecordingRunner(
-            exits: args => args.SequenceEqual(["sc", "start", "ThingService"]) ? 1 : 0);
+            exits: args => args.SequenceEqual([Prefixes.JoinMode, "sc", "start", "ThingService"]) ? 1 : 0);
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
 
@@ -437,7 +528,7 @@ public class LibraryTests : IDisposable
         var release = new ManualResetEventSlim();
         var recorder = new RecordingRunner(args =>
         {
-            if (args.SequenceEqual([entry.Launch]))
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch]))
             {
                 File.WriteAllText(plugin, "");
                 started.Set();
@@ -483,7 +574,7 @@ public class LibraryTests : IDisposable
         var recorder = new RecordingRunner(
             args =>
             {
-                if (args.SequenceEqual([entry.Launch]))
+                if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch]))
                 {
                     File.WriteAllText(plugin, "");
                     started.Set();
@@ -718,7 +809,7 @@ public class LibraryTests : IDisposable
 
         var calls = recorder.Calls.ToList();
         var stop = calls.FindIndex(
-            call => call.Arguments.SequenceEqual(["sc", "stop", "ThingService"]));
+            call => call.Arguments.SequenceEqual([Prefixes.JoinMode, "sc", "stop", "ThingService"]));
         var wait = calls.FindIndex(
             call => call.Arguments.SequenceEqual(["-w"]));
 
@@ -1968,8 +2059,8 @@ public class LibraryTests : IDisposable
 
         var killed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("taskkill"));
 
-        Assert.Equal("wine", killed.File);
-        Assert.Equal(["taskkill", "/f", "/im", "Thing.exe"], killed.Arguments);
+        Assert.Equal(layout.ShimPath, killed.File);
+        Assert.Equal([Prefixes.JoinMode, "taskkill", "/f", "/im", "Thing.exe"], killed.Arguments);
         Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), killed.LogTo);
         Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("-k"));
         Assert.Contains(
@@ -1988,7 +2079,7 @@ public class LibraryTests : IDisposable
 
         var listed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("tasklist"));
 
-        Assert.Equal(["tasklist", "/fi", "imagename eq Thing.exe", "/nh"], listed.Arguments);
+        Assert.Equal([Prefixes.JoinMode, "tasklist", "/fi", "imagename eq Thing.exe", "/nh"], listed.Arguments);
         Assert.Single(recorder.Calls, call =>
             call.File == "wineserver" && call.Arguments.SequenceEqual(["-k"]));
 
@@ -2016,7 +2107,7 @@ public class LibraryTests : IDisposable
             call.Arguments.Contains("taskkill"));
 
         var stopped = recorder.Calls.ToList().FindIndex(call =>
-            call.Arguments.SequenceEqual(["sc", "stop", "ThingService"]));
+            call.Arguments.SequenceEqual([Prefixes.JoinMode, "sc", "stop", "ThingService"]));
 
         Assert.Equal(killed + 1, stopped);
     }

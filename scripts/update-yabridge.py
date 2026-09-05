@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Point the manifest at the current yabridge release.
+"""Point the manifest at a pinned yabridge commit.
 
-Unlike Beeper, yabridge publishes real GitHub releases, so there is no redirect to
-follow and no hash to compute by hand -- except that `type: archive` still needs a
-sha256, and GitHub does not publish one. So: read the latest release, and if the tag
-moved, download the tarball to hash it.
+The source is a GitHub commit archive. `type: archive` still needs a sha256, and GitHub
+does not publish one, so download the archive and hash it.
 
 It does not touch the metainfo. Cabinet's version is its own and yabridge's is a
 dependency; carrying a new one is a change worth a release entry, but which release
@@ -17,7 +15,6 @@ to $GITHUB_OUTPUT (or the final line of stdout) to tell the difference.
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 import sys
@@ -27,12 +24,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 MANIFEST = REPO / "io.github.mark12870.cabinet.yml"
 
-RELEASES_URL = "https://api.github.com/repos/robbert-vdh/yabridge/releases/latest"
-
 # GitHub rejects the default Python-urllib User-Agent on some paths.
 USER_AGENT = "cabinet-flatpak/update-yabridge (+https://github.com/Mark12870/cabinet)"
 
-URL_RE = re.compile(r"(?P<indent>\s*url:\s*)(?P<url>\S*/yabridge-(?P<version>[\d.]+)\.tar\.gz)")
+URL_RE = re.compile(
+    r"(?P<indent>\s*url:\s*)https://github\.com/robbert-vdh/yabridge/"
+    r"archive/(?P<commit>[0-9a-f]{40})\.tar\.gz"
+)
 SHA_RE = re.compile(r"(?P<indent>\s*sha256:\s*)(?P<sha>[0-9a-f]{64})")
 
 
@@ -42,23 +40,11 @@ def fetch(url: str) -> bytes:
         return response.read()
 
 
-def latest_release() -> tuple[str, str]:
-    """Return (version, tarball url) for the newest yabridge release."""
-    release = json.loads(fetch(RELEASES_URL))
-    tag = release["tag_name"]
-
-    for asset in release.get("assets", []):
-        if asset["name"] == f"yabridge-{tag}.tar.gz":
-            return tag, asset["browser_download_url"]
-
-    raise SystemExit(f"release {tag} has no yabridge-{tag}.tar.gz asset")
-
-
-def current_version(manifest: str) -> str:
+def current_commit(manifest: str) -> str:
     match = URL_RE.search(manifest)
     if not match:
         raise SystemExit("cannot find the yabridge url in the manifest")
-    return match.group("version")
+    return match.group("commit")
 
 
 def rewrite(manifest: str, url: str, sha256: str) -> str:
@@ -85,21 +71,26 @@ def emit(**values: str) -> None:
 
 
 def main() -> None:
-    version, url = latest_release()
-    manifest = MANIFEST.read_text(encoding="utf-8")
+    if len(sys.argv) != 2 or not re.fullmatch(r"[0-9a-f]{40}", sys.argv[1]):
+        raise SystemExit(f"usage: {Path(sys.argv[0]).name} COMMIT")
 
-    if current_version(manifest) == version:
-        emit(updated="false", yabridge=version)
+    commit = sys.argv[1]
+    url = f"https://github.com/robbert-vdh/yabridge/archive/{commit}.tar.gz"
+    manifest = MANIFEST.read_text(encoding="utf-8")
+    current = current_commit(manifest)
+
+    if current == commit:
+        emit(updated="false", yabridge=commit)
         return
 
-    print(f"yabridge {current_version(manifest)} -> {version}", file=sys.stderr)
+    print(f"yabridge {current} -> {commit}", file=sys.stderr)
     sha256 = hashlib.sha256(fetch(url)).hexdigest()
 
     MANIFEST.write_text(rewrite(manifest, url, sha256), encoding="utf-8")
 
     print("now add a <release> to the metainfo; a new yabridge is a Cabinet release",
           file=sys.stderr)
-    emit(updated="true", yabridge=version)
+    emit(updated="true", yabridge=commit)
 
 
 if __name__ == "__main__":

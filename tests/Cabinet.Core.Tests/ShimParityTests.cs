@@ -29,6 +29,14 @@ public class ShimParityTests
     }
 
     [Fact]
+    public void BothSidesNameTheSessionModesTheSameWay()
+    {
+        Assert.Equal(Prefixes.JoinMode, Constant("JOIN_MODE"));
+        Assert.Equal(Prefixes.SessionMode, Constant("SESSION_MODE"));
+        Assert.Equal(Prefixes.SessionLiveWord, Constant("SESSION_LIVE"));
+    }
+
+    [Fact]
     public void NeitherSideLetsAPrefixTakeOverWhatCabinetPins()
     {
         Assert.Equal(PrefixSettings.Owned, List("CABINET_OWNED"));

@@ -2,7 +2,7 @@ use crate::x11;
 use std::ffi::{OsStr, OsString};
 use std::fs::File;
 use std::io::{self, Read, Write};
-use std::os::raw::{c_int, c_long, c_void};
+use std::os::raw::{c_int, c_long, c_short, c_void};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -37,6 +37,61 @@ pub fn socket_path(dir: &Path, key: &str) -> PathBuf {
 
 pub fn lock_path(dir: &Path, key: &str) -> PathBuf {
     dir.join(format!("{key}.lock"))
+}
+
+pub fn busy_path(dir: &Path, key: &str) -> PathBuf {
+    dir.join(format!("{key}.busy"))
+}
+
+pub fn live(socket: &Path) -> bool {
+    UnixStream::connect(socket).is_ok()
+}
+
+pub struct Busy(File);
+
+fn whole_file(kind: c_short) -> FileLock {
+    FileLock {
+        kind,
+        whence: SEEK_SET,
+        start: 0,
+        len: 0,
+        pid: 0,
+    }
+}
+
+impl Drop for Busy {
+    fn drop(&mut self) {
+        let mut done = whole_file(F_UNLCK);
+
+        unsafe {
+            fcntl(self.0.as_raw_fd(), F_SETLK, &mut done);
+        }
+    }
+}
+
+pub fn claim(path: &Path) -> Option<Busy> {
+    lock(path, F_RDLCK)
+}
+
+pub fn reserve(path: &Path) -> Option<Busy> {
+    lock(path, F_WRLCK)
+}
+
+fn lock(path: &Path, kind: c_short) -> Option<Busy> {
+    let file = File::options()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(path)
+        .ok()?;
+    let mut wanted = whole_file(kind);
+
+    if unsafe { fcntl(file.as_raw_fd(), F_SETLK, &mut wanted) } == -1 {
+        return None;
+    }
+
+    Some(Busy(file))
 }
 
 pub fn encode(argv: &[OsString]) -> Vec<u8> {
@@ -232,6 +287,34 @@ where
     }
 
     Err(last)
+}
+
+pub fn join(socket: &Path, argv: &[OsString]) -> io::Result<Option<i32>> {
+    let mut stream = match UnixStream::connect(socket) {
+        Ok(stream) => stream,
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused
+            ) =>
+        {
+            return Ok(None)
+        }
+        Err(error) => return Err(error),
+    };
+    let spare = File::open("/dev/null").ok();
+    let fds = stdio(spare.as_ref().map_or(-1, |file| file.as_raw_fd()));
+
+    send_job(&stream, &encode(argv), fds)?;
+
+    let status = match read_frame(&mut stream)? {
+        payload if payload.len() == 4 => Some(i32::from_le_bytes(
+            payload[..4].try_into().unwrap_or_default(),
+        )),
+        _ => return Err(io::Error::other("the wine session sent a malformed status")),
+    };
+
+    Ok(status)
 }
 
 fn stdio(fallback: RawFd) -> [RawFd; 3] {
@@ -728,6 +811,20 @@ const POLLERR: i16 = 8;
 const POLLHUP: i16 = 16;
 const SYS_PIDFD_OPEN: c_long = 434;
 const LOCK_EX: c_int = 2;
+const F_SETLK: c_int = 6;
+const F_RDLCK: c_short = 0;
+const F_WRLCK: c_short = 1;
+const F_UNLCK: c_short = 2;
+const SEEK_SET: c_short = 0;
+
+#[repr(C)]
+struct FileLock {
+    kind: c_short,
+    whence: c_short,
+    start: i64,
+    len: i64,
+    pid: i32,
+}
 const LOCK_UN: c_int = 8;
 const SOL_SOCKET: c_int = 1;
 const SCM_RIGHTS: c_int = 1;

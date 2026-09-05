@@ -61,5 +61,5 @@ public sealed class VirtualDesktop(Layout layout, IProcessRunner runner)
     }
 
     private ProcessResult Reg(string prefix, IReadOnlyList<string> arguments) =>
-        new Prefixes(layout, runner).Run(prefix, "wine", ["reg", .. arguments]);
+        new Prefixes(layout, runner).RunJoined(prefix, ["reg", .. arguments]);
 }

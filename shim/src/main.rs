@@ -13,6 +13,10 @@ const DEFAULT_APP: &str = "io.github.mark12870.cabinet";
 const DESKTOP_TITLE: &str = "Wine Desktop";
 const INNER_COMMAND: &str = "/app/lib/yabridge/cabinet-wine";
 const INNER_MODE: &str = "--cabinet-inner";
+const JOIN_MODE: &str = "--cabinet-join";
+const SESSION_MODE: &str = "--cabinet-session";
+const NO_SESSION: i32 = 1;
+const SESSION_LIVE: &str = "live";
 const SOCKET_DIR: &str = "yabridge";
 
 const FORWARD: &[&str] = &[
@@ -277,15 +281,59 @@ fn main() {
     let canon = |path: &Path| std::fs::canonicalize(path).ok();
     let read = |path: &Path| std::fs::read_to_string(path).ok();
 
-    let job = job_args(&args, &canon);
-    let seed = getenv("WINEPREFIX")
-        .map(|value| canonicalize(&value, &canon))
+    let mode = args
+        .first()
+        .filter(|arg| *arg == JOIN_MODE || *arg == SESSION_MODE)
+        .cloned();
+    let rest = if mode.is_some() {
+        &args[1..]
+    } else {
+        &args[..]
+    };
+
+    let job = job_args(rest, &canon);
+    let prefix = getenv("WINEPREFIX").map(|value| canonicalize(&value, &canon));
+    let seed = prefix
+        .clone()
         .or_else(|| job.first().cloned())
         .unwrap_or_default();
     let name = session::key(&seed);
     let directory = session_dir(&getenv, &canon);
     let socket = session::socket_path(&directory, &name);
     let lock = session::lock_path(&directory, &name);
+    let busy = session::busy_path(&directory, &name);
+
+    if mode.as_deref() == Some(OsStr::new(SESSION_MODE)) {
+        if !session::live(&socket) {
+            std::process::exit(NO_SESSION);
+        }
+
+        println!("{SESSION_LIVE}");
+        std::process::exit(0);
+    }
+
+    if mode.as_deref() == Some(OsStr::new(JOIN_MODE)) {
+        match session::join(&socket, &job) {
+            Ok(Some(status)) => std::process::exit(status),
+            Ok(None) => std::process::exit(run_here(
+                &wine_command(prefix.as_deref(), &read),
+                &busy,
+                &job,
+            )),
+            Err(error) => {
+                eprintln!("cabinet-wine: cannot join the Wine session {socket:?}: {error}");
+                std::process::exit(127);
+            }
+        }
+    }
+
+    let Some(_claimed) = session::claim(&busy) else {
+        eprintln!(
+            "cabinet-wine: Cabinet has an app open in this prefix; \
+             close it before loading its plugins"
+        );
+        std::process::exit(127);
+    };
 
     let argv = build_argv(
         &app,
@@ -312,6 +360,23 @@ fn main() {
         Err(error) => {
             eprintln!("cabinet-wine: cannot reach the Wine session {socket:?}: {error}");
             std::process::exit(127);
+        }
+    }
+}
+
+fn run_here(wine: &OsStr, busy: &Path, job: &[OsString]) -> i32 {
+    let Some(_reserved) = session::reserve(busy) else {
+        eprintln!(
+            "cabinet-wine: cannot reserve {busy:?}, so this prefix is not safe to run Wine in"
+        );
+        return 127;
+    };
+
+    match Command::new(wine).args(job).status() {
+        Ok(status) => session::exit_code(status),
+        Err(error) => {
+            eprintln!("cabinet-wine: cannot run {wine:?}: {error}");
+            127
         }
     }
 }
@@ -465,6 +530,38 @@ mod tests {
             session::socket_path(directory, &name).with_extension("lock"),
             session::lock_path(directory, &name)
         );
+    }
+
+    #[test]
+    fn a_busy_marker_shares_the_sessions_name() {
+        let directory = Path::new("/run/user/1000/yabridge");
+        let name = session::key(OsStr::new(PREFIX));
+
+        assert_eq!(
+            session::socket_path(directory, &name).with_extension("busy"),
+            session::busy_path(directory, &name)
+        );
+    }
+
+    #[test]
+    fn joining_a_prefix_with_no_session_reports_no_session() {
+        let socket = Path::new("/run/user/1000/yabridge/cabinet-nothing-here.sock");
+
+        assert!(matches!(session::join(socket, &[]), Ok(None)));
+    }
+
+    #[test]
+    fn a_busy_marker_takes_a_lock_plugin_runs_can_share() {
+        let marker = std::env::temp_dir().join(format!("cabinet-busy-{}.busy", std::process::id()));
+        let _ = std::fs::remove_file(&marker);
+
+        let claimed = session::claim(&marker).expect("the marker can be claimed");
+        let shared = session::claim(&marker).expect("a second local run shares it");
+
+        drop(shared);
+        drop(claimed);
+
+        let _ = std::fs::remove_file(&marker);
     }
 
     #[test]

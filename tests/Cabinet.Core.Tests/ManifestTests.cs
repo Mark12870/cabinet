@@ -103,6 +103,16 @@ public class ManifestTests
             line => line.Contains("for payload in \"$vendor\"*.zip", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void YabridgectlIsInstalledWithTheBridges()
+    {
+        Assert.Contains(
+            Lines,
+            line => line.Contains(
+                "install -Dm755 yabridgectl-release/yabridgectl "
+                + "${FLATPAK_DEST}/lib/yabridge/yabridgectl", StringComparison.Ordinal));
+    }
+
     private static string Field(string key)
     {
         var prefix = key + ":";

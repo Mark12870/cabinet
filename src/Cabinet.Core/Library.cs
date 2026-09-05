@@ -670,10 +670,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         File.WriteAllText(log, "");
         Say($"Opening {entry.Name}. What it installs is bridged as it lands.");
 
+        if (new VirtualDesktop(layout, runner).SizeIn(where) is { } size)
+        {
+            Say($"{where} draws on a {size} desktop of its own, so {entry.Name} is confined to it, "
+                + $"the pointer too. Turn it off with: cabinet set {where} desktop off");
+        }
+
         if (entry.LaunchService is { } service)
         {
             Say($"Starting {service}.");
-            var started = prefixes.Run(where, "wine", ["sc", "start", service], logTo: log);
+            var started = prefixes.RunJoined(where, ["sc", "start", service], logTo: log);
 
             if (!started.Ok && started.ExitCode != ServiceAlreadyRunning)
             {
@@ -707,18 +713,20 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         });
 
         ProcessResult ran;
-        ProcessResult settled;
+        ProcessResult? settled;
 
         try
         {
-            ran = prefixes.Run(where, "wine", [entry.Launch, .. entry.LaunchArgs], logTo: log);
+            ran = prefixes.RunJoined(where, [entry.Launch, .. entry.LaunchArgs], logTo: log);
 
             if (entry.LaunchService is { } stopping)
             {
-                prefixes.Run(where, "wine", ["sc", "stop", stopping], logTo: log);
+                prefixes.RunJoined(where, ["sc", "stop", stopping], logTo: log);
             }
 
-            settled = prefixes.Run(where, "wineserver", ["-w"], logTo: log);
+            settled = prefixes.SessionLive(where)
+                ? null
+                : prefixes.Run(where, "wineserver", ["-w"], logTo: log);
         }
         finally
         {
@@ -765,10 +773,10 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         var failures = new List<Exception>();
 
-        if (!settled.Ok)
+        if (settled is { Ok: false } waited)
         {
             failures.Add(new InvalidOperationException(
-                $"Wine processes did not finish for '{entry.Name}' (exit code {settled.ExitCode})"));
+                $"Wine processes did not finish for '{entry.Name}' (exit code {waited.ExitCode})"));
         }
 
         if (!ran.Ok)
@@ -828,12 +836,12 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         Say($"Closing {entry.Name}.");
-        prefixes.Run(where, "wine", ["taskkill", "/f", "/im", entry.LaunchExe!], logTo: log);
+        prefixes.RunJoined(where, ["taskkill", "/f", "/im", entry.LaunchExe!], logTo: log);
 
         if (entry.LaunchService is { } service)
         {
             Say($"Stopping {service}.");
-            prefixes.Run(where, "wine", ["sc", "stop", service], logTo: log);
+            prefixes.RunJoined(where, ["sc", "stop", service], logTo: log);
         }
 
         var deadline = DateTime.UtcNow + waiting;
@@ -842,6 +850,13 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         {
             if (DateTime.UtcNow >= deadline)
             {
+                if (prefixes.SessionLive(where))
+                {
+                    Say($"{entry.Name} was still running {waiting.TotalSeconds:0} seconds later, "
+                        + $"and {where} is bridging plugins, so Cabinet left it alone.");
+                    return;
+                }
+
                 Say($"{entry.Name} was still running {waiting.TotalSeconds:0} seconds later. "
                     + $"Ending every Wine process in {where}, Cabinet's own included.");
                 prefixes.Run(where, "wineserver", ["-k"], logTo: log);
@@ -855,7 +870,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     }
 
     private static bool Running(Prefixes prefixes, string where, string exe) =>
-        prefixes.Run(where, "wine", ["tasklist", "/fi", $"imagename eq {exe}", "/nh"])
+        prefixes.RunJoined(where, ["tasklist", "/fi", $"imagename eq {exe}", "/nh"])
             .Stdout.Contains(exe, StringComparison.OrdinalIgnoreCase);
 
     public string? LaunchLog(LibraryEntry entry, string? prefix = null) =>

@@ -15,8 +15,11 @@ Prefix: native-instruments
 Launch: C:\Program Files\Native Instruments\Native Access\Native Access.exe
 LaunchService: NTKDaemonService
 LaunchArgs:
+  --no-sandbox
+  --disable-gpu-sandbox
   --disable-gpu
   --disable-gpu-compositing
+  --in-process-gpu
 Script: native-access.sh
 Keep: drive_c/users/Public/Documents/Native Instruments/Downloads
 Recover: kontakt-8.sh

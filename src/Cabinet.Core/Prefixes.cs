@@ -13,6 +13,10 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public static readonly IReadOnlyList<string> Blanked = ["WAYLAND_DISPLAY"];
 
+    public const string JoinMode = "--cabinet-join";
+    public const string SessionMode = "--cabinet-session";
+    public const string SessionLiveWord = "live";
+
     public IReadOnlyList<Prefix> List()
     {
         if (!Directory.Exists(layout.PrefixesDir))
@@ -164,6 +168,24 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         string name, string command, IReadOnlyList<string> arguments,
         Action<string>? onOutput = null, string? logTo = null) =>
         Wine(name, command, arguments, onOutput, logTo: logTo);
+
+    public bool SessionLive(string name) =>
+        Shim(name, [SessionMode], null, null)
+            .Stdout.Contains(SessionLiveWord, StringComparison.Ordinal);
+
+    public ProcessResult RunJoined(
+        string name, IReadOnlyList<string> arguments,
+        Action<string>? onOutput = null, string? logTo = null) =>
+        Shim(name, [JoinMode, .. arguments], onOutput, logTo);
+
+    private ProcessResult Shim(
+        string name, IReadOnlyList<string> arguments, Action<string>? onOutput, string? logTo) =>
+        runner.Run(
+            layout.ShimPath,
+            arguments,
+            WineVariables(name, runners.Resolve(RunnerOf(name)), null),
+            onOutput,
+            logTo: logTo);
 
     public IReadOnlyDictionary<string, string> Variables(string name)
     {
