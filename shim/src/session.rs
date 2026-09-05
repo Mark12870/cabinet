@@ -73,10 +73,6 @@ pub fn claim(path: &Path) -> Option<Busy> {
     lock(path, F_RDLCK)
 }
 
-pub fn reserve(path: &Path) -> Option<Busy> {
-    lock(path, F_WRLCK)
-}
-
 fn lock(path: &Path, kind: c_short) -> Option<Busy> {
     let file = File::options()
         .create(true)
@@ -813,7 +809,6 @@ const SYS_PIDFD_OPEN: c_long = 434;
 const LOCK_EX: c_int = 2;
 const F_SETLK: c_int = 6;
 const F_RDLCK: c_short = 0;
-const F_WRLCK: c_short = 1;
 const F_UNLCK: c_short = 2;
 const SEEK_SET: c_short = 0;
 

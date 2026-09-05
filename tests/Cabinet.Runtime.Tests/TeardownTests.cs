@@ -64,6 +64,33 @@ public sealed class TeardownTests
     }
 
     [TeardownFact]
+    public void AJoinedApplicationCanBeTheFirstJobInAWineSession()
+    {
+        var session = Session();
+        var application = Marker();
+        var plugin = Marker();
+
+        try
+        {
+            using var joined = StartJoinedShim(session, application);
+            Assert.True(AppearsWithin(Host.App, session), "the joined application never started");
+
+            using var second = StartShim(session, plugin);
+
+            Assert.True(
+                StaysSingle(Host.App, session),
+                "the plugin started a second wine sandbox after the joined application");
+            Assert.False(joined.HasExited, "the joined application lost its wine session");
+            Assert.False(second.HasExited, "the plugin never joined the wine session");
+        }
+        finally
+        {
+            Host.KillAll(Host.App, session);
+            Discard(session);
+        }
+    }
+
+    [TeardownFact]
     public void AWineSandboxDiesWhenTheShimDies()
     {
         var session = Session();
@@ -183,6 +210,28 @@ public sealed class TeardownTests
         }
 
         return Process.Start(info) ?? throw new InvalidOperationException("could not start the shim");
+    }
+
+    private static Process StartJoinedShim(string session, string marker)
+    {
+        var info = new ProcessStartInfo(Host.Shim())
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        info.Environment["WINEPREFIX"] = Prefix();
+        info.Environment["YABRIDGE_TEMP_DIR"] = session;
+        info.ArgumentList.Add("--cabinet-join");
+
+        foreach (var argument in Payload(marker))
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        return Process.Start(info) ?? throw new InvalidOperationException("could not start the joined shim");
     }
 
     private static Process StartShimInside(string daw, string session, string marker)

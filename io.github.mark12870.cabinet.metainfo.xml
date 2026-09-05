@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.13.2" date="2026-09-05">
+      <description>
+        <p>Opening Native Access no longer crashes REAPER</p>
+        <ul>
+          <li>Native Access and its plugins can now share a prefix safely when a DAW is started afterwards</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.13.1" date="2026-09-05">
       <description>
         <p>Opening a manager no longer interrupts its plugins</p>

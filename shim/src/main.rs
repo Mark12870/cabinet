@@ -246,6 +246,16 @@ where
     args.iter().map(|arg| canonicalize(arg, canon)).collect()
 }
 
+fn inner_argv(socket: &OsStr, wine: OsString) -> Vec<OsString> {
+    [
+        INNER_COMMAND.into(),
+        INNER_MODE.into(),
+        socket.to_os_string(),
+        wine,
+    ]
+    .into()
+}
+
 fn session_dir<E, C>(getenv: &E, canon: &C) -> PathBuf
 where
     E: Fn(&str) -> Option<OsString>,
@@ -302,6 +312,7 @@ fn main() {
     let socket = session::socket_path(&directory, &name);
     let lock = session::lock_path(&directory, &name);
     let busy = session::busy_path(&directory, &name);
+    let in_cabinet = env::var_os("FLATPAK_ID").as_deref() == Some(OsStr::new(DEFAULT_APP));
 
     if mode.as_deref() == Some(OsStr::new(SESSION_MODE)) {
         if !session::live(&socket) {
@@ -315,11 +326,7 @@ fn main() {
     if mode.as_deref() == Some(OsStr::new(JOIN_MODE)) {
         match session::join(&socket, &job) {
             Ok(Some(status)) => std::process::exit(status),
-            Ok(None) => std::process::exit(run_here(
-                &wine_command(prefix.as_deref(), &read),
-                &busy,
-                &job,
-            )),
+            Ok(None) => {}
             Err(error) => {
                 eprintln!("cabinet-wine: cannot join the Wine session {socket:?}: {error}");
                 std::process::exit(127);
@@ -335,14 +342,18 @@ fn main() {
         std::process::exit(127);
     };
 
-    let argv = build_argv(
-        &app,
-        Path::new("/.flatpak-info").exists(),
-        socket.as_os_str(),
-        getenv,
-        canon,
-        read,
-    );
+    let argv = if in_cabinet {
+        inner_argv(socket.as_os_str(), wine_command(prefix.as_deref(), &read))
+    } else {
+        build_argv(
+            &app,
+            Path::new("/.flatpak-info").exists(),
+            socket.as_os_str(),
+            getenv,
+            canon,
+            read,
+        )
+    };
 
     if let Some(path) = env::var_os("CABINET_SHIM_LOG") {
         use std::io::Write;
@@ -360,23 +371,6 @@ fn main() {
         Err(error) => {
             eprintln!("cabinet-wine: cannot reach the Wine session {socket:?}: {error}");
             std::process::exit(127);
-        }
-    }
-}
-
-fn run_here(wine: &OsStr, busy: &Path, job: &[OsString]) -> i32 {
-    let Some(_reserved) = session::reserve(busy) else {
-        eprintln!(
-            "cabinet-wine: cannot reserve {busy:?}, so this prefix is not safe to run Wine in"
-        );
-        return 127;
-    };
-
-    match Command::new(wine).args(job).status() {
-        Ok(status) => session::exit_code(status),
-        Err(error) => {
-            eprintln!("cabinet-wine: cannot run {wine:?}: {error}");
-            127
         }
     }
 }
@@ -499,6 +493,16 @@ mod tests {
         let app = argv.iter().position(|arg| arg == DEFAULT_APP).unwrap();
 
         assert_eq!(&argv[app + 1..], &[INNER_MODE, SOCKET, "wine"]);
+    }
+
+    #[test]
+    fn cabinet_starts_its_broker_without_an_extra_sandbox() {
+        let argv: Vec<String> = inner_argv(OsStr::new(SOCKET), OsString::from("wine"))
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+
+        assert_eq!(argv, [INNER_COMMAND, INNER_MODE, SOCKET, "wine"]);
     }
 
     #[test]

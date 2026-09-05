@@ -54,9 +54,9 @@ the name or the structure instead. Anything that genuinely will not fit there is
   `org.freedesktop.Flatpak` and lets the DAW run commands on the host.
 - The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which hands the plugin to a Wine
   session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host.
-  Preserve `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. The shim duplicates three sets of constants,
-  and `ShimParityTests` compares each against its C# side: marker names against `Layout`, sync and Cabinet-owned
-  variables against
+  Preserve `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. The shim duplicates three sets of constants, and
+  `ShimParityTests` compares each against its C# side: marker names against `Layout`, sync and Cabinet-owned variables
+  against
   `PrefixSettings`, blanked sockets against `Prefixes`. Prefixes need no registration: yabridge finds one by walking
   from a plugin `.dll` to its `dosdevices` directory.
 - One Wine session per prefix, never one per plugin. Flatpak gives every `flatpak run` its own PID namespace but binds
@@ -67,8 +67,8 @@ the name or the structure instead. Anything that genuinely will not fit there is
   session outlives the shim that started it, it carries neither `--die-with-parent` nor `--watch-bus`: it exits once it
   has been idle, and that is what tears the sandbox down.
 - Wine does not keep a job's processes under the process that started them, so a session finds and kills a job by
-  process group, never by ancestry. `wineserver` and `winedevice.exe` put themselves in their own groups and so
-  survive between jobs, which is exactly what sharing a session requires.
+  process group, never by ancestry. `wineserver` and `winedevice.exe` put themselves in their own groups and so survive
+  between jobs, which is exactly what sharing a session requires.
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`~/.vst3`, `~/.vst`,
@@ -194,12 +194,12 @@ Do not consume the remaining step budget repeating similar investigations.
 
 ## Subagents
 
-- Use an `explore` subagent for open-ended repository searches or when the relevant files and conventions are not yet
+- Use the `explore` subagent for open-ended repository searches or when the relevant files and conventions are not yet
   known.
-- Use a `general` subagent for complex, independent multi-step work that can be completed without duplicating the main
+- Use the `general` subagent for complex, independent multi-step work that can be completed without duplicating the main
   task.
-- Use `debugger` subagent for difficult or uncertain reasoning, or when verification or user feedback shows acceptance
-  criteria are unmet. Apply its advice before asking, giving up, or finalising.
+- You MUST use the `debugger` subagent for difficult or uncertain reasoning, when verification or user feedback
+  indicates that acceptance criteria are not met, and when investigating the root cause of bugs or unexpected behavior.
 - You MUST use the `code-tester` subagent to design or run verification for a new feature or fix. Use it also for GUI
   verifications.
 - You MUST run the `code-reviewer` subagent exactly once after all implementation, testing, and resulting fixes are
