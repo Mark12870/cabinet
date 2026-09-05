@@ -10,6 +10,8 @@ internal sealed class LibraryPage
     private readonly Adw.NavigationView navigation;
     private readonly Action changed;
     private readonly Action<string> toast;
+    private readonly Action hold;
+    private readonly Action release;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly Gtk.Box filters = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly Gtk.SearchEntry search = Gtk.SearchEntry.New();
@@ -36,7 +38,9 @@ internal sealed class LibraryPage
         Gtk.Window window,
         Adw.NavigationView navigation,
         Action changed,
-        Action<string> toast)
+        Action<string> toast,
+        Action hold,
+        Action release)
     {
         this.layout = layout;
         this.runner = runner;
@@ -44,6 +48,8 @@ internal sealed class LibraryPage
         this.navigation = navigation;
         this.changed = changed;
         this.toast = toast;
+        this.hold = hold;
+        this.release = release;
 
         navigation.OnPopped += (_, _) => open = null;
 
@@ -651,6 +657,7 @@ internal sealed class LibraryPage
         running.Add(entry.Id);
         toast($"Opening {entry.Name}.");
         changed();
+        hold();
 
         Task.Run(() =>
         {
@@ -670,9 +677,16 @@ internal sealed class LibraryPage
             }
         }).ContinueWith(_ => Ui.OnMainLoop(() =>
         {
-            running.Remove(entry.Id);
-            stopping.Remove(entry.Id);
-            changed();
+            try
+            {
+                running.Remove(entry.Id);
+                stopping.Remove(entry.Id);
+                changed();
+            }
+            finally
+            {
+                release();
+            }
         }));
     }
 

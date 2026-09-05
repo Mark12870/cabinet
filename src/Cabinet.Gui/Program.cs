@@ -7,13 +7,18 @@ internal static class Program
     private static int Main()
     {
         var application = Adw.Application.New(Layout.AppId, Gio.ApplicationFlags.DefaultFlags);
+        MainWindow? window = null;
 
         application.OnActivate += (sender, _) =>
         {
-            var layout = Layout.FromEnvironment();
-            Bootstrap.Ensure(layout);
+            if (window is null)
+            {
+                var layout = Layout.FromEnvironment();
+                Bootstrap.Ensure(layout);
+                window = new MainWindow((Adw.Application)sender, layout, new ProcessRunner());
+            }
 
-            new MainWindow((Adw.Application)sender, layout, new ProcessRunner()).Present();
+            window.Present();
         };
 
         return application.RunWithSynchronizationContext(null);
