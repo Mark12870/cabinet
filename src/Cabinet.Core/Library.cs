@@ -32,7 +32,7 @@ public sealed record LibraryEntry(
     SyncMode Sync,
     IReadOnlyDictionary<string, string> Env,
     IReadOnlyDictionary<string, string> Relink,
-    string? Desktop,
+    bool Desktop,
     string? Script,
     string? Launch,
     string? LaunchService,
@@ -204,7 +204,7 @@ public sealed record LibraryEntry(
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
             ParseEnv(id, Value(fields, "Env")),
             ParseRelink(id, Value(fields, "Relink")),
-            Value(fields, "Desktop") is { } desktop ? VirtualDesktop.ParseSize(desktop) : null,
+            Value(fields, "Desktop") is { } desktop && bool.Parse(desktop),
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
             Value(fields, "Launch") is { } launch ? ParseLaunch(id, launch) : null,
             Value(fields, "LaunchService"),
@@ -670,9 +670,9 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         File.WriteAllText(log, "");
         Say($"Opening {entry.Name}. What it installs is bridged as it lands.");
 
-        if (new VirtualDesktop(layout, runner).SizeIn(where) is { } size)
+        if (new VirtualDesktop(layout, runner).EnabledIn(where))
         {
-            Say($"{where} draws on a {size} desktop of its own, so {entry.Name} is confined to it, "
+            Say($"{where} draws on a desktop of its own, so {entry.Name} is confined to it, "
                 + $"the pointer too. Turn it off with: cabinet set {where} desktop off");
         }
 
@@ -1176,9 +1176,9 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         var desktop = new VirtualDesktop(layout, runner);
 
-        if (entry.Desktop is { } size && desktop.SizeIn(prefix) is null)
+        if (entry.Desktop && !desktop.EnabledIn(prefix))
         {
-            desktop.Set(prefix, size, onOutput);
+            desktop.Set(prefix, onOutput);
         }
 
         if (existing is null && entry.Sync != SyncMode.System)

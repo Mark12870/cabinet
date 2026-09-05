@@ -49,6 +49,7 @@ flatpak run $cabinet use serum wine-9.21-staging-tkg        # move a prefix onto
 flatpak run $cabinet show serum                             # everything this prefix is set to
 flatpak run $cabinet set serum sync fsync                   # system, esync, fsync or ntsync
 flatpak run $cabinet set serum dxvk off                     # put Wine's own Direct3D back
+flatpak run $cabinet set serum desktop on                   # confine its windows to a virtual desktop
 flatpak run $cabinet set serum env WINEDEBUG=-all           # WINEDEBUG= removes it
 ```
 

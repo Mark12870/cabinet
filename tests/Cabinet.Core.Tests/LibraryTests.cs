@@ -1034,7 +1034,7 @@ public class LibraryTests : IDisposable
     {
         var refused = Assert.Throws<InvalidOperationException>(
             () => LibraryEntry.Parse(
-                "vital", "Name: Vital\nKind: native\nSource: byo\nDesktop: 1920x1080\n"));
+                "vital", "Name: Vital\nKind: native\nSource: byo\nDesktop: true\n"));
 
         Assert.Contains("is native and carries Desktop", refused.Message);
     }
@@ -1147,14 +1147,12 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void ADesktopSizeIsReadAsWidthByHeightAndNothingElse()
+    public void ADesktopSettingIsReadAsOnOrOff()
     {
-        Assert.Equal("1920x1080", VirtualDesktop.ParseSize(" 1920X1080 "));
-
-        foreach (var wrong in new[] { "1920", "1920x", "0x1080", "-1x8", "big", "1920x1080x1" })
-        {
-            Assert.Throws<ArgumentException>(() => VirtualDesktop.ParseSize(wrong));
-        }
+        Assert.True(LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: windows\nSource: byo\nDesktop: true\n").Desktop);
+        Assert.False(LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: windows\nSource: byo\nDesktop: false\n").Desktop);
     }
 
     [Fact]

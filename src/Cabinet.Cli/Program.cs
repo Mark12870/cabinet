@@ -21,7 +21,7 @@ internal static class Program
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
-          cabinet set <name> desktop <WxH>     a Wine desktop of its own, or off
+          cabinet set <name> desktop <on|off>   enable or disable a Wine desktop of its own
           cabinet library                      plugins Cabinet knows how to install
           cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [prefix] [file]
@@ -246,7 +246,7 @@ internal static class Program
             "sync" => SetSync(layout, name, Require(args, 1, "a sync mode")),
             "dxvk" => SetDxvk(layout, runner, name, Require(args, 1, "on or off")),
             "env" => SetVariable(layout, name, Require(args, 1, "KEY=VALUE")),
-            "desktop" => SetDesktop(layout, runner, name, Require(args, 1, "a size, or off")),
+            "desktop" => SetDesktop(layout, runner, name, Require(args, 1, "on or off")),
             var unknown => Unknown($"set {name} {unknown}"),
         };
 
@@ -263,13 +263,16 @@ internal static class Program
     {
         var desktop = new VirtualDesktop(layout, runner);
 
-        if (word.Trim().Equals("off", StringComparison.OrdinalIgnoreCase))
+        switch (word.Trim().ToLowerInvariant())
         {
-            desktop.Unset(name, Console.WriteLine);
-        }
-        else
-        {
-            desktop.Set(name, word, Console.WriteLine);
+            case "on":
+                desktop.Set(name, Console.WriteLine);
+                break;
+            case "off":
+                desktop.Unset(name, Console.WriteLine);
+                break;
+            default:
+                throw new ArgumentException($"not on or off: '{word}'");
         }
 
         return 0;
@@ -320,7 +323,7 @@ internal static class Program
         Console.WriteLine($"{"runner",-16}  {prefix.Runner}");
         Console.WriteLine($"{"dxvk",-16}  {prefix.Dxvk ?? "off"}");
         Console.WriteLine($"{"sync",-16}  {PrefixSettings.Word(prefix.Sync)}");
-        Console.WriteLine($"{"desktop",-16}  {prefix.Desktop ?? "off"}");
+        Console.WriteLine($"{"desktop",-16}  {(prefix.Desktop ? "on" : "off")}");
 
         Describe("env", new PrefixSettings(layout).Variables(name));
 
@@ -400,6 +403,7 @@ internal static class Program
             Console.WriteLine(
                 $"{(prefix.Initialised ? "ok  " : "bare")}  {prefix.Name,-20}  "
                 + $"{prefix.Runner,-24}  {(prefix.Dxvk is null ? "" : "dxvk " + prefix.Dxvk),-11}"
+                + $"  {(prefix.Desktop ? "desktop" : ""),-9}"
                 + $"  {prefix.Path}");
         }
 

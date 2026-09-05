@@ -146,45 +146,42 @@ internal sealed class PrefixPage
         return row;
     }
 
-    private Adw.ActionRow DesktopRow(Prefix prefix)
+    private Adw.SwitchRow DesktopRow(Prefix prefix)
     {
-        var row = Adw.ActionRow.New();
+        var enabled = prefix.Desktop;
+        var row = Adw.SwitchRow.New();
         row.SetTitle("Virtual desktop");
-        row.SetSubtitle(prefix.Desktop ?? "off");
+        row.SetSubtitle("Confines this prefix's windows to their own desktop");
+        row.SetActive(enabled);
 
-        var button = Ui.RowButton(Icons.Desktop, "Virtual desktop");
-        button.OnClicked += (_, _) => AskForDesktop(prefix);
-        row.AddSuffix(button);
-        row.SetActivatableWidget(button);
+        row.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() != "active" || row.GetActive() == enabled)
+            {
+                return;
+            }
+
+            UseDesktop(row.GetActive());
+        };
 
         return row;
     }
 
-    private void AskForDesktop(Prefix prefix) =>
-        Ui.Prompt(
-            window,
-            $"A desktop of its own for {Name}",
-            "Wine draws every window from this prefix inside one window of that size. "
-            + "It keeps clicks landing where you point them in a bridged editor. "
-            + "Enter off to stop.",
-            prefix.Desktop ?? "1920x1080",
-            entered => UseDesktop(entered));
-
-    private void UseDesktop(string entered) =>
+    private void UseDesktop(bool enabled) =>
         Operation.Run(
             window,
-            $"Setting the desktop for {Name}",
+            $"Turning the virtual desktop {(enabled ? "on" : "off")} for {Name}",
             output =>
             {
                 var desktop = new VirtualDesktop(layout, runner);
 
-                if (entered.Trim().Equals("off", StringComparison.OrdinalIgnoreCase))
+                if (enabled)
                 {
-                    desktop.Unset(Name, output);
+                    desktop.Set(Name, output);
                 }
                 else
                 {
-                    desktop.Set(Name, entered, output);
+                    desktop.Unset(Name, output);
                 }
             },
             changed);

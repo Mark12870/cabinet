@@ -62,7 +62,7 @@ public sealed class YabridgectlTests : IDisposable
             exits: args => args.SequenceEqual(["add", pluginDirectory]) ? 1 : 0);
         var prefix = new Prefix(
             "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, null);
+            null, SyncMode.System, false);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
 
@@ -81,7 +81,7 @@ public sealed class YabridgectlTests : IDisposable
             outputs: args => args.SequenceEqual(["list"]) ? stale + "\n" : "");
         var prefix = new Prefix(
             "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, null);
+            null, SyncMode.System, false);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
 
@@ -98,7 +98,7 @@ public sealed class YabridgectlTests : IDisposable
             exits: args => args.SequenceEqual(["list"]) ? 1 : 0);
         var prefix = new Prefix(
             "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, null);
+            null, SyncMode.System, false);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
 

@@ -127,7 +127,7 @@ public sealed class PrefixesTests : IDisposable
             + "[Software\\\\Wine\\\\Explorer\\\\Desktops]\n\"Default\"=\"1280x720\"\n");
 
         var expected = new Prefix(
-            "gadget", path, true, Layout.BundledRunner, "2.7.1", SyncMode.Fsync, "1280x720");
+            "gadget", path, true, Layout.BundledRunner, "2.7.1", SyncMode.Fsync, true);
 
         Assert.Equal(expected, Subject.Create("gadget"));
         Assert.Equal(expected, Assert.Single(Subject.List()));

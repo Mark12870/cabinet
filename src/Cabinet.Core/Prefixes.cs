@@ -2,7 +2,7 @@ namespace Cabinet.Core;
 
 public sealed record Prefix(
     string Name, string Path, bool Initialised, string Runner, string? Dxvk, SyncMode Sync,
-    string? Desktop);
+    bool Desktop);
 
 public sealed class Prefixes(Layout layout, IProcessRunner runner)
 {
@@ -132,7 +132,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             RunnerOf(name),
             dxvk.InstalledIn(name),
             settings.Sync(name),
-            desktop.SizeIn(name));
+            desktop.EnabledIn(name));
 
     public void Delete(string name, Action<string>? onOutput = null)
     {

@@ -24,7 +24,6 @@ internal static class Icons
     public const string Variables = "preferences-other-symbolic";
     public const string Library = "system-software-install-symbolic";
     public const string Vst = "audio-x-generic-symbolic";
-    public const string Desktop = "video-display-symbolic";
     public const string Play = "media-playback-start-symbolic";
     public const string Stop = "media-playback-stop-symbolic";
 }
