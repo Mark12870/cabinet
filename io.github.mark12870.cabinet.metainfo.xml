@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.13.1" date="2026-09-05">
+      <description>
+        <p>Opening a manager no longer interrupts its plugins</p>
+        <ul>
+          <li>A manager and the plugins in the same prefix can now run together without competing for Wine</li>
+          <li>Native Access opens reliably, and windows using a virtual desktop keep the pointer inside it</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.13.0" date="2026-09-02">
       <description>
         <p>Find a plugin in the Library, and close a manager you opened</p>
