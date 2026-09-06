@@ -9,7 +9,11 @@ internal sealed class PrefixesPage
     private readonly Gtk.Window window;
     private readonly Adw.NavigationView navigation;
     private readonly Action changed;
+    private readonly Action<string> toast;
+    private readonly Action hold;
+    private readonly Action release;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly HashSet<string> changing = new(StringComparer.Ordinal);
 
     private PrefixPage? open;
 
@@ -18,13 +22,19 @@ internal sealed class PrefixesPage
         IProcessRunner runner,
         Gtk.Window window,
         Adw.NavigationView navigation,
-        Action changed)
+        Action changed,
+        Action<string> toast,
+        Action hold,
+        Action release)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
         this.navigation = navigation;
         this.changed = changed;
+        this.toast = toast;
+        this.hold = hold;
+        this.release = release;
 
         navigation.OnPopped += (_, _) => open = null;
 
@@ -34,6 +44,8 @@ internal sealed class PrefixesPage
     }
 
     public Gtk.Widget Widget { get; }
+
+    public bool IsChanging(string name) => changing.Contains(name);
 
     public void Refresh()
     {
@@ -80,7 +92,7 @@ internal sealed class PrefixesPage
         }
         else
         {
-            open.Show(still, runnerNames);
+            open.Show(still, runnerNames, changing.Contains(still.Name));
         }
     }
 
@@ -121,12 +133,26 @@ internal sealed class PrefixesPage
 
     private void Open(Prefix prefix, IReadOnlyList<string> runnerNames)
     {
-        var page = new PrefixPage(layout, runner, window, prefix.Name, changed);
-        page.Show(prefix, runnerNames);
+        var page = new PrefixPage(
+            layout,
+            runner,
+            window,
+            prefix.Name,
+            changed,
+            toast,
+            () => BeginChange(prefix.Name),
+            () => EndChange(prefix.Name),
+            hold,
+            release);
+        page.Show(prefix, runnerNames, changing.Contains(prefix.Name));
 
         open = page;
         navigation.Push(page.Page);
     }
+
+    private bool BeginChange(string name) => changing.Add(name);
+
+    private void EndChange(string name) => changing.Remove(name);
 
     private static string Subtitle(Prefix prefix)
     {

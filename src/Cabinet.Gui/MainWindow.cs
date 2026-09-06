@@ -15,7 +15,7 @@ internal sealed class MainWindow
     private readonly RunnersPage runners;
     private readonly DoctorPage doctor;
     private readonly AboutPage about;
-    private int activeLaunches;
+    private int activeOperations;
     private bool hidden;
 
     public MainWindow(Adw.Application application, Layout layout, IProcessRunner runner)
@@ -27,9 +27,18 @@ internal sealed class MainWindow
         window.SetHideOnClose(false);
         window.OnCloseRequest += (_, _) => CloseRequested();
 
-        prefixes = new PrefixesPage(layout, runner, window, navigation, RefreshAll);
-        library = new LibraryPage(
+        prefixes = new PrefixesPage(
             layout, runner, window, navigation, RefreshAll, Toast, Hold, Release);
+        library = new LibraryPage(
+            layout,
+            runner,
+            window,
+            navigation,
+            RefreshAll,
+            Toast,
+            Hold,
+            Release,
+            prefixes.IsChanging);
         runners = new RunnersPage(layout, runner, window, RefreshAll);
         doctor = new DoctorPage(layout, runner, window, RefreshAll);
         about = new AboutPage(layout, runner, window);
@@ -60,7 +69,7 @@ internal sealed class MainWindow
 
     private bool CloseRequested()
     {
-        if (activeLaunches == 0)
+        if (activeOperations == 0)
         {
             return false;
         }
@@ -72,18 +81,24 @@ internal sealed class MainWindow
 
     private void Hold()
     {
-        activeLaunches++;
+        activeOperations++;
         application.Hold();
     }
 
     private void Release()
     {
-        activeLaunches--;
-        application.Release();
+        activeOperations--;
 
-        if (activeLaunches == 0 && hidden)
+        try
         {
-            window.Close();
+            if (activeOperations == 0 && hidden)
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            application.Release();
         }
     }
 

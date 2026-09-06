@@ -31,7 +31,7 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
     {
         Initialised(prefix);
 
-        var staging = Path.Combine(Path.GetTempPath(), "cabinet-dxvk");
+        var staging = Directory.CreateTempSubdirectory("cabinet-dxvk-").FullName;
 
         try
         {

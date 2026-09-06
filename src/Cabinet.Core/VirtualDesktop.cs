@@ -19,27 +19,49 @@ public sealed class VirtualDesktop(Layout layout, IProcessRunner runner)
 
     public void Set(string prefix, Action<string>? onOutput)
     {
-        Ensure(Reg(prefix, ["add", DesktopsKey, "/v", DesktopName, "/d", Size, "/f"]), prefix);
         Ensure(
-            Reg(prefix, ["add", ExplorerKey, "/v", "Desktop", "/d", DesktopName, "/f"]), prefix);
+            Reg(prefix, ["add", DesktopsKey, "/v", DesktopName, "/d", Size, "/f"]),
+            prefix,
+            "set");
+        Ensure(
+            Reg(prefix, ["add", ExplorerKey, "/v", "Desktop", "/d", DesktopName, "/f"]),
+            prefix,
+            "set");
 
         onOutput?.Invoke($"{prefix} draws its windows on a desktop of its own.");
     }
 
     public void Unset(string prefix, Action<string>? onOutput)
     {
-        Reg(prefix, ["delete", ExplorerKey, "/v", "Desktop", "/f"]);
-        Reg(prefix, ["delete", DesktopsKey, "/v", DesktopName, "/f"]);
+        var registry = new PrefixRegistry(layout);
+        var named = registry.Lookup(prefix, ExplorerPath, "Desktop");
+        var desktopName = named is { Length: > 0 } ? named : DesktopName;
+
+        if (registry.Lookup(prefix, DesktopsPath, desktopName) is { Length: > 0 })
+        {
+            Ensure(
+                Reg(prefix, ["delete", DesktopsKey, "/v", desktopName, "/f"]),
+                prefix,
+                "remove");
+        }
+
+        if (named is { Length: > 0 })
+        {
+            Ensure(
+                Reg(prefix, ["delete", ExplorerKey, "/v", "Desktop", "/f"]),
+                prefix,
+                "remove");
+        }
 
         onOutput?.Invoke($"{prefix} puts its windows straight on your desktop again.");
     }
 
-    private static void Ensure(ProcessResult result, string prefix)
+    private static void Ensure(ProcessResult result, string prefix, string action)
     {
         if (!result.Ok)
         {
             throw new InvalidOperationException(
-                $"could not set the virtual desktop in '{prefix}'");
+                $"could not {action} the virtual desktop in '{prefix}'");
         }
     }
 

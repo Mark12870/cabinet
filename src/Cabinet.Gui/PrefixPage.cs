@@ -8,15 +8,34 @@ internal sealed class PrefixPage
     private readonly IProcessRunner runner;
     private readonly Gtk.Window window;
     private readonly Action changed;
+    private readonly Action<string> toast;
+    private readonly Func<bool> tryBeginChange;
+    private readonly Action endChange;
+    private readonly Action hold;
+    private readonly Action release;
     private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
 
     public PrefixPage(
-        Layout layout, IProcessRunner runner, Gtk.Window window, string name, Action changed)
+        Layout layout,
+        IProcessRunner runner,
+        Gtk.Window window,
+        string name,
+        Action changed,
+        Action<string> toast,
+        Func<bool> tryBeginChange,
+        Action endChange,
+        Action hold,
+        Action release)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
         this.changed = changed;
+        this.toast = toast;
+        this.tryBeginChange = tryBeginChange;
+        this.endChange = endChange;
+        this.hold = hold;
+        this.release = release;
         Name = name;
 
         var content = Ui.Page();
@@ -33,9 +52,10 @@ internal sealed class PrefixPage
 
     public Adw.NavigationPage Page { get; }
 
-    public void Show(Prefix prefix, IReadOnlyList<string> runnerNames)
+    public void Show(Prefix prefix, IReadOnlyList<string> runnerNames, bool busy)
     {
         Ui.Clear(body);
+        body.SetSensitive(!busy);
 
         var settings = Adw.PreferencesGroup.New();
         settings.SetTitle("Settings");
@@ -90,101 +110,165 @@ internal sealed class PrefixPage
         return row;
     }
 
-    private Adw.ComboRow SyncRow(Prefix prefix)
+    private Adw.ActionRow SyncRow(Prefix prefix)
     {
         var choices = PrefixSettings.SyncModes;
+        var spinner = Gtk.Spinner.New();
+        var combo = Gtk.DropDown.NewFromStrings([.. choices.Select(Label)]);
+        var row = Adw.ActionRow.New();
 
-        var row = Adw.ComboRow.New();
         row.SetTitle("Sync");
-        row.SetModel(Gtk.StringList.New([.. choices.Select(Label)]));
-        row.SetSelected((uint)choices.ToList().IndexOf(prefix.Sync));
+        row.AddSuffix(spinner);
+        row.AddSuffix(combo);
+        row.SetActivatableWidget(combo);
+        combo.SetValign(Gtk.Align.Center);
+        combo.SetSelected((uint)choices.ToList().IndexOf(prefix.Sync));
+        spinner.SetVisible(false);
 
-        row.OnNotify += (_, args) =>
+        combo.OnNotify += (_, args) =>
         {
             if (args.Pspec.GetName() != "selected")
             {
                 return;
             }
 
-            var chosen = choices[(int)row.GetSelected()];
+            var chosen = choices[(int)combo.GetSelected()];
 
             if (chosen != prefix.Sync)
             {
-                UseSync(chosen);
+                if (!tryBeginChange())
+                {
+                    combo.SetSelected((uint)choices.ToList().IndexOf(prefix.Sync));
+                    return;
+                }
+
+                body.SetSensitive(false);
+                spinner.SetVisible(true);
+                spinner.Start();
+                RunSetting(
+                    spinner,
+                    () => new PrefixSettings(layout).SetSync(Name, chosen));
             }
         };
 
         return row;
     }
 
-    private Adw.SwitchRow DxvkRow(Prefix prefix)
-    {
-        var installed = prefix.Dxvk is not null;
-
-        var row = Adw.SwitchRow.New();
-        row.SetTitle("DXVK");
-        row.SetSubtitle(prefix.Dxvk is null ? "not installed" : prefix.Dxvk);
-        row.SetActive(installed);
-
-        row.OnNotify += (_, args) =>
-        {
-            if (args.Pspec.GetName() != "active" || row.GetActive() == installed)
+    private Adw.ActionRow DxvkRow(Prefix prefix) =>
+        ToggleRow(
+            "DXVK",
+            prefix.Dxvk is null ? "not installed" : prefix.Dxvk,
+            prefix.Dxvk is not null,
+            enabled =>
             {
-                return;
-            }
+                if (enabled)
+                {
+                    new Dxvk(layout, runner).Install(Name);
+                }
+                else
+                {
+                    new Dxvk(layout, runner).Remove(Name);
+                }
+            });
 
-            if (row.GetActive())
-            {
-                InstallDxvk();
-            }
-            else
-            {
-                RemoveDxvk();
-            }
-        };
-
-        return row;
-    }
-
-    private Adw.SwitchRow DesktopRow(Prefix prefix)
-    {
-        var enabled = prefix.Desktop;
-        var row = Adw.SwitchRow.New();
-        row.SetTitle("Virtual desktop");
-        row.SetSubtitle("Confines this prefix's windows to their own desktop");
-        row.SetActive(enabled);
-
-        row.OnNotify += (_, args) =>
-        {
-            if (args.Pspec.GetName() != "active" || row.GetActive() == enabled)
-            {
-                return;
-            }
-
-            UseDesktop(row.GetActive());
-        };
-
-        return row;
-    }
-
-    private void UseDesktop(bool enabled) =>
-        Operation.Run(
-            window,
-            $"Turning the virtual desktop {(enabled ? "on" : "off")} for {Name}",
-            output =>
+    private Adw.ActionRow DesktopRow(Prefix prefix) =>
+        ToggleRow(
+            "Virtual desktop",
+            "Confines this prefix's windows to their own desktop",
+            prefix.Desktop,
+            enabled =>
             {
                 var desktop = new VirtualDesktop(layout, runner);
 
                 if (enabled)
                 {
-                    desktop.Set(Name, output);
+                    desktop.Set(Name, null);
                 }
                 else
                 {
-                    desktop.Unset(Name, output);
+                    desktop.Unset(Name, null);
                 }
-            },
-            changed);
+            });
+
+    private Adw.ActionRow ToggleRow(
+        string title,
+        string subtitle,
+        bool enabled,
+        Action<bool> operation)
+    {
+        var spinner = Gtk.Spinner.New();
+        var toggle = Gtk.Switch.New();
+        var row = Adw.ActionRow.New();
+
+        spinner.SetVisible(false);
+        toggle.SetValign(Gtk.Align.Center);
+        row.SetTitle(title);
+        row.SetSubtitle(subtitle);
+        row.AddSuffix(spinner);
+        row.AddSuffix(toggle);
+        row.SetActivatableWidget(toggle);
+        toggle.SetActive(enabled);
+
+        toggle.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() != "active" || toggle.GetActive() == enabled)
+            {
+                return;
+            }
+
+            if (!tryBeginChange())
+            {
+                return;
+            }
+
+            var wanted = toggle.GetActive();
+            body.SetSensitive(false);
+            spinner.SetVisible(true);
+            spinner.Start();
+            RunSetting(spinner, () => operation(wanted));
+        };
+
+        return row;
+    }
+
+    private void RunSetting(Gtk.Spinner spinner, Action operation)
+    {
+        hold();
+
+        Task.Run(() =>
+        {
+            try
+            {
+                operation();
+                Ui.OnMainLoop(() => FinishSetting(spinner, null));
+            }
+            catch (Exception exception)
+            {
+                Ui.OnMainLoop(() => FinishSetting(spinner, exception));
+            }
+        });
+    }
+
+    private void FinishSetting(Gtk.Spinner spinner, Exception? exception)
+    {
+        try
+        {
+            spinner.Stop();
+            spinner.SetVisible(false);
+            endChange();
+            body.SetSensitive(true);
+            changed();
+
+            if (exception is not null)
+            {
+                toast(exception.Message);
+            }
+        }
+        finally
+        {
+            release();
+        }
+    }
 
     private static string Label(SyncMode mode) =>
         mode == SyncMode.System ? "System" : PrefixSettings.Word(mode);
@@ -206,20 +290,6 @@ internal sealed class PrefixPage
             window,
             $"Putting {Name} on {Label(mode)}",
             _ => new PrefixSettings(layout).SetSync(Name, mode),
-            changed);
-
-    private void InstallDxvk() =>
-        Operation.Run(
-            window,
-            $"Installing DXVK into {Name}",
-            (output, progress) => new Dxvk(layout, runner).Install(Name, output, progress),
-            changed);
-
-    private void RemoveDxvk() =>
-        Operation.Run(
-            window,
-            $"Taking DXVK out of {Name}",
-            output => new Dxvk(layout, runner).Remove(Name, output),
             changed);
 
     private void EditVariables() =>

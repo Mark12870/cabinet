@@ -12,6 +12,7 @@ internal sealed class LibraryPage
     private readonly Action<string> toast;
     private readonly Action hold;
     private readonly Action release;
+    private readonly Func<string, bool> prefixIsChanging;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly Gtk.Box filters = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly Gtk.SearchEntry search = Gtk.SearchEntry.New();
@@ -40,7 +41,8 @@ internal sealed class LibraryPage
         Action changed,
         Action<string> toast,
         Action hold,
-        Action release)
+        Action release,
+        Func<string, bool> prefixIsChanging)
     {
         this.layout = layout;
         this.runner = runner;
@@ -50,6 +52,7 @@ internal sealed class LibraryPage
         this.toast = toast;
         this.hold = hold;
         this.release = release;
+        this.prefixIsChanging = prefixIsChanging;
 
         navigation.OnPopped += (_, _) => open = null;
 
@@ -572,13 +575,23 @@ internal sealed class LibraryPage
               + $"under Wine. {prefix}";
     }
 
-    private void Start(LibraryEntry entry, string? prefix, string? installer) =>
+    private void Start(LibraryEntry entry, string? prefix, string? installer)
+    {
+        var where = prefix ?? entry.Prefix;
+
+        if (prefixIsChanging(where))
+        {
+            toast($"{where} is changing; try installing {entry.Name} again when it is done.");
+            return;
+        }
+
         Operation.Run(
             window,
             $"Installing {entry.Name}",
             (output, progress) =>
                 new Library(layout, runner).Install(entry, prefix, installer, output, progress),
             changed);
+    }
 
     private void ConfirmRemove(LibraryEntry entry, string? prefix)
     {
@@ -589,6 +602,17 @@ internal sealed class LibraryPage
         }
 
         var where = prefix ?? entry.Prefix;
+
+        if (where is null)
+        {
+            return;
+        }
+
+        if (prefixIsChanging(where))
+        {
+            toast($"{where} is changing; try removing {entry.Name} again when it is done.");
+            return;
+        }
 
         if (entry.Launch is not null)
         {
@@ -710,17 +734,27 @@ internal sealed class LibraryPage
     }
 
     private void Uninstall(LibraryEntry entry, string prefix) =>
-        Operation.Run(
-            window,
-            $"Removing {entry.Name}",
-            output => new Library(layout, runner).Remove(entry, prefix, onOutput: output),
-            changed);
+        RemoveWhenReady(
+            entry,
+            prefix,
+            takePrefix: false);
 
     private void Take(LibraryEntry entry, string prefix) =>
+        RemoveWhenReady(entry, prefix, takePrefix: true);
+
+    private void RemoveWhenReady(LibraryEntry entry, string prefix, bool takePrefix)
+    {
+        if (prefixIsChanging(prefix))
+        {
+            toast($"{prefix} is changing; try removing {entry.Name} again when it is done.");
+            return;
+        }
+
         Operation.Run(
             window,
-            $"Deleting {prefix}",
+            takePrefix ? $"Deleting {prefix}" : $"Removing {entry.Name}",
             output => new Library(layout, runner)
-                .Remove(entry, prefix, takePrefix: true, onOutput: output),
+                .Remove(entry, prefix, takePrefix: takePrefix, onOutput: output),
             changed);
+    }
 }
