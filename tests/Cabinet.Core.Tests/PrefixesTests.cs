@@ -4,7 +4,7 @@ namespace Cabinet.Core.Tests;
 
 public sealed class PrefixesTests : IDisposable
 {
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+    private readonly string root = TestRoot.Create("prefixes");
 
     private Layout Layout => new(root, "/run/user/1000", Path.Combine(root, "data"));
 

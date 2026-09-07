@@ -18,6 +18,8 @@ internal static class Host
             },
         };
 
+        RuntimeTestEnvironment.Apply(process.StartInfo);
+
         foreach (var argument in arguments)
         {
             process.StartInfo.ArgumentList.Add(argument);
@@ -29,6 +31,8 @@ internal static class Host
         process.WaitForExit();
         return new ProcessResult(process.ExitCode, output, error);
     }
+
+    public static void Configure(ProcessStartInfo info) => RuntimeTestEnvironment.Apply(info);
 
     public static string Location()
     {
@@ -44,8 +48,6 @@ internal static class Host
 
     public static string Shim() =>
         Path.Combine(Location(), "files", "lib", "yabridge", "cabinet-wine");
-
-    public static bool Installed(string app) => Run("flatpak", ["info", app]).ExitCode == 0;
 
     public static IReadOnlyList<string> Instances(string app, string marker)
     {

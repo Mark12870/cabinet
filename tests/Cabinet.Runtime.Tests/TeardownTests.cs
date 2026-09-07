@@ -2,13 +2,12 @@ using System.Diagnostics;
 
 namespace Cabinet.Runtime.Tests;
 
-public sealed class TeardownTests
+public sealed class TeardownTests : IDisposable
 {
-    private static readonly string HomeDirectory =
-        Environment.GetEnvironmentVariable("HOME")
-        ?? throw new InvalidOperationException("HOME is not set");
+    private readonly RuntimeTestLock runtimeLock = RuntimeTestLock.Acquire();
+    private static readonly string HomeDirectory = RuntimeTestEnvironment.Home;
 
-    [TeardownFact]
+    [Fact]
     public void TheShimStartsAWineSessionThatOutlivesIt()
     {
         var argv = NativeArgv(Prefix());
@@ -18,16 +17,18 @@ public sealed class TeardownTests
         Assert.DoesNotContain("--watch-bus", argv);
     }
 
-    [TeardownFact]
+    [Fact]
     public void TheShimHopsThroughTheHostWhenTheDawIsItselfSandboxed()
     {
-        var argv = SandboxedArgv(RequireDaw());
+        var argv = SandboxedArgv(Daw);
 
-        Assert.Equal(["flatpak-spawn", "--host", "flatpak"], argv.Take(3));
+        Assert.Equal(["flatpak-spawn", "--host"], argv.Take(2));
+        Assert.Contains($"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}", argv);
+        Assert.Contains("flatpak", argv);
         Assert.DoesNotContain("--watch-bus", argv);
     }
 
-    [TeardownFact]
+    [Fact]
     public void OnePrefixIsOneWineSession()
     {
         var prefix = Prefix();
@@ -36,12 +37,12 @@ public sealed class TeardownTests
         Assert.NotEqual(SessionName(NativeArgv(prefix)), SessionName(NativeArgv(Elsewhere())));
     }
 
-    [TeardownFact]
+    [Fact]
     public void TwoPluginsFromOnePrefixShareOneWineSandbox()
     {
-        var session = Session();
-        var first = Marker();
-        var second = Marker();
+        var session = Session("tp");
+        const string first = "two-plugins-first";
+        const string second = "two-plugins-second";
 
         try
         {
@@ -63,12 +64,12 @@ public sealed class TeardownTests
         }
     }
 
-    [TeardownFact]
+    [Fact]
     public void AJoinedApplicationCanBeTheFirstJobInAWineSession()
     {
-        var session = Session();
-        var application = Marker();
-        var plugin = Marker();
+        var session = Session("ja");
+        const string application = "joined-application";
+        const string plugin = "joined-plugin";
 
         try
         {
@@ -90,11 +91,11 @@ public sealed class TeardownTests
         }
     }
 
-    [TeardownFact]
+    [Fact]
     public void AWineSandboxDiesWhenTheShimDies()
     {
-        var session = Session();
-        var marker = Marker();
+        var session = Session("sd");
+        const string marker = "shim-dies";
 
         try
         {
@@ -115,20 +116,19 @@ public sealed class TeardownTests
         }
     }
 
-    [TeardownFact]
+    [Fact]
     public void AWineSandboxDiesWithTheSandboxedDawThatStartedIt()
     {
-        var daw = RequireDaw();
-        var session = Session();
-        var marker = Marker();
+        var session = Session("dw");
+        const string marker = "sandboxed-daw";
 
         try
         {
-            using var outer = StartShimInside(daw, session, marker);
+            using var outer = StartShimInside(Daw, session, marker);
             Assert.True(AppearsWithin(Host.App, session), "the wine sandbox never started");
 
-            var running = Host.Instances(daw, marker);
-            Assert.True(running.Count > 0, $"no {daw} instance was carrying this run");
+            var running = Host.Instances(Daw, marker);
+            Assert.True(running.Count > 0, $"no {Daw} instance was carrying this run");
 
             foreach (var instance in running)
             {
@@ -143,53 +143,23 @@ public sealed class TeardownTests
         }
         finally
         {
-            Host.KillAll(daw, marker);
+            Host.KillAll(Daw, marker);
             Host.KillAll(Host.App, session);
             Discard(session);
         }
     }
 
-    private static string Marker() => Random.Shared.Next(100000, 999999).ToString();
-
     private static IReadOnlyList<string> Payload(string marker) => ["cmd", "/k", "rem", marker];
 
-    private static string Session() =>
-        Path.Combine(SocketDirectory(), $"teardown-{Guid.NewGuid():N}");
+    private static string Session(string name) => Path.Combine(SocketDirectory(), name);
 
     private static string SessionName(IReadOnlyList<string> argv) =>
         Path.GetFileName(argv.SkipWhile(argument => argument != "--cabinet-inner").Skip(1).First());
 
-    private static string Prefix()
-    {
-        var chosen = Environment.GetEnvironmentVariable("CABINET_TEARDOWN_PREFIX");
-
-        if (!string.IsNullOrEmpty(chosen))
-        {
-            return chosen;
-        }
-
-        var prefixes = Path.Combine(
-            HomeDirectory, ".var", "app", Host.App, "data", "prefixes");
-
-        var first = Directory.Exists(prefixes)
-            ? Directory.EnumerateDirectories(prefixes).Order(StringComparer.Ordinal).FirstOrDefault()
-            : null;
-
-        return first ?? throw new InvalidOperationException(
-            $"no wine prefix to test with; create one or set CABINET_TEARDOWN_PREFIX ({prefixes})");
-    }
+    private static string Prefix() =>
+        Path.Combine(HomeDirectory, ".var", "app", Host.App, "data", "prefixes", "carla-surge-windows");
 
     private static string Elsewhere() => Path.Combine(Prefix(), "..", "cabinet-not-a-prefix");
-
-    private static string RequireDaw()
-    {
-        var daw = Environment.GetEnvironmentVariable("CABINET_TEARDOWN_DAW") ?? "fm.reaper.Reaper";
-
-        return Host.Installed(daw)
-            ? daw
-            : throw new InvalidOperationException(
-                $"{daw} is not installed; set CABINET_TEARDOWN_DAW to a sandboxed DAW that is");
-    }
 
     private static Process StartShim(string session, string marker)
     {
@@ -200,6 +170,8 @@ public sealed class TeardownTests
             RedirectStandardError = true,
             UseShellExecute = false,
         };
+
+        Host.Configure(info);
 
         info.Environment["WINEPREFIX"] = Prefix();
         info.Environment["YABRIDGE_TEMP_DIR"] = session;
@@ -222,6 +194,8 @@ public sealed class TeardownTests
             UseShellExecute = false,
         };
 
+        Host.Configure(info);
+
         info.Environment["WINEPREFIX"] = Prefix();
         info.Environment["YABRIDGE_TEMP_DIR"] = session;
         info.ArgumentList.Add("--cabinet-join");
@@ -237,6 +211,8 @@ public sealed class TeardownTests
     private static Process StartShimInside(string daw, string session, string marker)
     {
         var command =
+            $"CABINET_RUNTIME_ROOT={Quote(RuntimeTestEnvironment.Root)} " +
+            $"XDG_RUNTIME_DIR={Quote(RuntimeTestEnvironment.RuntimeDirectory)} " +
             $"WINEPREFIX={Quote(Prefix())} YABRIDGE_TEMP_DIR={Quote(session)} " +
             $"{Quote(Host.Shim())} {string.Join(' ', Payload(marker).Select(Quote))}";
 
@@ -247,8 +223,15 @@ public sealed class TeardownTests
             UseShellExecute = false,
         };
 
+        Host.Configure(info);
+
         info.ArgumentList.Add("run");
         info.ArgumentList.Add("--command=sh");
+        info.ArgumentList.Add("--nofilesystem=home");
+        info.ArgumentList.Add($"--filesystem={RuntimeTestEnvironment.Root}:create");
+        info.ArgumentList.Add($"--env=HOME={HomeDirectory}");
+        info.ArgumentList.Add($"--env=XDG_RUNTIME_DIR={RuntimeTestEnvironment.RuntimeDirectory}");
+        info.ArgumentList.Add($"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}");
         info.ArgumentList.Add(daw);
         info.ArgumentList.Add("-c");
         info.ArgumentList.Add(command);
@@ -258,8 +241,8 @@ public sealed class TeardownTests
 
     private static IReadOnlyList<string> NativeArgv(string prefix)
     {
-        var log = Path.Combine(Path.GetTempPath(), $"cabinet-argv-{Guid.NewGuid():N}.log");
-        var session = Session();
+        var log = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "cabinet-argv.log");
+        var session = Session("na");
 
         try
         {
@@ -269,6 +252,8 @@ public sealed class TeardownTests
                 RedirectStandardError = true,
                 UseShellExecute = false,
             };
+
+            Host.Configure(info);
 
             info.Environment["CABINET_SHIM_LOG"] = log;
             info.Environment["CABINET_APP"] = Unlaunchable;
@@ -290,18 +275,33 @@ public sealed class TeardownTests
 
     private static IReadOnlyList<string> SandboxedArgv(string daw)
     {
-        var name = $"cabinet-argv-{Guid.NewGuid():N}.log";
+        const string name = "cabinet-argv.log";
         var log = Path.Combine(HomeDirectory, ".var", "app", daw, "data", name);
-        var session = Session();
+        var session = Session("sa");
 
         try
         {
             var command =
                 $"CABINET_SHIM_LOG=\"$XDG_DATA_HOME/{name}\" CABINET_APP={Unlaunchable} " +
+                $"CABINET_RUNTIME_ROOT={Quote(RuntimeTestEnvironment.Root)} " +
+                $"XDG_RUNTIME_DIR={Quote(RuntimeTestEnvironment.RuntimeDirectory)} " +
                 $"WINEPREFIX={Quote(Prefix())} YABRIDGE_TEMP_DIR={Quote(session)} " +
                 $"{Quote(Host.Shim())}";
 
-            Host.Run("flatpak", ["run", "--command=sh", daw, "-c", command]);
+            Host.Run(
+                "flatpak",
+                [
+                    "run",
+                    "--command=sh",
+                    "--nofilesystem=home",
+                    $"--filesystem={RuntimeTestEnvironment.Root}:create",
+                    $"--env=HOME={HomeDirectory}",
+                    $"--env=XDG_RUNTIME_DIR={RuntimeTestEnvironment.RuntimeDirectory}",
+                    $"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}",
+                    daw,
+                    "-c",
+                    command,
+                ]);
 
             return ParseArgv(File.ReadAllText(log));
         }
@@ -312,8 +312,16 @@ public sealed class TeardownTests
         }
     }
 
-    private static void Discard(string session) =>
-        Directory.Delete(session, recursive: true);
+    private static void Discard(string session)
+    {
+        try
+        {
+            Directory.Delete(session, recursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+        }
+    }
 
     private static IReadOnlyList<string> ParseArgv(string logged)
     {
@@ -372,21 +380,12 @@ public sealed class TeardownTests
     }
 
     private static string SocketDirectory() =>
-        Path.Combine(
-            Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR") ?? "/run/user/1000", "yabridge");
+        Path.Combine(RuntimeTestEnvironment.RuntimeDirectory, "yabridge");
 
     private static string Quote(string value) => "'" + value.Replace("'", "'\\''") + "'";
 
+    private const string Daw = "fm.reaper.Reaper";
     private const string Unlaunchable = "invalid.cabinet.teardown.probe";
-}
 
-public sealed class TeardownFactAttribute : FactAttribute
-{
-    public TeardownFactAttribute()
-    {
-        if (Environment.GetEnvironmentVariable("CABINET_RUN_TEARDOWN_TESTS") != "1")
-        {
-            Skip = "set CABINET_RUN_TEARDOWN_TESTS=1 to run runtime tests";
-        }
-    }
+    public void Dispose() => runtimeLock.Dispose();
 }

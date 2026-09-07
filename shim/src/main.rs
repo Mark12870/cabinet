@@ -36,6 +36,11 @@ const FORWARD: &[&str] = &[
     "LC_ALL",
 ];
 
+const SPAWN_ENV: &[&str] = &["XDG_RUNTIME_DIR", "FLATPAK_USER_DIR", "FLATPAK_SYSTEM_DIRS"];
+
+const RUNTIME_ROOT: &str = "CABINET_RUNTIME_ROOT";
+const RUNTIME_RUN_ID: &str = "CABINET_RUNTIME_RUN_ID";
+
 const CANON_VARS: &[&str] = &[
     "WINEPREFIX",
     "YABRIDGE_TEMP_DIR",
@@ -191,6 +196,19 @@ where
     if in_sandbox {
         argv.push("flatpak-spawn".into());
         argv.push("--host".into());
+
+        for var in SPAWN_ENV {
+            let Some(value) = getenv(var) else { continue };
+            if value.is_empty() {
+                continue;
+            }
+
+            let mut flag = OsString::from("--env=");
+            flag.push(var);
+            flag.push("=");
+            flag.push(value);
+            argv.push(flag);
+        }
     }
 
     argv.push("flatpak".into());
@@ -226,6 +244,27 @@ where
         flag.push(var);
         flag.push("=");
         argv.push(flag);
+    }
+
+    if let Some(root) = getenv(RUNTIME_ROOT) {
+        let mut flag = OsString::from("--filesystem=");
+        flag.push(&root);
+        flag.push(":create");
+        argv.push(flag);
+
+        let mut environment = OsString::from("--env=");
+        environment.push(RUNTIME_ROOT);
+        environment.push("=");
+        environment.push(&root);
+        argv.push(environment);
+    }
+
+    if let Some(run_id) = getenv(RUNTIME_RUN_ID) {
+        let mut environment = OsString::from("--env=");
+        environment.push(RUNTIME_RUN_ID);
+        environment.push("=");
+        environment.push(run_id);
+        argv.push(environment);
     }
 
     argv.extend(sync_flags(prefix.as_deref(), &read));
@@ -485,6 +524,12 @@ mod tests {
     fn sandboxed_daw_hops_through_the_host() {
         let argv = build(&[], true);
         assert_eq!(&argv[..3], &["flatpak-spawn", "--host", "flatpak"]);
+    }
+
+    #[test]
+    fn sandboxed_daw_keeps_the_flatpak_runtime() {
+        let argv = build(&[("XDG_RUNTIME_DIR", "/runtime")], true);
+        assert!(argv.iter().any(|a| a == "--env=XDG_RUNTIME_DIR=/runtime"));
     }
 
     #[test]

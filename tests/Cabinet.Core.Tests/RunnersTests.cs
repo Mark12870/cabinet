@@ -4,7 +4,7 @@ namespace Cabinet.Core.Tests;
 
 public sealed class RunnersTests : IDisposable
 {
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+    private readonly string root = TestRoot.Create("runners");
 
     [Fact]
     public void APrefixOnTheRunnerItsPluginAsksForIsNotComplainedAbout()
@@ -57,16 +57,24 @@ public sealed class RunnersTests : IDisposable
 
     private IReadOnlyList<Check> Checks() => new Doctor(Layout, new UnusedRunner()).Run();
 
-    private void GiveEntry(string vendor, string id, string name, string runner,
-        string? sync = null)
+    private void GiveEntry(string vendor, string id, string name, string runner)
     {
         var dir = Path.Combine(root, "library", vendor);
         Directory.CreateDirectory(dir);
 
         File.WriteAllText(
             Path.Combine(dir, id + ".yml"),
-            $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\n"
-            + (sync is null ? "" : $"Sync: {sync}\n"));
+            $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\n");
+    }
+
+    private void GiveEntry(string vendor, string id, string name, string runner, string sync)
+    {
+        var dir = Path.Combine(root, "library", vendor);
+        Directory.CreateDirectory(dir);
+
+        File.WriteAllText(
+            Path.Combine(dir, id + ".yml"),
+            $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\nSync: {sync}\n");
     }
 
     [Fact]
@@ -101,25 +109,28 @@ public sealed class RunnersTests : IDisposable
 
     private Runners Subject => new(Layout, new UnusedRunner());
 
-    private void GiveRunner(string name, bool multilib = true)
+    private void GiveRunner(string name)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(Layout.RunnerWine(name))!);
         File.WriteAllText(Layout.RunnerWine(name), "");
-
-        if (multilib)
-        {
-            Directory.CreateDirectory(Path.Combine(Layout.RunnerPath(name), "lib32"));
-        }
+        Directory.CreateDirectory(Path.Combine(Layout.RunnerPath(name), "lib32"));
     }
 
-    private void GivePrefix(string name, string? runner = null)
+    private void GiveRunnerWithoutMultilib(string name)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.RunnerWine(name))!);
+        File.WriteAllText(Layout.RunnerWine(name), "");
+    }
+
+    private void GivePrefix(string name)
     {
         Directory.CreateDirectory(Layout.PrefixPath(name));
+    }
 
-        if (runner is not null)
-        {
-            File.WriteAllText(Layout.PrefixRunnerFile(name), runner);
-        }
+    private void GivePrefix(string name, string runner)
+    {
+        Directory.CreateDirectory(Layout.PrefixPath(name));
+        File.WriteAllText(Layout.PrefixRunnerFile(name), runner);
     }
 
     [Fact]
@@ -142,7 +153,7 @@ public sealed class RunnersTests : IDisposable
     [Fact]
     public void ARunnerWithNo32BitTreeIsNotMultilib()
     {
-        GiveRunner("wow64-build", multilib: false);
+        GiveRunnerWithoutMultilib("wow64-build");
 
         Assert.False(Subject.List().Single(r => r.Name == "wow64-build").Multilib);
     }

@@ -88,7 +88,7 @@ public class EnrolmentTests
 
     private sealed class TempHome : IDisposable
     {
-        private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+        private readonly string root = TestRoot.Create("enrolment");
 
         public Layout Layout => new(root, "/run/user/1000", Path.Combine(root, "data"));
 

@@ -6,7 +6,7 @@ public class HttpTests : IDisposable
 {
     private const string Url = "https://example.invalid/a/b.yml";
 
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+    private readonly string root = TestRoot.Create("http");
 
     public void Dispose() => Directory.Delete(root, recursive: true);
 

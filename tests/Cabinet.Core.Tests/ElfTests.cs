@@ -4,7 +4,7 @@ namespace Cabinet.Core.Tests;
 
 public sealed class ElfTests : IDisposable
 {
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+    private readonly string root = TestRoot.Create("elf");
 
     private string Library => Path.Combine(root, "plugin.so");
 

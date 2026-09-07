@@ -7,7 +7,7 @@ public sealed class YabridgectlTests : IDisposable
     private const string Prefixes =
         "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes";
 
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+    private readonly string root = TestRoot.Create("yabridgectl");
 
     private Layout TestLayout()
     {

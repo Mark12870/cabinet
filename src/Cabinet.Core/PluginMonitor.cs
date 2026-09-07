@@ -9,18 +9,27 @@ public sealed class PluginMonitor : IDisposable
     private FileSystemWatcher[] watchers = [];
     private bool recovering;
     private bool disposed;
+    private readonly Func<WaitHandle[], TimeSpan, int> wait;
 
     public PluginMonitor(IEnumerable<string> directories, TimeSpan? quiet = null)
     {
         this.directories = [.. directories.Select(Path.GetFullPath)];
         this.quiet = quiet ?? TimeSpan.FromMilliseconds(250);
+        wait = WaitHandle.WaitAny;
         watchers = CreateWatchers();
+    }
+
+    internal PluginMonitor(TimeSpan quiet, Func<WaitHandle[], TimeSpan, int> wait)
+    {
+        directories = [];
+        this.quiet = quiet;
+        this.wait = wait;
     }
 
     public bool Wait(CancellationToken cancellationToken, TimeSpan timeout)
     {
         var handles = new WaitHandle[] { signal, cancellationToken.WaitHandle };
-        var result = WaitHandle.WaitAny(handles, timeout);
+        var result = wait(handles, timeout);
 
         if (result == 1)
         {
@@ -36,7 +45,7 @@ public sealed class PluginMonitor : IDisposable
 
         do
         {
-            result = WaitHandle.WaitAny(handles, settling);
+            result = wait(handles, settling);
         }
         while (result == 0);
 

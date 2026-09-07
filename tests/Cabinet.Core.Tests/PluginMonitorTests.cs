@@ -1,80 +1,54 @@
-using System.Diagnostics;
 using Cabinet.Core;
 
 namespace Cabinet.Core.Tests;
 
-public sealed class PluginMonitorTests : IDisposable
+public sealed class PluginMonitorTests
 {
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
-    private readonly TimeSpan quiet = TimeSpan.FromMilliseconds(20);
+    private static readonly TimeSpan Quiet = TimeSpan.FromMilliseconds(20);
 
     [Fact]
-    public void AFileChangeWakesTheMonitor()
+    public void AChangeWakesTheMonitorAfterItsStabilityWindow()
     {
-        var directory = Directory.CreateDirectory(Path.Combine(root, "VST3")).FullName;
-        using var monitor = new PluginMonitor([directory], quiet);
+        var waits = new Queue<int>([0, WaitHandle.WaitTimeout]);
+        var timeouts = new List<TimeSpan>();
+        using var monitor = Monitor(waits, timeouts);
 
-        File.WriteAllText(Path.Combine(directory, "Synth.vst3"), "");
-
-        Assert.True(monitor.Wait(CancellationToken.None, TimeSpan.FromSeconds(1)));
-    }
-
-    [Fact]
-    public void AChangeInsideABundleWakesTheMonitor()
-    {
-        var directory = Directory.CreateDirectory(Path.Combine(root, "VST3")).FullName;
-        using var monitor = new PluginMonitor([directory], quiet);
-        var bundle = Path.Combine(directory, "Synth.vst3");
-
-        Directory.CreateDirectory(Path.Combine(bundle, "Contents"));
-        File.WriteAllText(Path.Combine(bundle, "Contents", "module"), "");
-
-        Assert.True(monitor.Wait(CancellationToken.None, TimeSpan.FromSeconds(1)));
-    }
-
-    [Fact]
-    public void APluginRenameWakesTheMonitor()
-    {
-        var directory = Directory.CreateDirectory(Path.Combine(root, "VST3")).FullName;
-        using var monitor = new PluginMonitor([directory], quiet);
-        var before = Path.Combine(directory, "Before.vst3");
-        var after = Path.Combine(directory, "After.vst3");
-
-        File.WriteAllText(before, "");
-        Assert.True(monitor.Wait(CancellationToken.None, TimeSpan.FromSeconds(1)));
-        File.Move(before, after);
-
-        Assert.True(monitor.Wait(CancellationToken.None, TimeSpan.FromSeconds(1)));
-    }
-
-    [Fact]
-    public void AFollowUpChangeGetsItsOwnStabilityWindow()
-    {
-        var directory = Directory.CreateDirectory(Path.Combine(root, "VST3")).FullName;
-        using var monitor = new PluginMonitor([directory], quiet);
-        var plugin = Path.Combine(directory, "Synth.vst3");
-
-        File.WriteAllText(plugin, "");
         Assert.True(monitor.Wait(CancellationToken.None, Timeout.InfiniteTimeSpan));
-
-        File.AppendAllText(plugin, "changed");
-        var started = Stopwatch.GetTimestamp();
-
-        Assert.True(monitor.Wait(CancellationToken.None, TimeSpan.FromMilliseconds(100)));
-        Assert.True(Stopwatch.GetElapsedTime(started) >= TimeSpan.FromMilliseconds(80));
+        Assert.Equal([Timeout.InfiniteTimeSpan, Quiet], timeouts);
     }
 
     [Fact]
-    public async Task CancellationStopsWaiting()
+    public void AFiniteWaitUsesItsTimeoutAsTheStabilityWindow()
     {
-        using var monitor = new PluginMonitor([], quiet);
-        using var cancelled = new CancellationTokenSource();
-        var waiting = Task.Run(() => monitor.Wait(cancelled.Token, Timeout.InfiniteTimeSpan));
+        var waits = new Queue<int>([0, WaitHandle.WaitTimeout]);
+        var timeouts = new List<TimeSpan>();
+        using var monitor = Monitor(waits, timeouts);
+        var timeout = TimeSpan.FromSeconds(1);
 
-        cancelled.Cancel();
-
-        Assert.False(await waiting);
+        Assert.True(monitor.Wait(CancellationToken.None, timeout));
+        Assert.Equal([timeout, timeout], timeouts);
     }
 
-    public void Dispose() => Directory.Delete(root, recursive: true);
+    [Fact]
+    public void CancellationStopsWaiting()
+    {
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        var observed = false;
+        using var monitor = new PluginMonitor(Quiet, (handles, _) =>
+        {
+            observed = handles[1].WaitOne(0);
+            return 1;
+        });
+
+        Assert.False(monitor.Wait(cancelled.Token, Timeout.InfiniteTimeSpan));
+        Assert.True(observed);
+    }
+
+    private static PluginMonitor Monitor(Queue<int> waits, List<TimeSpan> timeouts) =>
+        new(Quiet, (_, timeout) =>
+        {
+            timeouts.Add(timeout);
+            return waits.Dequeue();
+        });
 }

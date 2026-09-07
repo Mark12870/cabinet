@@ -1,16 +1,21 @@
 # Runtime tests
 
 Cabinet's normal checks run on a clean Linux runner and cannot load a real Windows
-plugin. The runtime tests therefore use a persistent Toolbox named `carla`. The
-Toolbox keeps Carla and its compiler dependencies out of the immutable host, while
-sharing the Flatpak installation and plugin files with the test. Each case starts
-its editor on a private Xvfb display with a lightweight X11 window manager, never on the desktop.
+plugin. The runtime tests therefore use a dedicated Toolbox named `cabinet-runtime`.
+The setup creates a persistent test root with a synthetic `HOME`, private Flatpak
+user installation, XDG runtime directory and temporary directory.
+Each case starts its editor on a private Xvfb display with a lightweight X11 window
+manager, never on the desktop.
 
-## One-time setup
+## Setup
 
-The setup command creates the Toolbox if it does not exist, builds Carla, and installs
-the fixtures. Later runs reuse the Toolbox and only rebuild Carla when its pinned
-source commit changes.
+The setup command creates the Toolbox if it does not exist, installs its build
+dependencies, installs private copies of the host's local Cabinet build and REAPER,
+builds Carla, and installs the fixtures. The Toolbox, packages and test root persist.
+The Carla build uses one job to keep the harness within its memory limit. Runtime
+tests do not run as part of setup.
+The Cabinet ref is captured from the host's local build and REAPER is installed at a pinned
+Flatpak commit.
 
 ```sh
 scripts/setup-carla-tests.sh
@@ -18,8 +23,8 @@ scripts/setup-carla-tests.sh
 
 Carla is built from a pinned 2.6 development commit because Fedora's packaged Carla
 does not expose CLAP through `carla-single`. The build is installed in the Toolbox
-user's `~/.var/app/io.github.mark12870.cabinet/data/carla-tests/prefix` and the source
-is kept in its `source` sibling.
+test root's `~/.var/app/io.github.mark12870.cabinet/data/carla-tests/prefix` and the
+source is kept in its `source` sibling.
 
 The setup installs the pinned free catalogue entries, Xvfb and its lightweight window manager, a pinned Windows
 Surge XT archive for Windows CLAP coverage, and IK Product Manager. It does not log
@@ -36,7 +41,7 @@ Toolbox needs no JACK server.
 | Host side | Plugin | Format | Purpose |
 | --- | --- | --- | --- |
 | Linux | Decent Sampler | VST2 | Native Linux VST2 |
-| Linux | Decent Sampler | VST3 | Native Linux VST3 |
+| Linux | Surge XT | VST3 | Native Linux VST3 |
 | Linux | Surge XT | CLAP | Native Linux CLAP |
 | Linux | Surge XT | LV2 | Native Linux LV2 |
 | Windows | Sitala 1 | VST2 | Windows yabridge VST2 and MSI |
@@ -44,14 +49,17 @@ Toolbox needs no JACK server.
 | Windows | Valhalla Supermassive | VST3 | Windows yabridge VST3 |
 | Windows | Surge XT | CLAP | Windows yabridge CLAP |
 
-Surge XT VST3 is excluded because Carla's VST3 loader asserts on its zero-size
-editor; Surge XT remains covered through native CLAP/LV2 and Windows CLAP.
+Surge XT VST3 covers native Linux VST3 alongside its CLAP and LV2 formats.
 
-Run the complete matrix explicitly:
+Run the complete matrix after setup with:
 
 ```sh
-CABINET_RUN_CARLA_TESTS=1 dotnet test tests/Cabinet.Runtime.Tests --nologo
+toolbox run --container cabinet-runtime \
+  dotnet test tests/Cabinet.Runtime.Tests --nologo \
+  -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
 ```
+
+Enter the Toolbox before the test applies its synthetic HOME and XDG paths.
 
 The matrix uses Xvfb because Cabinet's Wine and yabridge boundary is deliberately X11-based.
 Windows plugins are tested through Cabinet's yabridge wrappers and

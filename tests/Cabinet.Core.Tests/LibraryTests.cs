@@ -38,7 +38,7 @@ public class LibraryTests : IDisposable
     private const string Zeros =
         "0000000000000000000000000000000000000000000000000000000000000000";
 
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+    private readonly string root = TestRoot.Create("library");
 
     public void Dispose() => Directory.Delete(root, recursive: true);
 

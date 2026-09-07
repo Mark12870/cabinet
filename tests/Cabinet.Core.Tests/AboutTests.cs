@@ -5,7 +5,7 @@ namespace Cabinet.Core.Tests;
 
 public class AboutTests : IDisposable
 {
-    private readonly string root = Directory.CreateTempSubdirectory("cabinet").FullName;
+    private readonly string root = TestRoot.Create("about");
 
     public void Dispose() => Directory.Delete(root, recursive: true);
 
@@ -34,7 +34,7 @@ public class AboutTests : IDisposable
     [Fact]
     public void AnUnreadableRepoConfigIsUnknownRatherThanLocal()
     {
-        GiveInstall("cabinet", url: null);
+        GiveUnreadableInstall("cabinet");
 
         var build = Subject.Read();
 
@@ -70,7 +70,7 @@ public class AboutTests : IDisposable
         Path.Combine(root, ".local", "share", "flatpak", "app", Layout.AppId,
             "current", "active", "files");
 
-    private void GiveInstall(string remote, string? url)
+    private void GiveInstall(string remote, string url)
     {
         var active = Path.GetDirectoryName(AppFiles)!;
         Directory.CreateDirectory(active);
@@ -79,15 +79,20 @@ public class AboutTests : IDisposable
             Path.Combine(active, "deploy"),
             [.. Encoding.UTF8.GetBytes(remote), 0, .. new byte[] { 1, 2, 3 }]);
 
-        if (url is null)
-        {
-            return;
-        }
-
         var repo = Path.Combine(root, ".local", "share", "flatpak", "repo");
         Directory.CreateDirectory(repo);
         File.WriteAllText(
             Path.Combine(repo, "config"),
-            $"[core]\nrepo_version=1\n\n[remote \"{remote}\"]\nurl={url}\ngpg-verify=true\n");
+             $"[core]\nrepo_version=1\n\n[remote \"{remote}\"]\nurl={url}\ngpg-verify=true\n");
+    }
+
+    private void GiveUnreadableInstall(string remote)
+    {
+        var active = Path.GetDirectoryName(AppFiles)!;
+        Directory.CreateDirectory(active);
+
+        File.WriteAllBytes(
+            Path.Combine(active, "deploy"),
+            [.. Encoding.UTF8.GetBytes(remote), 0, .. new byte[] { 1, 2, 3 }]);
     }
 }

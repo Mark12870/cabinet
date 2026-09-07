@@ -2,9 +2,12 @@ using Cabinet.Core;
 
 namespace Cabinet.Core.Tests;
 
-public sealed class ProcessRunnerTests
+public sealed class ProcessRunnerTests : IDisposable
 {
     private static readonly ProcessRunner Subject = new();
+    private readonly string root = TestRoot.Create("process-runner");
+
+    public void Dispose() => Directory.Delete(root, recursive: true);
 
     [Fact]
     public void OutputIsStreamedLineByLineAsWellAsCollected()
@@ -62,10 +65,11 @@ public sealed class ProcessRunnerTests
     public void AnEmptyValueUnsetsTheVariableRatherThanBlankingIt()
     {
         var result = Subject.Run(
-            "sh", ["-c", "if [ -n \"${CABINET_GONE+set}\" ]; then echo set; else echo unset; fi"],
+            "sh", ["-c", "printenv CABINET_GONE"],
             new Dictionary<string, string> { ["CABINET_GONE"] = "" });
 
-        Assert.Contains("unset", result.Stdout);
+        Assert.Equal(1, result.ExitCode);
+        Assert.Empty(result.Stdout);
     }
 
     [Fact]
@@ -84,7 +88,7 @@ public sealed class ProcessRunnerTests
     [Fact]
     public void AChildWritingToALogNeverInheritsTheStdioItWasStartedWith()
     {
-        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var log = Path.Combine(root, "child-stdio.log");
 
         Subject.Run("sh", ["-c", "readlink /proc/self/fd/1"], logTo: log);
 
@@ -96,7 +100,7 @@ public sealed class ProcessRunnerTests
     [Fact]
     public void ALoggedRunCollectsNothingButStillCarriesItsExitCode()
     {
-        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var log = Path.Combine(root, "logged-run.log");
 
         var result = Subject.Run("sh", ["-c", "echo out; echo boom >&2; exit 3"], logTo: log);
 
@@ -111,7 +115,7 @@ public sealed class ProcessRunnerTests
     [Fact]
     public void ALoggedRunAppendsToWhatIsAlreadyInTheLog()
     {
-        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var log = Path.Combine(root, "append.log");
         File.WriteAllText(log, "opening" + Environment.NewLine);
 
         Subject.Run("sh", ["-c", "echo printed"], logTo: log);
@@ -124,7 +128,7 @@ public sealed class ProcessRunnerTests
     [Fact]
     public void TheEnvironmentReachesAChildWritingToALogToo()
     {
-        var log = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        var log = Path.Combine(root, "logged-environment.log");
 
         Subject.Run(
             "sh", ["-c", "echo $CABINET_TEST"],
