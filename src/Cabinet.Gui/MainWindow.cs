@@ -23,7 +23,9 @@ internal sealed class MainWindow
         this.application = application;
         window = Adw.ApplicationWindow.New(application);
         window.SetTitle("Cabinet");
-        window.SetDefaultSize(920, 640);
+        var settings = Gio.Settings.New(Layout.AppId);
+        settings.Bind("window-width", window, "default-width", Gio.SettingsBindFlags.Default);
+        settings.Bind("window-height", window, "default-height", Gio.SettingsBindFlags.Default);
         window.SetHideOnClose(false);
         window.OnCloseRequest += (_, _) => CloseRequested();
 

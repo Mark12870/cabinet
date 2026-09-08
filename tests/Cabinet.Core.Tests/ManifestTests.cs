@@ -1,3 +1,5 @@
+using System.Xml.Linq;
+
 using Cabinet.Core;
 
 namespace Cabinet.Core.Tests;
@@ -6,6 +8,9 @@ public class ManifestTests
 {
     private static readonly string[] Lines =
         Repo.Lines("io.github.mark12870.cabinet.yml");
+
+    private static readonly XDocument WindowSchema =
+        XDocument.Load(Repo.Path("data/io.github.mark12870.cabinet.gschema.xml"));
 
     private static readonly HashSet<string> FinishArgs = Lines
         .Select(line => line.Trim())
@@ -93,6 +98,36 @@ public class ManifestTests
             Lines,
             line => line.Contains("dotnet publish src/Cabinet.Gui", StringComparison.Ordinal)
                     && line.Contains("-p:UseSharedCompilation=false", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void WindowSettingsAreCompiledIntoTheApplication()
+    {
+        var schema = WindowSchema.Root!.Element("schema")!;
+        var keys = schema.Elements("key").ToDictionary(
+            key => key.Attribute("name")!.Value,
+            StringComparer.Ordinal);
+
+        Assert.Equal("io.github.mark12870.cabinet", schema.Attribute("id")!.Value);
+        Assert.Equal("i", keys["window-width"].Attribute("type")!.Value);
+        Assert.Equal("1100", keys["window-width"].Element("default")!.Value.Trim());
+        Assert.Equal("i", keys["window-height"].Attribute("type")!.Value);
+        Assert.Equal("760", keys["window-height"].Element("default")!.Value.Trim());
+
+        var install = Array.FindIndex(
+            Lines,
+            line => line.Contains(
+                "install -Dm644 data/${FLATPAK_ID}.gschema.xml", StringComparison.Ordinal));
+        var compile = Array.FindIndex(
+            Lines,
+            line => line.Trim()
+                == "- glib-compile-schemas ${FLATPAK_DEST}/share/glib-2.0/schemas");
+
+        Assert.True(install >= 0);
+        Assert.Equal(
+            "${FLATPAK_DEST}/share/glib-2.0/schemas/${FLATPAK_ID}.gschema.xml",
+            Lines[install + 1].Trim());
+        Assert.True(compile > install);
     }
 
     [Fact]

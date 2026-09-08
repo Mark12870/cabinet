@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.mark12870.cabinet" path="/io/github/mark12870/cabinet/">
+    <key name="window-width" type="i">
+      <default>1100</default>
+      <summary>Main window width</summary>
+    </key>
+    <key name="window-height" type="i">
+      <default>760</default>
+      <summary>Main window height</summary>
+    </key>
+  </schema>
+</schemalist>
