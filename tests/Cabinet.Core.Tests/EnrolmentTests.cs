@@ -11,6 +11,7 @@ public class EnrolmentTests
     [InlineData("--filesystem=xdg-run/yabridge:create")]
     [InlineData("--talk-name=org.freedesktop.Flatpak")]
     [InlineData("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge")]
+    [InlineData("--env=YABRIDGE_DEBUG_FILE=/run/user/1000/yabridge/yabridge.log")]
     [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files:ro")]
     [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]

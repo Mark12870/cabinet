@@ -568,6 +568,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Action<string>? onOutput = null,
         Action<double>? onProgress = null)
     {
+        var installLog = layout.InstallLogPath(entry.Id);
+        Directory.CreateDirectory(Path.GetDirectoryName(installLog)!);
+        File.WriteAllText(installLog, "");
+
+        void Say(string line)
+        {
+            File.AppendAllText(installLog, line + Environment.NewLine);
+            onOutput?.Invoke(line);
+        }
+
         if (entry.Kind == PluginKind.Native)
         {
             if (prefix is not null)
@@ -577,11 +587,11 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                     + "directly", nameof(prefix));
             }
 
-            InstallNative(entry, installer, onOutput, onProgress);
+            InstallNative(entry, installer, Say, onProgress);
             return;
         }
 
-        InstallWindows(entry, prefix ?? entry.Prefix, installer, onOutput, onProgress);
+        InstallWindows(entry, prefix ?? entry.Prefix, installer, Say, onProgress);
     }
 
     public IReadOnlyList<UninstallEntry> Uninstallers(string prefix) =>
@@ -873,10 +883,30 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         prefixes.RunJoined(where, ["tasklist", "/fi", $"imagename eq {exe}", "/nh"])
             .Stdout.Contains(exe, StringComparison.OrdinalIgnoreCase);
 
-    public string? LaunchLog(LibraryEntry entry, string? prefix = null) =>
-        layout.PrefixLaunchLog(prefix ?? entry.Prefix) is { } log && File.Exists(log)
-            ? File.ReadAllText(log) is { Length: > 0 } text ? text : null
+    public string? LaunchLog(LibraryEntry entry, string? prefix = null)
+    {
+        var sections = new List<string>();
+
+        if (LogFile.Read(layout.InstallLogPath(entry.Id)) is { } install)
+        {
+            sections.Add($"Cabinet installation log{Environment.NewLine}{install}");
+        }
+
+        if (entry.Kind == PluginKind.Windows
+            && LogFile.Read(layout.PrefixLaunchLog(prefix ?? entry.Prefix)) is { } launch)
+        {
+            sections.Add($"Cabinet launch log{Environment.NewLine}{launch}");
+        }
+
+        if (LogFile.Read(layout.RuntimeLogPath) is { } runtime)
+        {
+            sections.Add($"yabridge runtime log (shared){Environment.NewLine}{runtime}");
+        }
+
+        return sections.Count > 0
+            ? string.Join(Environment.NewLine + Environment.NewLine, sections)
             : null;
+    }
 
     private static IEnumerable<string> Tail(string log) =>
         File.Exists(log)

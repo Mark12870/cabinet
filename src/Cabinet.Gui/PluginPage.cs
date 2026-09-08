@@ -187,12 +187,12 @@ internal sealed class PluginPage
                 row.Append(Pill(
                     $"Stop {entry.Name}", "destructive-action", () => stop(entry)));
             }
+        }
 
-            if (log(entry) is { } written)
-            {
-                row.Append(Pill(
-                    "Log", null, () => Ui.Log(window, $"{entry.Name} log", written)));
-            }
+        if (log(entry) is { } written)
+        {
+            row.Append(Pill(
+                "Logs", null, () => Ui.Log(window, "Cabinet and yabridge logs", written)));
         }
 
         row.Append(Pill($"Remove {entry.Name}", "destructive-action", () => remove(entry)));

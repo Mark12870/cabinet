@@ -70,6 +70,7 @@ const CABINET_OWNED: &[&str] = &[
     "WINELOADER",
     "WINEDLLPATH",
     "YABRIDGE_TEMP_DIR",
+    "YABRIDGE_DEBUG_FILE",
 ];
 
 fn wine_command<R>(prefix: Option<&OsStr>, read: &R) -> OsString

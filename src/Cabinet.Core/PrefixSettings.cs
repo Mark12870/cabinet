@@ -14,7 +14,7 @@ public sealed class PrefixSettings(Layout layout)
         [SyncMode.System, SyncMode.Esync, SyncMode.Fsync, SyncMode.Ntsync];
 
     public static readonly IReadOnlyList<string> Owned =
-        ["WINEPREFIX", "WINELOADER", "WINEDLLPATH", "YABRIDGE_TEMP_DIR"];
+        ["WINEPREFIX", "WINELOADER", "WINEDLLPATH", "YABRIDGE_TEMP_DIR", "YABRIDGE_DEBUG_FILE"];
 
     public static string Word(SyncMode mode) => mode.ToString().ToLowerInvariant();
 

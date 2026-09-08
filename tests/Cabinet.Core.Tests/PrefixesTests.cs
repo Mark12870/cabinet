@@ -181,6 +181,7 @@ public sealed class PrefixesTests : IDisposable
         Assert.Equal("zink", recorder.Environment["MESA_LOADER_DRIVER_OVERRIDE"]);
         Assert.Equal("1", recorder.Environment["WINEFSYNC"]);
         Assert.Equal("0", recorder.Environment["WINEESYNC"]);
+        Assert.Equal(Layout.RuntimeLogPath, recorder.Environment["YABRIDGE_DEBUG_FILE"]);
     }
 
     [Fact]

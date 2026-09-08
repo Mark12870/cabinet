@@ -15,6 +15,7 @@ public static class Enrolment
         "--talk-name=org.freedesktop.Flatpak",
         $"--env=WINELOADER={layout.ShimPath}",
         $"--env=YABRIDGE_TEMP_DIR={layout.SocketDir}",
+        $"--env=YABRIDGE_DEBUG_FILE={layout.RuntimeLogPath}",
         "--env=YABRIDGE_NO_WATCHDOG=1",
     ];
 

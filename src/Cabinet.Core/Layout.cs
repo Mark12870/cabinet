@@ -32,6 +32,10 @@ public sealed class Layout
 
     public const string LaunchLog = ".cabinet-launch.log";
 
+    public const string RuntimeLog = "yabridge.log";
+
+    public const string InstallLog = ".cabinet-install.log";
+
     public const string KeptMarker = ".cabinet-kept";
 
     public const string BundledLibraryDir = "/app/share/cabinet/library";
@@ -100,6 +104,11 @@ public sealed class Layout
     public string PrefixesDir => Path.Combine(SandboxDataHome, "prefixes");
 
     public string SocketDir => Path.Combine(RuntimeDir, "yabridge");
+
+    public string RuntimeLogPath => Path.Combine(SocketDir, RuntimeLog);
+
+    public string InstallLogPath(string id) =>
+        Path.Combine(SandboxDataHome, "logs", id + InstallLog);
 
     public string RunnersDir => Path.Combine(SandboxDataHome, "runners");
 

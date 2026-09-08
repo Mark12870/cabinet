@@ -722,6 +722,59 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void PluginLogsIncludeTheLaunchAndYabridgeRuntimeFiles()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Directory.CreateDirectory(layout.SocketDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(layout.InstallLogPath(entry.Id))!);
+        File.WriteAllText(layout.InstallLogPath(entry.Id), "Installed Thing.\n");
+        File.WriteAllText(layout.PrefixLaunchLog(entry.Prefix), "Opening Thing.\n");
+        File.WriteAllText(layout.RuntimeLogPath, "Loaded Thing.vst3.\n");
+
+        var written = Assert.IsType<string>(new Library(layout, new UnusedRunner()).LaunchLog(entry));
+
+        Assert.Contains("Cabinet installation log\nInstalled Thing.", written);
+        Assert.Contains("Cabinet launch log\nOpening Thing.", written);
+        Assert.Contains("yabridge runtime log (shared)\nLoaded Thing.vst3.", written);
+        Assert.True(
+            written.IndexOf("Cabinet installation log", StringComparison.Ordinal)
+            < written.IndexOf("Cabinet launch log", StringComparison.Ordinal));
+        Assert.True(
+            written.IndexOf("Cabinet launch log", StringComparison.Ordinal)
+            < written.IndexOf("yabridge runtime log (shared)", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void NativePluginLogsCanBeReadWithoutAPrefixLog()
+    {
+        var entry = Native("thing");
+        var layout = Layout();
+        Directory.CreateDirectory(layout.SocketDir);
+        File.WriteAllText(layout.RuntimeLogPath, "Loaded Thing.vst3.\n");
+
+        var written = Assert.IsType<string>(new Library(layout, new UnusedRunner()).LaunchLog(entry));
+
+        Assert.Contains("yabridge runtime log (shared)\nLoaded Thing.vst3.", written);
+    }
+
+    [Fact]
+    public void OversizedLogsAreReducedToTheirRecentTail()
+    {
+        var entry = Native("thing");
+        var layout = Layout();
+        Directory.CreateDirectory(layout.SocketDir);
+        File.WriteAllText(layout.RuntimeLogPath, new string('x', 4 * 1024 * 1024) + "\nRecent.\n");
+
+        var written = Assert.IsType<string>(new Library(layout, new UnusedRunner()).LaunchLog(entry));
+
+        Assert.Contains("Recent.", written);
+        Assert.DoesNotContain(new string('x', 100), written);
+        Assert.True(new FileInfo(layout.RuntimeLogPath).Length <= 4 * 1024 * 1024);
+    }
+
+    [Fact]
     public void ANativePluginIsRefusedALaunchBecauseTheDawLoadsItItself()
     {
         Assert.Throws<InvalidOperationException>(
@@ -1255,6 +1308,7 @@ public class LibraryTests : IDisposable
         Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Vital.vst3")));
         Assert.True(File.Exists(archive));
         Assert.DoesNotContain(said, line => line.Contains("Checking sha256"));
+        Assert.Contains("Unpacking VitalInstaller.tar.gz", File.ReadAllText(layout.InstallLogPath("vital")));
     }
 
     [Fact]
@@ -2161,7 +2215,7 @@ public class LibraryTests : IDisposable
 
         return new(
             root,
-            "/run/user/1000",
+            Path.Combine(root, "runtime"),
             Path.Combine(root, "data"),
             null,
             Path.Combine(root, "library"),

@@ -238,5 +238,38 @@ public sealed class RunnersTests : IDisposable
             Status.Ok, Checks().Single(c => c.Name == "prefix runners").Status);
     }
 
+    [Fact]
+    public void DoctorReportsAnEnrolledDawWithoutTheRuntimeLog()
+    {
+        var daw = "fm.reaper.Reaper";
+        Directory.CreateDirectory(Layout.HostYabridgeDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.DawYabridgeLink(daw))!);
+        File.CreateSymbolicLink(Layout.DawYabridgeLink(daw), Layout.HostYabridgeDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.SandboxYabridgeLink)!);
+        File.CreateSymbolicLink(Layout.SandboxYabridgeLink, Layout.HostYabridgeDir);
+
+        var overrides = Path.Combine(root, ".local", "share", "flatpak", "overrides", daw);
+        Directory.CreateDirectory(Path.GetDirectoryName(overrides)!);
+        File.WriteAllLines(
+            overrides,
+            [
+                "[Context]",
+                "devices=shm;",
+                $"filesystems=xdg-run/yabridge:create;{Layout.HostAppFiles};{Layout.PrefixesDir};{Layout.NativeDir};",
+                "",
+                "[Session Bus Policy]",
+                "org.freedesktop.Flatpak=talk",
+                "",
+                "[Environment]",
+                $"WINELOADER={Layout.ShimPath}",
+                $"YABRIDGE_TEMP_DIR={Layout.SocketDir}",
+            ]);
+
+        var check = Checks().Single(found => found.Name == $"DAW {daw}");
+
+        Assert.Equal(Status.Fail, check.Status);
+        Assert.Contains($"--env=YABRIDGE_DEBUG_FILE={Layout.RuntimeLogPath}", check.Detail);
+    }
+
     public void Dispose() => Directory.Delete(root, recursive: true);
 }

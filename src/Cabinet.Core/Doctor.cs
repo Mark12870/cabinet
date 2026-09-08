@@ -318,6 +318,11 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             missing.Add($"--env=YABRIDGE_TEMP_DIR={layout.SocketDir}");
         }
 
+        if (ini.Get("Environment", "YABRIDGE_DEBUG_FILE") != layout.RuntimeLogPath)
+        {
+            missing.Add($"--env=YABRIDGE_DEBUG_FILE={layout.RuntimeLogPath}");
+        }
+
         return missing.Count == 0
             ? new Check($"DAW {dawId}", Status.Ok, "enrolled")
             : new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));

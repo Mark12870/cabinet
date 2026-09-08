@@ -5,6 +5,7 @@ public static class Bootstrap
     public static void Ensure(Layout layout)
     {
         Directory.CreateDirectory(layout.PrefixesDir);
+        LogFile.Read(layout.RuntimeLogPath);
         LinkYabridgeForYabridgectl(layout);
     }
 

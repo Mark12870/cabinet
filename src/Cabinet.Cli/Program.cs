@@ -29,7 +29,7 @@ internal static class Program
           cabinet library remove <id>          uninstall one, links, prefix and all
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library stop <id>            close a manager Cabinet opened
-          cabinet library log <id>             what the last launch of a manager printed
+          cabinet library log <id>             Cabinet and shared yabridge logs for an installed plugin
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one
@@ -752,7 +752,7 @@ internal static class Program
 
         if (library.LaunchLog(entry, prefix) is not { } written)
         {
-            Console.Error.WriteLine($"cabinet: {entry.Name} has not been opened from Cabinet");
+            Console.Error.WriteLine($"cabinet: no logs exist for {entry.Name}");
             return 1;
         }
 
@@ -880,6 +880,7 @@ internal static class Program
         Console.WriteLine($"{"prefixes",-16}  {layout.PrefixesDir}");
         Console.WriteLine($"{"runners",-16}  {layout.RunnersDir}");
         Console.WriteLine($"{"sockets",-16}  {layout.SocketDir}");
+        Console.WriteLine($"{"runtime log",-16}  {layout.RuntimeLogPath}");
         Console.WriteLine($"{"yabridge dir",-16}  {layout.HostYabridgeDir}");
 
         if (build.Homepage is { } homepage)

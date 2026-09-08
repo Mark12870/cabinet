@@ -234,6 +234,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
         environment["WINEPREFIX"] = layout.PrefixPath(prefix);
         environment["YABRIDGE_TEMP_DIR"] = layout.SocketDir;
+        environment["YABRIDGE_DEBUG_FILE"] = layout.RuntimeLogPath;
         environment["WINELOADER"] = selected.Wine;
 
         foreach (var name in Blanked)

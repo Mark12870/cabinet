@@ -46,6 +46,20 @@ public class LayoutTests
     }
 
     [Fact]
+    public void TheRuntimeLogSharesTheYabridgeDirectory()
+    {
+        Assert.Equal("/run/user/1000/yabridge/yabridge.log", Layout.RuntimeLogPath);
+    }
+
+    [Fact]
+    public void InstallationLogsStayInCabinetsDataDirectory()
+    {
+        Assert.Equal(
+            "/home/u/.var/app/io.github.mark12870.cabinet/data/logs/gadget.cabinet-install.log",
+            Layout.InstallLogPath("gadget"));
+    }
+
+    [Fact]
     public void PrefixesGetTheConventionalWindowsVst3Directory()
     {
         Assert.Equal(
