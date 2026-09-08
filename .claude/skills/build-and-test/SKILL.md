@@ -39,12 +39,13 @@ reaches only `Cabinet.Core`, and `dotnet format` does not fail on a broken build
 would not compile once passed every check and died in the flatpak build twenty minutes later.
 That is what the two `dotnet build` steps in the script are for.
 
-**4. Run the isolated deterministic plugin matrix over carla-single. Make sure no plugin crashes or reports errors.
+**4. Verify catalogue plugins through Carla.**
 
-```sh
-scripts/setup-carla-tests.sh
-dotnet test tests/Cabinet.Runtime.Tests --nologo
-```
+The runtime test writes a private `.carxp` project and Carla settings for each case,
+then runs the full Carla frontend with `--no-gui`, the Dummy audio driver, and no
+display variables. Windows plugins are loaded from their yabridge wrapper paths;
+native plugins use their installed paths or LV2 URI. Run the complete matrix with
+the `runtime-test` skill after setup.
 
 ## Build and install the flatpak
 

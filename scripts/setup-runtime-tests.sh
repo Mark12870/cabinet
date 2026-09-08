@@ -2,7 +2,7 @@
 set -euo pipefail
 
 die() {
-    printf 'setup-carla-tests: %s\n' "$*" >&2
+    printf 'setup-runtime-tests: %s\n' "$*" >&2
     exit 1
 }
 
@@ -45,6 +45,7 @@ case "$BACKEND" in
         toolbox run --container "$BOX" sudo dnf install -y \
             alsa-lib-devel \
             curl \
+            dotnet-sdk-10.0 \
             file-devel \
             flatpak \
             fontconfig \
@@ -59,12 +60,11 @@ case "$BACKEND" in
             libsndfile-devel \
             make \
             mesa-dri-drivers \
-            openbox \
             pkgconf-pkg-config \
             pulseaudio-libs-devel \
-            unzip \
-            xorg-x11-server-Xvfb \
-            xorg-x11-xauth
+            python3-qt5-devel \
+            python3-rdflib \
+            unzip
         runner=(toolbox run --container "$BOX")
         ;;
     direct)
@@ -108,13 +108,13 @@ flatpak_user_dir=$home/.local/share/flatpak
 case "$home/" in "$root/"*) ;; *) exit 1 ;; esac
 case "$flatpak_user_dir/" in "$root/"*) ;; *) exit 1 ;; esac
 [ -f "$host_flatpak_repo/config" ] || {
-    printf 'setup-carla-tests: the Cabinet Flatpak repository is not available: %s\n' "$host_flatpak_repo" >&2
+    printf 'setup-runtime-tests: the Cabinet Flatpak repository is not available: %s\n' "$host_flatpak_repo" >&2
     exit 1
 }
 
 for command in curl flatpak git make sha256sum unzip; do
     command -v "$command" >/dev/null || {
-        printf 'setup-carla-tests: %s is not installed\n' "$command" >&2
+        printf 'setup-runtime-tests: %s is not installed\n' "$command" >&2
         exit 1
     }
 done
@@ -129,11 +129,11 @@ flatpak install --user --noninteractive --or-update cabinet-local "$cabinet_ref"
 flatpak install --user --noninteractive --or-update flathub "$daw_ref"
 
 flatpak info --user "$app" >/dev/null 2>&1 || {
-    printf 'setup-carla-tests: %s is not installed\n' "$app" >&2
+    printf 'setup-runtime-tests: %s is not installed\n' "$app" >&2
     exit 1
 }
 flatpak info --user "$daw_ref" >/dev/null 2>&1 || {
-    printf 'setup-carla-tests: %s is not installed\n' "$daw_ref" >&2
+    printf 'setup-runtime-tests: %s is not installed\n' "$daw_ref" >&2
     exit 1
 }
 
@@ -157,13 +157,13 @@ surge_sha256=564e162c560af07ad4ed47fe1bfcd827cf97a575de30d06c48249aad2e7c35e6
 
 cabinet_files=$flatpak_user_dir/app/$app/current/active/files
 [ -f "$cabinet_files/lib/yabridge/libyabridge-chainloader-vst2.so" ] || {
-    printf 'setup-carla-tests: Cabinet yabridge chainloader is missing\n' >&2
+    printf 'setup-runtime-tests: Cabinet yabridge chainloader is missing\n' >&2
     exit 1
 }
 
 yabridge="$home/.local/share/yabridge"
 if [ -e "$yabridge" ] && [ ! -L "$yabridge" ]; then
-    printf 'setup-carla-tests: yabridge path is not a symbolic link: %s\n' "$yabridge" >&2
+    printf 'setup-runtime-tests: yabridge path is not a symbolic link: %s\n' "$yabridge" >&2
     exit 1
 fi
 rm -f "$yabridge"
@@ -185,7 +185,7 @@ flatpak override --user "$daw" \
     --env=YABRIDGE_NO_WATCHDOG=1
 
 if [ -e "$carla_source" ] && [ ! -d "$carla_source/.git" ]; then
-    printf 'setup-carla-tests: source path is not a Git checkout: %s\n' "$carla_source" >&2
+    printf 'setup-runtime-tests: source path is not a Git checkout: %s\n' "$carla_source" >&2
     exit 1
 fi
 
@@ -195,7 +195,7 @@ if [ ! -d "$carla_source/.git" ]; then
 fi
 
 if [ -n "$(git -C "$carla_source" status --porcelain --untracked-files=all)" ]; then
-    printf 'setup-carla-tests: source checkout is dirty: %s\n' "$carla_source" >&2
+    printf 'setup-runtime-tests: source checkout is dirty: %s\n' "$carla_source" >&2
     exit 1
 fi
 
@@ -203,26 +203,23 @@ git -C "$carla_source" fetch --prune origin "$commit"
 git -C "$carla_source" checkout --detach "$commit"
 git -C "$carla_source" submodule update --init --recursive
 
-marker="$carla_prefix/.cabinet-carla-commit"
-if [ ! -x "$carla_prefix/bin/carla-single" ] || [ ! -f "$marker" ] || [ "$(<"$marker")" != "$commit" ]; then
+marker="$carla_prefix/.cabinet-carla-build"
+build="$commit frontend"
+if [ ! -x "$carla_prefix/bin/carla" ] || [ ! -f "$marker" ] || [ "$(<"$marker")" != "$build" ]; then
     if [ -f "$marker" ]; then
         make -C "$carla_source" clean
     fi
 
     mkdir -p "$carla_prefix"
-    make -C "$carla_source" HAVE_FRONTEND=false -j1
-    make -C "$carla_source" HAVE_FRONTEND=false PREFIX="$carla_prefix" install
-    printf '%s\n' "$commit" > "$marker"
+    make -C "$carla_source" -j1
+    make -C "$carla_source" PREFIX="$carla_prefix" install
+    printf '%s\n' "$build" > "$marker"
 fi
 
-usage=$("$carla_prefix/bin/carla-single" 2>&1)
-case "$usage" in
-    *"  - clap"*) ;;
-    *)
-        printf 'setup-carla-tests: carla-single has no CLAP support\n' >&2
-        exit 1
-        ;;
-esac
+[ -x "$carla_prefix/bin/carla" ] || {
+    printf 'setup-runtime-tests: Carla frontend was not installed\n' >&2
+    exit 1
+}
 
 printf 'Carla installed in %s\n' "$carla_prefix"
 
@@ -260,6 +257,7 @@ install_entry sitala-1
 install_entry valhalla-supermassive
 install_entry decent-sampler
 install_entry surge-xt
+install_entry sine-player
 install_entry ik-product-manager
 
 surge_root=$data/prefixes/$surge_prefix
@@ -272,7 +270,7 @@ trap 'rm -f "$archive"' EXIT
 curl --fail --location --retry 3 --retry-all-errors --output "$archive" "$surge_url"
 printf '%s  %s\n' "$surge_sha256" "$archive" |
     sha256sum --check --status || {
-        printf 'setup-carla-tests: Surge XT Windows archive checksum does not match\n' >&2
+        printf 'setup-runtime-tests: Surge XT Windows archive checksum does not match\n' >&2
         exit 1
     }
 
@@ -282,11 +280,11 @@ unzip -q -o "$archive" 'Surge XT.vst3/*' -d "$common/VST3"
 unzip -q -o -j "$archive" 'Surge XT.clap' -d "$common/CLAP"
 
 [ -f "$common/VST3/Surge XT.vst3/Contents/x86_64-win/Surge XT.vst3" ] || {
-    printf 'setup-carla-tests: Surge XT Windows VST3 was not installed in the test prefix\n' >&2
+    printf 'setup-runtime-tests: Surge XT Windows VST3 was not installed in the test prefix\n' >&2
     exit 1
 }
 [ -f "$common/CLAP/Surge XT.clap" ] || {
-    printf 'setup-carla-tests: Surge XT Windows CLAP was not installed in the test prefix\n' >&2
+    printf 'setup-runtime-tests: Surge XT Windows CLAP was not installed in the test prefix\n' >&2
     exit 1
 }
 
@@ -294,7 +292,7 @@ cabinet sync
 
 manager="$data/prefixes/ik-multimedia/drive_c/Program Files/IK Multimedia/IK Product Manager/IK Product Manager.exe"
 [ -f "$manager" ] || {
-    printf 'setup-carla-tests: IK Product Manager was not installed\n' >&2
+    printf 'setup-runtime-tests: IK Product Manager was not installed\n' >&2
     exit 1
 }
 

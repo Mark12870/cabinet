@@ -73,7 +73,7 @@ internal static class RuntimeTestEnvironment
         var path = Path.Combine(Root, "config");
         if (!File.Exists(path))
         {
-            throw new InvalidOperationException("run scripts/setup-carla-tests.sh first");
+            throw new InvalidOperationException("run scripts/setup-runtime-tests.sh first");
         }
 
         var prefix = key + "=";

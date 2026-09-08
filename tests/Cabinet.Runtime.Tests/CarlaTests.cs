@@ -11,21 +11,23 @@ public sealed class CarlaTests : IDisposable
     {
         object[][] cases =
         [
-            [new PluginCase("linux-vst2", "nv2", "Linux", "vst2", HomePath(".vst", "DecentSampler.so"), true,
+            [new PluginCase("linux-vst2", "nv2", "vst2", HomePath(".vst", "DecentSampler.so"), true,
                 "CARLA_PLUGIN_LOADED=ok")],
-            [new PluginCase("linux-vst3", "nv3", "Linux", "vst3", HomePath(".vst3", "Surge XT.vst3"), true,
+            [new PluginCase("linux-vst3", "nv3", "vst3", HomePath(".vst3", "Surge XT.vst3"), true,
                 "CARLA_PLUGIN_LOADED=ok")],
-            [new PluginCase("linux-clap", "ncp", "Linux", "clap", HomePath(".clap", "Surge XT.clap"), true,
+            [new PluginCase("linux-clap", "ncp", "clap", HomePath(".clap", "Surge XT.clap"), true,
                 "CARLA_PLUGIN_LOADED=ok")],
-            [new PluginCase("linux-lv2", "nl2", "Linux", "lv2", "https://surge-synthesizer.github.io/lv2/surge-xt", true,
+            [new PluginCase("linux-lv2", "nl2", "lv2", "https://surge-synthesizer.github.io/lv2/surge-xt", true,
                 "CARLA_PLUGIN_LOADED=ok", HomePath(".lv2", "Surge XT.lv2"))],
-            [new PluginCase("windows-vst2-sitala", "wsi", "Windows", "vst2", HomePath(".vst", "yabridge", "Sitala.so"), false,
+            [new PluginCase("windows-vst2-sitala", "wsi", "vst2", HomePath(".vst", "yabridge", "Sitala.so"), false,
                 "Finished initializing")],
-            [new PluginCase("windows-vst2-valhalla", "wv2", "Windows", "vst2",
+            [new PluginCase("windows-vst2-valhalla", "wv2", "vst2",
                 HomePath(".vst", "yabridge", "ValhallaSupermassive_x64.so"), false, "Finished initializing")],
-            [new PluginCase("windows-vst3-valhalla", "wv3", "Windows", "vst3",
+            [new PluginCase("windows-vst3-valhalla", "wv3", "vst3",
                 HomePath(".vst3", "yabridge", "ValhallaSupermassive.vst3"), false, "Finished initializing")],
-            [new PluginCase("windows-clap-surge", "wsc", "Windows", "clap", HomePath(".clap", "yabridge", "Surge XT.clap"), true,
+            [new PluginCase("windows-vst3-sine", "wsine", "vst3",
+                HomePath(".vst3", "yabridge", "SINE Player.vst3"), false, "Finished initializing")],
+            [new PluginCase("windows-clap-surge", "wsc", "clap", HomePath(".clap", "yabridge", "Surge XT.clap"), true,
                 "Finished initializing")],
         ];
 
@@ -34,7 +36,7 @@ public sealed class CarlaTests : IDisposable
 
     [Theory]
     [MemberData(nameof(PluginCases))]
-    public async Task LoadsWithoutUsingTheDesktop(PluginCase plugin)
+    public async Task LoadsThroughCarlaNoGui(PluginCase plugin)
     {
         var configuration = RuntimeConfiguration.Create(plugin);
         var result = await CarlaProcess.Run(configuration, plugin);
@@ -56,10 +58,9 @@ public sealed class CarlaTests : IDisposable
 }
 
 public sealed record PluginCase(
-    string Name,
-    string RunId,
-    string Platform,
-    string Format,
+        string Name,
+        string RunId,
+        string Format,
     string Plugin,
     bool Testing,
     string Success,
@@ -74,9 +75,9 @@ internal sealed record RuntimeConfiguration(string Carla, string CabinetFiles, s
     {
         var carla = Path.Combine(RuntimeTestEnvironment.Home,
             ".var", "app", "io.github.mark12870.cabinet", "data", "carla-tests", "prefix", "bin",
-            "carla-single");
+            "carla");
 
-        RequireFile(carla, "carla-single");
+        RequireFile(carla, "Carla");
         RequireFile(plugin.FixturePath, $"{plugin.Name} fixture");
 
         var location = FlatpakLocation();
@@ -111,10 +112,15 @@ internal static class CarlaProcess
         "Wine host process has exited",
         "Connection reset",
         "Carla assertion failure",
+        "Engine failed to initialize",
+        "Failed to load selected project",
+        "Carla no-gui mode",
         "Failed to load plugin",
         "X Error of failed request",
         "terminate called",
         "std::system_error",
+        "stack overflow",
+        "division by zero",
     ];
 
     private const string Supervisor = """
@@ -123,12 +129,11 @@ internal static class CarlaProcess
 
         run_id=$1
         carla=$2
-        platform=$3
-        format=$4
-        plugin=$5
-        testing=$6
-        timeout_duration=$7
-        cabinet_files=$8
+        format=$3
+        plugin=$4
+        testing=$5
+        timeout_duration=$6
+        cabinet_files=$7
 
         state_root=${CABINET_RUNTIME_ROOT:?}/q
         socket_root=${CABINET_RUNTIME_SOCKET_DIRECTORY:?}
@@ -136,14 +141,13 @@ internal static class CarlaProcess
         state=$state_root/$run_id
         log=$state/carla.log
         report_log=$state/report.log
-        xvfb_log=$state/xvfb.log
-        window_manager_log=$state/window-manager.log
-        auth=$state/xauthority
+        project=$state/project.carxp
         instances=$state/flatpak-instances
         process_group=$state/process-group
         carla_pid=
         group_id=
         result=0
+        ready=0
         cleanup_failed=0
         deadline_pid=
 
@@ -217,7 +221,6 @@ internal static class CarlaProcess
             elif [ -f "$log" ]; then
                 cat "$log"
             fi
-            [ -f "$xvfb_log" ] && cat "$xvfb_log"
             for endpoint in "$socket_root"/cabinet-* "$socket_root"/yabridge-*; do
                 [ -e "$endpoint" ] || continue
                 rm -rf -- "$endpoint"
@@ -235,11 +238,78 @@ internal static class CarlaProcess
         export CARLA_BRIDGE_DUMMY=1
         export CABINET_RUNTIME_RUN_ID=$run_id
         export FONTCONFIG_FILE=/etc/fonts/fonts.conf
+        export PYTHONUNBUFFERED=1
         printf '%s\n' "$CABINET_RUNTIME_ROOT" > "$state/runtime-root"
         printf '%s\n' "$FLATPAK_USER_DIR" > "$state/flatpak-user-dir"
         printf '%s\n' "$HOME" > "$state/home"
         printf '%s\n' "$XDG_RUNTIME_DIR" > "$state/runtime-dir"
         mkdir -p "$YABRIDGE_TEMP_DIR"
+
+        xml_escape() {
+            local value=$1
+            value=${value//&/\&amp;}
+            value=${value//</\&lt;}
+            value=${value//>/\&gt;}
+            printf '%s' "$value"
+        }
+
+        xml_run_id=$(xml_escape "$run_id")
+        xml_plugin=$(xml_escape "$plugin")
+
+        mkdir -p "$HOME/.config/falkTX"
+        cat > "$HOME/.config/falkTX/Carla2.conf" <<'SETTINGS'
+        [Engine]
+        AudioDriver=Dummy
+        ProcessMode=2
+        TransportMode=1
+        ManageUIs=false
+        PreferPluginBridges=false
+        PreferUiBridges=false
+        UIBridgesTimeout=4000
+        SETTINGS
+
+        case "$format" in
+            vst2) project_type=VST2 ;;
+            vst3) project_type=VST3 ;;
+            clap) project_type=CLAP ;;
+            lv2) project_type=LV2 ;;
+            *) printf 'unsupported Carla format: %s\n' "$format" >&2; exit 2 ;;
+        esac
+
+        if [ "$format" = lv2 ]; then
+            plugin_info="           <Type>LV2</Type>
+           <Name>$xml_run_id</Name>
+           <URI>$xml_plugin</URI>"
+        else
+            plugin_info="           <Type>$project_type</Type>
+           <Name>$xml_run_id</Name>
+           <Binary>$xml_plugin</Binary>"
+        fi
+
+        cat > "$project" <<PROJECT
+        <?xml version='1.0' encoding='UTF-8'?>
+        <!DOCTYPE CARLA-PROJECT>
+        <CARLA-PROJECT VERSION='2.0'>
+         <EngineSettings>
+          <ForceStereo>false</ForceStereo>
+          <PreferPluginBridges>false</PreferPluginBridges>
+          <PreferUiBridges>false</PreferUiBridges>
+          <UIsAlwaysOnTop>false</UIsAlwaysOnTop>
+          <MaxParameters>200</MaxParameters>
+          <UIBridgesTimeout>4000</UIBridgesTimeout>
+         </EngineSettings>
+         <Plugin>
+          <Info>
+        $plugin_info
+          </Info>
+          <Data>
+           <Active>Yes</Active>
+           <ControlChannel>1</ControlChannel>
+           <Options>0x0</Options>
+          </Data>
+         </Plugin>
+        </CARLA-PROJECT>
+        PROJECT
 
         cat > "$state/flatpak" <<'WRAPPER'
         #!/usr/bin/env bash
@@ -277,8 +347,8 @@ internal static class CarlaProcess
             --env=XDG_RUNTIME_DIR="$runtime_dir" \
             --env=CABINET_RUNTIME_RUN_ID="$CABINET_RUNTIME_RUN_ID" \
             --env=FLATPAK_USER_DIR="$flatpak_user_dir" \
-            --env=DISPLAY="$DISPLAY" \
-            --env=XAUTHORITY="$XAUTHORITY" \
+            --env=DISPLAY= \
+            --env=XAUTHORITY= \
             --env=WAYLAND_DISPLAY= \
             "${filtered[@]}"
         WRAPPER
@@ -293,31 +363,29 @@ internal static class CarlaProcess
         export PATH=$state:$cabinet_files/lib/yabridge:$PATH
         export WINELOADER=$state/wine-loader
 
-        arguments=(native "$format" "$plugin")
-        if [ "$format" = lv2 ]; then
-            arguments=(native lv2 "$plugin")
-        elif [ "$format" != clap ]; then
-            arguments+=("$platform $format [$run_id]")
-        fi
-
         if [ "$testing" = 1 ]; then
             export CARLA_BRIDGE_TESTING=1
         fi
 
-        : > "$auth"
-        setsid --wait xvfb-run -a -f "$auth" -e "$xvfb_log" -s "-screen 0 1920x1080x24 -nolisten tcp" -- bash -c 'group_id=$(ps -o pgid= -p "$$"); group_id=${group_id//[[:space:]]/}; printf "%s\\n" "$group_id" > "$1"; openbox --sm-disable >"$2" 2>&1 & window_manager_pid=$!; sleep 1; printf "CARLA_DISPLAY=%s\\n" "$DISPLAY"; shift 2; "$@"; status=$?; kill "$window_manager_pid" 2>/dev/null; wait "$window_manager_pid" 2>/dev/null; exit "$status"' carla "$process_group" "$window_manager_log" "$carla" "${arguments[@]}" >"$log" 2>&1 &
+        setsid --wait bash -c 'group_id=$(ps -o pgid= -p "$$"); group_id=${group_id//[[:space:]]/}; printf "%s\\n" "$group_id" > "$1"; shift; exec stdbuf -oL -eL "$@"' carla "$process_group" "$carla" --no-gui "$project" >"$log" 2>&1 &
         carla_pid=$!
         deadline=$state/deadline
         ( sleep "$timeout_duration"; : > "$deadline" ) &
         deadline_pid=$!
 
         while process_alive "$carla_pid"; do
-            if grep -Eq 'Plugin failed|Could not load plugin|Wine host process has exited|Connection reset|Carla assertion failure|Failed to load plugin|X Error of failed request|terminate called|std::system_error' "$log" "$xvfb_log" 2>/dev/null; then
+            if grep -Eq 'Plugin failed|Could not load plugin|Wine host process has exited|Connection reset|Carla assertion failure|Engine failed to initialize|Failed to load selected project|Carla no-gui mode|Failed to load plugin|X Error of failed request|terminate called|std::system_error|stack overflow|division by zero' "$log" 2>/dev/null; then
                 result=1
                 break
             fi
+            if grep -Fxq 'Carla ready!' "$log" 2>/dev/null; then
+                ready=1
+                result=0
+                cp "$log" "$report_log"
+                break
+            fi
             if [ -e "$deadline" ]; then
-                if [ "$testing" = 1 ]; then result=1; else result=0; fi
+                result=1
                 cp "$log" "$report_log"
                 break
             fi
@@ -335,14 +403,15 @@ internal static class CarlaProcess
         else
             wait "$carla_pid"
             status=$?
-            if [ -e "$deadline" ]; then
-                if [ "$testing" = 1 ]; then result=1; else result=0; fi
-            else
-                [ "$result" -ne 0 ] || result=$status
+            if grep -Fxq 'Carla ready!' "$log" 2>/dev/null; then
+                ready=1
+            fi
+            if [ "$result" -eq 0 ] && { [ "$ready" -eq 0 ] || [ "$status" -ne 0 ]; }; then
+                result=1
             fi
         fi
 
-        if [ "$testing" = 1 ] && [ "$result" -eq 0 ]; then
+        if [ "$testing" = 1 ] && [ "$ready" -eq 1 ] && [ "$result" -eq 0 ]; then
             printf 'CARLA_PLUGIN_LOADED=ok\n'
         fi
         exit "$result"
@@ -361,6 +430,7 @@ internal static class CarlaProcess
 
         info.Environment.Remove("DISPLAY");
         info.Environment.Remove("WAYLAND_DISPLAY");
+        info.Environment.Remove("XAUTHORITY");
 
         if (configuration.Backend == "toolbox")
         {
@@ -380,7 +450,6 @@ internal static class CarlaProcess
         info.ArgumentList.Add("--");
         info.ArgumentList.Add(runId);
         info.ArgumentList.Add(configuration.Carla);
-        info.ArgumentList.Add(plugin.Platform);
         info.ArgumentList.Add(plugin.Format);
         info.ArgumentList.Add(plugin.Plugin);
         info.ArgumentList.Add(plugin.Testing ? "1" : "0");
