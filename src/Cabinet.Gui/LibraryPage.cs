@@ -170,7 +170,7 @@ internal sealed class LibraryPage
             .ToList();
 
         var managers = matching
-            .Where(entry => entry.Manager && installed.ContainsKey(entry.Id))
+            .Where(entry => entry.Manager)
             .ToList();
 
         var pinned = managers.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);

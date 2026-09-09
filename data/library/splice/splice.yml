@@ -1,0 +1,26 @@
+Name: Splice Desktop
+Kind: windows
+Category: Manager
+Summary: Splice's desktop app for browsing and downloading sounds.
+Developer: Splice
+Version: 5.4.12
+Licence: Freeware
+Licensing:
+  The app is free and signs in to a Splice account; a subscription unlocks paid
+  sounds, plugins and other features.
+Formats: VST3, VST2
+Homepage: https://splice.com/download
+Source: download
+Url: https://desktop.splice.com/conveyor/stable/splice-5.4.12.x64.msix
+Sha256: 2eeeda730e45f6e371a304446121d520dd7677d4578a47f8cfc04b9e93d0fc27
+Prefix: splice
+Launch: C:\Program Files\Splice\Splice.exe
+Script: splice.sh
+Runner: soda-11.0-5
+Dxvk: true
+Description:
+  Browse Splice's sound catalogue, preview samples and download them to your
+  library from one desktop app, with tools for working alongside a DAW.
+
+  A free Splice account opens the catalogue; subscriptions add credits, premium
+  sounds and access to rent-to-own plugins.

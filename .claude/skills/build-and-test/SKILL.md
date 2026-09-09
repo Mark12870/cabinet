@@ -47,6 +47,23 @@ display variables. Windows plugins are loaded from their yabridge wrapper paths;
 native plugins use their installed paths or LV2 URI. Run the complete matrix with
 the `runtime-test` skill after setup.
 
+Never install, launch, or remove a catalogue entry through the host-installed
+Cabinet Flatpak during verification. Run mutating catalogue operations in the
+isolated Toolbox prepared by `scripts/setup-runtime-tests.sh`:
+
+```sh
+ROOT="${CABINET_RUNTIME_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/cabinet-rt}"
+toolbox run --container cabinet-runtime env \
+  HOME="$ROOT/home" XDG_RUNTIME_DIR="$ROOT/runtime" \
+  XDG_DATA_HOME="$ROOT/home/.local/share" \
+  FLATPAK_USER_DIR="$ROOT/home/.local/share/flatpak" \
+  flatpak run --nofilesystem=home --filesystem="$ROOT":create \
+  io.github.mark12870.cabinet library install <id>
+```
+
+The host Flatpak may be installed or rebuilt for GUI smoke shots, but do not use
+its normal user data for catalogue or runtime tests.
+
 ## Build and install the flatpak
 
 ```sh
