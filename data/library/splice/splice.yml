@@ -16,8 +16,9 @@ Sha256: 2eeeda730e45f6e371a304446121d520dd7677d4578a47f8cfc04b9e93d0fc27
 Prefix: splice
 Launch: C:\Program Files\Splice\Splice.exe
 Script: splice.sh
-Runner: soda-11.0-5
+Runner: d2d1-11.0
 Dxvk: true
+Sync: fsync
 Description:
   Browse Splice's sound catalogue, preview samples and download them to your
   library from one desktop app, with tools for working alongside a DAW.

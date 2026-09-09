@@ -39,7 +39,7 @@ reaches only `Cabinet.Core`, and `dotnet format` does not fail on a broken build
 would not compile once passed every check and died in the flatpak build twenty minutes later.
 That is what the two `dotnet build` steps in the script are for.
 
-**4. Verify catalogue plugins through Carla.**
+**4. Verify catalogue runtime behaviour.**
 
 The runtime test writes a private `.carxp` project and Carla settings for each case,
 then runs the full Carla frontend with `--no-gui`, the Dummy audio driver, and no
@@ -48,17 +48,14 @@ native plugins use their installed paths or LV2 URI. Run the complete matrix wit
 the `runtime-test` skill after setup.
 
 Never install, launch, or remove a catalogue entry through the host-installed
-Cabinet Flatpak during verification. Run mutating catalogue operations in the
-isolated Toolbox prepared by `scripts/setup-runtime-tests.sh`:
+Cabinet Flatpak during verification. Build the current Flatpak first, pass its
+exact OSTree commit to `scripts/setup-runtime-tests.sh`, and run all mutating
+catalogue operations in that isolated Toolbox.
 
 ```sh
-ROOT="${CABINET_RUNTIME_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/cabinet-rt}"
-toolbox run --container cabinet-runtime env \
-  HOME="$ROOT/home" XDG_RUNTIME_DIR="$ROOT/runtime" \
-  XDG_DATA_HOME="$ROOT/home/.local/share" \
-  FLATPAK_USER_DIR="$ROOT/home/.local/share/flatpak" \
-  flatpak run --nofilesystem=home --filesystem="$ROOT":create \
-  io.github.mark12870.cabinet library install <id>
+COMMIT=$(ostree --repo=repo rev-parse app/io.github.mark12870.cabinet/x86_64/stable)
+CABINET_RUNTIME_CABINET_REF="io.github.mark12870.cabinet/x86_64/stable/$COMMIT" \
+  scripts/setup-runtime-tests.sh
 ```
 
 The host Flatpak may be installed or rebuilt for GUI smoke shots, but do not use
@@ -69,15 +66,20 @@ its normal user data for catalogue or runtime tests.
 ```sh
 flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
   --default-branch=stable build io.github.mark12870.cabinet.yml
-flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet  # file://$PWD/repo
+BUILD_EXIT=$?
+printf 'BUILD_EXIT=%s\n' "$BUILD_EXIT"
+if [ "$BUILD_EXIT" -ne 0 ]; then exit "$BUILD_EXIT"; fi
 ```
 
-- Print `BUILD_EXIT=$?` and read it.
-- Never chain the two lines with `&&`/`||`.
-- `flatpak install --or-update`, always.
+- Capture and inspect the builder exit status before using the repository.
 - Never poll the build; wait for the event.
 
-Confirm with `flatpak info --user io.github.mark12870.cabinet` against
+For a host GUI shot only, add the local repository with
+`flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://$PWD/repo"`,
+then install with `flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet`.
+Do not use that host installation for catalogue runtime tests.
+
+Confirm the test ref with:
 `ostree --repo=repo rev-parse app/io.github.mark12870.cabinet/x86_64/stable`.
 
 ```sh

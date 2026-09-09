@@ -152,6 +152,21 @@ toolbox.
 `flatpak-dotnet-generator.py`. It is required even with no third-party package, because NativeAOT pulls ILCompiler from
 NuGet; regenerate it whenever a dependency changes.
 
+## Runtime diagnosis
+
+- Load `build-and-test` and `runtime-test` before any mutating catalogue runtime operation.
+- Never install, launch, migrate, reconfigure or remove a catalogue entry through the host Cabinet data while testing.
+  Use the isolated Toolbox and runtime root prepared by `scripts/setup-runtime-tests.sh`.
+- Never change an existing host prefix for an experiment. Use a fresh isolated prefix for each runner or settings
+  comparison, and change one variable at a time.
+- Test managers through `cabinet library launch <id>`, not `cabinet run`; their launch and standard-stream paths differ.
+- Before adding flags or changing configuration, compare the complete configuration of the nearest working entry.
+  Check a relevant upstream or community installer when one exists.
+- Treat a manager launch as successful only when its expected window and renderer or helper processes are present and
+  its launch log has no fatal error. Process survival alone is insufficient.
+- After two substantially different runtime attempts fail, use the debugger subagent before trying more runners or
+  flags.
+
 ## Catalogue and safeguards
 
 - `data/library/<vendor>/` contains that vendor's `.yml` entries, optional shared `.sh` installer, and artwork; the
