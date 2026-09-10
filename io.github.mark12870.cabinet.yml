@@ -97,6 +97,16 @@ finish-args:
   - --env=YABRIDGE_NO_WATCHDOG=1
 
 modules:
+  - name: zenity
+    buildsystem: meson
+    config-opts:
+      - -Dmanpage=false
+      - -Dwebkitgtk=false
+    sources:
+      - type: archive
+        url: https://gitlab.gnome.org/GNOME/zenity/-/archive/4.0.3/zenity-4.0.3.tar.gz
+        sha256: 5f50c315a937e1061f0ec5267a8dcc1f430c6aca6ca285373820fd03f420980c
+
   - name: yabridge
     buildsystem: simple
     build-commands:
@@ -252,6 +262,12 @@ modules:
     sources:
       - type: dir
         path: shim
+
+  - name: winetricks
+    buildsystem: simple
+    build-commands:
+      - sed -i 's/^\( *\*-w)\) w_warn "Running.*;;$/\1 ;;/' /app/bin/winetricks
+      - grep -q '^ *\*-w) ;;$' /app/bin/winetricks
 
   - name: cabinet
     buildsystem: simple

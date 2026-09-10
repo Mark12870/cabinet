@@ -67,9 +67,10 @@ internal sealed class PrefixPage
         var actions = Adw.PreferencesGroup.New();
         actions.SetTitle("Prefix");
         actions.Add(Ui.ActionRow("Environment variables", "", Icons.Variables, EditVariables));
-        actions.Add(Ui.ActionRow("Windows installer", "", Icons.Install, ChooseInstaller));
+        actions.Add(Ui.ActionRow("Winetricks", "", Icons.Configure, OpenWinetricks));
         actions.Add(
             Ui.ActionRow("Wine configuration", "", Icons.Configure, () => Run("winecfg", [])));
+        actions.Add(Ui.ActionRow("Windows installer", "", Icons.Install, ChooseInstaller));
         actions.Add(Ui.ActionRow("Run a command", "", Icons.Command, AskForCommand));
         actions.Add(
             Ui.ActionRow("Delete", "", Icons.Delete, ConfirmDelete, destructive: true));
@@ -294,6 +295,14 @@ internal sealed class PrefixPage
 
     private void EditVariables() =>
         new VariablesDialog(window, layout, Name, changed).Present();
+
+    private void OpenWinetricks() =>
+        Operation.Run(
+            window,
+            $"Configuring {Name} with Winetricks",
+            output => Operation.Ensure(
+                new Winetricks(layout, runner).Open(Name, output), "winetricks"),
+            changed);
 
     private void Run(string command, IReadOnlyList<string> arguments) =>
         Operation.Run(

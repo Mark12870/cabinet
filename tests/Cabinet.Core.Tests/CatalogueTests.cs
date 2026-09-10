@@ -72,6 +72,20 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void NoInstallScriptRunsWinetricksInsteadOfDeclaringItsDependencies()
+    {
+        var layout = Catalogue.Layout();
+
+        var hidden = Shipped
+            .Where(entry => entry.Script is not null)
+            .Where(entry => File.ReadAllText(layout.LibraryScript(entry.Vendor, entry.Script!))
+                .Contains("winetricks", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Vendor}/{entry.Script}");
+
+        Assert.Empty(hidden);
+    }
+
+    [Fact]
     public void NoScriptSpellsAPrefixPluginDirectoryTheWayTheCreatedOneIsNot()
     {
         var layout = Catalogue.Layout();

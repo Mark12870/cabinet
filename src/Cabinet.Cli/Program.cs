@@ -22,6 +22,7 @@ internal static class Program
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
           cabinet set <name> desktop <on|off>   enable or disable a Wine desktop of its own
+          cabinet winetricks <name> [verb...]  open Winetricks, or install the verbs given
           cabinet library                      plugins Cabinet knows how to install
           cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [prefix] [file]
@@ -101,6 +102,8 @@ internal static class Program
             "dxvk" => InstallDxvk(layout, runner, Require(args, 1, "a prefix name")),
             "show" => Show(layout, runner, Require(args, 1, "a prefix name")),
             "set" => Set(layout, runner, Require(args, 1, "a prefix name"),
+                args.Skip(2).ToArray()),
+            "winetricks" => RunWinetricks(layout, runner, Require(args, 1, "a prefix name"),
                 args.Skip(2).ToArray()),
             "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "an installer path")),
@@ -249,6 +252,17 @@ internal static class Program
             "desktop" => SetDesktop(layout, runner, name, Require(args, 1, "on or off")),
             var unknown => Unknown($"set {name} {unknown}"),
         };
+
+    private static int RunWinetricks(
+        Layout layout, IProcessRunner runner, string name, string[] verbs)
+    {
+        var winetricks = new Winetricks(layout, runner);
+        var result = verbs.Length == 0
+            ? winetricks.Open(name, Console.WriteLine)
+            : winetricks.Apply(name, verbs, Console.WriteLine);
+
+        return result.Ok ? 0 : result.ExitCode;
+    }
 
     private static int SetDxvk(Layout layout, IProcessRunner runner, string name, string word) =>
         word.Trim().ToLowerInvariant() switch
@@ -617,6 +631,11 @@ internal static class Program
         if (entry.Env.Count > 0)
         {
             costs.Add(string.Join(", ", entry.Env.Keys));
+        }
+
+        if (entry.Winetricks.Count > 0)
+        {
+            costs.Add($"Winetricks {string.Join(", ", entry.Winetricks)}");
         }
 
         return string.Join("  ·  ", costs);

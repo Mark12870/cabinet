@@ -26,6 +26,7 @@ Recover: kontakt-8.sh
 Runner: d2d1-11.0
 Dxvk: true
 Sync: fsync
+Winetricks: powershell, corefonts, vcrun2022
 Description:
   Not a plugin but the door to Native Instruments' catalogue: Kontakt, Battery,
   Komplete Kontrol, Massive X, FM8, Reaktor and more. Sign in, then choose the

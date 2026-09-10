@@ -39,6 +39,13 @@ public class ManifestTests
     }
 
     [Fact]
+    public void WinetricksGuiBackendIsPackaged()
+    {
+        Assert.Contains(Lines, line => line.Trim() == "- name: zenity");
+        Assert.Contains(Lines, line => line.Trim() == "- -Dmanpage=false");
+    }
+
+    [Fact]
     public void TheExtensionsBaseDoesNotCopyAreDeclaredAgain()
     {
         string[] required =

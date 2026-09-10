@@ -1,5 +1,3 @@
-winetricks --unattended powershell corefonts vcrun2022
-
 "$WINE" winecfg -v win10
 
 "$WINE" reg add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' \

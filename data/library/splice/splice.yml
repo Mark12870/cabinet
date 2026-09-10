@@ -19,6 +19,7 @@ Script: splice.sh
 Runner: d2d1-11.0
 Dxvk: true
 Sync: fsync
+Winetricks: corefonts
 Description:
   Browse Splice's sound catalogue, preview samples and download them to your
   library from one desktop app, with tools for working alongside a DAW.

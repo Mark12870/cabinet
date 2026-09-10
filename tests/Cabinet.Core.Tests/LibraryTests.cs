@@ -17,6 +17,7 @@ public class LibraryTests : IDisposable
         Runner: 9.21
         Dxvk: true
         Sync: fsync
+        Winetricks: corefonts, vcrun2022
         Env: WINEDLLOVERRIDES=wbemprox=n
         Developer: Surge Synth Team
         Version: 1.3.4
@@ -58,6 +59,7 @@ public class LibraryTests : IDisposable
         Assert.Equal("9.21", entry.Runner);
         Assert.True(entry.Dxvk);
         Assert.Equal(SyncMode.Fsync, entry.Sync);
+        Assert.Equal(["corefonts", "vcrun2022"], entry.Winetricks);
         Assert.Equal("wbemprox=n", entry.Env["WINEDLLOVERRIDES"]);
         Assert.Null(entry.Script);
         Assert.Null(entry.Launch);
@@ -886,7 +888,40 @@ public class LibraryTests : IDisposable
         Assert.Equal("gadget", entry.Prefix);
         Assert.Equal(SyncMode.System, entry.Sync);
         Assert.False(entry.Dxvk);
+        Assert.Empty(entry.Winetricks);
         Assert.Null(entry.Runner);
+    }
+
+    [Fact]
+    public void ANativeEntryCannotCarryWinetricksDependencies()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", """
+            Name: Thing
+            Kind: native
+            Source: byo
+            Winetricks: corefonts
+            """));
+
+        Assert.Contains("carries Winetricks", refused.Message);
+    }
+
+    [Theory]
+    [InlineData("--unattended")]
+    [InlineData("core fonts")]
+    [InlineData("corefonts!")]
+    public void AWinetricksOptionIsRefused(string verb)
+    {
+        Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing", $"Name: Thing\nKind: windows\nSource: byo\nWinetricks: {verb}\n"));
+    }
+
+    [Fact]
+    public void DuplicateWinetricksDependenciesAreRefused()
+    {
+        Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + "Winetricks: corefonts, COREfonts\n"));
     }
 
     [Fact]
@@ -1988,6 +2023,38 @@ public class LibraryTests : IDisposable
         Assert.Contains("WINE", script.Environment.Keys);
         Assert.DoesNotContain(recording.Calls, call => call.Arguments.Contains(installer)
             && call.File != "sh");
+    }
+
+    [Fact]
+    public void AnEntrysWinetricksDependenciesRunBeforeItsInstaller()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Prefix: thing
+            Script: fixture.sh
+            Winetricks: corefonts
+            """));
+
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var installer = Path.Combine(root, "thing-setup.exe");
+        File.WriteAllText(installer, "");
+        var recording = new RecordingRunner(
+            _ => Directory.CreateDirectory(Path.Combine(layout.PrefixPath("thing"), "dosdevices")));
+
+        new Library(layout, recording).Install(
+            new Library(layout, recording).Find("thing"), installer: installer);
+
+        var winetricks = Assert.Single(
+            recording.Calls, call => call.File == Cabinet.Core.Layout.Winetricks);
+        var script = Assert.Single(recording.Calls, call => call.File == "sh");
+
+        Assert.Equal(["--unattended", "corefonts"], winetricks.Arguments);
+        Assert.True(recording.Calls.ToList().IndexOf(winetricks)
+                    < recording.Calls.ToList().IndexOf(script));
     }
 
     [Fact]

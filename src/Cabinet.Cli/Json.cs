@@ -80,6 +80,7 @@ internal static class Json
                 writer.WriteString("runner", entry.Runner);
                 writer.WriteBoolean("dxvk", entry.Dxvk);
                 writer.WriteString("sync", PrefixSettings.Word(entry.Sync));
+                Strings(writer, "winetricks", entry.Winetricks);
                 writer.WriteBoolean("desktop", entry.Desktop);
                 Pairs(writer, "env", entry.Env);
                 writer.WriteString("script", entry.Script);

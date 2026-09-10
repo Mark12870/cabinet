@@ -270,6 +270,11 @@ internal sealed class PluginPage
             costs.Add(string.Join(", ", entry.Env.Keys));
         }
 
+        if (entry.Winetricks.Count > 0)
+        {
+            costs.Add($"Winetricks {string.Join(", ", entry.Winetricks)}");
+        }
+
         return string.Join("  ·  ", costs);
     }
 }

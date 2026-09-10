@@ -30,6 +30,7 @@ public sealed record LibraryEntry(
     string? Runner,
     bool Dxvk,
     SyncMode Sync,
+    IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,
     IReadOnlyDictionary<string, string> Relink,
     bool Desktop,
@@ -134,7 +135,7 @@ public sealed record LibraryEntry(
         if (kind == PluginKind.Native
             && new[]
             {
-                "Prefix", "Runner", "Dxvk", "Sync", "Env", "Desktop",
+                "Prefix", "Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop",
                 "Launch", "LaunchService", "LaunchArgs", "Keep", "Recover",
             }
                 .FirstOrDefault(fields.ContainsKey)
@@ -202,6 +203,7 @@ public sealed record LibraryEntry(
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
+            ParseWinetricks(id, Value(fields, "Winetricks")),
             ParseEnv(id, Value(fields, "Env")),
             ParseRelink(id, Value(fields, "Relink")),
             Value(fields, "Desktop") is { } desktop && bool.Parse(desktop),
@@ -291,6 +293,33 @@ public sealed record LibraryEntry(
             }
 
             found[key] = line[(at + 1)..];
+        }
+
+        return found;
+    }
+
+    private static IReadOnlyList<string> ParseWinetricks(string id, string? text)
+    {
+        var found = Split(text);
+        var invalid = found.FirstOrDefault(verb =>
+            verb.Length == 0
+            || !char.IsAsciiLetterOrDigit(verb[0])
+            || verb.Any(character =>
+                !char.IsAsciiLetterOrDigit(character)
+                && character != '.'
+                && character != '-'
+                && character != '_'));
+
+        if (invalid is not null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Winetricks: {invalid} — verb names split by commas, such as corefonts, vcrun2022");
+        }
+
+        if (found.Distinct(StringComparer.OrdinalIgnoreCase).Count() != found.Count)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has duplicate Winetricks dependencies");
         }
 
         return found;
@@ -1155,6 +1184,17 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             }
 
             onOutput?.Invoke($"Set {string.Join(", ", entry.Env.Keys)}.");
+        }
+
+        if (entry.Winetricks.Count > 0)
+        {
+            var result = new Winetricks(layout, runner).Apply(prefix, entry.Winetricks, onOutput);
+
+            if (!result.Ok)
+            {
+                throw new InvalidOperationException(
+                    $"{entry.Name}'s Winetricks dependencies exited with {result.ExitCode}");
+            }
         }
 
         var staging = Path.Combine(Path.GetTempPath(), "cabinet-library");
