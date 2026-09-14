@@ -153,7 +153,7 @@ modules:
       - |
         export PATH="$PWD:$PATH"
         meson setup build --buildtype=release --cross-file=cross-wine.conf --unity=on --unity-size=1000 -Dbitbridge=true
-        meson compile -C build
+        meson compile -j1 -C build
       - install -Dm755 build/libyabridge-chainloader-clap.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-clap.so
       - install -Dm755 build/libyabridge-chainloader-vst2.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-vst2.so
       - install -Dm755 build/libyabridge-chainloader-vst3.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-vst3.so

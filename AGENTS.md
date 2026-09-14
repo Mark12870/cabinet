@@ -6,6 +6,8 @@ bridges them with upstream yabridge. There is deliberately no arm build.
 ## Important
 
 - Don't create a new branch if not asked for that!
+- Never modify my Cabinet data and prefixes without asking and approval. You must let me know in separate question,
+  otherwise it is forbidden.
 - Every feature must be available over GUI and over CLI
 - README.md must be under 100 lines
 - CLAUDE.md must be under 500 lines
@@ -66,9 +68,16 @@ the name or the structure instead. Anything that genuinely will not fit there is
   `YABRIDGE_TEMP_DIR`, and every later plugin sends its argv to that session over the session socket. Because the
   session outlives the shim that started it, it carries neither `--die-with-parent` nor `--watch-bus`: it exits once it
   has been idle, and that is what tears the sandbox down.
+- A session reads `.cabinet-env` again for every job it starts, so `cabinet set <prefix> env` reaches the next plugin
+  without restarting it. `.cabinet-sync` is fixed when the session starts, on the outer shim's `flatpak run`: every
+  Wine process must use the sync mode of the wineserver it joins, and staging-based runners exit on a mismatch.
 - Wine does not keep a job's processes under the process that started them, so a session finds and kills a job by
   process group, never by ancestry. `wineserver` and `winedevice.exe` put themselves in their own groups and so survive
   between jobs, which is exactly what sharing a session requires.
+- A yabridge host is dead once its main thread is. Wine can lose that thread, to a stack overflow for one, while
+  other threads keep the process and its pidfd alive; the leader shows as a zombie (`Zl`) and the DAW waits on it
+  forever. `supervise` ends a job whose `yabridge-host` leader is a zombie; any other program may outlive its main
+  thread. yabridge's plugin side then aborts the DAW at teardown, so this turns a hang into a crash, nothing more.
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`~/.vst3`, `~/.vst`,
@@ -144,6 +153,10 @@ flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://
 flatpak install --user -y --or-update cabinet-local io.github.mark12870.cabinet
 ```
 
+yabridge compiles with `meson compile -j1`. Its 64- and 32-bit hosts are each one `--unity-size=1000` translation unit;
+compiled in parallel they take about 10 GB, the OOM killer takes `cc1plus`, and the builder dies at yabridge's final
+link looking like a timeout. A serial build of the whole Flatpak takes about ten minutes.
+
 GUI changes need visual confirmation against the installed Flatpak:
 `scripts/gui-shot.sh About about.png` (or `Prefixes/<row>`); its header and the `gui-shot` skill describe the required
 toolbox.
@@ -166,6 +179,15 @@ NuGet; regenerate it whenever a dependency changes.
   its launch log has no fatal error. Process survival alone is insufficient.
 - After two substantially different runtime attempts fail, use the debugger subagent before trying more runners or
   flags.
+- An editor can be exercised without a DAW: drive Carla's `carla_backend` from Python in the isolated runtime
+  (`engine_init("Dummy")`, `add_plugin`, `show_custom_ui`, a timed `engine_idle` loop, `engine_close`) with `DISPLAY`
+  kept, under `timeout`. A stall in `engine_close` is the DAW freeze.
+- Run `library install` with `DISPLAY` set: a vendor installer can install nothing without one, and the script then
+  fails on the missing plugin.
+- Wine runs every process elevated, and WebView2 ignores `WEBVIEW2_*` variables and `HKCU` policy for an elevated host.
+  Browser flags go in `HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments`, valued by host
+  executable (`yabridge-host.exe`); `CatalogueTests` refuses the other two. Read `msedgewebview2.exe`'s
+  `/proc/<pid>/cmdline` before crediting a flag with any effect.
 
 ## Catalogue and safeguards
 

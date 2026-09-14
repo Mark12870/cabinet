@@ -2089,6 +2089,32 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void AnExistingPrefixGetsAnEntrysMissingEnvironment()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Env:
+              TEST_SETTING=shared
+              OTHER_SETTING=added
+            """));
+
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("thing"), "dosdevices"));
+        File.WriteAllText(layout.PrefixEnvFile("thing"), "TEST_SETTING=custom\n");
+        var installer = Path.Combine(root, "thing-setup.exe");
+        File.WriteAllText(installer, "");
+
+        var library = new Library(layout, new RecordingRunner());
+
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.Equal("custom", new PrefixSettings(layout).Variables("thing")["TEST_SETTING"]);
+        Assert.Equal("added", new PrefixSettings(layout).Variables("thing")["OTHER_SETTING"]);
+    }
+
+    [Fact]
     public void AnEntryWithALaunchIsAManagerAndNamesItsExecutable()
     {
         var entry = Manager();

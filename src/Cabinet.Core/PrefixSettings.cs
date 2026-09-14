@@ -65,7 +65,7 @@ public sealed class PrefixSettings(Layout layout)
             return;
         }
 
-        File.WriteAllText(marker, Word(mode) + Environment.NewLine);
+        Write(marker, [Word(mode) + Environment.NewLine]);
     }
 
     public IReadOnlyDictionary<string, string> Variables(string prefix)
@@ -125,10 +125,17 @@ public sealed class PrefixSettings(Layout layout)
             return;
         }
 
-        File.WriteAllLines(
+        Write(
             file,
             kept.OrderBy(entry => entry.Key, StringComparer.Ordinal)
                 .Select(entry => $"{entry.Key}={entry.Value}"));
+    }
+
+    private static void Write(string file, IEnumerable<string> lines)
+    {
+        var temporary = file + ".tmp";
+        File.WriteAllLines(temporary, lines);
+        File.Move(temporary, file, overwrite: true);
     }
 
     private void Ensure(string prefix)

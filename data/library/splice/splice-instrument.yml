@@ -1,0 +1,24 @@
+Name: Splice INSTRUMENT
+Kind: windows
+Category: Synth
+Summary: Splice's sample-based virtual instrument.
+Developer: Splice
+Licence: Freeware
+Licensing:
+  The free tier includes hundreds of presets and monthly Free Drops; a subscription
+  unlocks the full INSTRUMENT catalogue.
+Formats: VST3
+Homepage: https://splice.com/instrument
+Source: rolling
+Url: https://instrument-installers.splice.com/win/INSTRUMENT-installer.exe
+Prefix: splice
+Launch: C:\Program Files\Splice\Splice INSTRUMENT\Splice INSTRUMENT.exe
+Script: splice-instrument.sh
+Runner: d2d1-11.0
+Sync: fsync
+Description:
+  A sample-based virtual instrument with expressive pianos, synths, drums and
+  other playable sounds from Splice, Spitfire Audio and guest artists.
+
+  It is free to use with a changing selection of presets and Free Drops; an
+  INSTRUMENT or Creator subscription unlocks the complete catalogue.

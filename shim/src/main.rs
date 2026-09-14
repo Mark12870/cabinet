@@ -124,31 +124,6 @@ where
         .collect()
 }
 
-fn env_flags<R>(prefix: Option<&OsStr>, read: &R) -> Vec<OsString>
-where
-    R: Fn(&Path) -> Option<String>,
-{
-    let Some(recorded) = prefix.and_then(|p| read(&Path::new(p).join(ENV_MARKER))) else {
-        return Vec::new();
-    };
-
-    recorded
-        .lines()
-        .filter_map(|line| {
-            let line = line.trim();
-            if line.starts_with('#') {
-                return None;
-            }
-            let (key, value) = line.split_once('=')?;
-            let key = key.trim_end();
-            if key.is_empty() || CABINET_OWNED.contains(&key) {
-                return None;
-            }
-            Some(OsString::from(format!("--env={key}={value}")))
-        })
-        .collect()
-}
-
 fn canonicalize<C>(value: &OsStr, canon: &C) -> OsString
 where
     C: Fn(&Path) -> Option<PathBuf>,
@@ -269,7 +244,6 @@ where
     }
 
     argv.extend(sync_flags(prefix.as_deref(), &read));
-    argv.extend(env_flags(prefix.as_deref(), &read));
 
     argv.push(app.into());
     argv.push(INNER_MODE.into());
@@ -779,24 +753,6 @@ mod tests {
     }
 
     #[test]
-    fn a_prefix_can_hand_wayland_back_to_wine() {
-        let argv = build_with_markers(
-            &[("WINEPREFIX", PREFIX)],
-            false,
-            &[(ENV_MARKER, Some("WAYLAND_DISPLAY=wayland-0\n"))],
-        );
-        let blanked = argv
-            .iter()
-            .position(|a| a == "--env=WAYLAND_DISPLAY=")
-            .unwrap();
-        let given = argv
-            .iter()
-            .position(|a| a == "--env=WAYLAND_DISPLAY=wayland-0")
-            .unwrap();
-        assert!(given > blanked);
-    }
-
-    #[test]
     fn a_prefix_sync_mode_sets_all_three_primitives() {
         let argv = build_with_markers(
             &[("WINEPREFIX", PREFIX)],
@@ -835,48 +791,5 @@ mod tests {
             &[(SYNC_MARKER, Some("ntsyncc"))],
         );
         assert!(!argv.iter().any(|a| a.starts_with("--env=WINEESYNC")));
-    }
-
-    #[test]
-    fn a_prefix_environment_file_reaches_the_plugin_load_path() {
-        let argv = build_with_markers(
-            &[("WINEPREFIX", PREFIX)],
-            false,
-            &[(ENV_MARKER, Some("WINEDEBUG=warn+all\nSTEAM_COMPAT=1\n"))],
-        );
-        assert!(argv.iter().any(|a| a == "--env=WINEDEBUG=warn+all"));
-        assert!(argv.iter().any(|a| a == "--env=STEAM_COMPAT=1"));
-    }
-
-    #[test]
-    fn blank_comment_and_keyless_lines_are_skipped() {
-        let argv = build_with_markers(
-            &[("WINEPREFIX", PREFIX)],
-            false,
-            &[(ENV_MARKER, Some("\n# a note\nnonsense\n=orphan\nKEEP=1\n"))],
-        );
-        assert_eq!(
-            argv.iter()
-                .filter(|a| a.starts_with("--env=") && a != &"--env=WAYLAND_DISPLAY=")
-                .count(),
-            2,
-            "{argv:?}"
-        );
-        assert!(argv.iter().any(|a| a == "--env=KEEP=1"));
-    }
-
-    #[test]
-    fn a_prefix_cannot_take_over_the_variables_cabinet_owns() {
-        let argv = build_with_markers(
-            &[("WINEPREFIX", PREFIX)],
-            false,
-            &[(
-                ENV_MARKER,
-                Some("WINEPREFIX=/elsewhere\nWINELOADER=/bin/false\nYABRIDGE_TEMP_DIR=/tmp\n"),
-            )],
-        );
-        assert!(!argv.iter().any(|a| a == "--env=WINEPREFIX=/elsewhere"));
-        assert!(!argv.iter().any(|a| a.starts_with("--env=WINELOADER")));
-        assert!(!argv.iter().any(|a| a == "--env=YABRIDGE_TEMP_DIR=/tmp"));
     }
 }

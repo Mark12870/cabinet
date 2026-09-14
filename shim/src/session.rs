@@ -19,6 +19,7 @@ const IDLE_GRACE: Duration = Duration::from_secs(10);
 const START_TIMEOUT: Duration = Duration::from_secs(30);
 const TICK: Duration = Duration::from_millis(20);
 const ATTEMPTS: u32 = 3;
+const YABRIDGE_HOST: &str = "yabridge-host";
 
 pub fn key(seed: &OsStr) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
@@ -416,6 +417,7 @@ pub fn run_broker(args: &[OsString]) -> i32 {
         return 127;
     }
 
+    let prefix = std::env::var_os("WINEPREFIX");
     let watcher = x11::Watcher::start();
     let live = Arc::new(AtomicUsize::new(0));
     let owned = Arc::new(Mutex::new(Vec::new()));
@@ -427,11 +429,12 @@ pub fn run_broker(args: &[OsString]) -> i32 {
                 idle = None;
                 live.fetch_add(1, Ordering::SeqCst);
                 let runner = runner.clone();
+                let prefix = prefix.clone();
                 let counted = Job(Arc::clone(&live));
                 let owned = Arc::clone(&owned);
                 thread::spawn(move || {
                     let _counted = counted;
-                    serve(stream, &runner, &owned);
+                    serve(stream, &runner, prefix.as_deref(), &owned);
                 });
             }
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
@@ -492,7 +495,7 @@ fn retire(lock: &Path, socket: &Path, live: &AtomicUsize) -> bool {
     true
 }
 
-fn serve(mut stream: UnixStream, runner: &OsStr, owned: &Mutex<Vec<i32>>) {
+fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: &Mutex<Vec<i32>>) {
     let Ok((payload, passed)) = receive_job(&mut stream) else {
         return;
     };
@@ -501,7 +504,7 @@ fn serve(mut stream: UnixStream, runner: &OsStr, owned: &Mutex<Vec<i32>>) {
         return;
     };
 
-    let status = match spawn(runner, &argv, passed) {
+    let status = match spawn(runner, &argv, passed, prefix) {
         Ok(mut child) => {
             let group = child.id() as i32;
             remember(owned, group);
@@ -518,10 +521,18 @@ fn serve(mut stream: UnixStream, runner: &OsStr, owned: &Mutex<Vec<i32>>) {
     let _ = write_frame(&mut stream, &status.to_le_bytes());
 }
 
-fn spawn(runner: &OsStr, argv: &[OsString], passed: Vec<RawFd>) -> io::Result<std::process::Child> {
+fn spawn(
+    runner: &OsStr,
+    argv: &[OsString],
+    passed: Vec<RawFd>,
+    prefix: Option<&OsStr>,
+) -> io::Result<std::process::Child> {
     let mut command = Command::new(runner);
     command.args(argv);
     command.env_remove("WINELOADER");
+    command.envs(prefix_environment(prefix, |path| {
+        std::fs::read_to_string(path).ok()
+    }));
 
     if let [input, output, error] = passed[..] {
         unsafe {
@@ -552,6 +563,31 @@ fn spawn(runner: &OsStr, argv: &[OsString], passed: Vec<RawFd>) -> io::Result<st
     }
 
     command.spawn()
+}
+
+fn prefix_environment<R>(prefix: Option<&OsStr>, read: R) -> Vec<(String, String)>
+where
+    R: Fn(&Path) -> Option<String>,
+{
+    let Some(recorded) = prefix.and_then(|p| read(&Path::new(p).join(crate::ENV_MARKER))) else {
+        return Vec::new();
+    };
+
+    recorded
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.starts_with('#') {
+                return None;
+            }
+            let (key, value) = line.split_once('=')?;
+            let key = key.trim_end();
+            if key.is_empty() || crate::CABINET_OWNED.contains(&key) {
+                return None;
+            }
+            Some((key.to_string(), value.to_string()))
+        })
+        .collect()
 }
 
 fn supervise(
@@ -609,16 +645,22 @@ fn supervise(
 }
 
 fn alive(observed: &(ProcessInfo, Option<PidFd>), processes: &[ProcessInfo]) -> bool {
-    match observed.1.as_ref() {
+    let (host, pidfd) = observed;
+    let current = processes.iter().find(|process| {
+        process.pid == host.pid
+            && process.start_time == host.start_time
+            && process.comm == host.comm
+    });
+
+    if current
+        .is_some_and(|process| process.state == b'Z' && process.comm.starts_with(YABRIDGE_HOST))
+    {
+        return false;
+    }
+
+    match pidfd {
         Some(pidfd) => !pidfd.signalled(),
-        None => processes
-            .iter()
-            .find(|process| process.pid == observed.0.pid)
-            .is_some_and(|process| {
-                process.start_time == observed.0.start_time
-                    && process.state != b'Z'
-                    && process.comm == observed.0.comm
-            }),
+        None => current.is_some_and(|process| process.state != b'Z'),
     }
 }
 
@@ -990,5 +1032,102 @@ mod tests {
             assert!(!seen.contains(&name), "{prefix} collided");
             seen.push(name);
         }
+    }
+
+    #[test]
+    fn a_wine_job_sees_the_prefix_environment_as_it_is_when_the_job_starts() {
+        let prefix = std::env::temp_dir().join(format!("cabinet-env-{}", std::process::id()));
+        std::fs::create_dir_all(&prefix).unwrap();
+        let marker = prefix.join(crate::ENV_MARKER);
+        let seen = prefix.join("seen");
+        let argv: Vec<OsString> = vec![
+            "-c".into(),
+            "printf %s \"$CABINET_PROBE\" > \"$0\"".into(),
+            seen.clone().into(),
+        ];
+
+        for value in ["one", "two"] {
+            std::fs::write(&marker, format!("CABINET_PROBE={value}\n")).unwrap();
+            let mut child = spawn(
+                OsStr::new("/bin/sh"),
+                &argv,
+                Vec::new(),
+                Some(prefix.as_os_str()),
+            )
+            .unwrap();
+            assert!(child.wait().unwrap().success());
+            assert_eq!(std::fs::read_to_string(&seen).unwrap(), value);
+        }
+
+        std::fs::remove_dir_all(&prefix).unwrap();
+    }
+
+    #[test]
+    fn a_prefix_environment_skips_invalid_and_cabinet_owned_variables() {
+        assert_eq!(
+            prefix_environment(Some(OsStr::new("/prefix")), |path: &Path| {
+                (path.file_name() == Some(OsStr::new(crate::ENV_MARKER))).then(|| {
+                    "\n# a note\nnonsense\n=orphan\nKEEP=1\nWINEPREFIX=/elsewhere\n".to_string()
+                })
+            }),
+            vec![("KEEP".to_string(), "1".to_string())]
+        );
+    }
+
+    fn outliving(comm: &str) -> ((ProcessInfo, Option<PidFd>), ProcessInfo) {
+        let me = process_info(unsafe { getpid() }).unwrap();
+        let pidfd = PidFd(unsafe { syscall(SYS_PIDFD_OPEN, me.pid as c_long, 0) } as RawFd);
+        let host = ProcessInfo {
+            comm: comm.to_string(),
+            ..me
+        };
+        let dead_leader = ProcessInfo {
+            state: b'Z',
+            ..host.clone()
+        };
+
+        ((host, Some(pidfd)), dead_leader)
+    }
+
+    #[test]
+    fn a_yabridge_host_whose_main_thread_died_is_dead_though_its_other_threads_run() {
+        let (observed, dead_leader) = outliving("yabridge-host.e");
+
+        assert!(alive(&observed, std::slice::from_ref(&observed.0)));
+        assert!(!alive(&observed, &[dead_leader]));
+    }
+
+    #[test]
+    fn any_other_program_may_outlive_its_main_thread() {
+        let (observed, dead_leader) = outliving("cmd.exe");
+
+        assert!(alive(&observed, &[dead_leader]));
+    }
+
+    #[test]
+    fn a_job_ends_when_its_yabridge_hosts_main_thread_dies() {
+        let script = "import ctypes, threading, time\n\
+                      threading.Thread(target=time.sleep, args=(30,)).start()\n\
+                      libc = ctypes.CDLL(None)\n\
+                      libc.prctl(15, b'yabridge-host.e', 0, 0, 0)\n\
+                      time.sleep(1)\n\
+                      libc.pthread_exit(None)\n";
+        let mut child = Command::new("python3")
+            .args(["-c", script])
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let group = child.id() as i32;
+        let (_plugin, mut session) = UnixStream::pair().unwrap();
+        let started = Instant::now();
+
+        supervise(
+            &mut child,
+            group,
+            Some(&OsString::from("yabridge-host.exe.so")),
+            &mut session,
+        );
+
+        assert!(started.elapsed() < Duration::from_secs(10));
     }
 }

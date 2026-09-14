@@ -72,6 +72,26 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void WebView2FlagsGoWhereAnElevatedWineHostReadsThem()
+    {
+        var layout = Catalogue.Layout();
+
+        var declared = Shipped
+            .SelectMany(
+                entry => entry.Env.Keys.Where(key => key.StartsWith("WEBVIEW2_", StringComparison.Ordinal)),
+                (entry, key) => $"{entry.Id} declares {key}, which WebView2 ignores in an elevated host");
+        var scripted = Shipped
+            .Where(entry => entry.Script is not null)
+            .SelectMany(
+                entry => File.ReadAllLines(layout.LibraryScript(entry.Vendor, entry.Script!))
+                    .Where(line => line.Contains(
+                        @"HKCU\Software\Policies\Microsoft\Edge\WebView2", StringComparison.OrdinalIgnoreCase)),
+                (entry, _) => $"{entry.Vendor}/{entry.Script} sets WebView2 policy under HKCU, not HKLM");
+
+        Assert.Empty(declared.Concat(scripted));
+    }
+
+    [Fact]
     public void NoInstallScriptRunsWinetricksInsteadOfDeclaringItsDependencies()
     {
         var layout = Catalogue.Layout();

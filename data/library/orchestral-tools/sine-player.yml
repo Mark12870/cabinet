@@ -19,7 +19,6 @@ Script: sine-player.sh
 Runner: 9.21
 Dxvk: true
 Sync: fsync
-Env: WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu
 Description:
   SINEplayer loads Orchestral Tools' orchestral, cinematic and contemporary
   sample instruments, with articulation switching, mic-position mixing and a

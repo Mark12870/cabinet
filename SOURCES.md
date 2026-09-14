@@ -35,7 +35,8 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | neural-amp-modeler | `github.com/mikeoliphant/neural-amp-modeler-lv2/releases/tag/v0.2.3`, the LV2 port's supplied `resources/modgui/screenshot-nam.png`; its icon is the project's `NeuralAmpModeler/resources/Images.xcassets/AppIcon.appiconset/icon_512x512.png` |
 | mt-power-drum-kit-2 | `powerdrumkit.com/images/drum_sampler.jpg`, the official MT Power Drum Kit interface screenshot |
 | sine-player | `orchestraltools.com/get-sine/images/3253/image-thumb__3253__img_21-9_full/get-sine-hero-image-new.a1dca4e7.jpg`, the official SINEplayer interface screenshot |
-| splice | `splice.com/download` — the official Splice Desktop app screenshot; its icon is the app icon shipped in the pinned MSIX, not a crop of the screenshot |
+| splice-desktop | `splice.com/download` — the official Splice Desktop app screenshot; its icon is the app icon shipped in the pinned MSIX, not a crop of the screenshot |
+| splice-instrument | `splice.com/instrument` — the official Splice INSTRUMENT interface screenshot, `splice-res.cloudinary.com/image/upload/f_auto,q_auto:eco,c_limit,w_1200/app-assets/instrument/originals/crystal-keys-ui.png`; its icon is a crop of that screenshot |
 
 | Vendor | Logo |
 | --- | --- |

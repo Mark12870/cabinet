@@ -1174,16 +1174,21 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 : null,
             onOutput);
 
-        if (existing is null && entry.Env.Count > 0)
+        if (entry.Env.Count > 0)
         {
             var settings = new PrefixSettings(layout);
+            var current = settings.Variables(prefix);
+            var added = entry.Env.Keys.Where(key => !current.ContainsKey(key)).ToList();
 
-            foreach (var (key, value) in entry.Env)
+            foreach (var key in added)
             {
-                settings.SetVariable(prefix, key, value);
+                settings.SetVariable(prefix, key, entry.Env[key]);
             }
 
-            onOutput?.Invoke($"Set {string.Join(", ", entry.Env.Keys)}.");
+            if (added.Count > 0)
+            {
+                onOutput?.Invoke($"Set {string.Join(", ", added)}.");
+            }
         }
 
         if (entry.Winetricks.Count > 0)
