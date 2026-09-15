@@ -281,6 +281,288 @@ public class LibraryTests : IDisposable
                 [Prefixes.JoinMode, entry.Launch!, "--disable-gpu", "--disable-gpu-compositing"]));
     }
 
+    [Fact]
+    public void AnAppCanClaimTheLinksItRegisters()
+    {
+        var entry = LibraryEntry.Parse("thing", Linked);
+
+        Assert.Equal("thingmanager", entry.Scheme);
+    }
+
+    [Fact]
+    public void ASchemeWithoutAnAppIsRefused()
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: windows\nSource: byo\nScheme: thingmanager\n"));
+
+        Assert.Contains("Scheme but no Launch", thrown.Message);
+    }
+
+    [Theory]
+    [InlineData("thingmanager://")]
+    [InlineData("ThingManager")]
+    [InlineData("1thing")]
+    [InlineData("thing manager")]
+    [InlineData("https")]
+    [InlineData("file")]
+    public void ASchemeThatIsNotTheAppsOwnIsRefused(string scheme)
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+            + $"Scheme: {scheme}\n"));
+
+        Assert.Contains($"Scheme: {scheme}", thrown.Message);
+    }
+
+    [Fact]
+    public void AnAppCanNameTheHelperItLeavesRunning()
+    {
+        var entry = LibraryEntry.Parse("thing", Linked + "LaunchHelper: ThingHelper.exe\n");
+
+        Assert.Equal("ThingHelper.exe", entry.LaunchHelper);
+    }
+
+    [Fact]
+    public void AHelperWithoutAnAppIsRefused()
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: windows\nSource: byo\nLaunchHelper: ThingHelper.exe\n"));
+
+        Assert.Contains("LaunchHelper but no Launch", thrown.Message);
+    }
+
+    [Theory]
+    [InlineData(@"C:\Program Files\Thing\ThingHelper.exe")]
+    [InlineData("helpers/ThingHelper.exe")]
+    [InlineData("ThingHelper")]
+    [InlineData("*.exe")]
+    [InlineData("Thing?.exe")]
+    [InlineData(".exe")]
+    public void AHelperThatIsNotAnExeNameIsRefused(string helper)
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse("thing", Linked + $"LaunchHelper: {helper}\n"));
+
+        Assert.Contains($"LaunchHelper: {helper}", thrown.Message);
+    }
+
+    [Fact]
+    public void ClosingAnAppEndsTheHelperItLeftRunning()
+    {
+        var entry = LibraryEntry.Parse("thing", Linked + "LaunchHelper: ThingHelper.exe\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        var calls = recorder.Calls.ToList();
+        var app = calls.FindIndex(call => call.Arguments.Contains(entry.Launch));
+        var helper = calls.FindIndex(call => call.Arguments.SequenceEqual(
+            [Prefixes.JoinMode, "taskkill", "/f", "/im", "ThingHelper.exe"]));
+
+        Assert.True(app < helper);
+    }
+
+    [Fact]
+    public void ClosingAnAppLeavesTheHelperToACopyOfItStillOpen()
+    {
+        var entry = LibraryEntry.Parse("thing", Linked + "LaunchHelper: ThingHelper.exe\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: _ => "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("ThingHelper.exe"));
+    }
+
+    [Fact]
+    public void StoppingAnAppEndsItsHelperToo()
+    {
+        var entry = LibraryEntry.Parse("thing", Linked + "LaunchHelper: ThingHelper.exe\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(outputs: _ => Gone);
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+
+        new Library(layout, recorder).Stop(entry);
+
+        Assert.Single(recorder.Calls, call => call.Arguments.SequenceEqual(
+            [Prefixes.JoinMode, "taskkill", "/f", "/im", "ThingHelper.exe"]));
+        Assert.Contains(
+            "Closing ThingHelper.exe.", File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
+    }
+
+    [Fact]
+    public void AnAppStopLeftAloneKeepsItsHelper()
+    {
+        var entry = LibraryEntry.Parse("thing", Linked + "LaunchHelper: ThingHelper.exe\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
+                ? Prefixes.SessionLiveWord
+                : "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+
+        new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
+
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("ThingHelper.exe"));
+    }
+
+    [Fact]
+    public void ALinkGoesToTheRunningManagerThroughItsSession()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
+                ? Prefixes.SessionLiveWord
+                : "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        new Library(layout, recorder).Open("thingmanager://signed-in?code=1");
+
+        Assert.Single(
+            recorder.Calls,
+            call => call.Arguments.SequenceEqual(
+                [Prefixes.JoinMode, "start", "thingmanager://signed-in?code=1"]));
+        Assert.DoesNotContain(
+            recorder.Calls, call => call.Arguments.Contains(@"C:\Program Files\Thing\Thing.exe"));
+    }
+
+    [Fact]
+    public void ALinkForAClosedManagerOpensItWithTheLink()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        new Library(layout, recorder).Open("thingmanager://signed-in?code=1");
+
+        Assert.Single(
+            recorder.Calls,
+            call => call.Arguments.SequenceEqual(
+                [Prefixes.JoinMode, @"C:\Program Files\Thing\Thing.exe", "thingmanager://signed-in?code=1"]));
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("start"));
+    }
+
+    [Fact]
+    public void ALiveSessionWithoutTheManagerOpensItWithTheLink()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
+                ? Prefixes.SessionLiveWord
+                : "\"yabridge-host.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        new Library(layout, recorder).Open("thingmanager://signed-in?code=1");
+
+        Assert.Single(
+            recorder.Calls,
+            call => call.Arguments.SequenceEqual(
+                [Prefixes.JoinMode, @"C:\Program Files\Thing\Thing.exe", "thingmanager://signed-in?code=1"]));
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("start"));
+    }
+
+    [Fact]
+    public void ALinkFindsItsManagerWhateverTheCaseOfItsScheme()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        new Library(layout, recorder).Open("ThingManager://signed-in");
+
+        Assert.Single(
+            recorder.Calls,
+            call => call.Arguments.SequenceEqual(
+                [Prefixes.JoinMode, @"C:\Program Files\Thing\Thing.exe", "ThingManager://signed-in"]));
+    }
+
+    [Fact]
+    public void ALinkGoesToThePrefixTheManagerIsInstalledIn()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("other"));
+        File.WriteAllText(layout.PrefixPluginsFile("other"), "thing\n");
+
+        new Library(layout, recorder).Open("thingmanager://signed-in");
+
+        var opened = Assert.Single(
+            recorder.Calls, call => call.Arguments.Contains("thingmanager://signed-in"));
+        Assert.Equal(layout.PrefixPath("other"), opened.Environment["WINEPREFIX"]);
+    }
+
+    [Theory]
+    [InlineData("thingmanager")]
+    [InlineData(":signed-in")]
+    public void SomethingThatIsNotALinkIsRefused(string link)
+    {
+        Catalogue(("thing", Linked));
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Library(Layout(), new RecordingRunner()).Open(link));
+
+        Assert.Contains($"{link} is not a link", thrown.Message);
+    }
+
+    [Fact]
+    public void HandingALinkOverIsWrittenToTheLaunchLog()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
+                ? Prefixes.SessionLiveWord
+                : "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        new Library(layout, recorder).Open("thingmanager://signed-in");
+
+        var handed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("start"));
+        Assert.Equal(layout.PrefixLaunchLog("thing"), handed.LogTo);
+        Assert.Contains(
+            "Handing the link to Thing.", File.ReadAllText(layout.PrefixLaunchLog("thing")));
+    }
+
+    [Fact]
+    public void ALinkNoAppInTheLibraryRegistersIsRefused()
+    {
+        Catalogue(("thing", Linked));
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Library(Layout(), new RecordingRunner()).Open("othermanager://signed-in"));
+
+        Assert.Contains("no app in the library opens othermanager: links", thrown.Message);
+    }
+
+    [Fact]
+    public void ALinkForAManagerThatIsNotInstalledSaysHowToInstallIt()
+    {
+        Catalogue(("thing", Linked));
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Library(Layout(), new RecordingRunner()).Open("thingmanager://signed-in"));
+
+        Assert.Contains("`cabinet library install thing`", thrown.Message);
+    }
+
     [Theory]
     [InlineData("Thing.exe")]
     [InlineData("/opt/thing/thing")]
@@ -2217,20 +2499,38 @@ public class LibraryTests : IDisposable
     {
         var entry = Manager();
         var layout = Layout();
-        var recorder = new RecordingRunner(outputs: _ => "Thing.exe   316 Console   1   64 K");
+        var recorder = new RecordingRunner(outputs: _ => "\"Thing.exe\",\"316\",\"Console\",\"1\",\"64 K\"");
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
 
         new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
 
         var listed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("tasklist"));
 
-        Assert.Equal([Prefixes.JoinMode, "tasklist", "/fi", "imagename eq Thing.exe", "/nh"], listed.Arguments);
+        Assert.Equal([Prefixes.JoinMode, "tasklist", "/fo", "csv", "/nh"], listed.Arguments);
         Assert.Single(recorder.Calls, call =>
             call.File == "wineserver" && call.Arguments.SequenceEqual(["-k"]));
 
         Assert.Contains(
             "Ending every Wine process",
             File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
+    }
+
+    [Fact]
+    public void AnAppWhoseNameHasASpaceIsStillSeenRunning()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + @"Launch: C:\Program Files\Thing\Thing Manager.exe" + "\n");
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: _ => "\"Thing Manager.exe\",\"316\",\"Console\",\"1\",\"64 K\"");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+
+        new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
+
+        Assert.Single(recorder.Calls, call =>
+            call.File == "wineserver" && call.Arguments.SequenceEqual(["-k"]));
     }
 
     [Fact]
@@ -2331,6 +2631,11 @@ public class LibraryTests : IDisposable
         LibraryEntry.Parse(id, $"Name: {id}\nKind: native\nSource: byo\n");
 
     private const string Vendor = "a-vendor";
+
+    private const string Linked =
+        "Name: Thing\nKind: windows\nSource: byo\n"
+        + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n"
+        + "Scheme: thingmanager\n";
 
     private void Catalogue(params (string Id, string Text)[] entries)
     {

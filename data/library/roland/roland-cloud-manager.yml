@@ -1,0 +1,34 @@
+Name: Roland Cloud Manager
+Kind: windows
+Category: Manager
+Summary: Roland's own manager, which downloads and installs Roland Cloud software.
+Developer: Roland
+Version: 3.1.25
+Licence: Freeware
+Licensing:
+  The app is free and signs in to a Roland account. ZENOLOGY Lite and some
+  patches cost nothing; the rest needs a Roland Cloud membership or a Lifetime Key.
+Formats: VST3
+Homepage: https://www.roland.com/global/products/rc_roland_cloud_manager/
+Source: download
+Url: https://www.rolandcloud.com/getmedia/d232d771-182c-4f58-ac6c-1aa03968819e/Roland-Cloud-Manager-Installer-3-1-25.exe
+Sha256: c5e9b2f1bc7d0d4a4f497863d8cfb7accdcaf45a92ad32f23d76ba57987932fe
+Prefix: roland
+Launch: C:\Program Files\RolandCloudManager\Roland Cloud Manager.exe
+LaunchHelper: RCMservice.exe
+Scheme: rolandcloudmanager
+Script: roland.sh
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Env:
+  WINEDLLOVERRIDES=netprofm=d
+  WINEQT_QPA_PLATFORMTHEME=windows
+Description:
+  Not a plugin but the door to Roland Cloud: ZENOLOGY, the Legendary
+  recreations of the JUPITER-8, JUNO-106, TR-808 and D-50, the SRX expansions
+  and sample packs. Sign in, and the app installs what your account owns and
+  keeps it up to date.
+
+  So installing this installs nothing you can play yet — it is the door, and
+  what you own arrives through it.

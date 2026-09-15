@@ -30,6 +30,7 @@ internal static class Program
           cabinet library remove <id>          uninstall one, links, prefix and all
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library stop <id>            close a manager Cabinet opened
+          cabinet library open <link>          hand a sign-in link to the manager that registered it
           cabinet library log <id>             Cabinet and shared yabridge logs for an installed plugin
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
@@ -436,6 +437,7 @@ internal static class Program
             "remove" => RemoveFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
             "launch" => LaunchFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
             "stop" => StopFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
+            "open" => OpenFromLibrary(layout, runner, Require(rest, 1, "a link")),
             "log" => LogFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
             var unknown => Unknown($"library {unknown}"),
         };
@@ -755,6 +757,12 @@ internal static class Program
         }
 
         library.Stop(entry, prefix, onOutput: Console.WriteLine);
+        return 0;
+    }
+
+    private static int OpenFromLibrary(Layout layout, IProcessRunner runner, string link)
+    {
+        new Library(layout, runner).Open(link, Console.WriteLine);
         return 0;
     }
 

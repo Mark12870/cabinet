@@ -37,7 +37,9 @@ public sealed record LibraryEntry(
     string? Script,
     string? Launch,
     string? LaunchService,
+    string? LaunchHelper,
     IReadOnlyList<string> LaunchArgs,
+    string? Scheme,
     string? Keep,
     string? Recover,
     string? Data,
@@ -136,7 +138,8 @@ public sealed record LibraryEntry(
             && new[]
             {
                 "Prefix", "Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop",
-                "Launch", "LaunchService", "LaunchArgs", "Keep", "Recover",
+                "Launch", "LaunchService", "LaunchHelper", "LaunchArgs", "Scheme", "Keep",
+                "Recover",
             }
                 .FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
@@ -159,10 +162,22 @@ public sealed record LibraryEntry(
                 $"{id}.yml has LaunchService but no Launch");
         }
 
+        if (Value(fields, "LaunchHelper") is not null && Value(fields, "Launch") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has LaunchHelper but no Launch");
+        }
+
         if (Value(fields, "LaunchArgs") is not null && Value(fields, "Launch") is null)
         {
             throw new InvalidOperationException(
                 $"{id}.yml has LaunchArgs but no Launch");
+        }
+
+        if (Value(fields, "Scheme") is not null && Value(fields, "Launch") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Scheme but no Launch — a link is handed to an app of its own");
         }
 
         if (Value(fields, "Recover") is not null && Value(fields, "Keep") is null)
@@ -210,7 +225,9 @@ public sealed record LibraryEntry(
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
             Value(fields, "Launch") is { } launch ? ParseLaunch(id, launch) : null,
             Value(fields, "LaunchService"),
+            Value(fields, "LaunchHelper") is { } helper ? ParseLaunchHelper(id, helper) : null,
             ParseLaunchArgs(id, Value(fields, "LaunchArgs")),
+            Value(fields, "Scheme") is { } scheme ? ParseScheme(id, scheme) : null,
             Value(fields, "Keep") is { } keep ? ParseKeep(id, keep) : null,
             Value(fields, "Recover") is { } recover ? ParseScript(id, recover) : null,
             Value(fields, "Data") is { } data ? ParseData(id, data) : null,
@@ -245,6 +262,44 @@ public sealed record LibraryEntry(
         }
 
         return path;
+    }
+
+    private static string ParseLaunchHelper(string id, string name)
+    {
+        if (name.Length <= ".exe".Length
+            || !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            || name.IndexOfAny(['\\', '/', ':', '*', '?', '"', '<', '>', '|']) >= 0)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has LaunchHelper: {name} — the name of the .exe its app leaves "
+                + "running, such as ThingHelper.exe, not a path");
+        }
+
+        return name;
+    }
+
+    private static readonly string[] SharedSchemes = ["http", "https", "file", "mailto"];
+
+    private static string ParseScheme(string id, string scheme)
+    {
+        if (scheme is not [var first, ..]
+            || !char.IsAsciiLetterLower(first)
+            || scheme.Any(character => !char.IsAsciiLetterLower(character)
+                                       && !char.IsAsciiDigit(character)
+                                       && character is not ('+' or '-' or '.')))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Scheme: {scheme} — the lower-case name before :// in the links "
+                + "its app registers, such as thingmanager");
+        }
+
+        if (SharedSchemes.Contains(scheme, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Scheme: {scheme}, which every browser and desktop already opens");
+        }
+
+        return scheme;
     }
 
     private static IReadOnlyList<string> ParseLaunchArgs(string id, string? text)
@@ -663,7 +718,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
 
     public void Launch(
-        LibraryEntry entry, string? prefix = null, Action<string>? onOutput = null)
+        LibraryEntry entry, string? prefix = null, Action<string>? onOutput = null,
+        string? link = null)
     {
         if (entry.Launch is null)
         {
@@ -756,11 +812,19 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         try
         {
-            ran = prefixes.RunJoined(where, [entry.Launch, .. entry.LaunchArgs], logTo: log);
+            ran = prefixes.RunJoined(
+                where,
+                [entry.Launch, .. entry.LaunchArgs, .. link is null ? [] : new[] { link }],
+                logTo: log);
 
             if (entry.LaunchService is { } stopping)
             {
                 prefixes.RunJoined(where, ["sc", "stop", stopping], logTo: log);
+            }
+
+            if (entry.LaunchHelper is { } helper && !Running(prefixes, where, entry.LaunchExe!))
+            {
+                prefixes.RunJoined(where, ["taskkill", "/f", "/im", helper], logTo: log);
             }
 
             settled = prefixes.SessionLive(where)
@@ -905,12 +969,61 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             Thread.Sleep(Beat);
         }
 
+        if (entry.LaunchHelper is { } helper)
+        {
+            Say($"Closing {helper}.");
+            prefixes.RunJoined(where, ["taskkill", "/f", "/im", helper], logTo: log);
+        }
+
         Say($"{entry.Name} is closed.");
     }
 
+    public void Open(string link, Action<string>? onOutput = null)
+    {
+        var at = link.IndexOf(':');
+
+        if (at < 1)
+        {
+            throw new InvalidOperationException($"{link} is not a link");
+        }
+
+        var scheme = link[..at].ToLowerInvariant();
+        var entry = Entries().FirstOrDefault(candidate => candidate.Scheme == scheme)
+            ?? throw new InvalidOperationException(
+                $"no app in the library opens {scheme}: links");
+
+        if (!Installed().TryGetValue(entry.Id, out var where) || where is null)
+        {
+            throw new InvalidOperationException(
+                $"{entry.Name} opens {scheme}: links but is not installed — "
+                + $"`cabinet library install {entry.Id}` installs it");
+        }
+
+        var prefixes = new Prefixes(layout, runner);
+
+        if (prefixes.SessionLive(where) && Running(prefixes, where, entry.LaunchExe!))
+        {
+            var log = layout.PrefixLaunchLog(where);
+            var line = $"Handing the link to {entry.Name}.";
+            File.AppendAllText(log, line + Environment.NewLine);
+            onOutput?.Invoke(line);
+            var handed = prefixes.RunJoined(where, ["start", link], logTo: log);
+
+            if (!handed.Ok)
+            {
+                throw new InvalidOperationException(
+                    $"{entry.Name} was not handed the link (exit code {handed.ExitCode})");
+            }
+
+            return;
+        }
+
+        Launch(entry, where, onOutput, link);
+    }
+
     private static bool Running(Prefixes prefixes, string where, string exe) =>
-        prefixes.RunJoined(where, ["tasklist", "/fi", $"imagename eq {exe}", "/nh"])
-            .Stdout.Contains(exe, StringComparison.OrdinalIgnoreCase);
+        prefixes.RunJoined(where, ["tasklist", "/fo", "csv", "/nh"])
+            .Stdout.Contains($"\"{exe}\"", StringComparison.OrdinalIgnoreCase);
 
     public string? LaunchLog(LibraryEntry entry, string? prefix = null)
     {

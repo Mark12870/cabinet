@@ -295,6 +295,8 @@ modules:
         ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
       - install -Dm644 ${FLATPAK_ID}.desktop
         ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm644 data/${FLATPAK_ID}.Links.desktop
+        ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.Links.desktop
       - install -Dm644 data/${FLATPAK_ID}.svg
         ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
       # The plugin catalogue the Library page reads: one directory per vendor holding its

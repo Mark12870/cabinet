@@ -38,6 +38,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | splice-desktop | `splice.com/download` — the official Splice Desktop app screenshot; its icon is the app icon shipped in the pinned MSIX, not a crop of the screenshot |
 | splice-instrument | `splice.com/instrument` — the official Splice INSTRUMENT interface screenshot, `splice-res.cloudinary.com/image/upload/f_auto,q_auto:eco,c_limit,w_1200/app-assets/instrument/originals/crystal-keys-ui.png`; its icon is a crop of that screenshot |
 | arturia-software-center | Arturia's ASC page, `arturia.com/technology/asc`, `medias.arturia.net/images/demo/miniatureASC.png` — the app's My Products view, trimmed of its transparent margin; its icon is the app's own crosshair tile, `medias.arturia.net/images/products/asc/catalog-image.png`, cropped to the tile |
+| roland-cloud-manager | Roland's product page, `roland.com/global/products/rc_roland_cloud_manager/`, `static.roland.com/assets/images/products/gallery/rc_roland_cloud_manager_01_all_legendary_gal.jpg` — the app's Legendary grid, from its macOS build; its icon is the app's own 256px music note out of `Roland Cloud Manager.exe` in the pinned installer, near-black, recoloured white |
 
 | Vendor | Logo |
 | --- | --- |
@@ -64,3 +65,4 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | orchestral-tools | Orchestral Tools' official logo package, `orchestraltools.com/files/orchestral-tools-logos.zip`, the horizontal logo's signet cropped and recoloured white |
 | splice | the official Splice app icon shipped in the pinned 5.4.12 MSIX |
 | arturia | the circled A, `medias.arturia.net/images/logo-black.svg`, vector black on transparent, recoloured white |
+| roland | the R symbol at the left of `commons.wikimedia.org/wiki/File:Roland_Corporation_logo.svg`, PD-textlogo; the wordmark beside it is nearly 5:1 and unreadable at this size, and Roland's own orange reads on the dark ground |

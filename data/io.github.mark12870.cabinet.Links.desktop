@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Cabinet
+Exec=cabinet library open %u
+Icon=io.github.mark12870.cabinet
+Terminal=false
+Type=Application
+NoDisplay=true
+MimeType=x-scheme-handler/rolandcloudmanager;

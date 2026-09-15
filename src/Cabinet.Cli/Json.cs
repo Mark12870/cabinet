@@ -86,7 +86,9 @@ internal static class Json
                 writer.WriteString("script", entry.Script);
                 writer.WriteBoolean("manager", entry.Manager);
                 writer.WriteString("launchService", entry.LaunchService);
+                writer.WriteString("launchHelper", entry.LaunchHelper);
                 Strings(writer, "launchArgs", entry.LaunchArgs);
+                writer.WriteString("scheme", entry.Scheme);
                 writer.WriteString("data", entry.Data);
                 writer.WriteString("developer", entry.Developer);
                 writer.WriteString("version", entry.Version);

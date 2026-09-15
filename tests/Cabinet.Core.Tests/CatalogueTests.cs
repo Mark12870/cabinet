@@ -92,6 +92,49 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void AQtVariableIsDeclaredUnderTheNameWinePassesToWindows()
+    {
+        var dropped = Shipped
+            .SelectMany(
+                entry => entry.Env.Keys.Where(key => key.StartsWith("QT_", StringComparison.Ordinal)),
+                (entry, key) => $"{entry.Id} declares {key}, which Wine keeps from Windows; WINE{key} reaches it");
+
+        Assert.Empty(dropped);
+    }
+
+    [Fact]
+    public void TheLinkHandlerClaimsTheSchemesTheCatalogueDoes()
+    {
+        var claimed = Repo.Lines("data/io.github.mark12870.cabinet.Links.desktop")
+            .Single(line => line.StartsWith("MimeType=", StringComparison.Ordinal))["MimeType=".Length..]
+            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(type => type.Replace("x-scheme-handler/", "", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal);
+        var registered = Shipped
+            .Where(entry => !Directory
+                .EnumerateFiles(Repo.Path($"data/library/{entry.Vendor}"), "*.md")
+                .Any())
+            .Select(entry => entry.Scheme)
+            .OfType<string>()
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(registered, claimed);
+    }
+
+    [Fact]
+    public void NoTwoEntriesClaimOneScheme()
+    {
+        var shared = Shipped
+            .Select(entry => entry.Scheme)
+            .OfType<string>()
+            .GroupBy(scheme => scheme, StringComparer.Ordinal)
+            .Where(same => same.Count() > 1)
+            .Select(same => same.Key);
+
+        Assert.Empty(shared);
+    }
+
+    [Fact]
     public void NoInstallScriptRunsWinetricksInsteadOfDeclaringItsDependencies()
     {
         var layout = Catalogue.Layout();

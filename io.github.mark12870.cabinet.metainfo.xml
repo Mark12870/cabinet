@@ -46,6 +46,19 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.15.0" date="2026-09-15">
+      <description>
+        <p>Arturia Software Center and Roland Cloud Manager join the Library</p>
+        <ul>
+          <li>Arturia Software Center joins the Library, to install the Arturia software your account owns</li>
+          <li>Roland Cloud Manager joins the Library, to install ZENOLOGY, the Legendary series and the rest of Roland Cloud</li>
+          <li>Signing in to a manager from the browser now works: the sign-in link opens the manager, or hands the link to it if it is already open</li>
+          <li>Hand a sign-in link to its manager yourself with cabinet library open &lt;link&gt;</li>
+          <li>Closing a manager also closes the background helper it would otherwise leave running</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.14.0" date="2026-09-15">
       <description>
         <p>Winetricks, plugin logs in the app, and Splice INSTRUMENT no longer crashes REAPER</p>
