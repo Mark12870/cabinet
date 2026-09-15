@@ -5,10 +5,9 @@ description: Build and verify Cabinet with CI checks, focused .NET/Rust commands
 
 # Building and checking Cabinet
 
-`scripts/checks.sh` is exactly what `.github/workflows/checks.yml` runs. Keep the two lists
-identical: a check that only CI runs is a check that only fails after a push, which is why the
-script exists rather than a block to copy. Both toolchains come from SDK extensions the script
-enters on its own.
+`scripts/checks.sh` is what `.github/workflows/ci.yml` runs: a check that only CI runs is a
+check that only fails after a push, which is why the script exists rather than a block to copy.
+Both toolchains come from SDK extensions the script enters on its own.
 
 You must use the code-tester subagent for this.
 

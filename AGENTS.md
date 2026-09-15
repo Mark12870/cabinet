@@ -211,11 +211,10 @@ The newest `<release>` in `io.github.mark12870.cabinet.metainfo.xml` is Cabinet'
 version in a project file. `scripts/update-yabridge.py` updates only the manifest URL/hash and does not choose a Cabinet
 release.
 
-Publishing is automatic and irreversible: a push to `main` touching
-`io.github.mark12870.cabinet.*`, `src/**`, `shim/**` or `nuget-sources.json` runs
-`build-publish.yml`, which builds, signs and deploys to Pages only when that newest `<release>`
-differs from the version already published, keeping ten commits of rollback. So a metainfo bump on `main` is the
-release. Read the `release` skill before changing the metainfo, signing, or the published OSTree repository.
+Publishing is automatic and irreversible: every push to `main` runs `ci.yml`, which, once its checks pass, builds,
+signs and deploys to Pages only when that newest `<release>` differs from the version already published, keeping ten
+commits of rollback. So a metainfo bump on `main` is the release. Read the `bump` skill before changing the metainfo,
+signing, or the published OSTree repository.
 
 ## When stuck
 

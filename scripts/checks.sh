@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Everything .github/workflows/checks.yml runs, so the hook and the human run one list.
+# Everything .github/workflows/ci.yml runs, so the hook and the human run one list.
 #
 #   scripts/checks.sh            verify all of it, tests included
 #   scripts/checks.sh --staged   what .githooks/pre-commit runs: reformat the staged code

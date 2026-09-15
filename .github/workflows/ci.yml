@@ -1,26 +1,16 @@
-name: Build and publish the Flatpak repo
+name: CI
 
 on:
   push:
     branches: [main]
-    # Only the package's own inputs. Docs and scripts/ cannot change what gets built,
-    # and a rebuild exports fresh commits that every installed client sees as an
-    # update -- burning a slot of rollback history for nothing.
-    paths:
-      - 'io.github.mark12870.cabinet.*'   # manifest, metainfo
-      - 'src/**'
-      - 'shim/**'
-      - 'nuget-sources.json'
-      - '.github/workflows/build-publish.yml'
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -31,10 +21,76 @@ env:
   HISTORY_DEPTH: 10
 
 jobs:
-  build:
+  checks:
     runs-on: ubuntu-latest
     outputs:
       publish: ${{ steps.gate.outputs.publish }}
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      # bwrap needs to set up its own namespaces to run inside a container.
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install the SDK and the toolchains checks.sh enters
+        run: |
+          flatpak install -y --noninteractive flathub \
+            org.gnome.Sdk//50 \
+            org.freedesktop.Sdk.Extension.dotnet10//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08 \
+            org.freedesktop.Sdk.Extension.llvm20//25.08
+
+      - name: Checks
+        run: scripts/checks.sh
+
+      - name: Decide whether to publish
+        id: gate
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          newest() { grep -oE '<release[[:space:]]+version="[^"]+"' | head -1 | cut -d'"' -f2; }
+
+          version="$(newest < "${APP_ID}.metainfo.xml")"
+          [ -n "${version}" ] || {
+            echo "::error::no <release> version in ${APP_ID}.metainfo.xml"; exit 1; }
+
+          owner="${GITHUB_REPOSITORY%%/*}"
+          url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
+
+          # Branch on the status itself, not on curl's exit: -f collapses every 4xx
+          # and 5xx into exit 22, so a 403 or a down Pages would read as "nothing
+          # published yet" and publish over it.
+          code="$(curl -sSI -o /dev/null -w '%{http_code}' \
+                  --retry 3 --retry-all-errors "${url}summary")" || code=000
+          published=""
+          case "${code}" in
+            200)
+              ref="app/${APP_ID}/x86_64/stable"
+              metainfo="/files/share/metainfo/${APP_ID}.metainfo.xml"
+              ostree --repo="${RUNNER_TEMP}/published" init --mode=archive-z2
+              ostree --repo="${RUNNER_TEMP}/published" remote add --no-gpg-verify published "${url}"
+              ostree --repo="${RUNNER_TEMP}/published" pull \
+                --subpath="$(dirname "${metainfo}")" published "${ref}"
+              published="$(ostree --repo="${RUNNER_TEMP}/published" cat \
+                "published:${ref}" "${metainfo}" | newest)" ;;
+            404|410)
+              echo "::notice::nothing published at ${url} yet" ;;
+            *)
+              echo "::error::cannot reach ${url} (HTTP ${code})"
+              exit 1 ;;
+          esac
+
+          if [ "${version}" = "${published}" ]; then
+            echo "::notice::${version} is already published; nothing to release"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::releasing ${version}${published:+ over ${published}}"
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: checks
+    if: needs.checks.outputs.publish == 'true'
+    runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
       # bwrap needs to set up its own namespaces to build inside a container.
@@ -75,33 +131,7 @@ jobs:
           # otherwise be published inside repo/config.
           ostree --repo=repo remote delete published
 
-      - name: Decide whether to publish
-        id: gate
-        run: |
-          newest() { grep -oE '<release[[:space:]]+version="[^"]+"' | head -1 | cut -d'"' -f2; }
-
-          version="$(newest < "${APP_ID}.metainfo.xml")"
-          [ -n "${version}" ] || {
-            echo "::error::no <release> version in ${APP_ID}.metainfo.xml"; exit 1; }
-
-          # No repo means the seed found nothing published -- a first run, or the seed
-          # step deleted for a deliberate re-root. Both want the build to go ahead.
-          ref="$(ostree --repo=repo refs 2>/dev/null | grep '^app/' || true)"
-          published=""
-          [ -n "${ref}" ] && published="$(ostree --repo=repo cat \
-            "$(ostree --repo=repo rev-parse "${ref}")" \
-            "/files/share/metainfo/${APP_ID}.metainfo.xml" | newest)"
-
-          if [ "${version}" = "${published}" ]; then
-            echo "::notice::${version} is already published; nothing to release"
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::releasing ${version}${published:+ over ${published}}"
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Install the runtime, SDK, Wine and the build toolchains
-        if: steps.gate.outputs.publish == 'true'
         run: |
           flatpak install -y --noninteractive flathub \
             org.gnome.Platform//50 \
@@ -113,7 +143,6 @@ jobs:
             org.winehq.Wine//stable-25.08
 
       - name: Build
-        if: steps.gate.outputs.publish == 'true'
         run: |
           flatpak-builder \
             --repo=repo \
@@ -125,11 +154,9 @@ jobs:
       # Tarred because upload-artifact does not preserve the symlinks an OSTree
       # repository is built out of.
       - name: Pack the repo
-        if: steps.gate.outputs.publish == 'true'
         run: tar -cf repo.tar repo
 
       - uses: actions/upload-artifact@v7
-        if: steps.gate.outputs.publish == 'true'
         with:
           name: repo
           path: repo.tar
@@ -137,12 +164,13 @@ jobs:
 
   publish:
     needs: build
-    # Without this the job runs on a skipped build and dies
-    # on download-artifact, which has nothing to fetch.
-    if: needs.build.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     # Backstop: every step here is seconds to a minute, so anything that stalls is
-    # wedged, and a wedged job sits on the `pages` group for the six-hour limit.
+    # wedged, and a wedged job holds the concurrency group for the six-hour limit.
     timeout-minutes: 30
     environment:
       name: github-pages
@@ -154,7 +182,7 @@ jobs:
       - name: Install flatpak
         # Ubuntu's indexes come from GitHub's Azure-first mirrorlist. apt's default
         # 120 s timeout times its retries turns one unreachable mirror into a step
-        # that outlasts the job limit -- and `concurrency: pages` then holds every
+        # that outlasts the job limit -- and the concurrency group then holds every
         # later run behind it. Bound the wait so the fallback mirror takes over.
         timeout-minutes: 6
         run: |
