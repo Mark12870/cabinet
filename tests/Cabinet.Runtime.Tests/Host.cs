@@ -82,6 +82,17 @@ internal static class Host
         }
     }
 
+    public static void Discard(string session)
+    {
+        try
+        {
+            Directory.Delete(session, recursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+        }
+    }
+
     private static string CommandLine(string pid)
     {
         try

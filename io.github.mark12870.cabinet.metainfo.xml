@@ -46,6 +46,23 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.14.0" date="2026-09-15">
+      <description>
+        <p>Winetricks, plugin logs in the app, and Splice INSTRUMENT no longer crashes REAPER</p>
+        <ul>
+          <li>Open Winetricks for a prefix, or install Winetricks components into it, from the app or with cabinet winetricks</li>
+          <li>See a plugin's Cabinet and yabridge logs in the app, or with cabinet library log</li>
+          <li>A prefix's own Wine desktop is now a simple on/off switch</li>
+          <li>Prefix settings no longer block the rest of the window</li>
+          <li>The window remembers its size</li>
+          <li>Splice INSTRUMENT joins the Library, as a plugin and as a standalone app</li>
+          <li>Splice INSTRUMENT's editor shows its interface instead of a blank window</li>
+          <li>Opening or closing Splice INSTRUMENT's window, or removing it, no longer crashes or freezes REAPER</li>
+          <li>Changes to a prefix's environment variables reach the next plugin without restarting the DAW</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.13.2" date="2026-09-05">
       <description>
         <p>Opening Native Access no longer crashes REAPER</p>

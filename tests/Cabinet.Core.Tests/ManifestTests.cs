@@ -155,6 +155,53 @@ public class ManifestTests
                 + "${FLATPAK_DEST}/lib/yabridge/yabridgectl", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void APluginThatCrashesInItsOwnTeardownDoesNotTakeTheHostWithIt()
+    {
+        const string patch = "patches/yabridge-teardown-guard.patch";
+        var archive = Array.FindIndex(
+            Lines,
+            line => line.Contains("github.com/robbert-vdh/yabridge/archive/", StringComparison.Ordinal));
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+        var guard = File.ReadAllText(Repo.Path(patch));
+
+        Assert.True(archive >= 0);
+        Assert.Equal(archive + 4, applied);
+        Assert.Contains("AddVectoredExceptionHandler", guard, StringComparison.Ordinal);
+        Assert.Contains("survive_access_violation([doomed]", guard, StringComparison.Ordinal);
+        Assert.Contains("survive_access_violation([view]", guard, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void APluginCannotRevokeDragAndDropOnAWindowOfAnotherProcess()
+    {
+        const string patch = "patches/yabridge-foreign-drag-drop.patch";
+        var guard = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "path: patches/yabridge-teardown-guard.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+        var redirect = File.ReadAllText(Repo.Path(patch));
+
+        Assert.True(guard >= 0);
+        Assert.Equal(guard + 2, applied);
+        Assert.Contains("GetWindowThreadProcessId(window, &owner)", redirect, StringComparison.Ordinal);
+        Assert.Contains("return DRAGDROP_E_INVALIDHWND;", redirect, StringComparison.Ordinal);
+        Assert.Contains("+        redirect_foreign_drag_drop_revocations();", redirect, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EveryYabridgePatchIsAppliedAndDocumented()
+    {
+        var documented = File.ReadAllText(Repo.Path("PATCHES.MD"));
+        var patches = Directory.GetFiles(Repo.Path("patches"), "*.patch")
+            .Select(Path.GetFileName)
+            .ToList();
+
+        Assert.NotEmpty(patches);
+        Assert.All(patches, patch => Assert.Contains(Lines, line => line.Trim() == $"path: patches/{patch}"));
+        Assert.All(patches, patch => Assert.Contains($"## {patch}", documented, StringComparison.Ordinal));
+    }
+
     private static string Field(string key)
     {
         var prefix = key + ":";

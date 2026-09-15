@@ -60,6 +60,7 @@ case "$BACKEND" in
             libsndfile-devel \
             make \
             mesa-dri-drivers \
+            mingw64-gcc \
             pkgconf-pkg-config \
             pulseaudio-libs-devel \
             python3-qt5-devel \
@@ -68,7 +69,7 @@ case "$BACKEND" in
         runner=(toolbox run --container "$BOX")
         ;;
     direct)
-        for command in curl flatpak git make sha256sum unzip; do
+        for command in curl flatpak git make python3 sha256sum unzip x86_64-w64-mingw32-gcc; do
             command -v "$command" >/dev/null || die "$command is not installed"
         done
         runner=()
@@ -252,6 +253,79 @@ install_entry() {
 
     cabinet library install "$id" "$@"
 }
+
+newest_release() {
+    cabinet runners available | awk -v family="$1" '
+        index($0, family " — ") == 1 { listed = 1; next }
+        listed && NF == 2 { print $1, $2; exit }'
+}
+
+installed_runner() {
+    [ -n "$1" ] && [ -x "$data/runners/$1/bin/wine" ] || {
+        printf 'setup-runtime-tests: runner %s was not installed\n' "${1:-(none found)}" >&2
+        exit 1
+    }
+
+    printf '%s\n' "$1"
+}
+
+install_newest() {
+    local version runner
+    read -r version runner <<< "$(newest_release "$1")"
+
+    if [ -n "$runner" ] && [ ! -x "$data/runners/$runner/bin/wine" ]; then
+        cabinet runners install "$version" >&2
+    fi
+
+    installed_runner "$runner"
+}
+
+install_newest_d2d1() {
+    local url archive runner
+    url=$(curl --fail --silent --show-error --location \
+        https://api.github.com/repos/mklnln/wine-d2d1-dcomp/releases/latest |
+        python3 -c 'import json, sys; print(next(asset["browser_download_url"] for asset in json.load(sys.stdin)["assets"] if asset["name"].endswith(".tar.zst")))')
+    archive=$root/tmp/$(basename "$url")
+    runner=$(basename "$url" .tar.zst)
+    runner=${runner%-x86_64}
+
+    if [ ! -x "$data/runners/$runner/bin/wine" ]; then
+        curl --fail --location --retry 3 --retry-all-errors --output "$archive" "$url"
+        cabinet runners add "$archive" >&2
+        rm -f "$archive"
+    fi
+
+    installed_runner "$runner"
+}
+
+drag_drop_prefix() {
+    local prefix=$1
+    local runner=$2
+    local current=
+
+    if [ -f "$data/prefixes/$prefix/.cabinet-runner" ]; then
+        current=$(<"$data/prefixes/$prefix/.cabinet-runner")
+    fi
+
+    if [ -d "$data/prefixes/$prefix/dosdevices" ] && [ "$current" = "$runner" ]; then
+        return
+    fi
+
+    if [ -d "$data/prefixes/$prefix" ]; then
+        printf 'y\n' | cabinet delete "$prefix" >/dev/null
+    fi
+
+    cabinet new "$prefix" ${runner:+"$runner"}
+}
+
+newest_d2d1=$(install_newest_d2d1)
+newest_kron4ek=$(install_newest Kron4ek)
+newest_soda=$(install_newest Soda)
+
+drag_drop_prefix drag-drop-bundled ""
+drag_drop_prefix drag-drop-d2d1 "$newest_d2d1"
+drag_drop_prefix drag-drop-kron4ek "$newest_kron4ek"
+drag_drop_prefix drag-drop-soda "$newest_soda"
 
 install_entry sitala-1
 install_entry valhalla-supermassive

@@ -66,6 +66,22 @@ Windows plugins are tested through Cabinet's yabridge wrappers and
 loaded from Cabinet's native links. Windows LV2 is intentionally absent: yabridge
 does not bridge LV2, so there is no supported Windows LV2 test for Cabinet.
 
+## Patch probes
+
+`DragAndDropTests` tells you when `patches/yabridge-foreign-drag-drop.patch` is no longer needed
+(see `PATCHES.MD`). The Toolbox's `mingw64-gcc` compiles a small Windows probe from
+`Probes/revoke-drag-drop.c`. Each case runs it through the shim in a probe prefix on the newest
+release of a runner family:
+
+- the bundled Wine;
+- mklnln's latest d2d1 build on GitHub (Cabinet's index pins only one);
+- the newest Kron4ek and the newest Soda release in `cabinet runners available`.
+
+Each setup run moves a probe prefix onto a newer release as soon as one appears. The probe
+registers drag-and-drop on its own window and starts a copy of itself that revokes it. The tests
+pass while those releases still crash on that call. A case that fails names a release that has
+the fix.
+
 The manager is deliberately provisioned separately from acquisition. This keeps the
 test repeatable without storing credentials, account state or machine-specific files
 in the repository. The manager is not used to install a plugin.

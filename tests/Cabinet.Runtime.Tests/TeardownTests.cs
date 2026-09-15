@@ -60,7 +60,7 @@ public sealed class TeardownTests : IDisposable
         finally
         {
             Host.KillAll(Host.App, session);
-            Discard(session);
+            Host.Discard(session);
         }
     }
 
@@ -87,7 +87,7 @@ public sealed class TeardownTests : IDisposable
         finally
         {
             Host.KillAll(Host.App, session);
-            Discard(session);
+            Host.Discard(session);
         }
     }
 
@@ -112,7 +112,7 @@ public sealed class TeardownTests : IDisposable
         finally
         {
             Host.KillAll(Host.App, session);
-            Discard(session);
+            Host.Discard(session);
         }
     }
 
@@ -145,7 +145,7 @@ public sealed class TeardownTests : IDisposable
         {
             Host.KillAll(Daw, marker);
             Host.KillAll(Host.App, session);
-            Discard(session);
+            Host.Discard(session);
         }
     }
 
@@ -269,7 +269,7 @@ public sealed class TeardownTests : IDisposable
         finally
         {
             File.Delete(log);
-            Discard(session);
+            Host.Discard(session);
         }
     }
 
@@ -308,18 +308,7 @@ public sealed class TeardownTests : IDisposable
         finally
         {
             File.Delete(log);
-            Discard(session);
-        }
-    }
-
-    private static void Discard(string session)
-    {
-        try
-        {
-            Directory.Delete(session, recursive: true);
-        }
-        catch (DirectoryNotFoundException)
-        {
+            Host.Discard(session);
         }
     }
 

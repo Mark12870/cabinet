@@ -1,0 +1,142 @@
+diff --git a/src/wine-host/host.cpp b/src/wine-host/host.cpp
+index 072c003..31d28da 100644
+--- a/src/wine-host/host.cpp
++++ b/src/wine-host/host.cpp
+@@ -196,6 +196,8 @@ int YABRIDGE_EXPORT
+             return 1;
+         }
+ 
++        redirect_foreign_drag_drop_revocations();
++
+         // Let the plugin receive and handle its events on its own thread. Some
+         // potentially unsafe events that should always be run from the UI
+         // thread will be posted to `main_context`.
+diff --git a/src/wine-host/utils.cpp b/src/wine-host/utils.cpp
+index feb57b1..6b95dc5 100644
+--- a/src/wine-host/utils.cpp
++++ b/src/wine-host/utils.cpp
+@@ -19,6 +19,9 @@
+ #include <cstring>
+ #include <iostream>
+ 
++#include <ole2.h>
++#include <tlhelp32.h>
++
+ #include "bridges/common.h"
+ 
+ using namespace std::literals::chrono_literals;
+@@ -192,6 +195,87 @@ void MainContext::async_handle_watchdog_timer(
+     });
+ }
+ 
++namespace {
++
++bool wine_builtin(const void* image) {
++    constexpr char builtin_signature[] = "Wine builtin DLL";
++    return memcmp(static_cast<const char*>(image) + 0x40, builtin_signature,
++                  sizeof(builtin_signature) - 1) == 0;
++}
++
++HRESULT WINAPI revoke_own_drag_drop(HWND window) {
++    DWORD owner = 0;
++    GetWindowThreadProcessId(window, &owner);
++    if (owner != GetCurrentProcessId()) {
++        return DRAGDROP_E_INVALIDHWND;
++    }
++
++    return RevokeDragDrop(window);
++}
++
++void redirect_revoke_drag_drop(BYTE* image, FARPROC original) {
++    const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
++        image + reinterpret_cast<const IMAGE_DOS_HEADER*>(image)->e_lfanew);
++    const IMAGE_DATA_DIRECTORY& imports =
++        nt->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT];
++    if (!imports.VirtualAddress) {
++        return;
++    }
++
++    for (auto* descriptor = reinterpret_cast<IMAGE_IMPORT_DESCRIPTOR*>(
++             image + imports.VirtualAddress);
++         descriptor->Name; descriptor++) {
++        if (lstrcmpiA(reinterpret_cast<const char*>(image + descriptor->Name),
++                      "ole32.dll") != 0) {
++            continue;
++        }
++
++        for (auto* thunk = reinterpret_cast<IMAGE_THUNK_DATA*>(
++                 image + descriptor->FirstThunk);
++             thunk->u1.Function; thunk++) {
++            if (thunk->u1.Function != reinterpret_cast<ULONG_PTR>(original)) {
++                continue;
++            }
++
++            DWORD protection = 0;
++            if (!VirtualProtect(&thunk->u1.Function,
++                                sizeof(thunk->u1.Function),
++                                PAGE_EXECUTE_READWRITE, &protection)) {
++                continue;
++            }
++
++            thunk->u1.Function =
++                reinterpret_cast<ULONG_PTR>(revoke_own_drag_drop);
++            VirtualProtect(&thunk->u1.Function, sizeof(thunk->u1.Function),
++                           protection, &protection);
++        }
++    }
++}
++
++}
++
++void redirect_foreign_drag_drop_revocations() {
++    const FARPROC original =
++        GetProcAddress(GetModuleHandleW(L"ole32.dll"), "RevokeDragDrop");
++    const HANDLE snapshot =
++        CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, GetCurrentProcessId());
++    if (!original || snapshot == INVALID_HANDLE_VALUE) {
++        return;
++    }
++
++    const HMODULE host = GetModuleHandleW(nullptr);
++    MODULEENTRY32W module{};
++    module.dwSize = sizeof(module);
++    for (BOOL found = Module32FirstW(snapshot, &module); found;
++         found = Module32NextW(snapshot, &module)) {
++        if (module.hModule != host && !wine_builtin(module.modBaseAddr)) {
++            redirect_revoke_drag_drop(module.modBaseAddr, original);
++        }
++    }
++
++    CloseHandle(snapshot);
++}
++
+ #ifdef __x86_64__
+ 
+ namespace {
+@@ -200,14 +284,8 @@ thread_local CONTEXT* access_violation_recovery = nullptr;
+ 
+ bool inside_native_code(const void* address) {
+     MEMORY_BASIC_INFORMATION region{};
+-    if (!VirtualQuery(address, &region, sizeof(region)) ||
+-        region.Type != MEM_IMAGE) {
+-        return false;
+-    }
+-
+-    constexpr char builtin_signature[] = "Wine builtin DLL";
+-    return memcmp(static_cast<const char*>(region.AllocationBase) + 0x40,
+-                  builtin_signature, sizeof(builtin_signature) - 1) != 0;
++    return VirtualQuery(address, &region, sizeof(region)) &&
++           region.Type == MEM_IMAGE && !wine_builtin(region.AllocationBase);
+ }
+ 
+ LONG CALLBACK recover_from_access_violation(EXCEPTION_POINTERS* exception) {
+diff --git a/src/wine-host/utils.h b/src/wine-host/utils.h
+index 60722aa..17b0441 100644
+--- a/src/wine-host/utils.h
++++ b/src/wine-host/utils.h
+@@ -370,3 +370,5 @@ class MainContext {
+ };
+ 
+ void survive_access_violation(fu2::unique_function<void()> teardown);
++
++void redirect_foreign_drag_drop_revocations();

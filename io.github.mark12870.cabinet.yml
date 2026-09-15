@@ -171,6 +171,10 @@ modules:
         url: https://github.com/robbert-vdh/yabridge/archive/ba7022df0aee1e91cde62d7f0e940d3bc43a82b0.tar.gz
         sha256: d9acb1c85a4c9c8d418d371046747a5a052e073436ae755de3b2627af9884c9a
         strip-components: 1
+      - type: patch
+        path: patches/yabridge-teardown-guard.patch
+      - type: patch
+        path: patches/yabridge-foreign-drag-drop.patch
       - type: archive
         url: https://github.com/robbert-vdh/yabridge/releases/download/5.1.1/yabridge-5.1.1.tar.gz
         sha256: d11f0307412b5566b09a75ed4aa191266db56d22f4de4d20e4fbde6296cd1a47
