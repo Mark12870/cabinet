@@ -1,0 +1,28 @@
+Name: Arturia Software Center
+Kind: windows
+Category: Manager
+Summary: Arturia's own manager, which activates, downloads and installs their software.
+Developer: Arturia
+Version: 2.12.0.3157
+Licence: Freeware
+Licensing:
+  The app is free and signs in to an Arturia account. What it will install is what
+  that account owns; every other Arturia product can be installed as a demo.
+Formats: VST3, VST2
+Homepage: https://www.arturia.com/support/downloads-manuals/product/asc
+Source: download
+Url: https://dl.arturia.net/products/asc/soft/Arturia_Software_Center__2_12_0_3157.exe
+Sha256: e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8
+Prefix: arturia
+Launch: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe
+Script: arturia.sh
+Runner: 9.21
+Dxvk: true
+Sync: fsync
+Description:
+  Not a plugin but the door to Arturia's catalogue: V Collection, Pigments,
+  Analog Lab, the FX Collection and more. Sign in, activate what you own on up
+  to five computers, and the app downloads and installs each product for you.
+
+  So installing this installs nothing you can play yet — it is the door, and
+  what you own arrives through it.

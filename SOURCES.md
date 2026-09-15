@@ -37,6 +37,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | sine-player | `orchestraltools.com/get-sine/images/3253/image-thumb__3253__img_21-9_full/get-sine-hero-image-new.a1dca4e7.jpg`, the official SINEplayer interface screenshot |
 | splice-desktop | `splice.com/download` — the official Splice Desktop app screenshot; its icon is the app icon shipped in the pinned MSIX, not a crop of the screenshot |
 | splice-instrument | `splice.com/instrument` — the official Splice INSTRUMENT interface screenshot, `splice-res.cloudinary.com/image/upload/f_auto,q_auto:eco,c_limit,w_1200/app-assets/instrument/originals/crystal-keys-ui.png`; its icon is a crop of that screenshot |
+| arturia-software-center | Arturia's ASC page, `arturia.com/technology/asc`, `medias.arturia.net/images/demo/miniatureASC.png` — the app's My Products view, trimmed of its transparent margin; its icon is the app's own crosshair tile, `medias.arturia.net/images/products/asc/catalog-image.png`, cropped to the tile |
 
 | Vendor | Logo |
 | --- | --- |
@@ -62,3 +63,4 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | manda-audio | `powerdrumkit.com/images/manda-audio.gif`, Manda Audio's own 300px logo, keyed off its black background |
 | orchestral-tools | Orchestral Tools' official logo package, `orchestraltools.com/files/orchestral-tools-logos.zip`, the horizontal logo's signet cropped and recoloured white |
 | splice | the official Splice app icon shipped in the pinned 5.4.12 MSIX |
+| arturia | the circled A, `medias.arturia.net/images/logo-black.svg`, vector black on transparent, recoloured white |
