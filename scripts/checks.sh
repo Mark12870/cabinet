@@ -17,7 +17,7 @@
 # and a second run reaches the first one's compiler over a /tmp socket it cannot serve.
 set -euo pipefail
 
-root=$(git rev-parse --show-toplevel)
+root=$(realpath "$(dirname "$0")/..")
 
 if [ -z "${CABINET_CHECKS_IN_SDK:-}" ]; then
   exec flatpak run --share=network --filesystem="$root" --command=sh org.gnome.Sdk//50 -c '
@@ -28,6 +28,10 @@ if [ -z "${CABINET_CHECKS_IN_SDK:-}" ]; then
 fi
 
 cd "$root"
+
+if [ "${1:-}" = --staged ]; then
+  git config --global --add safe.directory "$root"
+fi
 
 step() { printf '  %s\n' "$*" >&2; }
 
