@@ -13,7 +13,7 @@ public sealed class InstallScriptTests : IDisposable
     {
         var fdTargets = Path.Combine(root, "fd-targets");
 
-        var work = RunSpliceInstrument($"""readlink /proc/$$/fd/1 /proc/$$/fd/2 >>"{fdTargets}" """);
+        var work = RunSpliceInstrument($"""readlink /proc/$$/fd/1 /proc/$$/fd/2 | cat >>"{fdTargets}" """);
 
         Assert.Equal(
             [Path.Combine(work, "splice-instrument-installer.log")],
