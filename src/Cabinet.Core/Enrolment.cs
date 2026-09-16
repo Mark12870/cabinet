@@ -46,6 +46,28 @@ public static class Enrolment
         return link;
     }
 
+    public static string LinkNative(Layout layout)
+    {
+        var directory = layout.NativeYabridgeDir;
+        Directory.CreateDirectory(directory);
+
+        foreach (var file in Directory.EnumerateFiles(layout.HostYabridgeDir))
+        {
+            var link = Path.Combine(directory, Path.GetFileName(file));
+
+            if (File.Exists(link) && File.ResolveLinkTarget(link, false) is null)
+            {
+                throw new IOException(
+                    $"{link} is a yabridge of its own — move it aside before enrolling.");
+            }
+
+            File.Delete(link);
+            File.CreateSymbolicLink(link, file);
+        }
+
+        return directory;
+    }
+
     private static string Quote(string argument) =>
         argument.Any(char.IsWhiteSpace) ? $"'{argument}'" : argument;
 }

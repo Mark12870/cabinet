@@ -11,6 +11,7 @@ internal static class Program
         Usage:
           cabinet                              open the window
           cabinet enrol <daw-flatpak-id>       prepare a Flatpak DAW (prints the override)
+          cabinet enrol native                 prepare a DAW installed outside Flatpak
           cabinet new <name> [runner]          create a Wine prefix, optionally on a runner
           cabinet install <name> <installer>   run a Windows installer in that prefix
           cabinet delete <name>                delete a prefix and everything in it
@@ -93,7 +94,9 @@ internal static class Program
 
         return args[0] switch
         {
-            "enrol" or "enroll" => Enrol(layout, Require(args, 1, "a DAW flatpak id")),
+            "enrol" or "enroll" => Require(args, 1, "a DAW flatpak id, or `native`") is "native"
+                ? EnrolNative(layout)
+                : Enrol(layout, args[1]),
             "new" => New(layout, runner, Require(args, 1, "a prefix name"),
                 args.Length > 2 ? args[2] : null),
             "library" => Library(layout, runner, args.Skip(1).ToArray(), json),
@@ -136,6 +139,20 @@ internal static class Program
         Console.WriteLine("than the one it was built against on some DAWs:");
         Console.WriteLine();
         Console.WriteLine("  " + Enrolment.SelfTestCommand(dawId, layout));
+        return 0;
+    }
+
+    private static int EnrolNative(Layout layout)
+    {
+        var directory = Enrolment.LinkNative(layout);
+
+        Console.WriteLine($"Linked {directory} -> {layout.HostYabridgeDir}");
+        Console.WriteLine();
+        Console.WriteLine("That is where a DAW outside Flatpak looks for the bridge, and it");
+        Console.WriteLine("needs nothing else: no override to grant and no environment to set,");
+        Console.WriteLine("because the bridge finds Cabinet's Wine beside itself.");
+        Console.WriteLine();
+        Console.WriteLine("Start the DAW however you normally do.");
         return 0;
     }
 

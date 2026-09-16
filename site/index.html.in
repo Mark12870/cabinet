@@ -122,7 +122,9 @@ flatpak run $app_id sync</code></pre>
 <p>
   For a Flatpak DAW, run <code>enrol &lt;daw-flatpak-id&gt;</code> first and read what it
   prints: bridging into a sandboxed DAW needs permissions that are yours to grant, not
-  Cabinet's to assume. <code>doctor</code> checks both sides afterwards.
+  Cabinet's to assume. A DAW installed outside Flatpak takes <code>enrol native</code>
+  instead, which links the bridge where that DAW looks and needs nothing set at launch.
+  <code>doctor</code> checks both sides afterwards.
 </p>
 
 <h2>Rolling back</h2>

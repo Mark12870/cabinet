@@ -25,6 +25,16 @@ public class ManifestTests
     }
 
     [Fact]
+    public void TheWrapperFallsBackToTheShimAndNotToABareWine()
+    {
+        var text = string.Join('\n', Lines);
+
+        Assert.Contains(
+            """sed -i 's|WINELOADER="wine"|WINELOADER="$appdir/cabinet-wine"|'""", text);
+        Assert.Contains("""grep -q 'WINELOADER="$appdir/cabinet-wine"'""", text);
+    }
+
+    [Fact]
     public void TheBaseIsTheWineThatStillRunsAThirtyTwoBitWinelibHost()
     {
         Assert.Equal("org.winehq.Wine", Field("base"));
@@ -75,6 +85,7 @@ public class ManifestTests
             "--filesystem=~/.clap:create",
             "--filesystem=~/.lv2:create",
             "--filesystem=~/.var/app",
+            "--filesystem=~/.local/share/yabridge:create",
             "--filesystem=~/.local/share/flatpak/overrides:ro",
             "--filesystem=~/.local/share/flatpak/repo/config:ro",
             "--filesystem=xdg-run/yabridge:create",
@@ -187,6 +198,26 @@ public class ManifestTests
         Assert.Contains("GetWindowThreadProcessId(window, &owner)", redirect, StringComparison.Ordinal);
         Assert.Contains("return DRAGDROP_E_INVALIDHWND;", redirect, StringComparison.Ordinal);
         Assert.Contains("+        redirect_foreign_drag_drop_revocations();", redirect, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheSocketsLandWhereTheSandboxCanReachThem()
+    {
+        Assert.Contains("--filesystem=xdg-run/yabridge:create", FinishArgs);
+    }
+
+    [Fact]
+    public void TheYabridgeItBuildsIsPinnedAndExplained()
+    {
+        var documented = File.ReadAllText(Repo.Path("PATCHES.MD"));
+        var source = Lines.Single(line =>
+            line.Contains("robbert-vdh/yabridge/archive/", StringComparison.Ordinal));
+        var reference = source
+            .Split('/')[^1]
+            .Replace(".tar.gz", "", StringComparison.Ordinal)
+            .Trim();
+
+        Assert.Contains($"## {reference}", documented, StringComparison.Ordinal);
     }
 
     [Fact]

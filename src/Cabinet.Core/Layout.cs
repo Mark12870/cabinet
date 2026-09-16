@@ -103,6 +103,8 @@ public sealed class Layout
 
     public string SandboxYabridgeLink => Path.Combine(SandboxDataHome, "yabridge");
 
+    public string NativeYabridgeDir => Path.Combine(Home, ".local", "share", "yabridge");
+
     public string PrefixesDir => Path.Combine(SandboxDataHome, "prefixes");
 
     public string SocketDir => Path.Combine(RuntimeDir, "yabridge");

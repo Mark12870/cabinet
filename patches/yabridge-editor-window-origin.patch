@@ -1,0 +1,46 @@
+--- a/src/wine-host/editor.cpp
++++ b/src/wine-host/editor.cpp
+@@ -410,8 +410,13 @@
+     const std::array<uint32_t, 2> values{width, height};
+     xcb_configure_window(x11_connection_.get(), wrapper_window_.window_,
+                          value_mask, values.data());
+-    xcb_configure_window(x11_connection_.get(), wine_window_, value_mask,
+-                         values.data());
++
++    constexpr uint16_t wine_value_mask =
++        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y | XCB_CONFIG_WINDOW_WIDTH |
++        XCB_CONFIG_WINDOW_HEIGHT;
++    const std::array<uint32_t, 4> wine_values{0, 0, width, height};
++    xcb_configure_window(x11_connection_.get(), wine_window_, wine_value_mask,
++                         wine_values.data());
+     xcb_flush(x11_connection_.get());
+ 
+     // This will trigger the `XCB_CONFIGURE_REQUEST` handler in
+@@ -519,6 +524,13 @@
+ 
+                     redetect_host_window();
+ 
++                    constexpr uint16_t origin_mask =
++                        XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y;
++                    constexpr std::array<uint32_t, 2> origin{0, 0};
++                    xcb_configure_window(x11_connection_.get(), wine_window_,
++                                         origin_mask, origin.data());
++                    xcb_flush(x11_connection_.get());
++
+                     // If the `editor_force_dnd` option is set, we'll strip
+                     // `XdndAware` from all of `wine_window_`'s ancestors
+                     // (including `parent_window_`) to forcefully enable
+@@ -642,6 +654,13 @@
+                             XCB_EVENT_MASK_STRUCTURE_NOTIFY |
+                                 XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY,
+                             reinterpret_cast<char*>(&translated_event));
++
++                        constexpr uint16_t told_mask =
++                            XCB_CONFIG_WINDOW_X | XCB_CONFIG_WINDOW_Y;
++                        constexpr std::array<uint32_t, 2> told_origin{0, 0};
++                        xcb_configure_window(x11_connection_.get(),
++                                             wine_window_, told_mask,
++                                             told_origin.data());
+                         xcb_flush(x11_connection_.get());
+                     }
+                 } break;

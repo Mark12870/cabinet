@@ -271,5 +271,36 @@ public sealed class RunnersTests : IDisposable
         Assert.Contains($"--env=YABRIDGE_DEBUG_FILE={Layout.RuntimeLogPath}", check.Detail);
     }
 
+    [Fact]
+    public void DoctorSaysNothingAboutNativeDawsUntilOneIsEnrolled()
+    {
+        Assert.DoesNotContain(Checks(), found => found.Name == "native DAWs");
+    }
+
+    [Fact]
+    public void DoctorPassesOnceTheNativeLinksReachTheBridge()
+    {
+        Directory.CreateDirectory(Layout.HostYabridgeDir);
+        File.WriteAllText(
+            Path.Combine(Layout.HostYabridgeDir, "libyabridge-chainloader-vst3.so"), "bridge");
+        Enrolment.LinkNative(Layout);
+
+        Assert.Equal(
+            Status.Ok, Checks().Single(found => found.Name == "native DAWs").Status);
+    }
+
+    [Fact]
+    public void DoctorFailsOnANativeLinkPointingSomewhereElse()
+    {
+        Directory.CreateDirectory(Layout.NativeYabridgeDir);
+        File.WriteAllText(
+            Path.Combine(Layout.NativeYabridgeDir, "libyabridge-chainloader-vst3.so"), "theirs");
+
+        var check = Checks().Single(found => found.Name == "native DAWs");
+
+        Assert.Equal(Status.Fail, check.Status);
+        Assert.Contains("cabinet enrol native", check.Detail);
+    }
+
     public void Dispose() => Directory.Delete(root, recursive: true);
 }

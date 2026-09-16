@@ -65,6 +65,12 @@ internal sealed class DoctorPage
             AskForDaw));
 
         group.Add(Ui.ActionRow(
+            "Prepare a native DAW",
+            "Link Cabinet's yabridge where a DAW outside Flatpak looks for it",
+            Icons.Enrol,
+            EnrolNative));
+
+        group.Add(Ui.ActionRow(
             "Bridge what is installed",
             "Register every prefix's plugins with yabridgectl again",
             Icons.Sync,
@@ -110,6 +116,29 @@ internal sealed class DoctorPage
         }
 
         new EnrolmentDialog(window, layout, dawId, link).Present();
+
+        changed();
+    }
+
+    private void EnrolNative()
+    {
+        string directory;
+
+        try
+        {
+            directory = Enrolment.LinkNative(layout);
+        }
+        catch (Exception exception)
+        {
+            Ui.Report(window, "Could not enrol", exception.Message);
+            return;
+        }
+
+        Ui.Report(
+            window,
+            "Enrolled native DAWs",
+            $"Linked {directory} -> {layout.HostYabridgeDir}. A DAW outside Flatpak reads the "
+            + "bridge from there and needs nothing else — start it however you normally do.");
 
         changed();
     }

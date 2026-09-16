@@ -85,3 +85,21 @@ the fix.
 The manager is deliberately provisioned separately from acquisition. This keeps the
 test repeatable without storing credentials, account state or machine-specific files
 in the repository. The manager is not used to install a plugin.
+
+## Editor geometry
+
+`EditorTests` opens a bridged plugin's editor through Carla's `carla_backend`, with `DISPLAY`
+kept, and compares where yabridge puts the Wine window against the wrapper window hosting it.
+The two must share an origin: a Wine window that drifts draws off the frame the DAW shows, which
+is a blank editor and nothing in a log.
+
+`AnEditorIsWhereWineHasBeenToldItIs` covers the other half of the same contract: yabridge sends
+Wine a synthetic `ConfigureNotify` naming the editor's position, and Wine turns screen coordinates
+into client ones with it. A window that is not where Wine believes it is delivers every click at
+that offset, so the trace's `Translated coords` must match where X puts the window.
+
+The window ids come from yabridge's own `+editor` trace, so the cases need no DAW and no pixels.
+Both formats are covered because both drifted; only VST2 showed it, since VST3 is pulled back by
+the size-mismatch poll in `vst3.cpp`. Both suites pass as of 2026-09-16 with
+`patches/yabridge-editor-window-origin.patch` applied; without it each reports the offset it
+measured.

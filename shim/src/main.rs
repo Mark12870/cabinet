@@ -27,7 +27,6 @@ const FORWARD: &[&str] = &[
     "WINEFSYNC",
     "WINEESYNC",
     "YABRIDGE_TEMP_DIR",
-    "YABRIDGE_NO_WATCHDOG",
     "YABRIDGE_DEBUG_FILE",
     "YABRIDGE_DEBUG_LEVEL",
     "DISPLAY",
@@ -51,6 +50,8 @@ const CANON_VARS: &[&str] = &[
 const CANON_LIST_VARS: &[&str] = &["WINEDLLPATH"];
 
 const BLANKED: &[&str] = &["WAYLAND_DISPLAY"];
+
+const FORCED: &[(&str, &str)] = &[("YABRIDGE_NO_WATCHDOG", "1")];
 
 const RUNNER_MARKER: &str = ".cabinet-runner";
 const SYNC_MARKER: &str = ".cabinet-sync";
@@ -219,6 +220,20 @@ where
         let mut flag = OsString::from("--env=");
         flag.push(var);
         flag.push("=");
+        argv.push(flag);
+    }
+
+    for (var, value) in FORCED {
+        let mut flag = OsString::from("--env=");
+        flag.push(var);
+        flag.push("=");
+        flag.push(value);
+        argv.push(flag);
+    }
+
+    if let Some(runtime) = getenv("XDG_RUNTIME_DIR").filter(|value| !value.is_empty()) {
+        let mut flag = OsString::from("--filesystem=");
+        flag.push(canonicalize(&runtime, &canon));
         argv.push(flag);
     }
 
@@ -702,12 +717,45 @@ mod tests {
                 "run",
                 "--command=/app/lib/yabridge/cabinet-wine",
                 "--env=WAYLAND_DISPLAY=",
+                "--env=YABRIDGE_NO_WATCHDOG=1",
                 "some.App",
                 INNER_MODE,
                 SOCKET,
                 "wine"
             ]
         );
+    }
+
+    #[test]
+    fn wine_can_reach_the_sockets_wherever_yabridge_put_them() {
+        let argv = build_argv(
+            "some.App",
+            false,
+            OsStr::new(SOCKET),
+            |var| (var == "XDG_RUNTIME_DIR").then(|| OsString::from("/run/user/1000")),
+            fake_canon,
+            |_| None,
+        );
+
+        assert!(
+            argv.iter().any(|a| a == "--filesystem=/run/user/1000"),
+            "{argv:?}"
+        );
+    }
+
+    #[test]
+    fn the_watchdog_stays_off_even_when_the_daw_never_set_it() {
+        let argv = build_argv(
+            "some.App",
+            false,
+            OsStr::new(SOCKET),
+            |var| (var == "YABRIDGE_NO_WATCHDOG").then(|| OsString::from("0")),
+            fake_canon,
+            |_| None,
+        );
+
+        assert!(argv.iter().any(|a| a == "--env=YABRIDGE_NO_WATCHDOG=1"));
+        assert!(!argv.iter().any(|a| a == "--env=YABRIDGE_NO_WATCHDOG=0"));
     }
 
     const PREFIX: &str = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/serum";

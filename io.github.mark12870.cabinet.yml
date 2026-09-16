@@ -82,6 +82,9 @@ finish-args:
   # Masked under `home`, but honoured explicitly. `enrol` links yabridge into a DAW's
   # XDG_DATA_HOME here, the only place that DAW's chainloader looks.
   - --filesystem=~/.var/app
+  # The same, for a DAW outside Flatpak, whose XDG_DATA_HOME is the real one. `:create`
+  # makes the directory itself, so `enrol native` fills it with links rather than being one.
+  - --filesystem=~/.local/share/yabridge:create
   # Cabinet's own files, read back through their host path because the chainloader hands
   # those to the shim. Masked under `home`. Both roots: a system install is outside $HOME.
   - --filesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet:ro
@@ -92,7 +95,9 @@ finish-args:
   # A single-file grant, honoured through the mask over ~/.local/share/flatpak.
   - --filesystem=~/.local/share/flatpak/repo/config:ro
   - --filesystem=/var/lib/flatpak/repo/config:ro
-  # The socket directory, shared with the DAW on the other side of the boundary.
+  # The socket directory, shared with the DAW on the other side of the boundary. A DAW outside
+  # Flatpak sets no YABRIDGE_TEMP_DIR and yabridge then uses $XDG_RUNTIME_DIR itself, which
+  # `xdg-run` cannot express -- the shim grants that path by value on each `flatpak run`.
   - --filesystem=xdg-run/yabridge:create
   - --env=YABRIDGE_NO_WATCHDOG=1
 
@@ -165,6 +170,15 @@ modules:
       - install -Dm755 build/yabridge-host-32.exe ${FLATPAK_DEST}/lib/yabridge/yabridge-host-32.exe
       - install -Dm755 build/yabridge-host-32.exe.so ${FLATPAK_DEST}/lib/yabridge/yabridge-host-32.exe.so
       - install -Dm755 yabridgectl-release/yabridgectl ${FLATPAK_DEST}/lib/yabridge/yabridgectl
+      # winegcc's wrapper falls back to bare `wine`, which a DAW outside Flatpak has no reason to
+      # have. Point that fallback at the shim beside it, so a native DAW bridges however it was
+      # started rather than aborting on an uncaught exception in yabridge's launch thread.
+      - |
+        for host in yabridge-host.exe yabridge-host-32.exe; do
+          script=${FLATPAK_DEST}/lib/yabridge/$host
+          sed -i 's|WINELOADER="wine"|WINELOADER="$appdir/cabinet-wine"|' "$script"
+          grep -q 'WINELOADER="$appdir/cabinet-wine"' "$script" || exit 1
+        done
       - rm libwine-dev-amd64.deb libwine-dev-i386.deb libgcc-dev-i386.deb libxcb1-i386.deb libxcb1-dev-i386.deb
     sources:
       - type: archive
@@ -175,6 +189,8 @@ modules:
         path: patches/yabridge-teardown-guard.patch
       - type: patch
         path: patches/yabridge-foreign-drag-drop.patch
+      - type: patch
+        path: patches/yabridge-editor-window-origin.patch
       - type: archive
         url: https://github.com/robbert-vdh/yabridge/releases/download/5.1.1/yabridge-5.1.1.tar.gz
         sha256: d11f0307412b5566b09a75ed4aa191266db56d22f4de4d20e4fbde6296cd1a47

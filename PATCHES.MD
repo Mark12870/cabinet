@@ -51,3 +51,72 @@ INSTRUMENT, need a d2d1 release.
 
 The d2d1 fork's source has had the fix since commit fafb443f85 (2026-07-23), but mklnln's only
 build, v11.0, predates it. Upstream Wine had not fixed this as of 2026-09.
+
+## yabridge-editor-window-origin.patch
+
+**Failure.** Every bridged editor is placed one monitor width across from the wrapper window
+hosting it, so the frame the DAW shows is blank and clicks land offset. See the yabridge source
+note below for the measurements.
+
+yabridge already forces the Wine window back to `0,0` in its `XCB_CONFIGURE_REQUEST` handler, but
+that handler never runs: an editor trace over a full session records **zero** `ConfigureRequest`
+events, although the wrapper does select `XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT`.
+
+**Patch.** Pins the same invariant at the three points a trace proves do fire: `Editor::resize`,
+the `ReparentNotify` handler, and immediately after the synthetic `ConfigureNotify` that tells
+Wine where its window is. The wrapper exists only to host that one window, so its origin is the
+only correct position, and Wine's own idea of the position is the wrapper's absolute origin —
+putting the window there makes the two agree, which is what mouse coordinates depend on.
+
+**When it can go.** When `ConfigureRequest` reaches yabridge's handler, or upstream keeps the
+window at the origin itself. `EditorTests` covers it, and is what to re-run to find out: building
+this tree with only this patch unwired was measured on 2026-09-16, and all six cases failed by
+exactly `+1920` in both geometry and click accuracy. The patch is load-bearing, not belt and
+braces.
+
+**A prefix setting can replace it, and was measured too.**
+`HKCU\Software\Wine\X11 Driver` `UseXRandR=N` stops Wine enumerating monitors through XRandR, so
+it sees one screen rather than a layout whose second origin is at 1920, and the constant it was
+adding disappears — which is why the offset was 1920 wherever the window sat. On the unpatched
+build, setting it in one prefix passed exactly that prefix's two cases and left the rest failing;
+setting it in all three passed all six.
+
+It was not taken, because it is per prefix rather than one place: every existing prefix would need
+it and `Prefixes.Create` would have to set it for new ones, with a migration for the prefixes
+already on disk. Turning XRandR off also costs Wine its display-mode and DPI handling, which three
+editors opening at their natural size does not clear for a whole catalogue. Revisit it as a
+considered change, not as a swap.
+
+# The yabridge Cabinet builds
+
+The manifest pins one yabridge commit, and `ManifestTests` requires that commit to be named
+here with a reason. Cabinet used to ship yabridge's prebuilt `5.1.1` release; `37a1dbe`
+(2026-09-05) moved to a source build, which is what makes the patches above possible.
+
+## ba7022df0aee1e91cde62d7f0e940d3bc43a82b0
+
+`robbert-vdh/yabridge`, the `new-wine10-embedding` branch behind
+[yabridge#409](https://github.com/robbert-vdh/yabridge/issues/409). It is not a release, and it
+was chosen deliberately: `5.1.1` (Nov 2024) predates Wine 9.22's editor-embedding changes, and on
+it a bridged editor drew but received absolute screen coordinates where it expected
+client-relative ones, so clicks landed offset by the window's distance from the screen origin.
+Cabinet's runners are Wine 9.21-tkg and 11.0. **Do not revert this pin to chase the defect below**
+— that trades a blank VST2 editor for every bridged editor mis-routing its clicks.
+
+**Defect found and fixed on 2026-09-16**, by
+`patches/yabridge-editor-window-origin.patch` above. Every bridged editor was placed one monitor
+width across from the window hosting it — `+1920+0` on a 4480x1440 X screen, for VST2 and VST3
+alike. The plugin rendered the whole time; it rendered off the frame, so the frame was flat grey,
+and because Wine converts screen coordinates to client ones using the position it was given,
+every click landed the same distance out.
+
+Only **VST2** looked broken in a DAW, because `check_size_mismatch` is polled from `vst3.cpp` and
+pulls a VST3 editor back into agreement. VST2 has no such path, and `Editor::resize` set the Wine
+window's size but never its position. `EditorTests` covers both halves and both formats.
+
+This is the same embedding problem the branch set out to fix, not a separate one and not
+something Cabinet owns: the coordinate is still wrong, it now misplaces the window rather than
+the clicks, and VST3 hides it. Aalto's editor drew on `5.1.1` on 2026-08-17, so what changed is
+which symptom shows. Fixing it belongs upstream in #409; before bumping this pin, re-run the
+editor coverage in `TESTS.MD` and expect those cases to go green when it is fixed. Neither patch
+above applies to the `5.1.1` tree.

@@ -78,7 +78,8 @@ Wine your DAW starts, not just to `winecfg`.
 `enrol` prints the `flatpak override` rather than applying it, because one of the permissions it asks for is
 `--talk-name=org.freedesktop.Flatpak`. That lets the shim start Wine on the host — **and it lets that DAW run any
 command on your host.** It is a real weakening of that DAW's sandbox, so the decision stays yours; undo it with
-`flatpak override --user --reset <daw-id>`. Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
+`flatpak override --user --reset <daw-id>`. A DAW installed outside Flatpak takes `enrol native` instead, which needs
+no permissions at all and nothing set at launch. Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
 `flatpak uninstall --delete-data` **will** delete your plugin library — a plain
 `flatpak uninstall` leaves it alone.
 

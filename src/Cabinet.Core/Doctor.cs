@@ -28,6 +28,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         checks.AddRange(PluginSync());
         checks.AddRange(PluginEnv());
         checks.AddRange(EnrolledDaws());
+        checks.AddRange(NativeDaw());
         return checks;
     }
 
@@ -206,7 +207,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             ? new Check("socket directory", Status.Ok, layout.SocketDir)
             : new Check("socket directory", Status.Fail,
                 $"{layout.SocketDir} is missing — Cabinet lacks "
-                + "--filesystem=xdg-run/yabridge:create");
+                + "--filesystem=xdg-run");
 
     private Check SharedMemory()
     {
@@ -260,6 +261,25 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
             yield return EnrolledDaw(dawId);
         }
+    }
+
+    private IEnumerable<Check> NativeDaw()
+    {
+        var directory = layout.NativeYabridgeDir;
+        var chainloader = Path.Combine(directory, "libyabridge-chainloader-vst3.so");
+
+        if (!File.Exists(chainloader))
+        {
+            yield break;
+        }
+
+        var wanted = Path.Combine(layout.HostYabridgeDir, "libyabridge-chainloader-vst3.so");
+
+        yield return File.ResolveLinkTarget(chainloader, false)?.FullName == wanted
+            ? new Check("native DAWs", Status.Ok, $"{directory} -> {layout.HostYabridgeDir}")
+            : new Check("native DAWs", Status.Fail,
+                $"{directory} does not reach {layout.HostYabridgeDir} "
+                + "— run `cabinet enrol native`");
     }
 
     private Check EnrolledDaw(string dawId)

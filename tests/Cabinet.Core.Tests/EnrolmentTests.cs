@@ -54,6 +54,52 @@ public class EnrolmentTests
     }
 
     [Fact]
+    public void ANativeDawGetsALinkForEveryFileTheBridgeShips()
+    {
+        using var home = new TempHome();
+        home.GiveBridge("libyabridge-chainloader-vst3.so", "yabridge-host.exe");
+
+        var directory = Enrolment.LinkNative(home.Layout);
+
+        Assert.Equal(home.Layout.NativeYabridgeDir, directory);
+        Assert.Equal(
+            Path.Combine(home.Layout.HostYabridgeDir, "yabridge-host.exe"),
+            File.ResolveLinkTarget(
+                Path.Combine(directory, "yabridge-host.exe"), false)!.FullName);
+    }
+
+    [Fact]
+    public void LinkingNativelyAgainReplacesAStaleLink()
+    {
+        using var home = new TempHome();
+        home.GiveBridge("libyabridge-chainloader-vst3.so");
+        Directory.CreateDirectory(home.Layout.NativeYabridgeDir);
+        File.CreateSymbolicLink(
+            Path.Combine(home.Layout.NativeYabridgeDir, "libyabridge-chainloader-vst3.so"),
+            "/somewhere/else");
+
+        var directory = Enrolment.LinkNative(home.Layout);
+
+        Assert.Equal(
+            Path.Combine(home.Layout.HostYabridgeDir, "libyabridge-chainloader-vst3.so"),
+            File.ResolveLinkTarget(
+                Path.Combine(directory, "libyabridge-chainloader-vst3.so"), false)!.FullName);
+    }
+
+    [Fact]
+    public void AYabridgeOfTheUsersOwnIsNeverReplaced()
+    {
+        using var home = new TempHome();
+        home.GiveBridge("libyabridge-chainloader-vst3.so");
+        Directory.CreateDirectory(home.Layout.NativeYabridgeDir);
+        File.WriteAllText(
+            Path.Combine(home.Layout.NativeYabridgeDir, "libyabridge-chainloader-vst3.so"),
+            "theirs");
+
+        Assert.Throws<IOException>(() => Enrolment.LinkNative(home.Layout));
+    }
+
+    [Fact]
     public void LinkingPointsTheDawAtTheYabridgeItMustRead()
     {
         using var home = new TempHome();
@@ -92,6 +138,16 @@ public class EnrolmentTests
         private readonly string root = TestRoot.Create("enrolment");
 
         public Layout Layout => new(root, "/run/user/1000", Path.Combine(root, "data"));
+
+        public void GiveBridge(params string[] files)
+        {
+            Directory.CreateDirectory(Layout.HostYabridgeDir);
+
+            foreach (var file in files)
+            {
+                File.WriteAllText(Path.Combine(Layout.HostYabridgeDir, file), "bridge");
+            }
+        }
 
         public void Dispose() => Directory.Delete(root, recursive: true);
     }

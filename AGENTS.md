@@ -26,7 +26,7 @@ the name or the structure instead. Anything that genuinely will not fit there is
 
 ### SKILLS
 
-- Never modify the CLAUDE.md or Claude skills without asking and approval. You must let me know in separate question,
+- Never modify the CLAUDE.md, AGENTS.md or skills without asking and approval. You must let me know in separate question,
   otherwise it is forbidden.
 - Skills should always include only the steps to produce the skill.
 
@@ -38,6 +38,11 @@ the name or the structure instead. Anything that genuinely will not fit there is
 - Rust is limited to the dependency-free `shim/` (`cabinet-wine`); application code and tests are C#. The shim is Rust
   because it runs on the plugin-load path inside foreign sandboxes.
 - All three source projects set `TreatWarningsAsErrors`; a warning fails the build.
+- **A yabridge patch is the last resort, never the first fix.** Every patch in `patches/` is a build Cabinet has to
+  carry, rebase and retire by hand. Exhaust what Cabinet already owns first: a prefix runner, DXVK, a Wine virtual
+  desktop (`set <name> desktop`), a per-prefix variable (`set <name> env`), a `yabridge.toml` option beside the
+  plugin, a manifest grant, or the shim. Patch only once those are shown not to work, say which were tried and why
+  they failed, and ask before writing one.
 - Identifiers and user-facing text use British spelling: `Enrolment`, `Licence`, `catalogue`.
   `enroll` exists only as a CLI alias for `enrol`.
 - `data/io.github.mark12870.cabinet.svg` is the recoloured Phosphor dresser icon; retain
@@ -55,8 +60,11 @@ the name or the structure instead. Anything that genuinely will not fit there is
   `data/yabridge` link and prints, but does not apply, the required `flatpak override` because it grants
   `org.freedesktop.Flatpak` and lets the DAW run commands on the host.
 - The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which hands the plugin to a Wine
-  session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host.
-  Preserve `YABRIDGE_TEMP_DIR` and `YABRIDGE_NO_WATCHDOG`. The shim duplicates three sets of constants, and
+  session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host. The
+  manifest rewrites that wrapper's fallback from bare `wine` to the shim beside it, so a DAW that sets no `WINELOADER`
+  bridges instead of aborting; the shim in turn forces `YABRIDGE_NO_WATCHDOG=1` (`FORCED`) rather than forwarding it,
+  because the watchdog is PID-based and misfires across the boundary.
+  Preserve `YABRIDGE_TEMP_DIR`. The shim duplicates three sets of constants, and
   `ShimParityTests` compares each against its C# side: marker names against `Layout`, sync and Cabinet-owned variables
   against
   `PrefixSettings`, blanked sockets against `Prefixes`. Prefixes need no registration: yabridge finds one by walking
@@ -81,8 +89,9 @@ the name or the structure instead. Anything that genuinely will not fit there is
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`~/.vst3`, `~/.vst`,
-  `~/.clap`, `~/.lv2`, and each DAW's
-  `~/.var/app/<daw>/data/yabridge`) and a Library entry's declared `Data:` directory. Do not add arbitrary writes in
+  `~/.clap`, `~/.lv2`, each DAW's
+  `~/.var/app/<daw>/data/yabridge`, and `~/.local/share/yabridge` for a DAW outside Flatpak) and a Library entry's
+  declared `Data:` directory. Do not add arbitrary writes in
   `$HOME`.
 - The manifest keeps `$HOME` read-only. A new Library `Data:` root also needs a matching
   `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`.
@@ -182,6 +191,19 @@ NuGet; regenerate it whenever a dependency changes.
 - An editor can be exercised without a DAW: drive Carla's `carla_backend` from Python in the isolated runtime
   (`engine_init("Dummy")`, `add_plugin`, `show_custom_ui`, a timed `engine_idle` loop, `engine_close`) with `DISPLAY`
   kept, under `timeout`. A stall in `engine_close` is the DAW freeze.
+- Without `YABRIDGE_TEMP_DIR` yabridge puts its sockets in `$XDG_RUNTIME_DIR` itself, which the manifest cannot grant
+  (`--filesystem=xdg-run` is refused; `xdg-run` needs a subdirectory). The shim grants that path by value on every
+  `flatpak run`, so a DAW that sets nothing still reaches its sockets.
+- A native DAW finds yabridge through `$XDG_DATA_HOME/yabridge`, which `enrol native` fills with a link per bundled
+  file; it is a directory rather than a link itself because the manifest's `:create` grant makes it first. Once those
+  links exist the bridge loads, so it must also be able to start Wine: a findable bridge with no reachable loader
+  aborts the DAW from yabridge's launch thread rather than failing the plugin. A long
+  `YABRIDGE_TEMP_DIR` breaks the sockets with `File name too long`, so leave it under `/run/user/<uid>`.
+  Redirecting `XDG_DATA_HOME` to isolate it also hides
+  the user Flatpak installation from the shim's `flatpak run` (`app/io.github.mark12870.cabinet/x86_64/master not
+  installed`); set `FLATPAK_USER_DIR=~/.local/share/flatpak` beside it. Native REAPER quit from a ReaScript
+  (`Main_OnCommand(40004)`) with a bridged plugin loaded stalled for 9 s to over 100 s while `YABRIDGE_DEBUG_LEVEL=1`
+  showed no bridge call outstanding; run it under `timeout` and read the ReaScript's own output, not the exit.
 - Run `library install` with `DISPLAY` set: a vendor installer can install nothing without one, and the script then
   fails on the missing plugin.
 - Wine runs every process elevated, and WebView2 ignores `WEBVIEW2_*` variables and `HKCU` policy for an elevated host.
