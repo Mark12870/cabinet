@@ -42,6 +42,9 @@ if [ "${1:-}" != --staged ]; then
                             -p:UseSharedCompilation=false
   step 'dotnet build';    dotnet build tests/Cabinet.Runtime.Tests --nologo -v q
   step 'dotnet test';     dotnet test tests/Cabinet.Core.Tests --nologo
+  step 'dotnet test';     dotnet test tests/Cabinet.Cli.Tests --nologo
+  step 'cargo build';     (cd shim && cargo build)
+  step 'dotnet test';     dotnet test tests/Cabinet.Contract.Tests --nologo
   step 'appstreamcli';    appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml
   step 'cargo fmt';       (cd shim && cargo fmt --check)
   step 'cargo clippy';    (cd shim && cargo clippy --all-targets -- -D warnings)

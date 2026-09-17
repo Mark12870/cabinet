@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -545,10 +545,9 @@ fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: 
         return;
     };
 
-    let status = match spawn(runner, &argv, passed, prefix) {
+    let status = match start_owned(owned, runner, &argv, passed, prefix) {
         Ok(mut child) => {
             let group = child.id() as i32;
-            remember(owned, group);
             let status = supervise(&mut child, group, argv.first(), &mut stream);
             forget(owned, group);
             status
@@ -560,6 +559,20 @@ fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: 
     };
 
     let _ = write_frame(&mut stream, &status.to_le_bytes());
+}
+
+fn start_owned(
+    owned: &Mutex<Vec<i32>>,
+    runner: &OsStr,
+    argv: &[OsString],
+    passed: Vec<RawFd>,
+    prefix: Option<&OsStr>,
+) -> io::Result<std::process::Child> {
+    let mut held = owned.lock().unwrap_or_else(PoisonError::into_inner);
+    let child = spawn(runner, argv, passed, prefix)?;
+    held.push(child.id() as i32);
+
+    Ok(child)
 }
 
 fn spawn(
@@ -714,12 +727,6 @@ fn hung_up(stream: &UnixStream) -> bool {
     let result = unsafe { poll(&mut pollfd, 1, 0) };
 
     result > 0 && pollfd.revents & (POLLIN | POLLERR | POLLHUP) != 0
-}
-
-fn remember(owned: &Mutex<Vec<i32>>, pid: i32) {
-    if let Ok(mut owned) = owned.lock() {
-        owned.push(pid);
-    }
 }
 
 fn forget(owned: &Mutex<Vec<i32>>, pid: i32) {
@@ -1101,6 +1108,44 @@ mod tests {
         }
 
         std::fs::remove_dir_all(&prefix).unwrap();
+    }
+
+    #[test]
+    fn a_job_is_owned_before_the_session_can_reap_it() {
+        let owned = Arc::new(Mutex::new(Vec::new()));
+        let script = format!("sleep 1; exit 3 # owned-{}", std::process::id());
+        let argv: Vec<OsString> = vec!["-c".into(), script.clone().into()];
+        let reaping = owned.lock().unwrap();
+        let starting = {
+            let owned = Arc::clone(&owned);
+            thread::spawn(move || {
+                let mut child =
+                    start_owned(&owned, OsStr::new("/bin/sh"), &argv, Vec::new(), None).unwrap();
+                (
+                    child.id() as i32,
+                    child.wait().map(exit_code).unwrap_or(127),
+                )
+            })
+        };
+
+        thread::sleep(Duration::from_millis(200));
+        let started_while_reaping = children_running(&script);
+        drop(reaping);
+        let (pid, status) = starting.join().unwrap();
+
+        assert!(!started_while_reaping);
+        assert_eq!(*owned.lock().unwrap(), [pid]);
+        assert_eq!(status, 3);
+    }
+
+    fn children_running(script: &str) -> bool {
+        let me = unsafe { getpid() };
+
+        process_snapshot()
+            .iter()
+            .filter(|process| process.parent == me)
+            .filter_map(|process| std::fs::read(format!("/proc/{}/cmdline", process.pid)).ok())
+            .any(|cmdline| String::from_utf8_lossy(&cmdline).contains(script))
     }
 
     #[test]

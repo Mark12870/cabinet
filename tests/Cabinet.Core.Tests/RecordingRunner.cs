@@ -5,9 +5,12 @@ namespace Cabinet.Core.Tests;
 internal sealed class RecordingRunner(
     Action<IReadOnlyList<string>>? acts = null,
     Func<IReadOnlyList<string>, int>? exits = null,
-    Func<IReadOnlyList<string>, string>? outputs = null) : IProcessRunner
+    Func<IReadOnlyList<string>, string>? outputs = null,
+    bool dawSession = false) : IProcessRunner
 {
     private readonly List<Call> calls = [];
+    private int joining;
+    private bool joined;
 
     internal sealed record Call(
         string File,
@@ -28,6 +31,17 @@ internal sealed class RecordingRunner(
 
     public IReadOnlyList<string> LastArguments { get; private set; } = [];
 
+    public void Retire()
+    {
+        if (joining > 0)
+        {
+            throw new InvalidOperationException(
+                "a session cannot retire while one of its jobs is still running");
+        }
+
+        joined = false;
+    }
+
     public ProcessResult Run(
         string file,
         IReadOnlyList<string> args,
@@ -40,7 +54,26 @@ internal sealed class RecordingRunner(
         calls.Add(new Call(file, args, Environment, workingDirectory, logTo));
         LastFile = file;
         LastArguments = args;
-        acts?.Invoke(args);
-        return new ProcessResult(exits?.Invoke(args) ?? 0, outputs?.Invoke(args) ?? "", "");
+
+        if (args is [Prefixes.SessionMode])
+        {
+            return dawSession || joined
+                ? new ProcessResult(0, Prefixes.SessionLiveWord + "\n", "")
+                : new ProcessResult(1, "", "");
+        }
+
+        var joins = args is [Prefixes.JoinMode, ..];
+        joining += joins ? 1 : 0;
+        joined |= joins;
+
+        try
+        {
+            acts?.Invoke(args);
+            return new ProcessResult(exits?.Invoke(args) ?? 0, outputs?.Invoke(args) ?? "", "");
+        }
+        finally
+        {
+            joining -= joins ? 1 : 0;
+        }
     }
 }

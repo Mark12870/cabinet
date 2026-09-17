@@ -5,6 +5,8 @@
     <Project Path="src/Cabinet.Gui/Cabinet.Gui.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Cabinet.Cli.Tests/Cabinet.Cli.Tests.csproj" />
+    <Project Path="tests/Cabinet.Contract.Tests/Cabinet.Contract.Tests.csproj" />
     <Project Path="tests/Cabinet.Core.Tests/Cabinet.Core.Tests.csproj" />
     <Project Path="tests/Cabinet.Runtime.Tests/Cabinet.Runtime.Tests.csproj" />
   </Folder>

@@ -278,12 +278,7 @@ internal sealed class PrefixPage
         Operation.Run(
             window,
             $"Moving {Name} to {runnerName}",
-            output =>
-            {
-                var prefixes = new Prefixes(layout, runner);
-                prefixes.SetRunner(Name, runnerName);
-                Operation.Ensure(prefixes.Run(Name, "wineboot", ["-u"], output), "wineboot");
-            },
+            output => new Prefixes(layout, runner).MoveToRunner(Name, runnerName, output),
             changed);
 
     private void UseSync(SyncMode mode) =>

@@ -41,9 +41,7 @@ public sealed class WinetricksTests : IDisposable
     public void AnActiveWineSessionIsRefused()
     {
         var recorder = new RecordingRunner(
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
-                ? Prefixes.SessionLiveWord
-                : "");
+            dawSession: true);
 
         var refused = Assert.Throws<InvalidOperationException>(
             () => new Winetricks(Layout, recorder).Open("gadget"));

@@ -61,6 +61,17 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         File.WriteAllText(marker, resolved.Name + Environment.NewLine);
     }
 
+    public void MoveToRunner(string name, string runnerName, Action<string>? onOutput = null)
+    {
+        SetRunner(name, runnerName);
+
+        var updated = Run(name, "wineboot", ["-u"], onOutput);
+        if (!updated.Ok)
+        {
+            throw new InvalidOperationException($"wineboot exited with {updated.ExitCode}");
+        }
+    }
+
     public Prefix Create(string name, string? runnerName = null, Action<string>? onOutput = null)
     {
         var path = layout.PrefixPath(name);

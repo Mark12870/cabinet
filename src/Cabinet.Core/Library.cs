@@ -543,6 +543,16 @@ public sealed record LibraryEntry(
     };
 }
 
+public enum RemovalKind
+{
+    Native,
+    TakesPrefix,
+    PluginOrPrefix,
+    KeepsPrefix,
+}
+
+public sealed record Removal(RemovalKind Kind, IReadOnlyList<string> Sharing);
+
 public sealed record LibraryFilter(
     string? Search = null,
     string? Category = null,
@@ -708,6 +718,13 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
     public IReadOnlyList<string> Sharing(string prefix, string id) =>
         [.. Recorded(prefix).Where(other => other != id)];
+
+    public Removal RemovalOf(LibraryEntry entry, string prefix) =>
+        entry.Kind == PluginKind.Native ? new Removal(RemovalKind.Native, [])
+        : entry.Manager ? new Removal(RemovalKind.TakesPrefix, [])
+        : Sharing(prefix, entry.Id) is { Count: > 0 } sharing
+            ? new Removal(RemovalKind.KeepsPrefix, sharing)
+            : new Removal(RemovalKind.PluginOrPrefix, []);
 
     private const int ServiceAlreadyRunning = 1056 & 0xff;
 

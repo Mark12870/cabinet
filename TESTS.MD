@@ -51,6 +51,14 @@ Toolbox needs no JACK server.
 
 Surge XT VST3 covers native Linux VST3 alongside its CLAP and LV2 formats.
 
+## Wine sessions
+
+`Cabinet.Contract.Tests`, run by `scripts/checks.sh`, drives Core's real `ProcessRunner` through
+the built shim on the DAW path, with scripts standing in for `flatpak` and Wine. A shim running
+inside Cabinet's own sandbox needs the installed `/app/lib/yabridge/cabinet-wine`, so
+`TeardownTests` covers that path here: a job Cabinet starts carries its exit status and its
+session retires, and Cabinet joins a session a DAW started rather than starting a second one.
+
 Run the complete matrix after setup with:
 
 ```sh

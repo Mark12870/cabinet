@@ -53,7 +53,10 @@ internal static class Program
           --installed, --not-installed         only what is here, or only what is not
         """;
 
-    private static int Main(string[] args)
+    private static int Main(string[] args) =>
+        Invoke(args, Layout.FromEnvironment, new ProcessRunner());
+
+    internal static int Invoke(string[] args, Func<Layout> environment, IProcessRunner runner)
     {
         var json = args.Contains("--json");
         var positional = args.Where(a => a != "--json").ToArray();
@@ -66,7 +69,9 @@ internal static class Program
 
         try
         {
-            return positional.Length == 0 ? LaunchGui() : Dispatch(positional, json);
+            return positional.Length == 0
+                ? LaunchGui()
+                : Dispatch(positional, json, environment(), runner);
         }
         catch (Exception exception)
         {
@@ -84,11 +89,8 @@ internal static class Program
         return gui.ExitCode;
     }
 
-    private static int Dispatch(string[] args, bool json)
+    private static int Dispatch(string[] args, bool json, Layout layout, IProcessRunner runner)
     {
-        var layout = Layout.FromEnvironment();
-        var runner = new ProcessRunner();
-
         Bootstrap.Ensure(layout);
 
         return args[0] switch
@@ -113,7 +115,7 @@ internal static class Program
             "sync" => Sync(layout, runner),
             "run" => Run(layout, runner, Require(args, 1, "a prefix name"),
                 Require(args, 2, "a command"), args.Skip(3).ToArray()),
-            "doctor" => RunDoctor(layout, json),
+            "doctor" => RunDoctor(layout, runner, json),
             "about" => ShowAbout(layout, runner, json),
             _ => Unknown(args[0]),
         };
@@ -689,9 +691,14 @@ internal static class Program
             return 1;
         }
 
-        return entry.Kind == PluginKind.Native
-            ? RemoveNative(library, entry)
-            : RemoveWindows(library, entry, prefix!);
+        var where = prefix ?? entry.Prefix;
+
+        return library.RemovalOf(entry, where) switch
+        {
+            { Kind: RemovalKind.Native } => RemoveNative(library, entry),
+            { Kind: RemovalKind.TakesPrefix } => RemoveManager(library, entry, where),
+            var removal => RemoveWindows(library, entry, where, removal.Sharing),
+        };
     }
 
     private static int RemoveNative(Library library, LibraryEntry entry)
@@ -799,15 +806,9 @@ internal static class Program
         return 0;
     }
 
-    private static int RemoveWindows(Library library, LibraryEntry entry, string prefix)
+    private static int RemoveWindows(
+        Library library, LibraryEntry entry, string prefix, IReadOnlyList<string> sharing)
     {
-        if (entry.Launch is not null)
-        {
-            return RemoveManager(library, entry, prefix);
-        }
-
-        var sharing = library.Sharing(prefix, entry.Id);
-
         if (sharing.Count == 0)
         {
             Console.WriteLine(
@@ -867,9 +868,9 @@ internal static class Program
         return result.ExitCode;
     }
 
-    private static int RunDoctor(Layout layout, bool json)
+    private static int RunDoctor(Layout layout, IProcessRunner runner, bool json)
     {
-        var checks = new Doctor(layout, new ProcessRunner()).Run();
+        var checks = new Doctor(layout, runner).Run();
 
         if (json)
         {

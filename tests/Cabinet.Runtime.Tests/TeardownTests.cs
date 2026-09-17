@@ -92,6 +92,57 @@ public sealed class TeardownTests : IDisposable
     }
 
     [Fact]
+    public void AJobCabinetStartsInItsOwnSandboxCarriesItsExitStatusAndItsSessionRetiresOnceIdle()
+    {
+        var session = Session("ic");
+
+        try
+        {
+            using var joined = StartInCabinet(session, ["cmd", "/c", "exit", "3"]);
+
+            Assert.True(joined.WaitForExit(TimeSpan.FromSeconds(120)), "the job never finished");
+            Assert.Equal(3, joined.ExitCode);
+            Assert.Single(Brokers(session));
+            Assert.True(
+                Settles(() => Brokers(session).Count == 0, TimeSpan.FromSeconds(90)),
+                "the session Cabinet started never retired");
+        }
+        finally
+        {
+            EndBrokers(session);
+            Host.Discard(session);
+        }
+    }
+
+    [Fact]
+    public void CabinetJoinsTheSessionADawStartedInsteadOfStartingItsOwn()
+    {
+        var session = Session("cj");
+        const string plugin = "cabinet-joins-plugin";
+
+        try
+        {
+            using var held = StartShim(session, plugin);
+            Assert.True(AppearsWithin(Host.App, session), "the DAW's wine sandbox never started");
+
+            using var joined = StartInCabinet(session, ["cmd", "/c", "exit", "3"]);
+
+            Assert.True(joined.WaitForExit(TimeSpan.FromSeconds(120)), "the joined job never finished");
+            Assert.Equal(3, joined.ExitCode);
+            Assert.True(
+                Holds(() => Brokers(session).Count == 1, TimeSpan.FromSeconds(30)),
+                "Cabinet started a second wine session beside the DAW's");
+            Assert.False(held.HasExited, "the DAW's plugin lost its wine session");
+        }
+        finally
+        {
+            Host.KillAll(Host.App, session);
+            EndBrokers(session);
+            Host.Discard(session);
+        }
+    }
+
+    [Fact]
     public void AWineSandboxDiesWhenTheShimDies()
     {
         var session = Session("sd");
@@ -237,6 +288,69 @@ public sealed class TeardownTests : IDisposable
         info.ArgumentList.Add(command);
 
         return Process.Start(info) ?? throw new InvalidOperationException($"could not start {daw}");
+    }
+
+    private static IReadOnlyList<Process> Brokers(string session) =>
+        [
+            .. Directory.EnumerateDirectories("/proc")
+                .Select(Path.GetFileName)
+                .Where(pid => int.TryParse(pid, out _))
+                .Where(pid => ProcessCommandLine(pid!).StartsWith(
+                    "/app/lib/yabridge/cabinet-wine --cabinet-inner " + session + "/", StringComparison.Ordinal))
+                .Select(pid => Process.GetProcessById(int.Parse(pid!))),
+        ];
+
+    private static void EndBrokers(string session)
+    {
+        foreach (var broker in Brokers(session))
+        {
+            broker.Kill(entireProcessTree: true);
+            broker.WaitForExit();
+        }
+    }
+
+    private static string ProcessCommandLine(string pid)
+    {
+        try
+        {
+            return File.ReadAllText($"/proc/{pid}/cmdline").Replace('\0', ' ');
+        }
+        catch (SystemException)
+        {
+            return string.Empty;
+        }
+    }
+
+    private static Process StartInCabinet(string session, IReadOnlyList<string> job)
+    {
+        var info = new ProcessStartInfo("flatpak")
+        {
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        Host.Configure(info);
+
+        foreach (var argument in (string[])
+                 [
+                     "run",
+                     "--command=/app/lib/yabridge/cabinet-wine",
+                     $"--filesystem={RuntimeTestEnvironment.Root}:create",
+                     $"--env=HOME={HomeDirectory}",
+                     $"--env=XDG_RUNTIME_DIR={RuntimeTestEnvironment.RuntimeDirectory}",
+                     $"--env=WINEPREFIX={Prefix()}",
+                     $"--env=YABRIDGE_TEMP_DIR={session}",
+                     Host.App,
+                     "--cabinet-join",
+                     .. job,
+                 ])
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        return Process.Start(info) ?? throw new InvalidOperationException("could not start Cabinet");
     }
 
     private static IReadOnlyList<string> NativeArgv(string prefix)

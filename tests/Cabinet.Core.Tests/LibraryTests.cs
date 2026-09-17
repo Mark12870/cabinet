@@ -404,9 +404,8 @@ public class LibraryTests : IDisposable
         var entry = LibraryEntry.Parse("thing", Linked + "LaunchHelper: ThingHelper.exe\n");
         var layout = Layout();
         var recorder = new RecordingRunner(
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
-                ? Prefixes.SessionLiveWord
-                : "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+            outputs: _ => "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"",
+            dawSession: true);
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
 
         new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
@@ -420,9 +419,8 @@ public class LibraryTests : IDisposable
         Catalogue(("thing", Linked));
         var layout = Layout();
         var recorder = new RecordingRunner(
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
-                ? Prefixes.SessionLiveWord
-                : "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+            outputs: _ => "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"",
+            dawSession: true);
         Directory.CreateDirectory(layout.PrefixPath("thing"));
         File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
 
@@ -460,9 +458,8 @@ public class LibraryTests : IDisposable
         Catalogue(("thing", Linked));
         var layout = Layout();
         var recorder = new RecordingRunner(
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
-                ? Prefixes.SessionLiveWord
-                : "\"yabridge-host.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+            outputs: _ => "\"yabridge-host.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"",
+            dawSession: true);
         Directory.CreateDirectory(layout.PrefixPath("thing"));
         File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
 
@@ -527,9 +524,8 @@ public class LibraryTests : IDisposable
         Catalogue(("thing", Linked));
         var layout = Layout();
         var recorder = new RecordingRunner(
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
-                ? Prefixes.SessionLiveWord
-                : "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"");
+            outputs: _ => "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"",
+            dawSession: true);
         Directory.CreateDirectory(layout.PrefixPath("thing"));
         File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
 
@@ -593,11 +589,8 @@ public class LibraryTests : IDisposable
         new Library(layout, recorder).Launch(entry);
 
         var opened = Assert.Single(recorder.Calls, call => call.Arguments.Contains(entry.Launch));
-        var settled = Assert.Single(recorder.Calls, call =>
-            call.File == "wineserver" && call.Arguments.SequenceEqual(["-w"]));
 
         Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), opened.LogTo);
-        Assert.Equal(layout.PrefixLaunchLog(entry.Prefix), settled.LogTo);
     }
 
     [Fact]
@@ -651,9 +644,7 @@ public class LibraryTests : IDisposable
             + @"Launch: C:\Program Files\Thing\Thing.exe" + "\n");
         var layout = Layout();
         var recorder = new RecordingRunner(
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
-                ? Prefixes.SessionLiveWord
-                : "");
+            dawSession: true);
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
 
@@ -678,9 +669,7 @@ public class LibraryTests : IDisposable
             exits: args => args.SequenceEqual([Prefixes.JoinMode, @"C:\Program Files\Thing\Thing.exe"])
                 ? 137
                 : 0,
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode])
-                ? Prefixes.SessionLiveWord
-                : "");
+            dawSession: true);
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
 
@@ -756,7 +745,7 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public async Task OpeningAnAppWaitsForPluginsThatAppearDuringWineSettling()
+    public async Task OpeningAnAppWaitsForPluginsThatAppearWhileTheAppRuns()
     {
         var entry = LibraryEntry.Parse(
             "thing",
@@ -769,7 +758,7 @@ public class LibraryTests : IDisposable
         var release = new ManualResetEventSlim();
         var recorder = new RecordingRunner(args =>
         {
-            if (!args.SequenceEqual(["-w"]))
+            if (!args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
             {
                 return;
             }
@@ -797,8 +786,6 @@ public class LibraryTests : IDisposable
 
         await task;
         Assert.False(File.Exists(plugin));
-        Assert.Contains(recorder.Calls, call =>
-            call.File == "wineserver" && call.Arguments.SequenceEqual(["-w"]));
     }
 
     [Fact]
@@ -911,7 +898,7 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void WineThatDoesNotSettleStillBridgesWhatTheAppInstalled()
+    public void AnAppThatFailsStillBridgesWhatItInstalled()
     {
         var entry = Manager();
         var layout = Layout();
@@ -919,12 +906,12 @@ public class LibraryTests : IDisposable
         var recorder = new RecordingRunner(
             args =>
             {
-                if (args.SequenceEqual(["-w"]))
+                if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
                 {
                     File.WriteAllText(plugin, "");
                 }
             },
-            args => args.SequenceEqual(["-w"]) ? 1 : 0);
+            args => args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]) ? 1 : 0);
 
         Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
@@ -932,18 +919,19 @@ public class LibraryTests : IDisposable
         var library = new Library(layout, recorder);
         var thrown = Assert.Throws<InvalidOperationException>(() => library.Launch(entry));
 
-        Assert.Contains("did not finish", thrown.Message);
+        Assert.Contains("Thing exited with 1", thrown.Message);
         Assert.Contains(recorder.Calls, Synced);
         Assert.Contains("Landed.vst3 appeared", library.LaunchLog(entry));
     }
 
     [Fact]
-    public void BridgeAndWineSettlingFailuresAreBothReported()
+    public void BridgeAndAppFailuresAreBothReported()
     {
         var entry = Manager();
         var layout = Layout();
         var recorder = new RecordingRunner(
-            exits: args => args.SequenceEqual(["-w"]) || args.SequenceEqual(["sync", "--prune"])
+            exits: args => args.SequenceEqual([Prefixes.JoinMode, entry.Launch!])
+                           || args.SequenceEqual(["sync", "--prune"])
                 ? 1
                 : 0);
 
@@ -953,7 +941,7 @@ public class LibraryTests : IDisposable
         var thrown = Assert.Throws<AggregateException>(
             () => new Library(layout, recorder).Launch(entry));
 
-        Assert.Contains("did not finish", thrown.ToString());
+        Assert.Contains("Thing exited with 1", thrown.ToString());
         Assert.Contains("yabridgectl exited with 1", thrown.ToString());
     }
 
@@ -965,7 +953,7 @@ public class LibraryTests : IDisposable
         var plugin = Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Uninstalled.vst3");
         var recorder = new RecordingRunner(args =>
         {
-            if (args.SequenceEqual(["-w"]))
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
             {
                 File.Delete(plugin);
             }
@@ -1130,7 +1118,7 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void ClosingAnAppStopsItsServiceBeforeWaitingForWine()
+    public void ClosingAnAppStopsItsServiceAndNeverWaitsForWineInTheSessionItKeepsLive()
     {
         var entry = LibraryEntry.Parse(
             "thing",
@@ -1144,14 +1132,9 @@ public class LibraryTests : IDisposable
 
         new Library(layout, recorder).Launch(entry);
 
-        var calls = recorder.Calls.ToList();
-        var stop = calls.FindIndex(
+        Assert.Single(recorder.Calls,
             call => call.Arguments.SequenceEqual([Prefixes.JoinMode, "sc", "stop", "ThingService"]));
-        var wait = calls.FindIndex(
-            call => call.Arguments.SequenceEqual(["-w"]));
-
-        Assert.True(stop >= 0, "the service is stopped when the app closes");
-        Assert.True(stop < wait, "the service is stopped before wineserver is waited on");
+        Assert.DoesNotContain(recorder.Calls, call => call.File == "wineserver");
     }
 
     [Fact]
@@ -1825,6 +1808,56 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void ANativePluginIsRemovedWithNoPrefixToDecideAbout()
+    {
+        var library = new Library(Layout(), new UnusedRunner());
+
+        Assert.Equal(RemovalKind.Native, library.RemovalOf(Native("synth"), "").Kind);
+    }
+
+    [Fact]
+    public void AManagerTakesItsPrefixEvenWhenOtherPluginsShareIt()
+    {
+        var layout = Layout();
+        var entry = Manager();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), "thing\nother\n");
+
+        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry, entry.Prefix);
+
+        Assert.Equal(RemovalKind.TakesPrefix, removal.Kind);
+        Assert.Empty(removal.Sharing);
+    }
+
+    [Fact]
+    public void TheOnlyPluginInAPrefixOffersToTakeThePrefixToo()
+    {
+        var layout = Layout();
+        var entry = LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), "thing\n");
+
+        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry, entry.Prefix);
+
+        Assert.Equal(RemovalKind.PluginOrPrefix, removal.Kind);
+        Assert.Empty(removal.Sharing);
+    }
+
+    [Fact]
+    public void APluginSharingItsPrefixKeepsItAndNamesWhoElseIsThere()
+    {
+        var layout = Layout();
+        var entry = LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), "thing\nother\nanother\n");
+
+        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry, entry.Prefix);
+
+        Assert.Equal(RemovalKind.KeepsPrefix, removal.Kind);
+        Assert.Equal(["other", "another"], removal.Sharing);
+    }
+
+    [Fact]
     public void APrefixKnowsWhichOtherPluginsWouldKeepItAlive()
     {
         var layout = Layout();
@@ -2495,7 +2528,7 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void AnAppThatOutlivesTheGraceTakesTheWholePrefixWithIt()
+    public void AnAppThatOutlivesTheGraceIsLeftRunningBecauseStopsOwnJoinsKeepTheSessionLive()
     {
         var entry = Manager();
         var layout = Layout();
@@ -2507,11 +2540,10 @@ public class LibraryTests : IDisposable
         var listed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("tasklist"));
 
         Assert.Equal([Prefixes.JoinMode, "tasklist", "/fo", "csv", "/nh"], listed.Arguments);
-        Assert.Single(recorder.Calls, call =>
-            call.File == "wineserver" && call.Arguments.SequenceEqual(["-k"]));
+        Assert.DoesNotContain(recorder.Calls, call => call.File == "wineserver");
 
         Assert.Contains(
-            "Ending every Wine process",
+            "is bridging plugins, so Cabinet left it alone",
             File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
     }
 
@@ -2529,8 +2561,9 @@ public class LibraryTests : IDisposable
 
         new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
 
-        Assert.Single(recorder.Calls, call =>
-            call.File == "wineserver" && call.Arguments.SequenceEqual(["-k"]));
+        Assert.Contains(
+            "Thing was still running",
+            File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
     }
 
     [Fact]

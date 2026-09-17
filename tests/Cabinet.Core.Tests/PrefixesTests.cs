@@ -159,6 +159,39 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void MovingToARunnerRecordsItBeforeUpdatingThePrefixWithWineboot()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.RunnerWine("wine-9.21"))!);
+        File.WriteAllText(Layout.RunnerWine("wine-9.21"), "");
+        var recordedFirst = new List<string>();
+        var recorder = new RecordingRunner(acts: _ =>
+            recordedFirst.Add(File.ReadAllText(Layout.PrefixRunnerFile("gadget")).Trim()));
+
+        new Prefixes(Layout, recorder).MoveToRunner("gadget", "wine-9.21");
+
+        var updated = Assert.Single(recorder.Ran);
+        Assert.Equal(Path.Combine(Path.GetDirectoryName(Layout.RunnerWine("wine-9.21"))!, "wineboot"),
+            updated.File);
+        Assert.Equal(["-u"], updated.Arguments);
+        Assert.Equal(["wine-9.21"], recordedFirst);
+    }
+
+    [Fact]
+    public void AWinebootThatFailsAfterAMoveIsReportedAndTheRunnerStaysRecorded()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        File.WriteAllText(Layout.PrefixRunnerFile("gadget"), "wine-9.21");
+        var recorder = new RecordingRunner(exits: _ => 3);
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Prefixes(Layout, recorder).MoveToRunner("gadget", Layout.BundledRunner));
+
+        Assert.Equal("wineboot exited with 3", thrown.Message);
+        Assert.False(File.Exists(Layout.PrefixRunnerFile("gadget")));
+    }
+
+    [Fact]
     public void ARunnerWithoutAWineBinaryIsRefused()
     {
         Directory.CreateDirectory(Layout.PrefixPath("gadget"));
@@ -213,13 +246,40 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void CabinetsOwnJoinKeepsTheSessionLiveUntilItRetires()
+    {
+        var recorder = new RecordingRunner();
+        var prefixes = new Prefixes(Layout, recorder);
+
+        var before = prefixes.SessionLive("gadget");
+        prefixes.RunJoined("gadget", ["cmd", "/c", "exit"]);
+        var after = prefixes.SessionLive("gadget");
+        recorder.Retire();
+        var retired = prefixes.SessionLive("gadget");
+
+        Assert.False(before);
+        Assert.True(after);
+        Assert.False(retired);
+    }
+
+    [Fact]
+    public void ASessionCannotRetireWhileOneOfItsJobsRuns()
+    {
+        RecordingRunner recorder = null!;
+        recorder = new RecordingRunner(acts: _ => recorder.Retire());
+
+        Assert.Throws<InvalidOperationException>(
+            () => new Prefixes(Layout, recorder).RunJoined("gadget", ["cmd", "/c", "exit"]));
+    }
+
+    [Fact]
     public void WhatCabinetRunsJoinsTheSessionADawAlreadyHas()
     {
         Directory.CreateDirectory(Layout.PrefixPath("gadget"));
         var installer = Path.Combine(root, "setup.exe");
         File.WriteAllText(installer, "");
         var recorder = new RecordingRunner(
-            outputs: args => args.SequenceEqual([Prefixes.SessionMode]) ? Prefixes.SessionLiveWord : "");
+            dawSession: true);
         var prefixes = new Prefixes(Layout, recorder);
 
         prefixes.Run("gadget", "winecfg", []);

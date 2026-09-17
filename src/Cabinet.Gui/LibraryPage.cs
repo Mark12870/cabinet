@@ -595,16 +595,12 @@ internal sealed class LibraryPage
 
     private void ConfirmRemove(LibraryEntry entry, string? prefix)
     {
-        if (entry.Kind == PluginKind.Native)
+        var where = prefix ?? entry.Prefix;
+        var removal = new Library(layout, runner).RemovalOf(entry, where);
+
+        if (removal.Kind == RemovalKind.Native)
         {
             ConfirmRemoveNative(entry);
-            return;
-        }
-
-        var where = prefix ?? entry.Prefix;
-
-        if (where is null)
-        {
             return;
         }
 
@@ -614,7 +610,7 @@ internal sealed class LibraryPage
             return;
         }
 
-        if (entry.Launch is not null)
+        if (removal.Kind == RemovalKind.TakesPrefix)
         {
             Ui.Confirm(
                 window,
@@ -628,15 +624,12 @@ internal sealed class LibraryPage
             return;
         }
 
-        var library = new Library(layout, runner);
-        var sharing = library.Sharing(where, entry.Id);
-
-        if (sharing.Count > 0)
+        if (removal.Kind == RemovalKind.KeepsPrefix)
         {
             Ui.Confirm(
                 window,
                 $"Remove {entry.Name}?",
-                Kept(where, sharing) + " " + Wizard(entry),
+                Kept(where, removal.Sharing) + " " + Wizard(entry),
                 "Remove",
                 () => Uninstall(entry, where),
                 Adw.ResponseAppearance.Destructive);
