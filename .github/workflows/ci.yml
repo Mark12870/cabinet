@@ -19,6 +19,18 @@ env:
   # somewhere to go. Lower than beeper-flatpak's 100 on purpose: Cabinet bundles
   # Wine, so a retained commit is tens of megabytes rather than a few kilobytes.
   HISTORY_DEPTH: 10
+  CONTAINER_IMAGE: flathub-infra/flatpak-github-actions
+  CONTAINER_TAG: gnome-50
+  # Everything the Flatpak is built against. Installed and recorded from this one list, so the
+  # job summary names the exact commit of each input a build used.
+  BUILD_REFS: >-
+    org.gnome.Platform//50
+    org.gnome.Sdk//50
+    org.freedesktop.Sdk.Extension.rust-stable//25.08
+    org.freedesktop.Sdk.Extension.dotnet10//25.08
+    org.freedesktop.Sdk.Extension.llvm20//25.08
+    org.freedesktop.Sdk.Compat.i386//25.08
+    org.winehq.Wine//stable-25.08
 
 jobs:
   checks:
@@ -87,9 +99,10 @@ jobs:
             echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
 
+  # Runs on every push and pull request, not only for a release, so a green run means the
+  # artifact builds. Only publish is gated on a new version, and it ships this very build.
   build:
     needs: checks
-    if: needs.checks.outputs.publish == 'true'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
@@ -132,15 +145,31 @@ jobs:
           ostree --repo=repo remote delete published
 
       - name: Install the runtime, SDK, Wine and the build toolchains
+        run: flatpak install -y --noninteractive flathub ${BUILD_REFS}
+
+      # /app/manifest.json records the runtime, SDK and Wine base commits, but not the SDK
+      # extensions, and nothing records the container image, which is referenced by tag.
+      - name: Record the build inputs
         run: |
-          flatpak install -y --noninteractive flathub \
-            org.gnome.Platform//50 \
-            org.gnome.Sdk//50 \
-            org.freedesktop.Sdk.Extension.rust-stable//25.08 \
-            org.freedesktop.Sdk.Extension.dotnet10//25.08 \
-            org.freedesktop.Sdk.Extension.llvm20//25.08 \
-            org.freedesktop.Sdk.Compat.i386//25.08 \
-            org.winehq.Wine//stable-25.08
+          token="$(curl -sSf --retry 3 \
+                   "https://ghcr.io/token?scope=repository:${CONTAINER_IMAGE}:pull" |
+                   sed -n 's/.*"token":"\([^"]*\)".*/\1/p')"
+          digest="$(curl -sSfI --retry 3 -H "Authorization: Bearer ${token}" \
+                    -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+                    "https://ghcr.io/v2/${CONTAINER_IMAGE}/manifests/${CONTAINER_TAG}" |
+                    tr -d '\r' | sed -n 's/^docker-content-digest: //Ip')"
+          {
+            echo "### Build inputs"
+            echo
+            echo "| Input | Commit | Version |"
+            echo "| --- | --- | --- |"
+            echo "| \`ghcr.io/${CONTAINER_IMAGE}:${CONTAINER_TAG}\` | \`${digest:-unresolved}\` | |"
+            for ref in ${BUILD_REFS}; do
+              commit="$(flatpak info --show-commit "${ref}")"
+              version="$(flatpak info "${ref}" | sed -n 's/^ *Version: //p')"
+              echo "| \`${ref}\` | \`${commit}\` | ${version} |"
+            done
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
 
       - name: Build
         run: |
@@ -150,6 +179,9 @@ jobs:
             --disable-rofiles-fuse \
             --default-branch=stable \
             build "${APP_ID}.yml"
+
+      - name: Check the artifact
+        run: scripts/check-artifact.sh build
 
       # Tarred because upload-artifact does not preserve the symlinks an OSTree
       # repository is built out of.
@@ -163,7 +195,8 @@ jobs:
           retention-days: 1
 
   publish:
-    needs: build
+    needs: [checks, build]
+    if: needs.checks.outputs.publish == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

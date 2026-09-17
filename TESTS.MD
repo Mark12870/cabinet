@@ -59,6 +59,13 @@ inside Cabinet's own sandbox needs the installed `/app/lib/yabridge/cabinet-wine
 `TeardownTests` covers that path here: a job Cabinet starts carries its exit status and its
 session retires, and Cabinet joins a session a DAW started rather than starting a second one.
 
+## Winelib hosts
+
+yabridge's hosts are built against Debian's Wine 8.0 headers and import libraries but run on the
+Wine base, which moves on its own. `WinelibHostTests` starts both `yabridge-host.exe.so` and
+`yabridge-host-32.exe.so` under the bundled Wine in a fresh prefix, and asserts each prints its
+version banner with no `err:module` import failure. No 32-bit plugin is hosted.
+
 Run the complete matrix after setup with:
 
 ```sh

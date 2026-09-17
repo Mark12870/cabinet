@@ -254,6 +254,54 @@ public class ManifestTests
         Assert.All(patches, patch => Assert.Contains($"## {patch}", documented, StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void EveryDebianInputFallsBackToTheSameFileOnTheSnapshotArchive()
+    {
+        const string pool = "url: https://deb.debian.org/debian/";
+
+        var inputs = Enumerable.Range(0, Lines.Length)
+            .Where(index => Lines[index].Trim().StartsWith(pool, StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Equal(5, inputs.Count);
+        Assert.All(inputs, index =>
+        {
+            Assert.Equal("mirror-urls:", Lines[index + 1].Trim());
+            Assert.Matches(
+                $@"^- https://snapshot\.debian\.org/archive/debian/\d{{8}}T\d{{6}}Z/"
+                + System.Text.RegularExpressions.Regex.Escape(Lines[index].Trim()[pool.Length..]) + "$",
+                Lines[index + 2].Trim());
+        });
+    }
+
+    [Fact]
+    public void TheOfflineSourcesCarryEveryRuntimePackAtThePinnedRuntime()
+    {
+        var pinned = XDocument.Load(Repo.Path("src/Directory.Build.props"))
+            .Descendants("RuntimeFrameworkVersion").Single().Value;
+        var sources = System.Text.Json.JsonDocument.Parse(Repo.Read("nuget-sources.json")).RootElement
+            .EnumerateArray()
+            .Select(source => source.GetProperty("dest-filename").GetString()!)
+            .ToHashSet(StringComparer.Ordinal);
+
+        string[] packs =
+        [
+            "microsoft.aspnetcore.app.runtime.linux-x64",
+            "microsoft.dotnet.ilcompiler",
+            "microsoft.net.illink.tasks",
+            "microsoft.netcore.app.host.linux-x64",
+            "microsoft.netcore.app.runtime.linux-x64",
+            "microsoft.netcore.app.runtime.nativeaot.linux-x64",
+            "runtime.linux-x64.microsoft.dotnet.ilcompiler",
+        ];
+
+        Assert.All(packs, pack => Assert.Contains($"{pack}.{pinned}.nupkg", sources));
+        Assert.All(
+            sources.Where(source => source.StartsWith("microsoft.", StringComparison.Ordinal)
+                                    || source.StartsWith("runtime.", StringComparison.Ordinal)),
+            source => Assert.EndsWith($".{pinned}.nupkg", source));
+    }
+
     private static string Field(string key)
     {
         var prefix = key + ":";

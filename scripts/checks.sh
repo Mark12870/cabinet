@@ -35,7 +35,21 @@ fi
 
 step() { printf '  %s\n' "$*" >&2; }
 
+runtime_pin() {
+  local sdk props pinned bundled
+  sdk=$(dotnet --list-sdks | tail -1)
+  props="${sdk#* [}"
+  props="${props%]}/${sdk%% *}/Microsoft.NETCoreSdk.BundledVersions.props"
+  pinned=$(sed -n 's:.*<RuntimeFrameworkVersion>\(.*\)</RuntimeFrameworkVersion>.*:\1:p' src/Directory.Build.props)
+  bundled=$(sed -n 's:.*<BundledNETCoreAppPackageVersion>\(.*\)</BundledNETCoreAppPackageVersion>.*:\1:p' "$props")
+  if [ "$bundled" != "$pinned" ]; then
+    printf '::warning::the SDK bundles .NET runtime %s but src/Directory.Build.props pins %s; ' "$bundled" "$pinned" >&2
+    printf 'move the pin and regenerate nuget-sources.json deliberately\n' >&2
+  fi
+}
+
 if [ "${1:-}" != --staged ]; then
+  step 'runtime pin';     runtime_pin
   step 'dotnet format';   dotnet format --verify-no-changes
   step 'dotnet build';    dotnet build src/Cabinet.Cli --nologo -v q
   step 'dotnet build';    dotnet build src/Cabinet.Gui --nologo -v q \

@@ -250,22 +250,32 @@ modules:
         strip-components: 1
       - type: file
         url: https://deb.debian.org/debian/pool/main/w/wine/libwine-dev_8.0~repack-4_amd64.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20230219T210957Z/pool/main/w/wine/libwine-dev_8.0~repack-4_amd64.deb
         sha256: 7f9616b192c9c31894b5cd267704c9e4ca7688847d87d22492fd764287f695d5
         dest-filename: libwine-dev-amd64.deb
       - type: file
         url: https://deb.debian.org/debian/pool/main/w/wine/libwine-dev_8.0~repack-4_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20230219T210957Z/pool/main/w/wine/libwine-dev_8.0~repack-4_i386.deb
         sha256: fd38bb8f26c5651f8cb4ea8879343992abdb53d47e49efcb966229aeb1df29d5
         dest-filename: libwine-dev-i386.deb
       - type: file
         url: https://deb.debian.org/debian/pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20250415T084322Z/pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_i386.deb
         sha256: d25bdc547dc760f2c48aa808dcd0c4f3b5bd124daa3b47186ee6070ea57d85f1
         dest-filename: libgcc-dev-i386.deb
       - type: file
         url: https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb1_1.15-1_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20220804T091827Z/pool/main/libx/libxcb/libxcb1_1.15-1_i386.deb
         sha256: 58eac13b8d4614a9804b8fbfd8090a4da725ee70ebda435cb807144348d8a216
         dest-filename: libxcb1-i386.deb
       - type: file
         url: https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb1-dev_1.15-1_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20220804T091827Z/pool/main/libx/libxcb/libxcb1-dev_1.15-1_i386.deb
         sha256: f128688a3a58011588258b00d18c9f4f856f2229fa0cd73d5b17938319161c7f
         dest-filename: libxcb1-dev-i386.deb
 
