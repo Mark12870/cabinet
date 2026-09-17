@@ -18,6 +18,9 @@ internal sealed class RecordingRunner(
 
     public IReadOnlyList<Call> Calls => calls;
 
+    public IReadOnlyList<Call> Ran =>
+        calls.Where(call => call.Arguments is not [Prefixes.SessionMode]).ToList();
+
     public IReadOnlyDictionary<string, string> Environment { get; private set; } =
         new Dictionary<string, string>();
 

@@ -446,9 +446,7 @@ pub fn run_broker(args: &[OsString]) -> i32 {
                     match idle {
                         None => idle = Some(Instant::now()),
                         Some(since) if since.elapsed() >= IDLE_GRACE => {
-                            if retire(&lock, &socket, &live, || {
-                                end_wine(runner, prefix.as_deref())
-                            }) {
+                            if retire(&lock, &socket, &live, end_descendants) {
                                 break;
                             }
                             idle = None;
@@ -472,22 +470,44 @@ pub fn run_broker(args: &[OsString]) -> i32 {
     0
 }
 
-fn end_wine(runner: &OsStr, prefix: Option<&OsStr>) {
-    let ended = Command::new(wineserver_beside(runner))
-        .arg("-k")
-        .env_remove("WINELOADER")
-        .envs(prefix_environment(prefix, |path| {
-            std::fs::read_to_string(path).ok()
-        }))
-        .status();
+fn end_descendants() {
+    let session = unsafe { getpid() };
+    let deadline = Instant::now() + IDLE_GRACE;
 
-    if let Err(error) = ended {
-        eprintln!("cabinet-wine: cannot end the Wine session's processes: {error}");
+    loop {
+        let left = descendants(&process_snapshot(), session);
+        if left.is_empty() || Instant::now() >= deadline {
+            return;
+        }
+
+        for pid in left {
+            unsafe {
+                kill(pid, SIGKILL);
+                waitpid(pid, ptr::null_mut(), WNOHANG);
+            }
+        }
+
+        thread::sleep(TICK);
     }
 }
 
-fn wineserver_beside(runner: &OsStr) -> PathBuf {
-    Path::new(runner).with_file_name("wineserver")
+fn descendants(processes: &[ProcessInfo], root: i32) -> Vec<i32> {
+    let mut found = vec![root];
+    let mut index = 0;
+
+    while index < found.len() {
+        let parent = found[index];
+        found.extend(
+            processes
+                .iter()
+                .filter(|process| process.parent == parent && process.pid != root)
+                .map(|process| process.pid),
+        );
+        index += 1;
+    }
+
+    found.remove(0);
+    found
 }
 
 struct Job(Arc<AtomicUsize>);
@@ -1126,15 +1146,29 @@ mod tests {
     }
 
     #[test]
-    fn a_retiring_session_ends_wine_with_its_own_runners_wineserver() {
-        assert_eq!(
-            wineserver_beside(OsStr::new("/runners/wine-9.21/bin/wine")),
-            PathBuf::from("/runners/wine-9.21/bin/wineserver")
-        );
-        assert_eq!(
-            wineserver_beside(OsStr::new("wine")),
-            PathBuf::from("wineserver")
-        );
+    fn a_retiring_session_ends_only_what_it_started() {
+        let process = |pid, parent| ProcessInfo {
+            pid,
+            parent,
+            group: pid,
+            state: b'S',
+            start_time: 0,
+            comm: String::new(),
+        };
+        let processes = [
+            process(1, 0),
+            process(10, 1),
+            process(20, 10),
+            process(21, 20),
+            process(22, 10),
+            process(30, 1),
+            process(31, 30),
+        ];
+
+        let mut ended = descendants(&processes, 10);
+        ended.sort();
+
+        assert_eq!(ended, [20, 21, 22]);
     }
 
     #[test]

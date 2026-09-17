@@ -1704,11 +1704,11 @@ public class LibraryTests : IDisposable
 
         Assert.Equal(
             ["wineboot", "wine"],
-            recording.Calls
+            recording.Ran
                 .TakeWhile(call => Path.GetFileName(call.File) != "yabridgectl")
                 .Select(call => Path.GetFileName(call.File)));
-        Assert.Equal([installer], recording.Calls[1].Arguments);
-        Assert.Contains(recording.Calls, Synced);
+        Assert.Equal([installer], recording.Ran[1].Arguments);
+        Assert.Contains(recording.Ran, Synced);
         Assert.Equal("dexed", library.Installed()["dexed"]);
     }
 
@@ -1912,7 +1912,7 @@ public class LibraryTests : IDisposable
 
         Assert.Equal(
             [["cmd", "/c", @"C:\cabinet-uninstall.bat"]],
-            recording.Calls.Select(call => call.Arguments));
+            recording.Ran.Select(call => call.Arguments));
         Assert.Equal("C:\\aalto.exe\r\n", ran);
         Assert.False(File.Exists(script));
     }
@@ -1969,7 +1969,7 @@ public class LibraryTests : IDisposable
 
         Assert.Contains("nothing has been removed", refused.Message);
         Assert.Equal(
-            ["cmd", "/c", @"C:\cabinet-uninstall.bat"], recording.Calls.Single().Arguments);
+            ["cmd", "/c", @"C:\cabinet-uninstall.bat"], recording.Ran.Single().Arguments);
         Assert.Equal("gadget", Assert.Single(library.Installed()).Key);
     }
 

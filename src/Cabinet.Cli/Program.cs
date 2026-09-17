@@ -848,6 +848,13 @@ internal static class Program
 
         Console.Write(result.Stdout);
         Console.Error.Write(result.Stderr);
+
+        foreach (var dawId in new Doctor(layout, runner).DawsMissingPermissions())
+        {
+            Console.Error.WriteLine(
+                $"{dawId} needs updated permissions to load Windows plugins — run `cabinet enrol {dawId}`");
+        }
+
         return result.ExitCode;
     }
 

@@ -1,7 +1,7 @@
 # Cabinet
 
 Cabinet is a `linux-x64` Flatpak (`io.github.mark12870.cabinet`) that gives Windows VST plugins Wine prefixes of their
-own, one per vendor or product family, and bridges them with patched upstream yabridge. There is deliberately no arm build.
+own, one per vendor or product family, and bridges them with patched upstream yabridge.
 
 ## Important
 
@@ -34,7 +34,7 @@ the name or the structure instead. Anything that genuinely will not fit there is
 
 - `Cabinet.slnx` is a .NET 10 solution. `src/Cabinet.Core` owns operations; `Cabinet.Cli` only parses and renders the
   command line, and `Cabinet.Gui` only wires GTK4/libadwaita through GirCore. The CLI is NativeAOT; the GUI is trimmed
-  self-contained, not AOT. Keep Core AOT-safe, and put new behaviour there.
+  and self-contained. Keep Core AOT-safe, and put new behaviour there.
 - Rust is limited to the dependency-free `shim/` (`cabinet-wine`); application code and tests are C#. The shim is Rust
   because it runs on the plugin-load path inside foreign sandboxes.
 - All three source projects set `TreatWarningsAsErrors`; a warning fails the build.
@@ -54,45 +54,45 @@ the name or the structure instead. Anything that genuinely will not fit there is
 ## Runtime architecture
 
 - `Bootstrap.Ensure` runs from both entry points and creates Cabinet's prefixes directory plus the yabridgectl link.
-  There is no `setup` command.
 - Only Wine runs inside the Cabinet sandbox for the yabridge bridge. The DAW reads yabridge's host-side halves from the
   installed Flatpak's `current/active/files`; `enrol` creates the DAW's
-  `data/yabridge` link and prints, but does not apply, the required `flatpak override` because it grants
+  `data/yabridge` link and prints the required `flatpak override` for the user to apply, because it grants
   `org.freedesktop.Flatpak` and lets the DAW run commands on the host.
 - The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which hands the plugin to a Wine
   session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host. The
-  manifest rewrites that wrapper's fallback from bare `wine` to the shim beside it, so a DAW that sets no `WINELOADER`
-  bridges instead of aborting; the shim in turn forces `YABRIDGE_NO_WATCHDOG=1` (`FORCED`) rather than forwarding it,
-  because the watchdog is PID-based and misfires across the boundary.
+  manifest rewrites that wrapper's fallback from bare `wine` to the shim beside it, so every DAW reaches the shim,
+  whatever its own `WINELOADER`; the shim in turn forces `YABRIDGE_NO_WATCHDOG=1` (`FORCED`), because the watchdog is
+  PID-based and misfires across the boundary.
   Preserve `YABRIDGE_TEMP_DIR`. The shim duplicates three sets of constants, and
   `ShimParityTests` compares each against its C# side: marker names against `Layout`, sync and Cabinet-owned variables
   against
-  `PrefixSettings`, blanked sockets against `Prefixes`. Prefixes need no registration: yabridge finds one by walking
-  from a plugin `.dll` to its `dosdevices` directory.
-- One Wine session per prefix, never one per plugin. Flatpak gives every `flatpak run` its own PID namespace but binds
+  `PrefixSettings`, blanked sockets against `Prefixes`. yabridge finds a plugin's prefix by walking from its `.dll` to
+  the `dosdevices` directory.
+- One Wine session per prefix. Flatpak gives every `flatpak run` its own PID namespace but binds
   `/tmp` per app, so two sandboxes over one `WINEPREFIX` reach the same wineserver socket from either side of a
   namespace boundary and wedge the DAW; that is what froze REAPER on a project holding five Klevgrand plugins.
   `shim/src/session.rs` keys a session on the canonical `WINEPREFIX`, starts it once behind an `flock` in
-  `YABRIDGE_TEMP_DIR`, and every later plugin sends its argv to that session over the session socket. Because the
-  session outlives the shim that started it, it carries neither `--die-with-parent` nor `--watch-bus`. Once idle it
-  retires and runs `wineserver -k` while still holding the session lock: Windows services a plugin started keep the
-  old sandbox and wineserver alive otherwise, and the next session on that prefix crashes or hangs against them.
+  `YABRIDGE_TEMP_DIR`, and every later plugin sends its argv to that session over the session socket. The session
+  outlives the shim that started it and its sandbox lives as long as the session. Once idle it retires and, still
+  holding the session lock, kills its own descendants, so Windows services a plugin started end with it and the next
+  session on that prefix starts clean. Wine that Cabinet started itself lives outside that tree and keeps running, and
+  Cabinet's own commands join a live session.
 - A session reads `.cabinet-env` again for every job it starts, so `cabinet set <prefix> env` reaches the next plugin
-  without restarting it. `.cabinet-sync` is fixed when the session starts, on the outer shim's `flatpak run`: every
+  in a running session. `.cabinet-sync` is fixed when the session starts, on the outer shim's `flatpak run`: every
   Wine process must use the sync mode of the wineserver it joins, and staging-based runners exit on a mismatch.
-- Wine does not keep a job's processes under the process that started them, so a session finds and kills a job by
-  process group, never by ancestry. `wineserver` and `winedevice.exe` put themselves in their own groups and so survive
+- Wine re-parents a job's processes away from the process that started them, so a session finds and kills a job by
+  its process group. `wineserver` and `winedevice.exe` put themselves in their own groups and so survive
   between jobs, which is exactly what sharing a session requires.
 - A yabridge host is dead once its main thread is. Wine can lose that thread, to a stack overflow for one, while
   other threads keep the process and its pidfd alive; the leader shows as a zombie (`Zl`) and the DAW waits on it
   forever. `supervise` ends a job whose `yabridge-host` leader is a zombie; any other program may outlive its main
-  thread. yabridge's plugin side then aborts the DAW at teardown, so this turns a hang into a crash, nothing more.
+  thread. yabridge's plugin side then aborts the DAW at teardown, so this turns a hang into a crash.
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`~/.vst3`, `~/.vst`,
-  `~/.clap`, `~/.lv2`, each DAW's
-  `~/.var/app/<daw>/data/yabridge`, and `~/.local/share/yabridge` for a DAW outside Flatpak) and a Library entry's
-  declared `Data:` directory. Do not add arbitrary writes in
+  `~/.clap`, `~/.lv2` with their `cabinet` links, and each DAW's `~/.var/app/<daw>/data/yabridge`), the per-file links
+  older releases left in `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared `Data:`
+  directory. Do not add arbitrary writes in
   `$HOME`.
 - The manifest keeps `$HOME` read-only. A new Library `Data:` root also needs a matching
   `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`.
@@ -104,12 +104,12 @@ the name or the structure instead. Anything that genuinely will not fit there is
   end's `Program` constructs a real `ProcessRunner`, which keeps Core testable; do not call `Process.Start` or write a
   path literal in an operation.
 - Tests are xunit. `Repo` walks up to `Cabinet.slnx`, so `CatalogueTests`, `ManifestTests` and
-  `ShimParityTests` read the real tree rather than a fixture. Substitute a runner with
+  `ShimParityTests` read the real tree. Substitute a runner with
   `StubRunner`, `RecordingRunner` or `StreamingRunner` instead of a mocking library.
 - Tests must be always deterministic. No conditions are allowed in them.
 - A new CLI verb also belongs in `Program.Usage`. `--json` is stripped from the arguments before dispatch, and JSON is
-  written by hand with `Utf8JsonWriter` in `src/Cabinet.Cli/Json.cs` because NativeAOT has no reflection-based
-  serializer.
+  written by hand with `Utf8JsonWriter` in `src/Cabinet.Cli/Json.cs` because NativeAOT trims reflection-based
+  serialization.
 - In the GUI, user-visible operations with progress or logs use `Operation.Run`. Background page loads may use
   `Task.Run`, but every widget update from off the main loop must go through
   `Ui.OnMainLoop`. Take page chrome from `Ui` and icon names from `Icons`.
@@ -130,7 +130,7 @@ scripts/checks.sh
 
 It enters `org.gnome.Sdk//50` itself and runs formatting, both front-end builds, Core tests, AppStream validation, and
 shim fmt/clippy/tests. The GUI build needs
-`-p:UseSharedCompilation=false`; Core tests do not compile either front end.
+`-p:UseSharedCompilation=false`; Core tests compile only Core.
 
 A focused Core test runs against host `dotnet 10`:
 
@@ -138,7 +138,7 @@ A focused Core test runs against host `dotnet 10`:
 dotnet test tests/Cabinet.Core.Tests --filter 'FullyQualifiedName~CatalogueTests'
 ```
 
-On the intended Silverblue host, `cargo` comes from the `rust-stable` SDK extension rather than the host PATH. Run a
+On the intended Silverblue host, `cargo` comes from the `rust-stable` SDK extension. Run a
 focused shim test in the same SDK shell:
 
 ```sh
@@ -149,11 +149,11 @@ flatpak run --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c \
 For a front-end-only compile, use `dotnet build src/Cabinet.Cli --nologo -v q` or
 `dotnet build src/Cabinet.Gui --nologo -v q -p:UseSharedCompilation=false`.
 
-The pre-commit hook invokes `scripts/checks.sh --staged`; it is selective and skips `dotnet test`, so run the full
-script before declaring work verified. Commit with the hook enabled; never pass
+The pre-commit hook invokes `scripts/checks.sh --staged`; it checks only what is staged and leaves `dotnet test` to
+the full script, so run the full script before declaring work verified. Commit with the hook enabled; never pass
 `--no-verify`.
 
-For a local Flatpak build, use `--disable-rofiles-fuse` and update the installed app rather than relying on an old
+For a local Flatpak build, use `--disable-rofiles-fuse` and update the installed app to the new
 commit:
 
 ```sh
@@ -172,8 +172,8 @@ GUI changes need visual confirmation against the installed Flatpak:
 toolbox.
 
 `nuget-sources.json` feeds the Flatpak's offline build and is generated by
-`flatpak-dotnet-generator.py`. It is required even with no third-party package, because NativeAOT pulls ILCompiler from
-NuGet; regenerate it whenever a dependency changes.
+`flatpak-dotnet-generator.py`. NativeAOT pulls ILCompiler from NuGet, so every build
+needs it; regenerate it whenever a dependency changes.
 
 ## Runtime diagnosis
 
@@ -192,28 +192,27 @@ NuGet; regenerate it whenever a dependency changes.
 - An editor can be exercised without a DAW: drive Carla's `carla_backend` from Python in the isolated runtime
   (`engine_init("Dummy")`, `add_plugin`, `show_custom_ui`, a timed `engine_idle` loop, `engine_close`) with `DISPLAY`
   kept, under `timeout`. A stall in `engine_close` is the DAW freeze.
-- Without `YABRIDGE_TEMP_DIR` yabridge puts its sockets in `$XDG_RUNTIME_DIR` itself, which the manifest cannot grant
-  (`--filesystem=xdg-run` is refused; `xdg-run` needs a subdirectory). The shim grants that path by value on every
-  `flatpak run`, so a DAW that sets nothing still reaches its sockets.
-- A native DAW needs no enrolment: every successful bridge links `~/.vst3/cabinet`, `~/.clap/cabinet` and
-  `~/.vst/cabinet` to Cabinet's own yabridgectl output, reports a path something else owns instead of replacing it,
-  and takes out the per-file links older releases left in `~/.local/share/yabridge`. yabridge's chainloader never
-  looks beside itself, and every yabridge puts the same names in `~/.local/share/yabridge`, so
+- yabridge puts its sockets in `$XDG_RUNTIME_DIR` when `YABRIDGE_TEMP_DIR` is unset, and a manifest grants only
+  `xdg-run` subdirectories. The shim grants that path by value on every `flatpak run`, so every DAW reaches its
+  sockets.
+- Every successful bridge sets up native DAWs: it links `~/.vst3/cabinet`, `~/.clap/cabinet` and `~/.vst/cabinet`
+  to Cabinet's own yabridgectl output, reports a path something else owns and leaves it in place, and takes out the
+  per-file links older releases left in `~/.local/share/yabridge`. yabridge's chainloader searches `$PATH` and
+  `~/.local/share/yabridge`, where every yabridge puts the same names, so
   `patches/yabridge-chainloader-cabinet-first.patch` makes Cabinet's copies load Cabinet's installed library and host
-  first; nothing is published beside the plugins, because `yabridgectl sync` prunes `.so` files it did not make.
-  A findable bridge with no reachable loader aborts the DAW from yabridge's launch thread rather than failing the
-  plugin; the manifest's `WINELOADER` fallback rewrite is what keeps the loader reachable. A long
-  `YABRIDGE_TEMP_DIR` breaks the sockets with `File name too long`, so leave it under `/run/user/<uid>`.
-  Redirecting `XDG_DATA_HOME` to isolate it also hides
-  the user Flatpak installation from the shim's `flatpak run` (`app/io.github.mark12870.cabinet/x86_64/master not
-  installed`); set `FLATPAK_USER_DIR=~/.local/share/flatpak` beside it. Native REAPER quit from a ReaScript
-  (`Main_OnCommand(40004)`) with a bridged plugin loaded stalled for 9 s to over 100 s while `YABRIDGE_DEBUG_LEVEL=1`
-  showed no bridge call outstanding; run it under `timeout` and read the ReaScript's own output, not the exit.
-- Run `library install` with `DISPLAY` set: a vendor installer can install nothing without one, and the script then
-  fails on the missing plugin.
-- Wine runs every process elevated, and WebView2 ignores `WEBVIEW2_*` variables and `HKCU` policy for an elevated host.
-  Browser flags go in `HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments`, valued by host
-  executable (`yabridge-host.exe`); `CatalogueTests` refuses the other two. Read `msedgewebview2.exe`'s
+  first; both stay in Cabinet's installed files, because `yabridgectl sync` prunes every `.so` beside the
+  plugins that lacks its own `.dll`. A findable bridge with an unreachable loader aborts the DAW from yabridge's launch
+  thread; the manifest's `WINELOADER` fallback rewrite keeps the loader reachable. A long `YABRIDGE_TEMP_DIR` breaks
+  the sockets with `File name too long`, so leave it under `/run/user/<uid>`. Redirecting `XDG_DATA_HOME` to isolate
+  it also hides the user Flatpak installation from the shim's `flatpak run`
+  (`app/io.github.mark12870.cabinet/x86_64/master not installed`); set `FLATPAK_USER_DIR=~/.local/share/flatpak`
+  beside it. Native REAPER quit from a ReaScript (`Main_OnCommand(40004)`) with a bridged plugin loaded stalled for
+  9 s to over 100 s while `YABRIDGE_DEBUG_LEVEL=1` showed every bridge call answered; run it under `timeout` and read
+  the ReaScript's own output.
+- Run `library install` with `DISPLAY` set: a vendor installer needs a display to install its plugin.
+- Wine runs every process elevated, and WebView2 reads an elevated host's browser flags from
+  `HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments`, valued by host executable
+  (`yabridge-host.exe`); `CatalogueTests` enforces that location. Read `msedgewebview2.exe`'s
   `/proc/<pid>/cmdline` before crediting a flag with any effect.
 
 ## Catalogue and safeguards
@@ -221,12 +220,12 @@ NuGet; regenerate it whenever a dependency changes.
 - `data/library/<vendor>/` contains that vendor's `.yml` entries, optional shared `.sh` installer, and artwork; the
   manifest installs the directory to `/app/share/cabinet/library/<vendor>/`. Entry IDs are global. Keep artwork
   provenance in `SOURCES.md`.
-- A vendor directory that holds any `.md` is skipped by the manifest's install loop: the entry stays in the tree and
-  under test but does not ship, and the `.md` says why (`data/library/spitfire-audio/SPITFIRE.md`). `CatalogueTests`
+- A vendor directory that holds any `.md` stays in the tree and under test, the manifest's install loop leaves it out
+  of the build, and the `.md` says why (`data/library/spitfire-audio/SPITFIRE.md`). `CatalogueTests`
   guards the pairing.
-- Prefer a working native entry. Windows entries use a tagged, SHA-256-pinned download; a
-  `rolling` source has no checksum/version, and `byo` has no Cabinet download URL/checksum. Library scripts may only
-  operate in the directories Cabinet passes them; Cabinet owns linking, recording, and removal.
+- Prefer a working native entry. Windows entries use a tagged, SHA-256-pinned download; a `rolling` source carries
+  only a URL, and `byo` takes the file the user fetched from the vendor's page. Library scripts may only operate in
+  the directories Cabinet passes them; Cabinet owns linking, recording, and removal.
 - Write the guard, not the paragraph: `CatalogueTests`, `ManifestTests`, and `ShimParityTests`
   guard catalogue, sandbox permissions, and the Core/shim contract. Add a test for a tree invariant instead of
   documenting it only in prose. Put user-actionable failures in `doctor`, shared by the CLI and GUI, and report only
@@ -235,8 +234,7 @@ NuGet; regenerate it whenever a dependency changes.
 ## Releases
 
 The newest `<release>` in `io.github.mark12870.cabinet.metainfo.xml` is Cabinet's only version; do not put a product
-version in a project file. `scripts/update-yabridge.py` updates only the manifest URL/hash and does not choose a Cabinet
-release.
+version in a project file. `scripts/update-yabridge.py` updates the manifest URL and hash.
 
 Publishing is automatic and irreversible: every push to `main` runs `ci.yml`, which, once its checks pass, builds,
 signs and deploys to Pages only when that newest `<release>` differs from the version already published, keeping ten

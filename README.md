@@ -82,6 +82,7 @@ yours; undo it with `flatpak override --user --reset <daw-id>`. A DAW installed 
 permissions: bridging links Cabinet's plugins into `~/.vst*/cabinet`, and they load Cabinet's own yabridge, so another
 yabridge install keeps working beside it. Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
 `flatpak uninstall --delete-data` **will** delete your plugin library — a plain `flatpak uninstall` leaves it alone.
+Either way, remove `~/.vst3/cabinet`, `~/.vst/cabinet` and `~/.clap/cabinet` afterwards; Flatpak cannot do it for you.
 
 ## Building
 

@@ -111,10 +111,12 @@ internal sealed class MainWindow
         Task.Run(() =>
         {
             string? failure = null;
+            IReadOnlyList<string> unpermitted = [];
 
             try
             {
                 new Prefixes(layout, runner).Bridge();
+                unpermitted = new Doctor(layout, runner).DawsMissingPermissions();
             }
             catch (Exception exception)
             {
@@ -128,10 +130,25 @@ internal sealed class MainWindow
                     Toast($"Could not bridge plugins: {failure}");
                 }
 
+                foreach (var dawId in unpermitted)
+                {
+                    PermissionsToast(layout, dawId);
+                }
+
                 doctor.Refresh();
                 Release();
             });
         });
+    }
+
+    private void PermissionsToast(Layout layout, string dawId)
+    {
+        var toast = Adw.Toast.New($"{dawId} needs updated permissions to load Windows plugins");
+        toast.SetButtonLabel("Show");
+        toast.SetTimeout(0);
+        toast.OnButtonClicked += (_, _) =>
+            new EnrolmentDialog(window, layout, dawId, layout.DawYabridgeLink(dawId)).Present();
+        toasts.AddToast(toast);
     }
 
     private void Toast(string message) => toasts.AddToast(Adw.Toast.New(message));

@@ -269,6 +269,7 @@ public sealed class RunnersTests : IDisposable
 
         Assert.Equal(Status.Fail, check.Status);
         Assert.Contains($"--env=YABRIDGE_DEBUG_FILE={Layout.RuntimeLogPath}", check.Detail);
+        Assert.Equal([daw], new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
     }
 
     [Fact]

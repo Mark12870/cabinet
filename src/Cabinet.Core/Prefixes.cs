@@ -210,6 +210,12 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         string? dllOverrides = null,
         string? logTo = null)
     {
+        if (dllOverrides is null && command != "wineserver" && SessionLive(prefix))
+        {
+            return RunJoined(
+                prefix, command == "wine" ? arguments : [command, .. arguments], onOutput, logTo);
+        }
+
         var selected = runners.Resolve(RunnerOf(prefix));
 
         return runner.Run(

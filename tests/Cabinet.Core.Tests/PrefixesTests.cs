@@ -212,6 +212,40 @@ public sealed class PrefixesTests : IDisposable
         Assert.DoesNotContain("WINENTSYNC", recorder.Environment.Keys);
     }
 
+    [Fact]
+    public void WhatCabinetRunsJoinsTheSessionADawAlreadyHas()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var recorder = new RecordingRunner(
+            outputs: args => args.SequenceEqual([Prefixes.SessionMode]) ? Prefixes.SessionLiveWord : "");
+        var prefixes = new Prefixes(Layout, recorder);
+
+        prefixes.Run("gadget", "winecfg", []);
+        prefixes.Run("gadget", "wine", ["cmd", "/c", "exit"]);
+        prefixes.Install("gadget", installer);
+        prefixes.Run("gadget", "wineserver", ["-w"]);
+
+        var ran = recorder.Ran.Select(call => call.Arguments).ToList();
+        Assert.Equal([Prefixes.JoinMode, "winecfg"], ran[0]);
+        Assert.Equal([Prefixes.JoinMode, "cmd", "/c", "exit"], ran[1]);
+        Assert.Equal([Prefixes.JoinMode, installer], ran[2]);
+        Assert.Equal(["-w"], ran[3]);
+    }
+
+    [Fact]
+    public void WithoutASessionCabinetRunsWineItself()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var recorder = new RecordingRunner();
+
+        new Prefixes(Layout, recorder).Run("gadget", "winecfg", []);
+
+        Assert.Equal([], recorder.LastArguments);
+        Assert.EndsWith("winecfg", recorder.LastFile);
+    }
+
     private string Profile(string prefix, string user, string folder)
     {
         var path = Path.Combine(

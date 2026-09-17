@@ -244,24 +244,24 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
                 + "Not limits.conf: pam_limits does not reach a systemd-started app.");
     }
 
-    private IEnumerable<Check> EnrolledDaws()
+    public IReadOnlyList<string> DawsMissingPermissions() =>
+        EnrolledDawIds().Where(dawId => EnrolledDaw(dawId).Status != Status.Ok).ToList();
+
+    private IEnumerable<Check> EnrolledDaws() => EnrolledDawIds().Select(EnrolledDaw);
+
+    private IEnumerable<string> EnrolledDawIds()
     {
         var appsDir = Path.Combine(layout.Home, ".var", "app");
         if (!Directory.Exists(appsDir))
         {
-            yield break;
+            return [];
         }
 
-        foreach (var dir in Directory.EnumerateDirectories(appsDir).OrderBy(d => d, StringComparer.Ordinal))
-        {
-            var dawId = Path.GetFileName(dir);
-            if (dawId == Layout.AppId || !Path.Exists(layout.DawYabridgeLink(dawId)))
-            {
-                continue;
-            }
-
-            yield return EnrolledDaw(dawId);
-        }
+        return Directory.EnumerateDirectories(appsDir)
+            .OrderBy(d => d, StringComparer.Ordinal)
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .Where(dawId => dawId != Layout.AppId && Path.Exists(layout.DawYabridgeLink(dawId)));
     }
 
     private IEnumerable<Check> NativeDaw()
