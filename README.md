@@ -6,6 +6,8 @@ instead of a single prefix every installer fights over. Built for immutable syst
 bridging is [yabridge](https://github.com/robbert-vdh/yabridge), carrying a few Cabinet patches, and the compatibility
 layer is [Wine](https://www.winehq.org); Cabinet bundles both and wires the result to your DAW.
 
+![Cabinet application preview](site/screenshots/cabinet.png)
+
 ## Install
 
 ```sh
@@ -58,14 +60,12 @@ bridges the result. A plugin you had to buy, or one behind a logged-in account, 
 and points you at the page to fetch it from — unless the vendor serves a trial anyone can fetch, as FabFilter does. One
 with a working Linux build is listed only as that and needs no prefix: its files live in Cabinet's own directory, linked
 into `~/.vst3`, `~/.clap`, `~/.lv2` and `~/.vst`, so `library remove` takes them out cleanly, and `enrol` is what lets a
-Flatpak DAW follow those links. A few read a directory of their own by name, as the u-he ones do `~/.u-he/<Product>`;
-Cabinet fills that and says before deleting it.
+Flatpak DAW follow those links. A few read a directory of their own by name, as the u-he ones do `~/.u-he/<Product>`; Cabinet fills that and says before deleting it.
 
 `library remove` works on a Windows plugin too: if nothing else Cabinet installed is left in its prefix it offers to
 delete the prefix outright, Wine tree and registry with it, and otherwise runs the plugin's own uninstaller and leaves
 the prefix for the plugins sharing it. Where nothing looks like it, it says so. A manager is the exception:
-`library launch` opens it and bridges what it installs as it lands, `library log` shows Cabinet and shared yabridge output, and removing one
-takes its prefix.
+`library launch` opens it and bridges what it installs as it lands, `library log` shows Cabinet and shared yabridge output, and removing one takes its prefix.
 
 `new`, `install`, `dxvk` and the rest do the same by hand, for a plugin the library has never heard of. Installing,
 running something in a prefix and opening the window bridge on their own; `sync` covers changes made outside Cabinet.
