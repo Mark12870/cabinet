@@ -15,6 +15,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant};
 
+macro_rules! note {
+    ($($arg:tt)*) => {{
+        let _ = writeln!(io::stderr(), $($arg)*);
+    }};
+}
+
 const IDLE_GRACE: Duration = Duration::from_secs(10);
 const START_TIMEOUT: Duration = Duration::from_secs(30);
 const TICK: Duration = Duration::from_millis(20);
@@ -42,6 +48,34 @@ pub fn lock_path(dir: &Path, key: &str) -> PathBuf {
 
 pub fn busy_path(dir: &Path, key: &str) -> PathBuf {
     dir.join(format!("{key}.busy"))
+}
+
+pub fn apps_path(dir: &Path, key: &str) -> PathBuf {
+    dir.join(format!("{key}.apps"))
+}
+
+pub fn change_path(dir: &Path, key: &str) -> PathBuf {
+    dir.join(format!("{key}.change"))
+}
+
+pub fn record_path(dir: &Path, key: &str) -> PathBuf {
+    dir.join(format!("{key}.session"))
+}
+
+pub fn log_path(dir: &Path, key: &str) -> PathBuf {
+    dir.join(format!("{key}.log"))
+}
+
+pub fn paths(dir: &Path, key: &str) -> Vec<(&'static str, PathBuf)> {
+    vec![
+        ("socket", socket_path(dir, key)),
+        ("lock", lock_path(dir, key)),
+        ("busy", busy_path(dir, key)),
+        ("apps", apps_path(dir, key)),
+        ("change", change_path(dir, key)),
+        ("record", record_path(dir, key)),
+        ("log", log_path(dir, key)),
+    ]
 }
 
 pub fn live(socket: &Path) -> bool {
@@ -386,18 +420,21 @@ impl Drop for Lock {
 
 pub fn run_broker(args: &[OsString]) -> i32 {
     let Some((socket, rest)) = args.split_first() else {
-        eprintln!("cabinet-wine: a wine session needs a socket");
+        note!("cabinet-wine: a wine session needs a socket");
         return 127;
     };
     let Some(runner) = rest.first() else {
-        eprintln!("cabinet-wine: a wine session needs a Wine runner");
+        note!("cabinet-wine: a wine session needs a Wine runner");
         return 127;
     };
     let socket = PathBuf::from(socket);
     let lock = socket.with_extension("lock");
+    let record = socket.with_extension("session");
+
+    divert_diagnostics(&socket.with_extension("log"));
 
     if unsafe { prctl(PR_SET_CHILD_SUBREAPER, 1) } == -1 {
-        eprintln!(
+        note!(
             "cabinet-wine: cannot become a child subreaper: {}",
             io::Error::last_os_error()
         );
@@ -407,17 +444,18 @@ pub fn run_broker(args: &[OsString]) -> i32 {
     let listener = match UnixListener::bind(&socket) {
         Ok(listener) => listener,
         Err(error) => {
-            eprintln!("cabinet-wine: cannot serve {socket:?}: {error}");
+            note!("cabinet-wine: cannot serve {socket:?}: {error}");
             return 127;
         }
     };
 
     if listener.set_nonblocking(true).is_err() {
-        eprintln!("cabinet-wine: cannot poll {socket:?}");
+        note!("cabinet-wine: cannot poll {socket:?}");
         return 127;
     }
 
     let prefix = std::env::var_os("WINEPREFIX");
+    remember_session(&record, prefix.as_deref(), runner);
     let watcher = x11::Watcher::start();
     let live = Arc::new(AtomicUsize::new(0));
     let owned = Arc::new(Mutex::new(Vec::new()));
@@ -446,7 +484,7 @@ pub fn run_broker(args: &[OsString]) -> i32 {
                     match idle {
                         None => idle = Some(Instant::now()),
                         Some(since) if since.elapsed() >= IDLE_GRACE => {
-                            if retire(&lock, &socket, &live, end_descendants) {
+                            if retire(&lock, &socket, &record, &live, end_descendants) {
                                 break;
                             }
                             idle = None;
@@ -458,7 +496,7 @@ pub fn run_broker(args: &[OsString]) -> i32 {
                 thread::sleep(TICK);
             }
             Err(error) => {
-                eprintln!("cabinet-wine: cannot accept on {socket:?}: {error}");
+                note!("cabinet-wine: cannot accept on {socket:?}: {error}");
                 break;
             }
         }
@@ -468,6 +506,32 @@ pub fn run_broker(args: &[OsString]) -> i32 {
     reap_orphans(&owned);
 
     0
+}
+
+fn divert_diagnostics(log: &Path) {
+    let Ok(file) = File::options().create(true).append(true).open(log) else {
+        return;
+    };
+
+    unsafe {
+        dup2(file.as_raw_fd(), 2);
+    }
+}
+
+fn remember_session(record: &Path, prefix: Option<&OsStr>, runner: &OsStr) {
+    let mut written = Vec::new();
+
+    if let Some(prefix) = prefix {
+        written.extend_from_slice(b"prefix ");
+        written.extend_from_slice(prefix.as_bytes());
+        written.push(b'\n');
+    }
+
+    written.extend_from_slice(b"runner ");
+    written.extend_from_slice(runner.as_bytes());
+    written.push(b'\n');
+
+    let _ = std::fs::write(record, written);
 }
 
 fn end_descendants() {
@@ -518,7 +582,13 @@ impl Drop for Job {
     }
 }
 
-fn retire<E: FnOnce()>(lock: &Path, socket: &Path, live: &AtomicUsize, end: E) -> bool {
+fn retire<E: FnOnce()>(
+    lock: &Path,
+    socket: &Path,
+    record: &Path,
+    live: &AtomicUsize,
+    end: E,
+) -> bool {
     let Ok(file) = File::create(lock) else {
         return false;
     };
@@ -531,6 +601,7 @@ fn retire<E: FnOnce()>(lock: &Path, socket: &Path, live: &AtomicUsize, end: E) -
     }
 
     let _ = std::fs::remove_file(socket);
+    let _ = std::fs::remove_file(record);
     end();
 
     true
@@ -545,6 +616,8 @@ fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: 
         return;
     };
 
+    let mirror = passed.get(2).copied().and_then(Spare::of);
+
     let status = match start_owned(owned, runner, &argv, passed, prefix) {
         Ok(mut child) => {
             let group = child.id() as i32;
@@ -553,12 +626,43 @@ fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: 
             status
         }
         Err(error) => {
-            eprintln!("cabinet-wine: cannot start Wine {runner:?}: {error}");
+            let told = format!("cabinet-wine: cannot start Wine {runner:?}: {error}");
+            note!("{told}");
+
+            if let Some(spare) = mirror.as_ref() {
+                spare.tell(&told);
+            }
+
             127
         }
     };
 
+    drop(mirror);
+
     let _ = write_frame(&mut stream, &status.to_le_bytes());
+}
+
+struct Spare(RawFd);
+
+impl Spare {
+    fn of(fd: RawFd) -> Option<Self> {
+        let copy = unsafe { dup(fd) };
+
+        (copy != -1).then_some(Self(copy))
+    }
+
+    fn tell(&self, told: &str) {
+        let mut file = unsafe { std::mem::ManuallyDrop::new(File::from_raw_fd(self.0)) };
+        let _ = writeln!(file, "{told}");
+    }
+}
+
+impl Drop for Spare {
+    fn drop(&mut self) {
+        unsafe {
+            close(self.0);
+        }
+    }
 }
 
 fn start_owned(
@@ -661,7 +765,7 @@ fn supervise(
             }
             Ok(None) => {}
             Err(error) => {
-                eprintln!("cabinet-wine: cannot check Wine: {error}");
+                note!("cabinet-wine: cannot check Wine: {error}");
                 terminate_tree(group);
                 let _ = child.wait();
                 return 127;
@@ -953,6 +1057,8 @@ struct PollFd {
 
 extern "C" {
     fn close(fd: c_int) -> c_int;
+    fn dup(fd: c_int) -> c_int;
+    fn dup2(old: c_int, new: c_int) -> c_int;
     fn flock(fd: c_int, operation: c_int) -> c_int;
     fn getpid() -> i32;
     fn getppid() -> i32;
@@ -1241,5 +1347,86 @@ mod tests {
         );
 
         assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn every_session_file_shares_the_sessions_name() {
+        let directory = Path::new("/run/user/1000/yabridge");
+        let name = key(OsStr::new("/prefixes/one"));
+
+        assert_eq!(
+            paths(directory, &name),
+            [
+                ("socket", directory.join(format!("{name}.sock"))),
+                ("lock", directory.join(format!("{name}.lock"))),
+                ("busy", directory.join(format!("{name}.busy"))),
+                ("apps", directory.join(format!("{name}.apps"))),
+                ("change", directory.join(format!("{name}.change"))),
+                ("record", directory.join(format!("{name}.session"))),
+                ("log", directory.join(format!("{name}.log"))),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_session_records_what_it_runs_and_takes_the_record_away_when_it_retires() {
+        let directory = std::env::temp_dir().join(format!("cabinet-record-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        let name = key(OsStr::new("/prefixes/recorded"));
+        let record = record_path(&directory, &name);
+        let socket = socket_path(&directory, &name);
+        std::fs::write(&socket, "").unwrap();
+
+        remember_session(
+            &record,
+            Some(OsStr::new("/prefixes/recorded")),
+            OsStr::new("/runners/soda/bin/wine"),
+        );
+
+        assert_eq!(
+            std::fs::read_to_string(&record).unwrap(),
+            "prefix /prefixes/recorded\nrunner /runners/soda/bin/wine\n"
+        );
+
+        let retired = retire(
+            &lock_path(&directory, &name),
+            &socket,
+            &record,
+            &AtomicUsize::new(0),
+            || {},
+        );
+
+        assert!(retired);
+        assert!(!record.exists());
+        assert!(!socket.exists());
+
+        std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn a_job_that_cannot_start_answers_its_client_though_nothing_can_take_the_diagnostic() {
+        let (client, server) = UnixStream::pair().unwrap();
+        let (gone, stderr) = UnixStream::pair().unwrap();
+        drop(gone);
+        let fd = stderr.as_raw_fd();
+        send_job(&client, &encode(&[OsString::from("exit")]), [fd, fd, fd]).unwrap();
+        let owned = Mutex::new(Vec::new());
+
+        serve(server, OsStr::new("/nonexistent/bin/wine"), None, &owned);
+
+        let mut client = client;
+        assert_eq!(read_frame(&mut client).unwrap(), 127i32.to_le_bytes());
+    }
+
+    #[test]
+    fn a_diagnostic_the_job_can_no_longer_take_is_dropped_rather_than_fatal() {
+        let (reader, writer) = UnixStream::pair().unwrap();
+        let spare = Spare::of(writer.as_raw_fd()).expect("the job's error stream can be copied");
+        drop(reader);
+        drop(writer);
+
+        spare.tell("cabinet-wine: cannot start Wine");
+
+        assert!(Spare::of(-1).is_none());
     }
 }

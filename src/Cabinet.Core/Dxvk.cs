@@ -31,6 +31,8 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
     {
         Initialised(prefix);
 
+        var prefixes = new Prefixes(layout, runner);
+        using var claim = prefixes.Claim(prefix, $"put DXVK into {prefix}");
         var staging = Directory.CreateTempSubdirectory("cabinet-dxvk-").FullName;
 
         try
@@ -63,6 +65,9 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
                 $"'{prefix}' does not render through DXVK — its Direct3D is Wine's already");
         }
 
+        var prefixes = new Prefixes(layout, runner);
+        using var claim = prefixes.Claim(prefix, $"take DXVK out of {prefix}");
+
         var complete =
             Restore(layout.PrefixSystem32(prefix), Backups(prefix, System32), System32, onOutput)
             & Restore(layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64), SysWow64, onOutput);
@@ -72,7 +77,7 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
         if (!complete)
         {
             onOutput?.Invoke("Some had no backup — asking Wine to put its own back.");
-            var result = new Prefixes(layout, runner).Run(prefix, "wineboot", ["-u"], onOutput);
+            var result = prefixes.Run(prefix, "wineboot", ["-u"], onOutput);
 
             if (!result.Ok)
             {

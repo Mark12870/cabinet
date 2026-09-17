@@ -11,8 +11,10 @@ internal sealed class Cli : IDisposable
 
     private readonly string root = TestRoot.Create("cli");
 
-    public Cli()
+    public Cli(RecordingRunner? runner = null)
     {
+        Runner = runner ?? new RecordingRunner();
+
         Layout = new Layout(
             root,
             Path.Combine(root, "run"),
@@ -27,7 +29,7 @@ internal sealed class Cli : IDisposable
 
     public Layout Layout { get; }
 
-    public RecordingRunner Runner { get; } = new();
+    public RecordingRunner Runner { get; }
 
     public Outcome Run(params string[] args) => Answer("", args);
 

@@ -1090,6 +1090,106 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void ARecoverScriptWaitsForADawAndSaysWhatBecomesOfTheDownloads()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Launch: C:\\Thing\\Thing.exe
+            Keep: drive_c/downloads
+            Recover: fixture.sh
+            """));
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        using var plugin = SessionFiles.HeldByAPlugin(SessionFiles.Of(layout, "thing").Busy);
+
+        var library = new Library(layout, recorder);
+        library.Launch(library.Find("thing"));
+
+        Assert.DoesNotContain(recorder.Calls, call => call.File == "sh");
+        Assert.Contains("A DAW is using plugins from thing", library.LaunchLog(library.Find("thing")));
+        Assert.Contains(
+            "Cabinet finishes the install the next time you open Thing",
+            library.LaunchLog(library.Find("thing")));
+    }
+
+    [Fact]
+    public void AnInstallScriptIsFollowedByEndingTheWineItStarted()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Script: fixture.sh
+            """));
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        var installer = Path.Combine(root, "Thing.exe");
+        File.WriteAllText(installer, "");
+
+        var library = new Library(layout, recorder);
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.Single(
+            recorder.Calls,
+            call => call.File == "wineserver" && call.Arguments.SequenceEqual(["-k"]));
+    }
+
+    [Fact]
+    public void ADawsPluginsKeepACatalogueInstallOutOfTheirPrefix()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            """));
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        var installer = Path.Combine(root, "Thing.exe");
+        File.WriteAllText(installer, "");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        using var plugin = SessionFiles.HeldByAPlugin(SessionFiles.Of(layout, "thing").Busy);
+
+        var library = new Library(layout, recorder);
+        var refused = Assert.Throws<PrefixInUseException>(
+            () => library.Install(library.Find("thing"), installer: installer));
+
+        Assert.Contains("install Thing into thing", refused.Message);
+        Assert.Empty(recorder.Ran);
+    }
+
+    [Fact]
+    public void ADawsPluginsKeepAnUninstallOutOfTheirPrefix()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            """));
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        using var plugin = SessionFiles.HeldByAPlugin(SessionFiles.Of(layout, "thing").Busy);
+
+        var library = new Library(layout, recorder);
+        var refused = Assert.Throws<PrefixInUseException>(
+            () => library.Remove(library.Find("thing"), "thing"));
+
+        Assert.Contains("take Thing out of thing", refused.Message);
+        Assert.Empty(recorder.Ran);
+    }
+
+    [Fact]
     public void ARecoverScriptRunsWhenTheAppClosesAndBeforeTheBridge()
     {
         Catalogue(("thing", """
@@ -2528,22 +2628,47 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void AnAppThatOutlivesTheGraceIsLeftRunningBecauseStopsOwnJoinsKeepTheSessionLive()
+    public void AnAppThatOutlivesTheGraceIsEndedWithTheRestOfThePrefixesWine()
     {
         var entry = Manager();
         var layout = Layout();
-        var recorder = new RecordingRunner(outputs: _ => "\"Thing.exe\",\"316\",\"Console\",\"1\",\"64 K\"");
+        var listing = "\"Thing.exe\",\"316\",\"Console\",\"1\",\"64 K\"";
+        var ended = false;
+        var recorder = new RecordingRunner(
+            acts: args => ended = ended || args.Contains("wineboot"),
+            outputs: _ => ended ? "" : listing);
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
 
-        new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
+        var outcome = new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
 
-        var listed = Assert.Single(recorder.Calls, call => call.Arguments.Contains("tasklist"));
-
-        Assert.Equal([Prefixes.JoinMode, "tasklist", "/fo", "csv", "/nh"], listed.Arguments);
-        Assert.DoesNotContain(recorder.Calls, call => call.File == "wineserver");
-
+        Assert.Equal(StopResult.Forced, outcome.Result);
+        Assert.Single(
+            recorder.Calls,
+            call => call.Arguments.SequenceEqual([Prefixes.JoinMode, "wineboot", "-k"]));
         Assert.Contains(
-            "is bridging plugins, so Cabinet left it alone",
+            "Ending every Wine process in thing, Cabinet's own included",
+            File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
+        Assert.Contains("Thing would not close", outcome.Told);
+    }
+
+    [Fact]
+    public void AnAppInAPrefixADawIsBridgingIsLeftRunning()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: _ => "\"Thing.exe\",\"316\",\"Console\",\"1\",\"64 K\"");
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        using var plugin = SessionFiles.HeldByAPlugin(
+            SessionFiles.Of(layout, entry.Prefix).Busy);
+
+        var outcome = new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
+
+        Assert.Equal(StopResult.LeftRunning, outcome.Result);
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("wineboot"));
+        Assert.Contains("A DAW is using plugins from thing", outcome.Told);
+        Assert.Contains(
+            "A DAW is using plugins from thing",
             File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
     }
 

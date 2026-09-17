@@ -11,5 +11,7 @@ internal sealed class StubRunner(ProcessResult result) : IProcessRunner
         Action<string>? onOutput = null,
         string? workingDirectory = null,
         string? logTo = null) =>
-        result;
+        args is [Prefixes.PathsMode]
+            ? new ProcessResult(0, SessionFiles.Printed(env ?? new Dictionary<string, string>()), "")
+            : result;
 }

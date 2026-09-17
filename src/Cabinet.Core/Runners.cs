@@ -132,6 +132,14 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
                 + $"move them with `cabinet use <prefix> {Layout.BundledRunner}` first");
         }
 
+        var live = new Prefixes(layout, runner).LiveSessionsUsing(name);
+        if (live.Count > 0)
+        {
+            throw new PrefixInUseException(
+                $"{name} is still running Wine for {string.Join(", ", live)}, so Cabinet will "
+                + "not remove it — close what is using it and try again.");
+        }
+
         Directory.Delete(path, recursive: true);
     }
 

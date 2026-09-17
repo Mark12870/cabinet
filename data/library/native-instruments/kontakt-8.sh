@@ -64,6 +64,5 @@ printf '%s\n' "{\"InstallVST64Dir\":\"C:\\\\Program Files\\\\Common Files\\\\VST
 
 rm -rf "$work"
 rm -f "$archive" "$archive".*
-"$(dirname "$WINE")/wineserver" -k >/dev/null 2>&1 || true
 
 echo "Recovered Kontakt 8 $version"

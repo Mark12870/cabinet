@@ -11,5 +11,12 @@ internal sealed class UnusedRunner : IProcessRunner
         Action<string>? onOutput = null,
         string? workingDirectory = null,
         string? logTo = null) =>
-        throw new NotSupportedException($"this operation should run no process, got '{file}'");
+        args switch
+        {
+            [Prefixes.PathsMode] =>
+                new ProcessResult(0, SessionFiles.Printed(env ?? new Dictionary<string, string>()), ""),
+            [Prefixes.SessionMode] => new ProcessResult(1, "", ""),
+            _ => throw new NotSupportedException(
+                $"this operation should run no process, got '{file}'"),
+        };
 }

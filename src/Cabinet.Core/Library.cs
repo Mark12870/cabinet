@@ -553,6 +553,15 @@ public enum RemovalKind
 
 public sealed record Removal(RemovalKind Kind, IReadOnlyList<string> Sharing);
 
+public enum StopResult
+{
+    Closed,
+    LeftRunning,
+    Forced,
+}
+
+public sealed record StopOutcome(StopResult Result, string Told);
+
 public sealed record LibraryFilter(
     string? Search = null,
     string? Category = null,
@@ -753,6 +762,14 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         var prefixes = new Prefixes(layout, runner);
         var log = layout.PrefixLaunchLog(where);
+
+        void Say(string line)
+        {
+            File.AppendAllText(log, line + Environment.NewLine);
+            onOutput?.Invoke(line);
+        }
+
+        using var open = prefixes.OpenApp(where, $"open {entry.Name}");
         var pluginDirectories = layout.PrefixPluginDirs(where).ToList();
 
         foreach (var directory in pluginDirectories)
@@ -772,12 +789,6 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         using var closed = new CancellationTokenSource();
         using var monitor = new PluginMonitor(
             guarded is null ? pluginDirectories : [.. pluginDirectories, guarded]);
-
-        void Say(string line)
-        {
-            File.AppendAllText(log, line + Environment.NewLine);
-            onOutput?.Invoke(line);
-        }
 
         File.WriteAllText(log, "");
         Say($"Opening {entry.Name}. What it installs is bridged as it lands.");
@@ -825,7 +836,6 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         });
 
         ProcessResult ran;
-        ProcessResult? settled;
 
         try
         {
@@ -843,13 +853,10 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             {
                 prefixes.RunJoined(where, ["taskkill", "/f", "/im", helper], logTo: log);
             }
-
-            settled = prefixes.SessionLive(where)
-                ? null
-                : prefixes.Run(where, "wineserver", ["-w"], logTo: log);
         }
         finally
         {
+            open.Dispose();
             closed.Cancel();
             watching.Wait();
         }
@@ -867,12 +874,21 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         {
             try
             {
+                using var claim = prefixes.Claim(where, $"finish {entry.Name}'s install");
+
                 new InstallScript(layout, runner).Recover(
                     entry,
                     layout.PrefixPath(where),
                     layout.PrefixKeptDir(where),
                     prefixes.Variables(where),
                     Say);
+
+                Settle(prefixes, where, log);
+            }
+            catch (PrefixInUseException waiting)
+            {
+                Say($"{waiting.Message} What {entry.Name} downloaded is kept, and Cabinet "
+                    + $"finishes the install the next time you open {entry.Name}.");
             }
             catch (Exception failure)
             {
@@ -892,12 +908,6 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         var failures = new List<Exception>();
-
-        if (settled is { Ok: false } waited)
-        {
-            failures.Add(new InvalidOperationException(
-                $"Wine processes did not finish for '{entry.Name}' (exit code {waited.ExitCode})"));
-        }
 
         if (!ran.Ok)
         {
@@ -932,7 +942,10 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Say($"{entry.Name} closed.");
     }
 
-    public void Stop(
+    private static void Settle(Prefixes prefixes, string where, string? logTo = null) =>
+        prefixes.Run(where, "wineserver", ["-k"], logTo: logTo);
+
+    public StopOutcome Stop(
         LibraryEntry entry,
         string? prefix = null,
         TimeSpan? grace = null,
@@ -970,29 +983,66 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         {
             if (DateTime.UtcNow >= deadline)
             {
-                if (prefixes.SessionLive(where))
-                {
-                    Say($"{entry.Name} was still running {waiting.TotalSeconds:0} seconds later, "
-                        + $"and {where} is bridging plugins, so Cabinet left it alone.");
-                    return;
-                }
-
-                Say($"{entry.Name} was still running {waiting.TotalSeconds:0} seconds later. "
-                    + $"Ending every Wine process in {where}, Cabinet's own included.");
-                prefixes.Run(where, "wineserver", ["-k"], logTo: log);
-                return;
+                return Force(entry, prefixes, where, waiting, log, Say);
             }
 
             Thread.Sleep(Beat);
         }
 
+        Helper(entry, prefixes, where, log, Say);
+        Say($"{entry.Name} is closed.");
+
+        return new StopOutcome(StopResult.Closed, $"{entry.Name} is closed.");
+    }
+
+    private StopOutcome Force(
+        LibraryEntry entry,
+        Prefixes prefixes,
+        string where,
+        TimeSpan waiting,
+        string log,
+        Action<string> say)
+    {
+        var late = $"{entry.Name} was still running {waiting.TotalSeconds:0} seconds later.";
+
+        try
+        {
+            using var guard = prefixes.Guard(where, "end its Wine");
+
+            say($"{late} Ending every Wine process in {where}, Cabinet's own included.");
+            prefixes.RunJoined(where, ["wineboot", "-k"], logTo: log);
+
+            if (Running(prefixes, where, entry.LaunchExe!))
+            {
+                var left = $"{late} It survived being ended, so it is still running.";
+                say(left);
+
+                return new StopOutcome(StopResult.LeftRunning, left);
+            }
+
+            Helper(entry, prefixes, where, log, say);
+            var ended = $"{entry.Name} would not close, so Cabinet ended Wine in {where}.";
+            say(ended);
+
+            return new StopOutcome(StopResult.Forced, ended);
+        }
+        catch (PrefixInUseException busy)
+        {
+            var left = $"{late} {busy.Message}";
+            say(left);
+
+            return new StopOutcome(StopResult.LeftRunning, left);
+        }
+    }
+
+    private static void Helper(
+        LibraryEntry entry, Prefixes prefixes, string where, string log, Action<string> say)
+    {
         if (entry.LaunchHelper is { } helper)
         {
-            Say($"Closing {helper}.");
+            say($"Closing {helper}.");
             prefixes.RunJoined(where, ["taskkill", "/f", "/im", helper], logTo: log);
         }
-
-        Say($"{entry.Name} is closed.");
     }
 
     public void Open(string link, Action<string>? onOutput = null)
@@ -1162,6 +1212,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             throw new InvalidOperationException($"{entry.Name} is not installed in {prefix}");
         }
 
+        var prefixes = new Prefixes(layout, runner);
+        using var claim = prefixes.Claim(prefix, $"take {entry.Name} out of {prefix}");
         var recorded = RecordedKeys(prefix, entry.Id).ToList();
         var chosen = recorded.Count > 0
             ? Uninstallers(prefix)
@@ -1175,7 +1227,6 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         var before = Bundled(prefix);
-        var prefixes = new Prefixes(layout, runner);
 
         foreach (var one in chosen)
         {
@@ -1290,6 +1341,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         var prefixes = new Prefixes(layout, runner);
         var existing = prefixes.List().FirstOrDefault(one => one.Name == prefix);
+        Directory.CreateDirectory(layout.PrefixPath(prefix));
+        using var claim = prefixes.Claim(prefix, $"install {entry.Name} into {prefix}");
 
         if (existing is not null && entry.Runner is { } wanted && !Answers(existing.Runner, wanted))
         {
@@ -1358,6 +1411,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                     layout.PrefixPath(prefix),
                     prefixes.Variables(prefix),
                     onOutput);
+
+                Settle(prefixes, prefix);
             }
 
             var appeared = Registered(prefix).Except(before, StringComparer.Ordinal).ToList();
@@ -1388,7 +1443,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         if (existing is null && entry.Sync != SyncMode.System)
         {
-            new PrefixSettings(layout).SetSync(prefix, entry.Sync);
+            prefixes.SetSync(prefix, entry.Sync);
             onOutput?.Invoke($"Sync mode {PrefixSettings.Word(entry.Sync)}.");
         }
 

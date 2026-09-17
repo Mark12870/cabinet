@@ -103,6 +103,18 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void NoShippedScriptEndsWineItself()
+    {
+        var ending = Directory
+            .EnumerateFiles(Repo.Path("data/library"), "*.sh", SearchOption.AllDirectories)
+            .Where(script => File.ReadAllText(script).Contains("wineserver", StringComparison.Ordinal))
+            .Select(script => Path.GetFileName(script))
+            .Order(StringComparer.Ordinal);
+
+        Assert.Empty(ending);
+    }
+
+    [Fact]
     public void TheLinkHandlerClaimsTheSchemesTheCatalogueDoes()
     {
         var claimed = Repo.Lines("data/io.github.mark12870.cabinet.Links.desktop")

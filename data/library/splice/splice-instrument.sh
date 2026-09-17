@@ -8,7 +8,6 @@ for host in yabridge-host.exe 'Splice INSTRUMENT.exe'; do
     "$WINE" reg add 'HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments' /v "$host" \
         /d "$flags" /f >>"$log" 2>&1
 done
-"$(dirname "$WINE")/wineserver" -k >/dev/null 2>&1 || true
 
 vst3="$CABINET_PREFIX/drive_c/Program Files/Common Files/VST3/Splice/Splice INSTRUMENT.vst3"
 app="$CABINET_PREFIX/drive_c/Program Files/Splice/Splice INSTRUMENT/Splice INSTRUMENT.exe"

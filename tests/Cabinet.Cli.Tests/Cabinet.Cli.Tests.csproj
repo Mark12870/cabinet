@@ -16,6 +16,7 @@
   <ItemGroup>
     <Compile Include="../Cabinet.Core.Tests/Repo.cs" Link="Repo.cs" />
     <Compile Include="../Cabinet.Core.Tests/RecordingRunner.cs" Link="RecordingRunner.cs" />
+    <Compile Include="../Cabinet.Core.Tests/SessionFiles.cs" Link="SessionFiles.cs" />
     <Compile Include="../Cabinet.Core.Tests/TestRoot.cs" Link="TestRoot.cs" />
   </ItemGroup>
 

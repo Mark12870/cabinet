@@ -65,6 +65,18 @@ internal sealed class Shim : IDisposable
 
     public void Settle(string name) => Prefixes.RunJoined(Prefix, ["exit", "0"], logTo: Scratch(name));
 
+    public ProcessResult Plugin(IReadOnlyList<string> job) =>
+        new ProcessRunner().Run(Layout.ShimPath, job, Prefixes.Variables(Prefix));
+
+    public void GiveUnusableRunner(string name)
+    {
+        var wine = Path.Combine(Layout.RunnerPath(name), "bin", "wine");
+        Directory.CreateDirectory(Path.GetDirectoryName(wine)!);
+        File.WriteAllText(wine, "#!/bin/sh\nexit 0\n");
+        File.SetUnixFileMode(wine, UnixFileMode.UserRead);
+        File.WriteAllText(Layout.PrefixRunnerFile(Prefix), name + "\n");
+    }
+
     public void WriteEnvironment(params string[] lines) =>
         File.WriteAllLines(Layout.PrefixEnvFile(Prefix), lines);
 

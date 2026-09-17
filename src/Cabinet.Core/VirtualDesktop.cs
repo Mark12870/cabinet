@@ -19,6 +19,9 @@ public sealed class VirtualDesktop(Layout layout, IProcessRunner runner)
 
     public void Set(string prefix, Action<string>? onOutput)
     {
+        using var claim = new Prefixes(layout, runner).Claim(
+            prefix, $"give {prefix} a desktop of its own");
+
         Ensure(
             Reg(prefix, ["add", DesktopsKey, "/v", DesktopName, "/d", Size, "/f"]),
             prefix,
@@ -33,6 +36,9 @@ public sealed class VirtualDesktop(Layout layout, IProcessRunner runner)
 
     public void Unset(string prefix, Action<string>? onOutput)
     {
+        using var claim = new Prefixes(layout, runner).Claim(
+            prefix, $"take {prefix}'s own desktop away");
+
         var registry = new PrefixRegistry(layout);
         var named = registry.Lookup(prefix, ExplorerPath, "Desktop");
         var desktopName = named is { Length: > 0 } ? named : DesktopName;

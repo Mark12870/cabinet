@@ -15,6 +15,7 @@ const INNER_COMMAND: &str = "/app/lib/yabridge/cabinet-wine";
 const INNER_MODE: &str = "--cabinet-inner";
 const JOIN_MODE: &str = "--cabinet-join";
 const SESSION_MODE: &str = "--cabinet-session";
+const PATHS_MODE: &str = "--cabinet-paths";
 const NO_SESSION: i32 = 1;
 const SESSION_LIVE: &str = "live";
 const SOCKET_DIR: &str = "yabridge";
@@ -322,7 +323,7 @@ fn main() {
 
     let mode = args
         .first()
-        .filter(|arg| *arg == JOIN_MODE || *arg == SESSION_MODE)
+        .filter(|arg| *arg == JOIN_MODE || *arg == SESSION_MODE || *arg == PATHS_MODE)
         .cloned();
     let rest = if mode.is_some() {
         &args[1..]
@@ -343,6 +344,14 @@ fn main() {
     let busy = session::busy_path(&directory, &name);
     let in_cabinet = env::var_os("FLATPAK_ID").as_deref() == Some(OsStr::new(DEFAULT_APP));
 
+    if mode.as_deref() == Some(OsStr::new(PATHS_MODE)) {
+        for (label, path) in session::paths(&directory, &name) {
+            println!("{label} {}", path.display());
+        }
+
+        std::process::exit(0);
+    }
+
     if mode.as_deref() == Some(OsStr::new(SESSION_MODE)) {
         if !session::live(&socket) {
             std::process::exit(NO_SESSION);
@@ -352,7 +361,9 @@ fn main() {
         std::process::exit(0);
     }
 
-    if mode.as_deref() == Some(OsStr::new(JOIN_MODE)) {
+    let joining = mode.as_deref() == Some(OsStr::new(JOIN_MODE));
+
+    if joining {
         match session::join(&socket, &job) {
             Ok(Some(status)) => std::process::exit(status),
             Ok(None) => {}
@@ -363,12 +374,19 @@ fn main() {
         }
     }
 
-    let Some(_claimed) = session::claim(&busy) else {
-        eprintln!(
-            "cabinet-wine: Cabinet has an app open in this prefix; \
-             close it before loading its plugins"
-        );
-        std::process::exit(127);
+    let _claimed = if joining {
+        None
+    } else {
+        match session::claim(&busy) {
+            Some(claimed) => Some(claimed),
+            None => {
+                eprintln!(
+                    "cabinet-wine: Cabinet is changing this prefix; \
+                     load the plugin again once it has finished"
+                );
+                std::process::exit(127);
+            }
+        }
     };
 
     let argv = if in_cabinet {

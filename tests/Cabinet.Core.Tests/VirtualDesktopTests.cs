@@ -22,13 +22,13 @@ public sealed class VirtualDesktopTests : IDisposable
                 "--cabinet-join", "reg", "add", @"HKCU\Software\Wine\Explorer\Desktops",
                 "/v", "Default", "/d", "1920x1080", "/f",
             ],
-            runner.Calls[0].Arguments);
+            runner.Ran[0].Arguments);
         Assert.Equal(
             [
                 "--cabinet-join", "reg", "add", @"HKCU\Software\Wine\Explorer",
                 "/v", "Desktop", "/d", "Default", "/f",
             ],
-            runner.Calls[1].Arguments);
+            runner.Ran[1].Arguments);
     }
 
     [Fact]
@@ -68,13 +68,13 @@ public sealed class VirtualDesktopTests : IDisposable
                 "--cabinet-join", "reg", "delete", @"HKCU\Software\Wine\Explorer\Desktops",
                 "/v", "Default", "/f",
             ],
-            runner.Calls[0].Arguments);
+            runner.Ran[0].Arguments);
         Assert.Equal(
             [
                 "--cabinet-join", "reg", "delete", @"HKCU\Software\Wine\Explorer",
                 "/v", "Desktop", "/f",
             ],
-            runner.Calls[1].Arguments);
+            runner.Ran[1].Arguments);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public sealed class VirtualDesktopTests : IDisposable
 
         new VirtualDesktop(Layout, runner).Unset("gadget", null);
 
-        Assert.Equal("Editor", runner.Calls[0].Arguments[^2]);
+        Assert.Equal("Editor", runner.Ran[0].Arguments[^2]);
     }
 
     public void Dispose() => Directory.Delete(root, recursive: true);

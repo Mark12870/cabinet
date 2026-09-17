@@ -38,17 +38,15 @@ public sealed class WinetricksTests : IDisposable
     }
 
     [Fact]
-    public void AnActiveWineSessionIsRefused()
+    public void APrefixADawIsUsingIsRefused()
     {
-        var recorder = new RecordingRunner(
-            dawSession: true);
+        var recorder = new RecordingRunner();
+        using var plugin = SessionFiles.HeldByAPlugin(SessionFiles.Of(Layout, "gadget").Busy);
 
-        var refused = Assert.Throws<InvalidOperationException>(
+        var refused = Assert.Throws<PrefixInUseException>(
             () => new Winetricks(Layout, recorder).Open("gadget"));
 
-        Assert.Contains("Close every DAW", refused.Message);
-        Assert.Equal(Layout.ShimPath, recorder.Calls[0].File);
-        Assert.Equal([Prefixes.SessionMode], recorder.Calls[0].Arguments);
+        Assert.Contains("A DAW is using plugins from gadget", refused.Message);
         Assert.DoesNotContain(recorder.Calls, call => call.File == Layout.Winetricks);
     }
 

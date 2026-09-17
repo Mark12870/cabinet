@@ -15,6 +15,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public const string JoinMode = "--cabinet-join";
     public const string SessionMode = "--cabinet-session";
+    public const string PathsMode = "--cabinet-paths";
     public const string SessionLiveWord = "live";
 
     public IReadOnlyList<Prefix> List()
@@ -49,6 +50,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             throw new DirectoryNotFoundException($"no such prefix: {name}");
         }
 
+        using var claim = Claim(name, $"give {name} a different Wine");
         var resolved = runners.Resolve(runnerName);
         var marker = layout.PrefixRunnerFile(name);
 
@@ -63,6 +65,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public void MoveToRunner(string name, string runnerName, Action<string>? onOutput = null)
     {
+        using var claim = Claim(name, $"give {name} a different Wine");
         SetRunner(name, runnerName);
 
         var updated = Run(name, "wineboot", ["-u"], onOutput);
@@ -76,6 +79,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
     {
         var path = layout.PrefixPath(name);
         Directory.CreateDirectory(path);
+
+        using var claim = Claim(name, $"set {name} up");
 
         if (runnerName is not null)
         {
@@ -159,6 +164,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             throw new DirectoryNotFoundException($"no such prefix: {name}");
         }
 
+        using var claim = Claim(name, $"delete {name}");
         Directory.Delete(path, recursive: true);
         onOutput?.Invoke($"Deleted {path}");
         Bridge(onOutput);
@@ -175,6 +181,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             throw new FileNotFoundException($"no such installer: {full}", full);
         }
 
+        using var claim = Claim(name, $"run an installer in {name}");
+
         return Wine(name, "wine", [full], onOutput);
     }
 
@@ -184,8 +192,91 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         Wine(name, command, arguments, onOutput, logTo: logTo);
 
     public bool SessionLive(string name) =>
-        Shim(name, [SessionMode], null, null)
-            .Stdout.Contains(SessionLiveWord, StringComparison.Ordinal);
+        Ask(name, SessionMode).Stdout.Contains(SessionLiveWord, StringComparison.Ordinal);
+
+    public SessionPaths Session(string name) => SessionPaths.Parse(Ask(name, PathsMode).Stdout);
+
+    private ProcessResult Ask(string name, string mode) =>
+        runner.Run(
+            layout.ShimPath,
+            [mode],
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["WINEPREFIX"] = layout.PrefixPath(name),
+                ["YABRIDGE_TEMP_DIR"] = layout.SocketDir,
+            });
+
+    public PrefixClaim Claim(string name, string what) =>
+        Claim(name, what, PrefixClaim.Settle);
+
+    internal PrefixClaim Claim(string name, string what, TimeSpan settle) =>
+        PrefixClaim.Take(
+            Session(name), name, what, apps: true, settle, () => SessionLive(name));
+
+    public PrefixClaim Guard(string name, string what) =>
+        PrefixClaim.Take(
+            Session(name), name, what, apps: false, TimeSpan.Zero, () => SessionLive(name));
+
+    public PrefixApps OpenApp(string name, string what) =>
+        PrefixClaim.Open(Session(name), name, what);
+
+    public IReadOnlyList<string> LiveSessionsUsing(string runnerName)
+    {
+        if (!Directory.Exists(layout.SocketDir))
+        {
+            return [];
+        }
+
+        var inside = Path.GetFullPath(layout.RunnerPath(runnerName))
+                     + Path.DirectorySeparatorChar;
+        var found = new List<string>();
+
+        foreach (var record in Directory.EnumerateFiles(layout.SocketDir, "*.session")
+                     .OrderBy(path => path, StringComparer.Ordinal))
+        {
+            if (!File.Exists(Path.ChangeExtension(record, ".sock")))
+            {
+                continue;
+            }
+
+            var noted = Noted(record);
+
+            if (!noted.TryGetValue("runner", out var wine)
+                || !wine.StartsWith(inside, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            found.Add(noted.TryGetValue("prefix", out var path)
+                ? Path.GetFileName(path)
+                : Path.GetFileNameWithoutExtension(record));
+        }
+
+        return found;
+    }
+
+    private static IReadOnlyDictionary<string, string> Noted(string record)
+    {
+        var noted = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var line in File.ReadLines(record))
+        {
+            var at = line.IndexOf(' ');
+
+            if (at > 0)
+            {
+                noted[line[..at]] = line[(at + 1)..];
+            }
+        }
+
+        return noted;
+    }
+
+    public void SetSync(string name, SyncMode mode)
+    {
+        using var claim = Claim(name, $"change how {name} synchronises");
+        settings.SetSync(name, mode);
+    }
 
     public ProcessResult RunJoined(
         string name, IReadOnlyList<string> arguments,

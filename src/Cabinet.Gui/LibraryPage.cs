@@ -717,7 +717,8 @@ internal sealed class LibraryPage
         {
             try
             {
-                new Library(layout, runner).Stop(entry, prefix);
+                var outcome = new Library(layout, runner).Stop(entry, prefix);
+                Ui.OnMainLoop(() => toast(outcome.Told));
             }
             catch (Exception exception)
             {

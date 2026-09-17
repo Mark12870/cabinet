@@ -77,6 +77,23 @@ the name or the structure instead. Anything that genuinely will not fit there is
   holding the session lock, kills its own descendants, so Windows services a plugin started end with it and the next
   session on that prefix starts clean. Wine that Cabinet started itself lives outside that tree and keeps running, and
   Cabinet's own commands join a live session.
+- One owner changes a prefix at a time, and the locks beside the socket in `YABRIDGE_TEMP_DIR` say who it is.
+  `cabinet-wine --cabinet-paths` prints every one of them, and Core reads that rather than deriving the names itself.
+  A plugin-side shim holds `<key>.busy` shared for its whole life; a Cabinet change takes `<key>.change` and
+  `<key>.busy` exclusively, plus `<key>.apps`, which `Library.Launch` holds shared while a manager runs, and then
+  waits for `<key>.sock` to go away, because a session fixes the runner and sync mode it started with. A shim that
+  joins takes no lock, so Cabinet's own jobs and a change never collide. Every refusal is a `PrefixInUseException`
+  naming who holds the prefix, and both front ends print its message. The claim is what makes the check atomic: while
+  it is held, a plugin load fails at once with a diagnostic instead of racing the change. Never reach past it with
+  direct Wine, and never let a shipped script end Wine itself; `Library.Settle` does that under the claim, once the
+  script has exited. A script's output goes to a log Cabinet follows rather than a pipe, because a Wine process the
+  script leaves behind inherits that pipe and would hold the install open until it died. Two paths
+  take no claim on purpose: `cabinet run`, which is the user's own job and joins a session like a plugin, and the
+  runner version probe, which reads a runner in its own `.probe` prefix.
+- A session writes `<key>.session` with its prefix and runner, and takes it away when it retires, so
+  `runners rm` can see a live broker still using a runner that no prefix marker names. It also points its own stderr
+  at `<key>.log` and writes every diagnostic without panicking, including a copy to the failing job's own error
+  stream; a broker that wrote to a client's closed pipe used to abort and take every other job in the session with it.
 - A session reads `.cabinet-env` again for every job it starts, so `cabinet set <prefix> env` reaches the next plugin
   in a running session. `.cabinet-sync` is fixed when the session starts, on the outer shim's `flatpak run`: every
   Wine process must use the sync mode of the wineserver it joins, and staging-based runners exit on a mismatch.

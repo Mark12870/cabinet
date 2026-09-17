@@ -249,7 +249,7 @@ internal static class Program
     private static int Set(Layout layout, IProcessRunner runner, string name, string[] args) =>
         args.FirstOrDefault() switch
         {
-            "sync" => SetSync(layout, name, Require(args, 1, "a sync mode")),
+            "sync" => SetSync(layout, runner, name, Require(args, 1, "a sync mode")),
             "dxvk" => SetDxvk(layout, runner, name, Require(args, 1, "on or off")),
             "env" => SetVariable(layout, name, Require(args, 1, "KEY=VALUE")),
             "desktop" => SetDesktop(layout, runner, name, Require(args, 1, "on or off")),
@@ -296,10 +296,11 @@ internal static class Program
         return 0;
     }
 
-    private static int SetSync(Layout layout, string name, string word)
+    private static int SetSync(
+        Layout layout, IProcessRunner runner, string name, string word)
     {
         var mode = PrefixSettings.ParseSync(word);
-        new PrefixSettings(layout).SetSync(name, mode);
+        new Prefixes(layout, runner).SetSync(name, mode);
 
         Console.WriteLine($"{name} now waits on {PrefixSettings.Word(mode)}.");
         return 0;
@@ -758,8 +759,9 @@ internal static class Program
             return 1;
         }
 
-        library.Stop(entry, prefix, onOutput: Console.WriteLine);
-        return 0;
+        var outcome = library.Stop(entry, prefix, onOutput: Console.WriteLine);
+
+        return outcome.Result == StopResult.LeftRunning ? 1 : 0;
     }
 
     private static int OpenFromLibrary(Layout layout, IProcessRunner runner, string link)

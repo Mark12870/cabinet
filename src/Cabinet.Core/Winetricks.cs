@@ -19,13 +19,7 @@ public sealed class Winetricks(Layout layout, IProcessRunner runner)
         }
 
         var prefixes = new Prefixes(layout, runner);
-
-        if (prefixes.SessionLive(prefix))
-        {
-            throw new InvalidOperationException(
-                $"Winetricks cannot change '{prefix}' while its Wine session is active. "
-                + "Close every DAW and Cabinet application using this prefix, wait a few seconds, and try again");
-        }
+        using var claim = prefixes.Claim(prefix, $"let Winetricks change {prefix}");
 
         return runner.Run(
             Layout.Winetricks,

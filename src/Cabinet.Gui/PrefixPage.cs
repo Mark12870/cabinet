@@ -148,7 +148,7 @@ internal sealed class PrefixPage
                 spinner.Start();
                 RunSetting(
                     spinner,
-                    () => new PrefixSettings(layout).SetSync(Name, chosen));
+                    () => new Prefixes(layout, runner).SetSync(Name, chosen));
             }
         };
 
@@ -285,7 +285,7 @@ internal sealed class PrefixPage
         Operation.Run(
             window,
             $"Putting {Name} on {Label(mode)}",
-            _ => new PrefixSettings(layout).SetSync(Name, mode),
+            _ => new Prefixes(layout, runner).SetSync(Name, mode),
             changed);
 
     private void EditVariables() =>

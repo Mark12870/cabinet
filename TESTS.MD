@@ -59,6 +59,11 @@ inside Cabinet's own sandbox needs the installed `/app/lib/yabridge/cabinet-wine
 `TeardownTests` covers that path here: a job Cabinet starts carries its exit status and its
 session retires, and Cabinet joins a session a DAW started rather than starting a second one.
 
+Ownership is the other half: `OwnershipTests` holds a DAW-side plugin job in a prefix of its own
+and checks that `set desktop on`, `use` and `winetricks` are all refused with the reason, that the
+plugin keeps its Wine, and that the same change goes through once the plugin is gone. It also ends
+Wine from inside a session Cabinet started, which is what a forced `library stop` does.
+
 ## Winelib hosts
 
 yabridge's hosts are built against Debian's Wine 8.0 headers and import libraries but run on the

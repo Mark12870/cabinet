@@ -52,4 +52,3 @@ if [ "$found" -ne 0 ]; then
 fi
 
 "$WINE" sc stop NTKDaemonService >/dev/null 2>&1 || true
-"$(dirname "$WINE")/wineserver" -k >/dev/null 2>&1 || true

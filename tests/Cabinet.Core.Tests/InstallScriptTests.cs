@@ -44,6 +44,33 @@ public sealed class InstallScriptTests : IDisposable
             """rm -f "$CABINET_PREFIX/drive_c/Program Files/Splice/Splice INSTRUMENT/Splice INSTRUMENT.exe" """));
     }
 
+    [Fact]
+    public void AProcessTheScriptLeavesRunningDoesNotHoldUpTheInstall()
+    {
+        var layout = new Layout(
+            root,
+            Path.Combine(root, "runtime"),
+            libraryDir: Path.Combine(root, "library"));
+        var vendor = Directory.CreateDirectory(Path.Combine(root, "library", "a-vendor")).FullName;
+        var work = Path.Combine(root, "work");
+        File.WriteAllText(Path.Combine(vendor, "fixture.sh"), """
+            sh -c 'while [ ! -e "$1" ]; do sleep 0.2; done' sh "$CABINET_WORK/release" &
+            echo "the script is done"
+            """);
+        var entry = LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: windows\nSource: byo\nScript: fixture.sh\n", "a-vendor");
+        var said = new List<string>();
+        var started = DateTime.UtcNow;
+
+        new InstallScript(layout, new ProcessRunner()).Run(
+            entry, "archive", work, root, new Dictionary<string, string>(), said.Add);
+        var took = DateTime.UtcNow - started;
+        File.WriteAllText(Path.Combine(work, "release"), "");
+
+        Assert.Contains("the script is done", said);
+        Assert.True(took < TimeSpan.FromSeconds(10), $"the install waited {took.TotalSeconds:0} seconds");
+    }
+
     private string RunSpliceInstrument(string record)
     {
         var layout = new Layout(

@@ -22,7 +22,10 @@ internal sealed class RecordingRunner(
     public IReadOnlyList<Call> Calls => calls;
 
     public IReadOnlyList<Call> Ran =>
-        calls.Where(call => call.Arguments is not [Prefixes.SessionMode]).ToList();
+        calls
+            .Where(call => call.Arguments is not [Prefixes.SessionMode])
+            .Where(call => call.Arguments is not [Prefixes.PathsMode])
+            .ToList();
 
     public IReadOnlyDictionary<string, string> Environment { get; private set; } =
         new Dictionary<string, string>();
@@ -54,6 +57,11 @@ internal sealed class RecordingRunner(
         calls.Add(new Call(file, args, Environment, workingDirectory, logTo));
         LastFile = file;
         LastArguments = args;
+
+        if (args is [Prefixes.PathsMode])
+        {
+            return new ProcessResult(0, SessionFiles.Printed(Environment), "");
+        }
 
         if (args is [Prefixes.SessionMode])
         {
