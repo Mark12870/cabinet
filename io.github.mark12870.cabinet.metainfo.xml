@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.16.1" date="2026-09-17">
+      <description>
+        <p>Closing a DAW no longer closes the apps Cabinet has open</p>
+        <ul>
+          <li>An app opened from Cabinet, such as a vendor's manager, keeps running when a DAW using the same plugins closes</li>
+          <li>Installing or running something while a DAW has those plugins loaded now shares the DAW's Wine</li>
+          <li>Cabinet tells you when a Flatpak DAW needs updated permissions, and shows the command to grant them</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.16.0" date="2026-09-17">
       <description>
         <p>Plugins work in a DAW installed outside Flatpak, with nothing to set up</p>
