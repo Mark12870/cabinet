@@ -13,7 +13,7 @@ internal sealed class LibraryPage
     private readonly Action hold;
     private readonly Action release;
     private readonly Func<string, bool> prefixIsChanging;
-    private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
     private readonly Gtk.Box filters = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly Gtk.SearchEntry search = Gtk.SearchEntry.New();
     private readonly Gtk.DropDown categories = Gtk.DropDown.NewFromStrings(["Any category"]);
@@ -175,20 +175,15 @@ internal sealed class LibraryPage
 
         var pinned = managers.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
 
-        Section(
-            "Managers",
-            "The applications that download and update plugins of their own.",
-            managers);
+        Section("Managers", managers);
 
         Section(
             "Windows plugins",
-            "Each one gets a Wine prefix, bridged into your DAW.",
             matching.Where(entry =>
                 entry.Kind == PluginKind.Windows && !pinned.Contains(entry.Id)));
 
         Section(
             "Linux plugins",
-            "VST3, CLAP and LV2, in Cabinet's own directory and linked out.",
             matching.Where(entry =>
                 entry.Kind == PluginKind.Native && !pinned.Contains(entry.Id)));
 
@@ -239,7 +234,7 @@ internal sealed class LibraryPage
         navigation.Push(page.Page);
     }
 
-    private void Section(string title, string description, IEnumerable<LibraryEntry> entries)
+    private void Section(string title, IEnumerable<LibraryEntry> entries)
     {
         var found = entries.ToList();
 
@@ -250,7 +245,6 @@ internal sealed class LibraryPage
 
         var group = Adw.PreferencesGroup.New();
         group.SetTitle(title);
-        group.SetDescription(description);
 
         foreach (var entry in found)
         {
