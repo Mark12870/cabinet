@@ -48,6 +48,9 @@ public sealed class Layout
     public static readonly IReadOnlyList<string> ScanDirectories =
         [".vst3", ".clap", ".lv2", ".vst"];
 
+    public static readonly IReadOnlyList<string> BridgedScanDirectories =
+        [".vst3", ".clap", ".vst"];
+
     public Layout(
         string home,
         string runtimeDir,
@@ -103,7 +106,22 @@ public sealed class Layout
 
     public string SandboxYabridgeLink => Path.Combine(SandboxDataHome, "yabridge");
 
+    public string BridgeHome => Path.Combine(SandboxDataHome, "bridge");
+
+    public string BridgeDataHome => Path.Combine(BridgeHome, ".local", "share");
+
+    public string BridgeConfigHome => Path.Combine(BridgeHome, ".config");
+
+    public string BridgeClapHome => Path.Combine(BridgeHome, ".clap");
+
+    public string BridgeYabridgeLink => Path.Combine(BridgeDataHome, "yabridge");
+
     public string NativeYabridgeDir => Path.Combine(Home, ".local", "share", "yabridge");
+
+    public string BridgeOutputDir(string directory) =>
+        Path.Combine(BridgeHome, directory, "yabridge");
+
+    public string CabinetScanDir(string directory) => Path.Combine(ScanDir(directory), "cabinet");
 
     public string PrefixesDir => Path.Combine(SandboxDataHome, "prefixes");
 
@@ -144,6 +162,7 @@ public sealed class Layout
         ".clap" => ".clap",
         ".lv2" => ".lv2",
         ".so" => ".vst",
+        ".vst" => ".vst",
         _ => throw new ArgumentException($"not a plugin extension: '{extension}'", nameof(extension)),
     });
 

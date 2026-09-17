@@ -47,7 +47,7 @@ public sealed class EditorTests : IDisposable
         try
         {
             var said = RunProbe(format, Path.Combine(
-                RuntimeTestEnvironment.Home, root, "yabridge", plugin), session);
+                RuntimeTestEnvironment.Home, root, "cabinet", plugin), session);
             var seen = Regex.Match(
                 said,
                 @"WRAPPER=\((-?\d+), (-?\d+)\) WINE=\((-?\d+), (-?\d+)\) TOLD=\((-?\d+), (-?\d+)\)");

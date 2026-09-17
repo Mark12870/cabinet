@@ -91,9 +91,9 @@ def write_flatpakrepo(path: Path, base: str, homepage: str, key: str) -> None:
         "Title=Cabinet",
         f"Url={base}/repo/",
         f"Homepage={homepage}",
-        "Comment=Windows VST plugins in per-plugin Wine prefixes",
+        "Comment=Windows VST plugins on Linux, out of the box",
         "Description=Wine packaged as a Flatpak, bridging Windows VST2, VST3 and CLAP"
-        " plugins into a Linux DAW with upstream yabridge, one Wine prefix per plugin.",
+        " plugins into a Linux DAW with upstream yabridge, out of the box.",
     ]
     if key:
         lines.append(f"GPGKey={key}")

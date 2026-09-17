@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cabinet — Windows VSTs on Linux</title>
-<meta name="description" content="Wine packaged as a Flatpak, bridging Windows VST plugins into a Linux DAW, one prefix per plugin.">
+<meta name="description" content="Wine packaged as a Flatpak, bridging Windows VST plugins into a Linux DAW out of the box.">
 <style>
 :root {
   --bg: #fbfbfc;
@@ -80,10 +80,10 @@ footer a { margin-right: 1rem; }
 <main>
 
 <header>
-  <h1>Cabinet<small>Windows VST plugins in per-plugin Wine prefixes — x86_64</small></h1>
+  <h1>Cabinet<small>Windows VST plugins on Linux, out of the box — x86_64</small></h1>
   <p class="disclaimer">
-    Packaging only. Wine and <a href="https://github.com/robbert-vdh/yabridge">yabridge</a> are
-    other people's work; Cabinet bundles them and wires them to your DAW.
+    Packaging, mostly. Wine and <a href="https://github.com/robbert-vdh/yabridge">yabridge</a> are
+    other people's work; Cabinet bundles them, with a few yabridge patches, and wires them to your DAW.
   </p>
 </header>
 
@@ -110,20 +110,20 @@ flatpak run $app_id</code></pre>
   setup step. A shim at <code>$$WINELOADER</code> is the whole boundary between the two.
 </p>
 <p>
-  Each plugin gets its own Wine prefix under
-  <code>~/.var/app/$app_id/data/prefixes</code> — its own C: drive, registry and
+  Plugins get Wine prefixes of their own, one per vendor or product family, under
+  <code>~/.var/app/$app_id/data/prefixes</code> — each with its own C: drive, registry and
   dependencies. yabridge detects which prefix a plugin lives in on its own, so several
   run side by side.
 </p>
 <pre><code>flatpak run $app_id new serum
 flatpak run $app_id install serum ~/Downloads/Serum.exe
-flatpak run $app_id dxvk serum
-flatpak run $app_id sync</code></pre>
+flatpak run $app_id dxvk serum</code></pre>
 <p>
   For a Flatpak DAW, run <code>enrol &lt;daw-flatpak-id&gt;</code> first and read what it
   prints: bridging into a sandboxed DAW needs permissions that are yours to grant, not
-  Cabinet's to assume. A DAW installed outside Flatpak takes <code>enrol native</code>
-  instead, which links the bridge where that DAW looks and needs nothing set at launch.
+  Cabinet's to assume. A DAW installed outside Flatpak needs no <code>enrol</code>:
+  every install bridges on its own, linking the plugins where that DAW looks, and they load
+  Cabinet's own yabridge beside any other.
   <code>doctor</code> checks both sides afterwards.
 </p>
 

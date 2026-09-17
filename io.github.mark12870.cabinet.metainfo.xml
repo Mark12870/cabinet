@@ -3,7 +3,7 @@
   <id>io.github.mark12870.cabinet</id>
 
   <name>Cabinet</name>
-  <summary>Windows VST plugins in per-plugin Wine prefixes</summary>
+  <summary>Windows VST plugins on Linux, working out of the box</summary>
 
   <metadata_license>FSFAP</metadata_license>
   <project_license>GPL-3.0-or-later</project_license>
@@ -14,13 +14,13 @@
 
   <description>
     <p>
-      Cabinet packages Wine as a Flatpak so Windows VST2, VST3 and CLAP plugins can run
-      on an immutable Linux system, giving every plugin its own Wine prefix — its own
-      C: drive, registry and dependencies — instead of one shared prefix that every
-      installer fights over.
+      Cabinet packages Wine as a Flatpak so Windows VST2, VST3 and CLAP plugins run
+      on an immutable Linux system out of the box. Plugins get Wine prefixes of their
+      own, one per vendor or product family — each with its own C: drive, registry and
+      dependencies — instead of one shared prefix that every installer fights over.
     </p>
     <p>
-      Bridging is done by upstream yabridge. Only Wine runs inside the sandbox: the
+      Bridging is done by upstream yabridge, carrying a few Cabinet patches. Only Wine runs inside the sandbox: the
       halves the DAW loads are exported to the host, so plugins appear in a native or
       Flatpak DAW as ordinary Linux plugins.
     </p>

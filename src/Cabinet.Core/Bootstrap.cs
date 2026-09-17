@@ -12,15 +12,22 @@ public static class Bootstrap
 
     private static void LinkYabridgeForYabridgectl(Layout layout)
     {
-        var link = layout.SandboxYabridgeLink;
+        Link(layout.SandboxYabridgeLink, layout.HostYabridgeDir);
+
+        Directory.CreateDirectory(layout.BridgeDataHome);
+        Link(layout.BridgeYabridgeLink, layout.BundledYabridgeDir);
+    }
+
+    private static void Link(string link, string target)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(link)!);
 
-        if (new DirectoryInfo(link).LinkTarget == layout.HostYabridgeDir)
+        if (new DirectoryInfo(link).LinkTarget == target)
         {
             return;
         }
 
         File.Delete(link);
-        File.CreateSymbolicLink(link, layout.HostYabridgeDir);
+        File.CreateSymbolicLink(link, target);
     }
 }

@@ -1,10 +1,10 @@
 # Cabinet
 
-Windows VST plugins on Linux, packaged as a Flatpak, with **one Wine prefix per plugin** — its own C: drive, registry
-and dependencies, instead of a single prefix every installer fights over. Built for immutable systems like Fedora
-Silverblue, where Wine and yabridge cannot be installed the ordinary way. Packaging, mostly: the bridging
-is [yabridge](https://github.com/robbert-vdh/yabridge) and the compatibility layer is [Wine](https://www.winehq.org).
-Cabinet bundles them, gives each plugin its own prefix, and wires the result to your DAW.
+Windows VST plugins on Linux as a Flatpak, aiming to work out of the box: install a plugin and it shows up in your
+DAW, with no Wine or yabridge to set up. Plugins get **Wine prefixes of their own**, one per vendor or product family,
+instead of a single prefix every installer fights over. Built for immutable systems like Fedora Silverblue. The
+bridging is [yabridge](https://github.com/robbert-vdh/yabridge), carrying a few Cabinet patches, and the compatibility
+layer is [Wine](https://www.winehq.org); Cabinet bundles both and wires the result to your DAW.
 
 ## Install
 
@@ -15,8 +15,8 @@ flatpak install cabinet io.github.mark12870.cabinet
 flatpak run io.github.mark12870.cabinet enrol fm.reaper.Reaper
 ```
 
-There is no setup step. `enrol` prepares your DAW and **prints** a `flatpak override`
-command for you to run — see [Permissions](#permissions).
+There is no setup step. A DAW installed outside Flatpak needs nothing more; for a Flatpak DAW, `enrol` prepares it and
+**prints** a `flatpak override` command for you to run — see [Permissions](#permissions).
 
 ## Use
 
@@ -36,9 +36,9 @@ flatpak run $cabinet library stop spitfire-audio            # close it, and the 
 flatpak run $cabinet library --search reverb --installed    # narrow by words, category or kind
 
 flatpak run $cabinet new serum                              # a prefix of its own
-flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer in it
+flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer, bridge what it installed
 flatpak run $cabinet dxvk serum                             # Direct3D, which some editors want
-flatpak run $cabinet sync                                   # bridge what it installed
+flatpak run $cabinet sync                                   # bridge again what changed outside Cabinet
 flatpak run $cabinet doctor                                 # check both sides
 
 flatpak run $cabinet run serum winecfg                      # winecfg, regedit, anything
@@ -67,21 +67,21 @@ the prefix for the plugins sharing it. Where nothing looks like it, it says so. 
 `library launch` opens it and bridges what it installs as it lands, `library log` shows Cabinet and shared yabridge output, and removing one
 takes its prefix.
 
-The four commands after it are the same thing by hand, and still the whole workflow for a plugin the library has never
-heard of. `set` is per prefix and reaches the bridged plugin too: a sync mode or a variable set here is handed to the
-Wine your DAW starts, not just to `winecfg`.
-`sync system` is the default and means *leave it to whatever launched the DAW*. `run` covers what `set` does not;
-`delete` asks first, and unbridges what it held.
+`new`, `install`, `dxvk` and the rest do the same by hand, for a plugin the library has never heard of. Installing,
+running something in a prefix and opening the window bridge on their own; `sync` covers changes made outside Cabinet.
+`set` is per prefix and reaches the bridged plugin too: a sync mode or a variable set here is handed to the Wine your
+DAW starts, not just to `winecfg`. `sync system` is the default and means *leave it to whatever launched the DAW*.
+`run` covers what `set` does not; `delete` asks first, and unbridges what it held.
 
 ## Permissions
 
 `enrol` prints the `flatpak override` rather than applying it, because one of the permissions it asks for is
-`--talk-name=org.freedesktop.Flatpak`. That lets the shim start Wine on the host — **and it lets that DAW run any
-command on your host.** It is a real weakening of that DAW's sandbox, so the decision stays yours; undo it with
-`flatpak override --user --reset <daw-id>`. A DAW installed outside Flatpak takes `enrol native` instead, which needs
-no permissions at all and nothing set at launch. Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
-`flatpak uninstall --delete-data` **will** delete your plugin library — a plain
-`flatpak uninstall` leaves it alone.
+`--talk-name=org.freedesktop.Flatpak`. That lets the shim start Cabinet's Wine from inside the DAW's sandbox — **and it
+lets that DAW run any command on your host.** It is a real weakening of that DAW's sandbox, so the decision stays
+yours; undo it with `flatpak override --user --reset <daw-id>`. A DAW installed outside Flatpak needs no `enrol` and no
+permissions: bridging links Cabinet's plugins into `~/.vst*/cabinet`, and they load Cabinet's own yabridge, so another
+yabridge install keeps working beside it. Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
+`flatpak uninstall --delete-data` **will** delete your plugin library — a plain `flatpak uninstall` leaves it alone.
 
 ## Building
 

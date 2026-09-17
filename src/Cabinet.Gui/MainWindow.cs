@@ -61,6 +61,7 @@ internal sealed class MainWindow
         window.SetContent(toasts);
 
         RefreshAll();
+        BridgeInBackground(layout, runner);
     }
 
     public void Present()
@@ -102,6 +103,35 @@ internal sealed class MainWindow
         {
             application.Release();
         }
+    }
+
+    private void BridgeInBackground(Layout layout, IProcessRunner runner)
+    {
+        Hold();
+        Task.Run(() =>
+        {
+            string? failure = null;
+
+            try
+            {
+                new Prefixes(layout, runner).Bridge();
+            }
+            catch (Exception exception)
+            {
+                failure = exception.Message;
+            }
+
+            Ui.OnMainLoop(() =>
+            {
+                if (failure is not null)
+                {
+                    Toast($"Could not bridge plugins: {failure}");
+                }
+
+                doctor.Refresh();
+                Release();
+            });
+        });
     }
 
     private void Toast(string message) => toasts.AddToast(Adw.Toast.New(message));

@@ -32,6 +32,25 @@ public class LayoutTests
     }
 
     [Fact]
+    public void CabinetKeepsNativeBridgeFilesInItsPrivateDataTree()
+    {
+        Assert.Equal(
+            "/home/u/.var/app/io.github.mark12870.cabinet/data/bridge",
+            Layout.BridgeHome);
+        Assert.Equal(
+            "/home/u/.var/app/io.github.mark12870.cabinet/data/bridge/.vst3/yabridge",
+            Layout.BridgeOutputDir(".vst3"));
+    }
+
+    [Fact]
+    public void NativeScanPathsHaveACabinetNamespace()
+    {
+        Assert.Equal("/home/u/.vst3/cabinet", Layout.CabinetScanDir(".vst3"));
+        Assert.Equal("/home/u/.clap/cabinet", Layout.CabinetScanDir(".clap"));
+        Assert.Equal("/home/u/.vst/cabinet", Layout.CabinetScanDir(".vst"));
+    }
+
+    [Fact]
     public void AFlatpakDawLooksForYabridgeInItsOwnDataDirectory()
     {
         Assert.Equal(

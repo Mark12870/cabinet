@@ -16,6 +16,7 @@ public class EnrolmentTests
                 + "io.github.mark12870.cabinet/current/active/files:ro")]
     [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
     [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/native:ro")]
+    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/bridge:ro")]
     [InlineData("--env=WINELOADER=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files/lib/yabridge/cabinet-wine")]
     public void TheOverrideCarriesEverythingTheBoundaryNeeds(string expected)
@@ -54,49 +55,91 @@ public class EnrolmentTests
     }
 
     [Fact]
-    public void ANativeDawGetsALinkForEveryFileTheBridgeShips()
+    public void PublishingGivesNativeDawsSeparateCabinetScanPaths()
     {
         using var home = new TempHome();
-        home.GiveBridge("libyabridge-chainloader-vst3.so", "yabridge-host.exe");
 
-        var directory = Enrolment.LinkNative(home.Layout);
+        var conflicts = Enrolment.PublishNative(home.Layout);
 
-        Assert.Equal(home.Layout.NativeYabridgeDir, directory);
+        Assert.Empty(conflicts);
         Assert.Equal(
-            Path.Combine(home.Layout.HostYabridgeDir, "yabridge-host.exe"),
+            home.Layout.BridgeOutputDir(".vst3"),
             File.ResolveLinkTarget(
-                Path.Combine(directory, "yabridge-host.exe"), false)!.FullName);
+                home.Layout.CabinetScanDir(".vst3"), false)!.FullName);
     }
 
     [Fact]
-    public void LinkingNativelyAgainReplacesAStaleLink()
+    public void PublishingAgainKeepsCabinetScanPaths()
+    {
+        using var home = new TempHome();
+        Enrolment.PublishNative(home.Layout);
+
+        var conflicts = Enrolment.PublishNative(home.Layout);
+
+        Assert.Empty(conflicts);
+        Assert.Equal(
+            home.Layout.BridgeOutputDir(".clap"),
+            new DirectoryInfo(home.Layout.CabinetScanDir(".clap")).LinkTarget);
+    }
+
+    [Fact]
+    public void AForeignNativeScanPathIsNeverReplaced()
+    {
+        using var home = new TempHome();
+        Directory.CreateDirectory(home.Layout.CabinetScanDir(".vst3"));
+
+        var conflicts = Enrolment.PublishNative(home.Layout);
+
+        Assert.Equal([home.Layout.CabinetScanDir(".vst3")], conflicts);
+        Assert.Null(new DirectoryInfo(home.Layout.CabinetScanDir(".vst3")).LinkTarget);
+    }
+
+    [Fact]
+    public void LegacyCabinetLinksAreRemovedWithoutTouchingUpstreamFiles()
     {
         using var home = new TempHome();
         home.GiveBridge("libyabridge-chainloader-vst3.so");
         Directory.CreateDirectory(home.Layout.NativeYabridgeDir);
+        var cabinetLink = Path.Combine(
+            home.Layout.NativeYabridgeDir, "libyabridge-chainloader-vst3.so");
         File.CreateSymbolicLink(
-            Path.Combine(home.Layout.NativeYabridgeDir, "libyabridge-chainloader-vst3.so"),
-            "/somewhere/else");
+            cabinetLink,
+            Path.Combine(home.Layout.HostYabridgeDir, "libyabridge-chainloader-vst3.so"));
+        var upstreamFile = Path.Combine(home.Layout.NativeYabridgeDir, "yabridgectl");
+        File.WriteAllText(upstreamFile, "upstream");
 
-        var directory = Enrolment.LinkNative(home.Layout);
+        Enrolment.RemoveLegacyNativeLinks(home.Layout);
 
-        Assert.Equal(
-            Path.Combine(home.Layout.HostYabridgeDir, "libyabridge-chainloader-vst3.so"),
-            File.ResolveLinkTarget(
-                Path.Combine(directory, "libyabridge-chainloader-vst3.so"), false)!.FullName);
+        Assert.False(Path.Exists(cabinetLink));
+        Assert.Equal("upstream", File.ReadAllText(upstreamFile));
     }
 
     [Fact]
-    public void AYabridgeOfTheUsersOwnIsNeverReplaced()
+    public void AnAlreadyEmptiedNativeYabridgeDirectoryIsLeftAlone()
     {
         using var home = new TempHome();
-        home.GiveBridge("libyabridge-chainloader-vst3.so");
+        home.GiveBridge("cabinet-wine", "yabridge-host.exe");
         Directory.CreateDirectory(home.Layout.NativeYabridgeDir);
-        File.WriteAllText(
-            Path.Combine(home.Layout.NativeYabridgeDir, "libyabridge-chainloader-vst3.so"),
-            "theirs");
 
-        Assert.Throws<IOException>(() => Enrolment.LinkNative(home.Layout));
+        Enrolment.RemoveLegacyNativeLinks(home.Layout);
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(home.Layout.NativeYabridgeDir));
+    }
+
+    [Fact]
+    public void ANativeYabridgeDirectorySymlinkIsLeftAlone()
+    {
+        using var home = new TempHome();
+        var upstream = Path.Combine(home.Root, "upstream-yabridge");
+        Directory.CreateDirectory(upstream);
+        File.WriteAllText(Path.Combine(upstream, "yabridgectl"), "upstream");
+        Directory.CreateDirectory(Path.GetDirectoryName(home.Layout.NativeYabridgeDir)!);
+        File.CreateSymbolicLink(home.Layout.NativeYabridgeDir, upstream);
+
+        Enrolment.RemoveLegacyNativeLinks(home.Layout);
+
+        Assert.Equal(upstream, new DirectoryInfo(home.Layout.NativeYabridgeDir).LinkTarget);
+        Assert.Equal("upstream", File.ReadAllText(Path.Combine(upstream, "yabridgectl")));
     }
 
     [Fact]
@@ -138,6 +181,8 @@ public class EnrolmentTests
         private readonly string root = TestRoot.Create("enrolment");
 
         public Layout Layout => new(root, "/run/user/1000", Path.Combine(root, "data"));
+
+        public string Root => root;
 
         public void GiveBridge(params string[] files)
         {

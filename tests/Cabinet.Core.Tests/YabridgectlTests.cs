@@ -107,5 +107,46 @@ public sealed class YabridgectlTests : IDisposable
         Assert.DoesNotContain(runner.Calls, call => call.Arguments.SequenceEqual(["sync", "--prune"]));
     }
 
+    [Fact]
+    public void YabridgectlUsesCabinetsPrivateConfigurationAndOutputTree()
+    {
+        var layout = TestLayout();
+        var runner = new RecordingRunner();
+
+        new Yabridgectl(layout, runner).Status();
+
+        Assert.Equal(layout.BridgeHome, runner.Environment["HOME"]);
+        Assert.Equal(layout.BridgeDataHome, runner.Environment["XDG_DATA_HOME"]);
+        Assert.Equal(layout.BridgeConfigHome, runner.Environment["XDG_CONFIG_HOME"]);
+        Assert.Equal(layout.BridgeClapHome, runner.Environment["CLAP_PATH"]);
+        Assert.Equal(layout.SocketDir, runner.Environment["YABRIDGE_TEMP_DIR"]);
+    }
+
+    [Fact]
+    public void ASuccessfulSyncLinksTheNativeScanPaths()
+    {
+        var layout = TestLayout();
+
+        var result = new Yabridgectl(layout, new RecordingRunner()).SyncAndPublish([]);
+
+        Assert.True(result.Ok);
+        Assert.Equal(
+            layout.BridgeOutputDir(".vst3"),
+            new DirectoryInfo(layout.CabinetScanDir(".vst3")).LinkTarget);
+    }
+
+    [Fact]
+    public void ASuccessfulSyncDoesNotFailOnAnOccupiedNativeScanPath()
+    {
+        var layout = TestLayout();
+        Directory.CreateDirectory(layout.CabinetScanDir(".vst3"));
+
+        var result = new Yabridgectl(layout, new RecordingRunner()).SyncAndPublish([]);
+
+        Assert.True(result.Ok);
+        Assert.True(Directory.Exists(layout.CabinetScanDir(".vst3")));
+        Assert.Contains(layout.CabinetScanDir(".vst3"), result.Stderr);
+    }
+
     public void Dispose() => Directory.Delete(root, recursive: true);
 }

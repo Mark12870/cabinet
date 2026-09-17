@@ -1,0 +1,72 @@
+--- a/src/common/process.h
++++ b/src/common/process.h
+@@ -57,6 +57,13 @@
+ std::vector<ghc::filesystem::path> get_augmented_search_path();
+ 
+ /**
++ * Cabinet's installed yabridge directories, user installation first. Cabinet's
++ * chainloaders and plugin libraries look here before anywhere else, so another
++ * yabridge installation can never take over Cabinet's plugins.
++ */
++std::vector<ghc::filesystem::path> get_cabinet_yabridge_directories();
++
++/**
+  * Split a `PATH`-like environment variable on colons. These environment
+  * variables don't support escaping, which makes this a lot simpler.
+  */
+--- a/src/common/process.cpp
++++ b/src/common/process.cpp
+@@ -98,6 +98,21 @@
+     return search_path;
+ }
+ 
++std::vector<fs::path> get_cabinet_yabridge_directories() {
++    const fs::path installation =
++        "app/io.github.mark12870.cabinet/current/active/files/lib/yabridge";
++
++    std::vector<fs::path> directories;
++    // NOLINTNEXTLINE(concurrency-mt-unsafe)
++    if (const char* home_directory = getenv("HOME")) {
++        directories.push_back(fs::path(home_directory) /
++                              ".local/share/flatpak" / installation);
++    }
++    directories.push_back(fs::path("/var/lib/flatpak") / installation);
++
++    return directories;
++}
++
+ std::vector<ghc::filesystem::path> split_path(
+     const std::string_view& path_env) {
+     // C++ has these great split range adapters. That are completely usless.
+--- a/src/chainloader/utils.cpp
++++ b/src/chainloader/utils.cpp
+@@ -31,6 +31,13 @@
+ void* find_plugin_library(const std::string& name) {
+     // Just using a goto for this would probably be cleaner, but yeah...
+     const auto impl = [&name]() -> void* {
++        for (const auto& directory : get_cabinet_yabridge_directories()) {
++            const fs::path candidate = directory / name;
++            if (fs::exists(candidate)) {
++                return dlopen(candidate.c_str(), RTLD_LAZY | RTLD_LOCAL);
++            }
++        }
++
+         // If `name` exists right next to the Wine plugin host binary, then
+         // we'll try loading that. Otherwise we'll fall back to regular
+         // `dlopen()` for distro packaged versions of yabridge
+--- a/src/plugin/utils.cpp
++++ b/src/plugin/utils.cpp
+@@ -359,6 +359,13 @@
+         host_name = yabridge_host_name_32bit;
+     }
+ 
++    for (const auto& directory : get_cabinet_yabridge_directories()) {
++        const fs::path candidate = directory / host_name;
++        if (fs::exists(candidate)) {
++            return candidate;
++        }
++    }
++
+     // If our `.so` file is a symlink, then search for the host in the directory
+     // of the file that symlink points to
+     fs::path host_path =

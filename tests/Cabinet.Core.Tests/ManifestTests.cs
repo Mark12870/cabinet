@@ -201,6 +201,27 @@ public class ManifestTests
     }
 
     [Fact]
+    public void CabinetsChainloaderLoadsCabinetsOwnYabridgeFirst()
+    {
+        const string patch = "patches/yabridge-chainloader-cabinet-first.patch";
+        var origin = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "path: patches/yabridge-editor-window-origin.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+        var search = File.ReadAllText(Repo.Path(patch));
+        var installation = Path.GetRelativePath(
+            "/home/u/.local/share/flatpak", new Layout("/home/u", "/run/user/1000").HostYabridgeDir);
+
+        Assert.True(origin >= 0);
+        Assert.Equal(origin + 2, applied);
+        Assert.Contains($"\"{installation}\"", search, StringComparison.Ordinal);
+        Assert.Contains("\".local/share/flatpak\" / installation", search, StringComparison.Ordinal);
+        Assert.Contains("fs::path(\"/var/lib/flatpak\") / installation", search, StringComparison.Ordinal);
+        Assert.Contains("const fs::path candidate = directory / name;", search, StringComparison.Ordinal);
+        Assert.Contains("const fs::path candidate = directory / host_name;", search, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheSocketsLandWhereTheSandboxCanReachThem()
     {
         Assert.Contains("--filesystem=xdg-run/yabridge:create", FinishArgs);

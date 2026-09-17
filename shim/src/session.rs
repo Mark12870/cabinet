@@ -446,7 +446,9 @@ pub fn run_broker(args: &[OsString]) -> i32 {
                     match idle {
                         None => idle = Some(Instant::now()),
                         Some(since) if since.elapsed() >= IDLE_GRACE => {
-                            if retire(&lock, &socket, &live) {
+                            if retire(&lock, &socket, &live, || {
+                                end_wine(runner, prefix.as_deref())
+                            }) {
                                 break;
                             }
                             idle = None;
@@ -470,6 +472,24 @@ pub fn run_broker(args: &[OsString]) -> i32 {
     0
 }
 
+fn end_wine(runner: &OsStr, prefix: Option<&OsStr>) {
+    let ended = Command::new(wineserver_beside(runner))
+        .arg("-k")
+        .env_remove("WINELOADER")
+        .envs(prefix_environment(prefix, |path| {
+            std::fs::read_to_string(path).ok()
+        }))
+        .status();
+
+    if let Err(error) = ended {
+        eprintln!("cabinet-wine: cannot end the Wine session's processes: {error}");
+    }
+}
+
+fn wineserver_beside(runner: &OsStr) -> PathBuf {
+    Path::new(runner).with_file_name("wineserver")
+}
+
 struct Job(Arc<AtomicUsize>);
 
 impl Drop for Job {
@@ -478,7 +498,7 @@ impl Drop for Job {
     }
 }
 
-fn retire(lock: &Path, socket: &Path, live: &AtomicUsize) -> bool {
+fn retire<E: FnOnce()>(lock: &Path, socket: &Path, live: &AtomicUsize, end: E) -> bool {
     let Ok(file) = File::create(lock) else {
         return false;
     };
@@ -491,6 +511,7 @@ fn retire(lock: &Path, socket: &Path, live: &AtomicUsize) -> bool {
     }
 
     let _ = std::fs::remove_file(socket);
+    end();
 
     true
 }
@@ -1102,6 +1123,18 @@ mod tests {
         let (observed, dead_leader) = outliving("cmd.exe");
 
         assert!(alive(&observed, &[dead_leader]));
+    }
+
+    #[test]
+    fn a_retiring_session_ends_wine_with_its_own_runners_wineserver() {
+        assert_eq!(
+            wineserver_beside(OsStr::new("/runners/wine-9.21/bin/wine")),
+            PathBuf::from("/runners/wine-9.21/bin/wineserver")
+        );
+        assert_eq!(
+            wineserver_beside(OsStr::new("wine")),
+            PathBuf::from("wineserver")
+        );
     }
 
     #[test]

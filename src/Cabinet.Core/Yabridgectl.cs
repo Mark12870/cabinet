@@ -2,6 +2,8 @@ namespace Cabinet.Core;
 
 public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 {
+    private static readonly Lock Bridging = new();
+
     private string Binary => Path.Combine(layout.BundledYabridgeDir, "yabridgectl");
 
     public ProcessResult Add(string pluginDirectory) => Run(["add", pluginDirectory]);
@@ -78,12 +80,36 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
         return failure ?? Sync();
     }
 
+    public ProcessResult SyncAndPublish(IReadOnlyList<Prefix> prefixes)
+    {
+        var result = SyncPrefixes(prefixes);
+        if (!result.Ok)
+        {
+            return result;
+        }
+
+        var conflicts = Enrolment.PublishNative(layout);
+        return conflicts.Count == 0
+            ? result
+            : result with
+            {
+                Stderr = result.Stderr
+                         + "Native DAWs cannot see Cabinet: its scan path is already owned by "
+                         + $"something else: {string.Join(", ", conflicts)}\n",
+            };
+    }
+
     public void Bridge(IReadOnlyList<Prefix> prefixes, Action<string>? onOutput)
     {
         onOutput?.Invoke("Bridging what is installed…");
-        var result = SyncPrefixes(prefixes);
+        ProcessResult result;
+        lock (Bridging)
+        {
+            result = SyncAndPublish(prefixes);
+        }
 
-        foreach (var line in result.Stdout.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in (result.Stdout + result.Stderr)
+                     .Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             onOutput?.Invoke(line);
         }
@@ -92,6 +118,7 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
         {
             throw new InvalidOperationException($"yabridgectl exited with {result.ExitCode}");
         }
+
     }
 
     private ProcessResult Run(IReadOnlyList<string> arguments)
@@ -104,6 +131,10 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 
         return runner.Run(Binary, arguments, new Dictionary<string, string>
         {
+            ["HOME"] = layout.BridgeHome,
+            ["XDG_DATA_HOME"] = layout.BridgeDataHome,
+            ["XDG_CONFIG_HOME"] = layout.BridgeConfigHome,
+            ["CLAP_PATH"] = layout.BridgeClapHome,
             ["YABRIDGE_TEMP_DIR"] = layout.SocketDir,
             ["WINELOADER"] = Layout.Wine,
         });

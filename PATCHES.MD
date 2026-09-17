@@ -1,9 +1,9 @@
 # yabridge patches
 
 Cabinet builds yabridge from a pinned commit and applies the files in `patches/` in the order the
-manifest lists them. Each patch works around one failure that kills the Wine plugin host. When
-the host dies, yabridge's plugin side aborts the DAW, or the DAW waits forever. Each section below
-says what would make the patch unnecessary.
+manifest lists them. Most work around a failure that kills the Wine plugin host. When the host
+dies, yabridge's plugin side aborts the DAW, or the DAW waits forever. Each section below says
+what would make the patch unnecessary.
 
 ## yabridge-teardown-guard.patch
 
@@ -86,6 +86,33 @@ it and `Prefixes.Create` would have to set it for new ones, with a migration for
 already on disk. Turning XRandR off also costs Wine its display-mode and DPI handling, which three
 editors opening at their natural size does not clear for a whole catalogue. Revisit it as a
 considered change, not as a swap.
+
+## yabridge-chainloader-cabinet-first.patch
+
+**Failure.** A DAW outside Flatpak loads Cabinet's chainloader copies from `~/.vst*/cabinet`. The
+chainloader finds `libyabridge-*.so` only through `yabridge-host.exe` on `$PATH` or in
+`$XDG_DATA_HOME/yabridge`, then `dlopen` and `/usr/lib*`, and never beside itself. The library then
+looks for `yabridge-host.exe` beside the plugin before that same search. Host links published beside
+the plugins do not survive: `yabridgectl sync` prunes every `.so` without a `.dll`, including
+`yabridge-host.exe.so`, and the host wrapper left behind starts Wine on a file that is gone, so
+yabridge's watchdog aborts the DAW. Every yabridge
+install puts the same file names in `~/.local/share/yabridge`, so Cabinet could only use that
+directory by displacing another yabridge, or by letting another yabridge run Cabinet's prefixes
+with its own Wine.
+
+Not a setting: `yabridge.toml` has no library path, `yabridgectl set --path` only says where
+yabridgectl copies chainloaders from, and the variables the search reads belong to the DAW. RUNPATH
+on the copies reaches only the `dlopen` step, after another yabridge has already won.
+
+**Patch.** `get_cabinet_yabridge_directories()` names Cabinet's installed library directory, the
+user installation and then the system one, both through `current/active`. The chainloader looks
+for the library there first, and the library for the host, and both otherwise search exactly as
+upstream does.
+
+**When it can go.** When upstream yabridge looks for its library beside the chainloader, or offers
+a setting for it. `ManifestTests` keeps the path equal to `Layout.HostYabridgeDir`.
+Unwiring it breaks every Windows plugin in a native DAW unless another yabridge happens to be
+installed, and then those plugins run under that one's Wine.
 
 # The yabridge Cabinet builds
 

@@ -179,13 +179,14 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
     private Check YabridgectlCanFindIt()
     {
-        var link = layout.SandboxYabridgeLink;
+        var link = layout.BridgeYabridgeLink;
         var chainloader = Path.Combine(link, "libyabridge-chainloader-vst3.so");
 
         return File.Exists(chainloader)
-            ? new Check("yabridgectl path", Status.Ok, $"{link} -> {layout.HostYabridgeDir}")
+            ? new Check("yabridgectl path", Status.Ok,
+                $"{link} -> {layout.BundledYabridgeDir}")
             : new Check("yabridgectl path", Status.Fail,
-                $"{link} does not reach {layout.HostYabridgeDir}");
+                $"{link} does not reach {layout.BundledYabridgeDir}");
     }
 
     private Check Shim()
@@ -265,21 +266,44 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
     private IEnumerable<Check> NativeDaw()
     {
-        var directory = layout.NativeYabridgeDir;
-        var chainloader = Path.Combine(directory, "libyabridge-chainloader-vst3.so");
+        var entries = Layout.BridgedScanDirectories
+            .Select(directory => (Link: layout.CabinetScanDir(directory),
+                Target: layout.BridgeOutputDir(directory)))
+            .ToList();
+        var unlinked = entries
+            .Where(entry => new DirectoryInfo(entry.Link).LinkTarget != entry.Target)
+            .Select(entry => entry.Link)
+            .ToList();
+        var owned = unlinked
+            .Where(link => Path.Exists(link) || new FileInfo(link).LinkTarget is not null)
+            .ToList();
 
-        if (!File.Exists(chainloader))
+        if (owned.Count > 0)
         {
+            yield return new Check("native DAWs", Status.Fail,
+                $"already owned by something else: {string.Join(", ", owned)} "
+                + "— move it aside and run `cabinet sync`");
             yield break;
         }
 
-        var wanted = Path.Combine(layout.HostYabridgeDir, "libyabridge-chainloader-vst3.so");
+        if (unlinked.Count > 0)
+        {
+            yield return new Check("native DAWs", Status.Fail,
+                $"missing Cabinet scan paths: {string.Join(", ", unlinked)} "
+                + "— run `cabinet sync`");
+            yield break;
+        }
 
-        yield return File.ResolveLinkTarget(chainloader, false)?.FullName == wanted
-            ? new Check("native DAWs", Status.Ok, $"{directory} -> {layout.HostYabridgeDir}")
+        var hasPlugins = entries.Any(entry => Directory.Exists(entry.Target)
+            && Directory.EnumerateFiles(entry.Target, "*", SearchOption.AllDirectories)
+                .Any(file => Path.GetExtension(file) is ".so" or ".clap"));
+
+        yield return hasPlugins
+            ? new Check("native DAWs", Status.Ok,
+                $"Cabinet plugins are under {string.Join(", ", entries.Select(e => e.Link))}; "
+                + $"independent yabridge remains at {layout.NativeYabridgeDir}")
             : new Check("native DAWs", Status.Fail,
-                $"{directory} does not reach {layout.HostYabridgeDir} "
-                + "— run `cabinet enrol native`");
+                "no Cabinet native plugins have been published — run `cabinet sync`");
     }
 
     private Check EnrolledDaw(string dawId)
@@ -321,6 +345,11 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         if (!(filesystems?.Contains(layout.NativeDir) ?? false))
         {
             missing.Add($"--filesystem={layout.NativeDir}:ro");
+        }
+
+        if (!(filesystems?.Contains(layout.BridgeHome) ?? false))
+        {
+            missing.Add($"--filesystem={layout.BridgeHome}:ro");
         }
 
         if (ini.Get("Session Bus Policy", "org.freedesktop.Flatpak") != "talk")

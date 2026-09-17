@@ -1,7 +1,7 @@
 # Cabinet
 
-Cabinet is a `linux-x64` Flatpak (`io.github.mark12870.cabinet`) that gives Windows VST plugins one Wine prefix each and
-bridges them with upstream yabridge. There is deliberately no arm build.
+Cabinet is a `linux-x64` Flatpak (`io.github.mark12870.cabinet`) that gives Windows VST plugins Wine prefixes of their
+own, one per vendor or product family, and bridges them with patched upstream yabridge. There is deliberately no arm build.
 
 ## Important
 
@@ -74,8 +74,9 @@ the name or the structure instead. Anything that genuinely will not fit there is
   namespace boundary and wedge the DAW; that is what froze REAPER on a project holding five Klevgrand plugins.
   `shim/src/session.rs` keys a session on the canonical `WINEPREFIX`, starts it once behind an `flock` in
   `YABRIDGE_TEMP_DIR`, and every later plugin sends its argv to that session over the session socket. Because the
-  session outlives the shim that started it, it carries neither `--die-with-parent` nor `--watch-bus`: it exits once it
-  has been idle, and that is what tears the sandbox down.
+  session outlives the shim that started it, it carries neither `--die-with-parent` nor `--watch-bus`. Once idle it
+  retires and runs `wineserver -k` while still holding the session lock: Windows services a plugin started keep the
+  old sandbox and wineserver alive otherwise, and the next session on that prefix crashes or hangs against them.
 - A session reads `.cabinet-env` again for every job it starts, so `cabinet set <prefix> env` reaches the next plugin
   without restarting it. `.cabinet-sync` is fixed when the session starts, on the outer shim's `flatpak run`: every
   Wine process must use the sync mode of the wineserver it joins, and staging-based runners exit on a mismatch.
@@ -194,10 +195,14 @@ NuGet; regenerate it whenever a dependency changes.
 - Without `YABRIDGE_TEMP_DIR` yabridge puts its sockets in `$XDG_RUNTIME_DIR` itself, which the manifest cannot grant
   (`--filesystem=xdg-run` is refused; `xdg-run` needs a subdirectory). The shim grants that path by value on every
   `flatpak run`, so a DAW that sets nothing still reaches its sockets.
-- A native DAW finds yabridge through `$XDG_DATA_HOME/yabridge`, which `enrol native` fills with a link per bundled
-  file; it is a directory rather than a link itself because the manifest's `:create` grant makes it first. Once those
-  links exist the bridge loads, so it must also be able to start Wine: a findable bridge with no reachable loader
-  aborts the DAW from yabridge's launch thread rather than failing the plugin. A long
+- A native DAW needs no enrolment: every successful bridge links `~/.vst3/cabinet`, `~/.clap/cabinet` and
+  `~/.vst/cabinet` to Cabinet's own yabridgectl output, reports a path something else owns instead of replacing it,
+  and takes out the per-file links older releases left in `~/.local/share/yabridge`. yabridge's chainloader never
+  looks beside itself, and every yabridge puts the same names in `~/.local/share/yabridge`, so
+  `patches/yabridge-chainloader-cabinet-first.patch` makes Cabinet's copies load Cabinet's installed library and host
+  first; nothing is published beside the plugins, because `yabridgectl sync` prunes `.so` files it did not make.
+  A findable bridge with no reachable loader aborts the DAW from yabridge's launch thread rather than failing the
+  plugin; the manifest's `WINELOADER` fallback rewrite is what keeps the loader reachable. A long
   `YABRIDGE_TEMP_DIR` breaks the sockets with `File name too long`, so leave it under `/run/user/<uid>`.
   Redirecting `XDG_DATA_HOME` to isolate it also hides
   the user Flatpak installation from the shim's `flatpak run` (`app/io.github.mark12870.cabinet/x86_64/master not

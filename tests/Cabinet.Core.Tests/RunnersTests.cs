@@ -255,7 +255,7 @@ public sealed class RunnersTests : IDisposable
             [
                 "[Context]",
                 "devices=shm;",
-                $"filesystems=xdg-run/yabridge:create;{Layout.HostAppFiles};{Layout.PrefixesDir};{Layout.NativeDir};",
+                $"filesystems=xdg-run/yabridge:create;{Layout.HostAppFiles};{Layout.PrefixesDir};{Layout.NativeDir};{Layout.BridgeHome};",
                 "",
                 "[Session Bus Policy]",
                 "org.freedesktop.Flatpak=talk",
@@ -272,9 +272,23 @@ public sealed class RunnersTests : IDisposable
     }
 
     [Fact]
-    public void DoctorSaysNothingAboutNativeDawsUntilOneIsEnrolled()
+    public void DoctorReportsMissingNativeScanPaths()
     {
-        Assert.DoesNotContain(Checks(), found => found.Name == "native DAWs");
+        var check = Checks().Single(found => found.Name == "native DAWs");
+
+        Assert.Equal(Status.Fail, check.Status);
+        Assert.Contains("cabinet sync", check.Detail);
+    }
+
+    [Fact]
+    public void DoctorReportsNativeLinksWithoutPublishedPlugins()
+    {
+        Enrolment.PublishNative(Layout);
+
+        var check = Checks().Single(found => found.Name == "native DAWs");
+
+        Assert.Equal(Status.Fail, check.Status);
+        Assert.Contains("cabinet sync", check.Detail);
     }
 
     [Fact]
@@ -283,23 +297,24 @@ public sealed class RunnersTests : IDisposable
         Directory.CreateDirectory(Layout.HostYabridgeDir);
         File.WriteAllText(
             Path.Combine(Layout.HostYabridgeDir, "libyabridge-chainloader-vst3.so"), "bridge");
-        Enrolment.LinkNative(Layout);
+        Directory.CreateDirectory(Layout.BridgeOutputDir(".vst3"));
+        File.WriteAllText(
+            Path.Combine(Layout.BridgeOutputDir(".vst3"), "plugin.so"), "plugin");
+        Enrolment.PublishNative(Layout);
 
         Assert.Equal(
             Status.Ok, Checks().Single(found => found.Name == "native DAWs").Status);
     }
 
     [Fact]
-    public void DoctorFailsOnANativeLinkPointingSomewhereElse()
+    public void DoctorFailsOnANativeScanPathPointingSomewhereElse()
     {
-        Directory.CreateDirectory(Layout.NativeYabridgeDir);
-        File.WriteAllText(
-            Path.Combine(Layout.NativeYabridgeDir, "libyabridge-chainloader-vst3.so"), "theirs");
+        Directory.CreateDirectory(Layout.CabinetScanDir(".vst3"));
 
         var check = Checks().Single(found => found.Name == "native DAWs");
 
         Assert.Equal(Status.Fail, check.Status);
-        Assert.Contains("cabinet enrol native", check.Detail);
+        Assert.Contains("already owned by something else", check.Detail);
     }
 
     public void Dispose() => Directory.Delete(root, recursive: true);

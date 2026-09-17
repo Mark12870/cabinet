@@ -6,12 +6,11 @@ namespace Cabinet.Cli;
 internal static class Program
 {
     private const string Usage = """
-        Cabinet — Windows VST plugins in per-plugin Wine prefixes
+        Cabinet — Windows VST plugins on Linux, out of the box
 
         Usage:
           cabinet                              open the window
           cabinet enrol <daw-flatpak-id>       prepare a Flatpak DAW (prints the override)
-          cabinet enrol native                 prepare a DAW installed outside Flatpak
           cabinet new <name> [runner]          create a Wine prefix, optionally on a runner
           cabinet install <name> <installer>   run a Windows installer in that prefix
           cabinet delete <name>                delete a prefix and everything in it
@@ -38,7 +37,7 @@ internal static class Program
           cabinet runners install <version>    download and unpack one
           cabinet runners add <archive>        unpack a Wine build you already have
           cabinet runners rm <runner>          delete a runner no prefix uses
-          cabinet sync                         hand the prefixes to yabridgectl
+          cabinet sync                         bridge again what changed outside Cabinet
           cabinet run <name> <cmd> [args...]   run a command in a prefix (winecfg, regedit)
           cabinet doctor                       check the setup end to end
           cabinet about                        which Cabinet this is, and what it bundles
@@ -94,9 +93,7 @@ internal static class Program
 
         return args[0] switch
         {
-            "enrol" or "enroll" => Require(args, 1, "a DAW flatpak id, or `native`") is "native"
-                ? EnrolNative(layout)
-                : Enrol(layout, args[1]),
+            "enrol" or "enroll" => Enrol(layout, Require(args, 1, "a DAW flatpak id")),
             "new" => New(layout, runner, Require(args, 1, "a prefix name"),
                 args.Length > 2 ? args[2] : null),
             "library" => Library(layout, runner, args.Skip(1).ToArray(), json),
@@ -142,26 +139,12 @@ internal static class Program
         return 0;
     }
 
-    private static int EnrolNative(Layout layout)
-    {
-        var directory = Enrolment.LinkNative(layout);
-
-        Console.WriteLine($"Linked {directory} -> {layout.HostYabridgeDir}");
-        Console.WriteLine();
-        Console.WriteLine("That is where a DAW outside Flatpak looks for the bridge, and it");
-        Console.WriteLine("needs nothing else: no override to grant and no environment to set,");
-        Console.WriteLine("because the bridge finds Cabinet's Wine beside itself.");
-        Console.WriteLine();
-        Console.WriteLine("Start the DAW however you normally do.");
-        return 0;
-    }
-
     private static int New(
         Layout layout, IProcessRunner runner, string name, string? runnerName)
     {
         var prefix = new Prefixes(layout, runner).Create(name, runnerName, Console.WriteLine);
         Console.WriteLine($"{prefix.Name}  {prefix.Path}  ({prefix.Runner})");
-        Console.WriteLine($"Install plugins into {layout.PrefixVst3Dir(name)}, then `cabinet sync`.");
+        Console.WriteLine($"Install plugins with `cabinet install {prefix.Name} <installer>`.");
         return 0;
     }
 
@@ -278,6 +261,7 @@ internal static class Program
         var result = verbs.Length == 0
             ? winetricks.Open(name, Console.WriteLine)
             : winetricks.Apply(name, verbs, Console.WriteLine);
+        new Prefixes(layout, runner).Bridge(Console.WriteLine);
 
         return result.Ok ? 0 : result.ExitCode;
     }
@@ -382,14 +366,8 @@ internal static class Program
         prefixes.Create(name);
 
         var result = prefixes.Install(name, installer, Console.WriteLine);
-        if (!result.Ok)
-        {
-            return result.ExitCode;
-        }
-
-        Console.WriteLine();
-        Console.WriteLine("Installer finished. Run `cabinet sync` to bridge what it installed.");
-        return 0;
+        prefixes.Bridge(Console.WriteLine);
+        return result.ExitCode;
     }
 
     private static int Delete(Layout layout, IProcessRunner runner, string name)
@@ -866,7 +844,7 @@ internal static class Program
     private static int Sync(Layout layout, IProcessRunner runner)
     {
         var prefixes = new Prefixes(layout, runner).List();
-        var result = new Yabridgectl(layout, runner).SyncPrefixes(prefixes);
+        var result = new Yabridgectl(layout, runner).SyncAndPublish(prefixes);
 
         Console.Write(result.Stdout);
         Console.Error.Write(result.Stderr);
@@ -876,8 +854,10 @@ internal static class Program
     private static int Run(
         Layout layout, IProcessRunner runner, string name, string command, string[] arguments)
     {
-        return new Prefixes(layout, runner)
-            .Run(name, command, arguments, Console.WriteLine).ExitCode;
+        var prefixes = new Prefixes(layout, runner);
+        var result = prefixes.Run(name, command, arguments, Console.WriteLine);
+        prefixes.Bridge(Console.Error.WriteLine);
+        return result.ExitCode;
     }
 
     private static int RunDoctor(Layout layout, bool json)

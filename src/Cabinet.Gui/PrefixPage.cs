@@ -300,16 +300,25 @@ internal sealed class PrefixPage
         Operation.Run(
             window,
             $"Configuring {Name} with Winetricks",
-            output => Operation.Ensure(
-                new Winetricks(layout, runner).Open(Name, output), "winetricks"),
+            output =>
+            {
+                var result = new Winetricks(layout, runner).Open(Name, output);
+                new Prefixes(layout, runner).Bridge(output);
+                Operation.Ensure(result, "winetricks");
+            },
             changed);
 
     private void Run(string command, IReadOnlyList<string> arguments) =>
         Operation.Run(
             window,
             $"{command} in {Name}",
-            output => Operation.Ensure(
-                new Prefixes(layout, runner).Run(Name, command, arguments, output), command),
+            output =>
+            {
+                var prefixes = new Prefixes(layout, runner);
+                var result = prefixes.Run(Name, command, arguments, output);
+                prefixes.Bridge(output);
+                Operation.Ensure(result, command);
+            },
             changed);
 
     private void AskForCommand() =>
@@ -329,9 +338,13 @@ internal sealed class PrefixPage
             Operation.Run(
                 window,
                 $"Installing into {Name}",
-                output => Operation.Ensure(
-                    new Prefixes(layout, runner).Install(Name, path, output),
-                    Path.GetFileName(path)),
+                output =>
+                {
+                    var prefixes = new Prefixes(layout, runner);
+                    var result = prefixes.Install(Name, path, output);
+                    prefixes.Bridge(output);
+                    Operation.Ensure(result, Path.GetFileName(path));
+                },
                 changed));
 
     private void ConfirmDelete() => Ui.Confirm(
