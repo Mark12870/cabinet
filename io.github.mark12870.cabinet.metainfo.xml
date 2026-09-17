@@ -46,6 +46,19 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.16.0" date="2026-09-17">
+      <description>
+        <p>Plugins work in a DAW installed outside Flatpak, with nothing to set up</p>
+        <ul>
+          <li>A DAW installed outside Flatpak finds Cabinet's plugins in cabinet folders under ~/.vst, ~/.vst3 and ~/.clap, with no enrolment</li>
+          <li>Cabinet's plugins keep using Cabinet's own Wine and yabridge even when another yabridge is installed</li>
+          <li>Installing, running something in a prefix, Winetricks and opening the window bridge new plugins on their own</li>
+          <li>Plugins from vendors that leave background services running no longer crash or freeze the DAW the next time they load</li>
+          <li>A Flatpak DAW needs one more read-only permission; run cabinet enrol again and apply the override it prints</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.15.0" date="2026-09-15">
       <description>
         <p>Arturia Software Center and Roland Cloud Manager join the Library</p>
