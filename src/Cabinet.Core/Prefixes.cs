@@ -22,7 +22,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public IReadOnlyList<string> Names() => [.. Directories().Where(Layout.IsName)];
 
-    public IReadOnlyList<string> Unnamed() => [.. Directories().Where(name => !Layout.IsName(name))];
+    public IReadOnlyList<string> Unnamed() =>
+        [.. Directories().Where(name => !Layout.IsName(name) && !Staging.Owns(name))];
 
     private IEnumerable<string> Directories() =>
         Directory.Exists(layout.PrefixesDir)
@@ -169,7 +170,12 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         }
 
         using var claim = Claim(name, $"delete {name}");
-        Directory.Delete(path, recursive: true);
+
+        using (var deleting = Staging.Create(layout.PrefixesDir, "prefix"))
+        {
+            Directory.Move(path, Path.Combine(deleting.Path, name));
+        }
+
         onOutput?.Invoke($"Deleted {path}");
         Bridge(onOutput);
     }

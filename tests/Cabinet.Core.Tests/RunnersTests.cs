@@ -238,6 +238,54 @@ public sealed class RunnersTests : IDisposable
     }
 
     [Fact]
+    public void ARunnerWithoutItsWineIsListedAndWarnedAboutWithoutBeingRun()
+    {
+        Directory.CreateDirectory(Layout.RunnerPath("half-unpacked"));
+
+        var broken = Subject.List().Single(r => r.Name == "half-unpacked");
+
+        Assert.False(broken.Usable);
+        Assert.Equal("unknown", Subject.Version(broken));
+        Assert.Contains("half-unpacked", Checks().Single(c => c.Name == "broken runners").Detail);
+    }
+
+    [Fact]
+    public void ARunnerAppearsUnderItsNameOnlyOnceItIsUnpackedWhole()
+    {
+        var tarball = Path.Combine(root, "wine-10.0-amd64.tar.xz");
+        File.WriteAllText(tarball, "");
+        var unpacked = new List<string>();
+        var runners = new Runners(Layout, new RecordingRunner(args =>
+        {
+            var into = args[^1];
+            unpacked.Add(into);
+            Directory.CreateDirectory(Path.Combine(into, "bin"));
+            File.WriteAllText(Path.Combine(into, "bin", "wine"), "");
+        }));
+
+        var added = runners.Add(tarball);
+
+        Assert.NotEqual(Layout.RunnerPath("wine-10.0"), Assert.Single(unpacked));
+        Assert.Equal(Layout.RunnerWine("wine-10.0"), added.Wine);
+        Assert.True(File.Exists(added.Wine));
+        Assert.Equal(
+            [Layout.RunnerPath("wine-10.0")],
+            Directory.EnumerateFileSystemEntries(Layout.RunnersDir));
+    }
+
+    [Fact]
+    public void AnArchiveThatIsNoWineLeavesNothingInTheRunners()
+    {
+        var tarball = Path.Combine(root, "not-wine.tar.xz");
+        File.WriteAllText(tarball, "");
+
+        Assert.Throws<InvalidOperationException>(
+            () => new Runners(Layout, new RecordingRunner()).Add(tarball));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(Layout.RunnersDir));
+    }
+
+    [Fact]
     public void TheBundledWineCannotBeRemoved()
     {
         Assert.Throws<ArgumentException>(() => Subject.Remove(Layout.BundledRunner));

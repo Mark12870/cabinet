@@ -2497,6 +2497,267 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void AnInstallThatFailedIsFinishedWithTheSettingsItsEntryDeclares()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nSync: fsync\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        var fails = true;
+        var library = new Library(layout, new RecordingRunner(
+            exits: args => fails && args.SequenceEqual([installer]) ? 1 : 0));
+
+        Assert.Throws<InvalidOperationException>(
+            () => library.Install(library.Find("thing"), installer: installer));
+
+        Assert.Empty(library.Installed());
+        Assert.Equal([("thing", "thing")], library.Unfinished());
+
+        fails = false;
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.Equal(SyncMode.Fsync, new PrefixSettings(layout).Sync("thing"));
+        Assert.Equal("thing", library.Installed()["thing"]);
+        Assert.Empty(library.Unfinished());
+    }
+
+    [Fact]
+    public void APluginWhoseBridgeFailedIsRecordedButLeftUnfinishedUntilARetryBridgesIt()
+    {
+        Catalogue(("gadget", "Name: Gadget\nKind: windows\nSource: byo\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        var key = @"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Gadget2";
+        var bridges = false;
+        var library = new Library(layout, new RecordingRunner(
+            args =>
+            {
+                if (args.SequenceEqual([installer]))
+                {
+                    File.WriteAllText(layout.PrefixSystemReg("gadget"), """
+                        WINE REGISTRY Version 2
+
+                        [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Gadget2] 1787344290
+                        "DisplayName"="Gadget 2"
+                        "UninstallString"="C:\\Uninstall_Gadget2.exe"
+                        """);
+                }
+            },
+            args => !bridges && args.SequenceEqual(["sync", "--prune"]) ? 1 : 0));
+
+        Assert.Contains(
+            "yabridgectl exited with 1",
+            Assert.Throws<InvalidOperationException>(
+                () => library.Install(library.Find("gadget"), installer: installer)).Message);
+        Assert.Equal("gadget", library.Installed()["gadget"]);
+        Assert.Equal([("gadget", "gadget")], library.Unfinished());
+
+        bridges = true;
+        library.Install(library.Find("gadget"), installer: installer);
+
+        Assert.Equal($"gadget\t{key}\n", File.ReadAllText(layout.PrefixPluginsFile("gadget")));
+        Assert.Empty(library.Unfinished());
+    }
+
+    [Fact]
+    public void FinishingAnInstallElsewhereForgetsWhereItFirstStopped()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        var failing = new Library(layout, new RecordingRunner(
+            exits: args => args.SequenceEqual([installer]) ? 1 : 0));
+
+        Assert.Throws<InvalidOperationException>(
+            () => failing.Install(failing.Find("thing"), "first", installer));
+
+        var library = new Library(layout, new RecordingRunner());
+        library.Install(library.Find("thing"), "second", installer);
+
+        Assert.Equal("second", library.Installed()["thing"]);
+        Assert.Empty(library.Unfinished());
+    }
+
+    [Fact]
+    public void InstallingAgainWithoutAPrefixFinishesWhereTheFirstTryStopped()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        var failing = new Library(layout, new RecordingRunner(
+            exits: args => args.SequenceEqual([installer]) ? 1 : 0));
+
+        Assert.Throws<InvalidOperationException>(
+            () => failing.Install(failing.Find("thing"), "chosen", installer));
+
+        var library = new Library(layout, new RecordingRunner());
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.Equal("chosen", library.Installed()["thing"]);
+        Assert.False(Directory.Exists(layout.PrefixPath("thing")));
+    }
+
+    [Fact]
+    public void ANativeInstallNeverReplacesALinkSomethingElseMade()
+    {
+        var archive = Bundles("Thing.vst3");
+        Catalogue(("thing", "Name: Thing\nKind: native\nSource: byo\n"));
+        var layout = Layout();
+        var theirs = Path.Combine(root, "elsewhere", "Thing.vst3");
+        Directory.CreateDirectory(theirs);
+        var link = Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3");
+        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        File.CreateSymbolicLink(link, theirs);
+        var library = new Library(layout, new ProcessRunner());
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => library.Install(library.Find("thing"), installer: archive));
+
+        Assert.Contains("is not one of Cabinet's links", refused.Message);
+        Assert.Equal(theirs, new FileInfo(link).LinkTarget);
+        Assert.False(Directory.Exists(layout.NativePath("thing")));
+        Assert.False(Underway.Marked(layout.NativeInstalling("thing")));
+    }
+
+    [Fact]
+    public void ANativeInstallNeverTakesTheLinkOfAnotherInstalledPlugin()
+    {
+        var archive = Bundles("Thing.vst3");
+        Catalogue(("thing", "Name: Thing\nKind: native\nSource: byo\n"));
+        var layout = Layout();
+        var other = Path.Combine(layout.NativePath("other"), "Thing.vst3");
+        Directory.CreateDirectory(other);
+        var link = Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3");
+        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        File.CreateSymbolicLink(link, other);
+        var library = new Library(layout, new ProcessRunner());
+
+        Assert.Throws<InvalidOperationException>(
+            () => library.Install(library.Find("thing"), installer: archive));
+
+        Assert.Equal(other, new FileInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public void AFailedNativeInstallTakesBackTheLinksItHadMade()
+    {
+        var archive = Bundles("A.vst3", "B.vst3");
+        Catalogue(("thing", "Name: Thing\nKind: native\nSource: byo\n"));
+        var layout = Layout();
+        var scan = layout.ScanDir(".vst3");
+        Directory.CreateDirectory(Path.Combine(scan, "B.vst3"));
+        var library = new Library(layout, new ProcessRunner());
+
+        Assert.Throws<InvalidOperationException>(
+            () => library.Install(library.Find("thing"), installer: archive));
+
+        Assert.Equal([Path.Combine(scan, "B.vst3")], Directory.EnumerateFileSystemEntries(scan));
+        Assert.Empty(library.Installed());
+    }
+
+    [Fact]
+    public void AnInterruptedNativeInstallIsNotInstalledAndInstallingAgainFinishesIt()
+    {
+        var archive = Bundles("Thing.vst3");
+        Catalogue(("thing", "Name: Thing\nKind: native\nSource: byo\nData: .thing/Thing\n"));
+        var layout = Layout();
+        var data = layout.DataPath(".thing/Thing");
+        Directory.CreateDirectory(Path.Combine(layout.NativePath("thing"), "Stale.vst3"));
+        Directory.CreateDirectory(data);
+        File.WriteAllText(Path.Combine(data, "stale.preset"), "");
+        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        File.CreateSymbolicLink(
+            Path.Combine(layout.ScanDir(".vst3"), "Stale.vst3"),
+            Path.Combine(layout.NativePath("thing"), "Stale.vst3"));
+        File.WriteAllText(layout.NativeInstalling("thing"), $"thing\n{data}");
+        var library = new Library(layout, new ProcessRunner());
+
+        Assert.Empty(library.Installed());
+        Assert.Equal([("thing", (string?)null)], library.Unfinished());
+
+        library.Install(library.Find("thing"), installer: archive);
+
+        Assert.Null(library.Installed()["thing"]);
+        Assert.Empty(library.Unfinished());
+        Assert.Empty(Directory.EnumerateFileSystemEntries(data));
+        Assert.Equal(
+            [Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")],
+            Directory.EnumerateFileSystemEntries(layout.ScanDir(".vst3")));
+    }
+
+    [Fact]
+    public void ANativeInstallTheCatalogueNoLongerListsCanStillBeRemoved()
+    {
+        var layout = Layout();
+        var bundle = Path.Combine(layout.NativePath("gone"), "Gone.clap");
+        Directory.CreateDirectory(layout.NativePath("gone"));
+        File.WriteAllText(bundle, "");
+        Directory.CreateDirectory(layout.ScanDir(".clap"));
+        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".clap"), "Gone.clap"), bundle);
+        var library = new Library(layout, new RecordingRunner());
+
+        var retired = Assert.Single(library.Retired());
+        Assert.Equal(("gone", PluginKind.Native), (retired.Id, retired.Kind));
+
+        library.Remove(library.RemovalOf(library.Removable("gone")));
+
+        Assert.Empty(library.Retired());
+        Assert.Empty(Directory.EnumerateFileSystemEntries(layout.ScanDir(".clap")));
+        Assert.Empty(Directory.EnumerateDirectories(layout.NativeDir));
+    }
+
+    [Fact]
+    public void AWindowsInstallTheCatalogueNoLongerListsGoesWithItsPrefix()
+    {
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("old"), "dosdevices"));
+        File.WriteAllText(layout.PrefixPluginsFile("old"), "gone\n");
+        var library = new Library(layout, new RecordingRunner());
+
+        var removal = library.RemovalOf(library.Removable("gone"));
+
+        Assert.Equal((RemovalKind.PluginOrPrefix, "old"), (removal.Kind, removal.Prefix));
+
+        library.Remove(removal, takePrefix: true);
+
+        Assert.False(Directory.Exists(layout.PrefixPath("old")));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(layout.PrefixesDir));
+    }
+
+    [Fact]
+    public void AnAppWhoseCloseCouldNotBeBridgedIsReportedAsLeftOpen()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+        var library = new Library(layout, new RecordingRunner(
+            exits: args => args.SequenceEqual(["sync", "--prune"]) ? 1 : 0));
+
+        Assert.Throws<InvalidOperationException>(() => library.Launch(entry));
+
+        Assert.Equal([(entry.Id, entry.Prefix)], library.LeftOpen());
+    }
+
+    [Fact]
+    public void AnAppThatClosedAndWasBridgedLeavesNothingOpen()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+        var library = new Library(layout, new RecordingRunner());
+
+        library.Launch(entry);
+
+        Assert.Empty(library.LeftOpen());
+        Assert.False(Underway.Marked(layout.PrefixOpen(entry.Prefix, entry.Id)));
+    }
+
+    [Fact]
     public void NothingIsInstalledUntilSomethingIsUnpacked()
     {
         Assert.Empty(Subject().Installed());
@@ -3002,6 +3263,21 @@ public class LibraryTests : IDisposable
         return archive;
     }
 
+    private string Bundles(params string[] names)
+    {
+        var payload = Path.Combine(root, "payload");
+
+        foreach (var name in names)
+        {
+            Directory.CreateDirectory(Path.Combine(payload, name));
+        }
+
+        var archive = Path.Combine(root, "payload.tar.gz");
+        Assert.True(new ProcessRunner().Run("tar", ["-czf", archive, "-C", payload, "."]).Ok);
+
+        return archive;
+    }
+
     private void Script(string name, string body) => Write(Vendor, name, body + "\n");
 
     private Layout Layout()
@@ -3016,7 +3292,8 @@ public class LibraryTests : IDisposable
             Path.Combine(root, "data"),
             null,
             Path.Combine(root, "library"),
-            yabridge);
+            yabridge,
+            Path.Combine(root, "tmp"));
     }
 
     private Library Subject() => new(Layout(), new RecordingRunner());

@@ -90,7 +90,8 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
         string where,
         Action<string>? onOutput)
     {
-        var log = Layout.Staging($"{id}-{Environment.ProcessId}-script.log");
+        using var staging = Staging.Create(layout.TempDir, "script");
+        var log = Path.Combine(staging.Path, id + ".log");
         File.WriteAllText(log, "");
 
         using var ended = new CancellationTokenSource();
@@ -112,7 +113,6 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
             ended.Cancel();
             following.Wait();
             Follow(log, read, onOutput, ending: true);
-            File.Delete(log);
         }
     }
 

@@ -26,6 +26,9 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
             : null;
     }
 
+    public bool Partial(string prefix) =>
+        InstalledIn(prefix) is null && Directory.Exists(layout.PrefixDxvkBackupDir(prefix));
+
     public string Install(
         string prefix, Action<string>? onOutput = null, Action<double>? onProgress = null)
     {
@@ -33,21 +36,16 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
 
         var prefixes = new Prefixes(layout, runner);
         using var claim = prefixes.Claim(prefix, $"put DXVK into {prefix}");
-        var staging = Directory.CreateTempSubdirectory("cabinet-dxvk-").FullName;
 
-        try
+        using (var staging = Staging.Create(layout.TempDir, "dxvk"))
         {
-            Unpack(Download(staging, onOutput, onProgress), staging, onOutput);
-            Copy(staging, "x64", layout.PrefixSystem32(prefix), Backups(prefix, System32), onOutput);
-            Copy(staging, "x32", layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64), onOutput);
+            var unpacked = staging.Path;
+            Unpack(Download(unpacked, onOutput, onProgress), unpacked, onOutput);
+            Copy(unpacked, "x64", layout.PrefixSystem32(prefix), Backups(prefix, System32),
+                onOutput);
+            Copy(unpacked, "x32", layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64),
+                onOutput);
             Override(prefix, onOutput);
-        }
-        finally
-        {
-            if (Directory.Exists(staging))
-            {
-                Directory.Delete(staging, recursive: true);
-            }
         }
 
         File.WriteAllText(layout.PrefixDxvkFile(prefix), Version + Environment.NewLine);
@@ -59,7 +57,7 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
     {
         Initialised(prefix);
 
-        if (InstalledIn(prefix) is null)
+        if (InstalledIn(prefix) is null && !Partial(prefix))
         {
             throw new InvalidOperationException(
                 $"'{prefix}' does not render through DXVK — its Direct3D is Wine's already");
@@ -68,11 +66,11 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
         var prefixes = new Prefixes(layout, runner);
         using var claim = prefixes.Claim(prefix, $"take DXVK out of {prefix}");
 
+        Unset(prefix, onOutput);
+
         var complete =
             Restore(layout.PrefixSystem32(prefix), Backups(prefix, System32), System32, onOutput)
             & Restore(layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64), SysWow64, onOutput);
-
-        Unset(prefix, onOutput);
 
         if (!complete)
         {
@@ -197,7 +195,9 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
     private string Backups(string prefix, string windowsDir) =>
         layout.PrefixDxvkBackup(prefix, windowsDir);
 
-    private const string OverridesKey = @"HKCU\Software\Wine\DllOverrides";
+    private const string Overrides = @"Software\Wine\DllOverrides";
+
+    private const string OverridesKey = @"HKCU\" + Overrides;
 
     private void Override(string prefix, Action<string>? onOutput)
     {
@@ -215,10 +215,19 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
 
     private void Unset(string prefix, Action<string>? onOutput)
     {
+        var registry = new PrefixRegistry(layout, runner);
+
         foreach (var library in Libraries)
         {
             onOutput?.Invoke($"{library}: back to Wine's own");
-            Reg(prefix, ["delete", OverridesKey, "/v", library, "/f"]);
+
+            if (!Reg(prefix, ["delete", OverridesKey, "/v", library, "/f"]).Ok
+                && registry.Lookup(prefix, Overrides, library) is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Wine could not take {library}'s override out of '{prefix}', so it still "
+                    + "renders through DXVK");
+            }
         }
     }
 

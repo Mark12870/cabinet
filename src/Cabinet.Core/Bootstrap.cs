@@ -8,6 +8,14 @@ public static class Bootstrap
         Directory.CreateDirectory(layout.SocketDir);
         LogFile.Read(layout.RuntimeLogPath);
         LinkYabridgeForYabridgectl(layout);
+
+        foreach (var parent in new[]
+                 {
+                     layout.TempDir, layout.RunnersDir, layout.PrefixesDir, layout.NativeDir,
+                 })
+        {
+            Staging.Sweep(parent);
+        }
     }
 
     private static void LinkYabridgeForYabridgectl(Layout layout)

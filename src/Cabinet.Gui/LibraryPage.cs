@@ -28,6 +28,7 @@ internal sealed class LibraryPage
     private readonly HashSet<string> stopping = new(StringComparer.Ordinal);
 
     private IReadOnlyList<LibraryEntry> entries = [];
+    private IReadOnlyList<LibraryEntry> retired = [];
     private IReadOnlyDictionary<string, string?> installed =
         new Dictionary<string, string?>(StringComparer.Ordinal);
 
@@ -68,9 +69,8 @@ internal sealed class LibraryPage
     {
         var library = new Library(layout, runner);
         entries = library.Entries();
-        installed = entries.Count == 0
-            ? new Dictionary<string, string?>(StringComparer.Ordinal)
-            : library.Installed();
+        installed = library.Installed();
+        retired = library.Retired();
 
         Fill(categories, "Any category", Library.Categories(entries));
         Fill(developers, "Any developer", Library.Developers(entries));
@@ -158,6 +158,7 @@ internal sealed class LibraryPage
         {
             filters.SetVisible(false);
             list.Append(Empty());
+            Retired(retired);
             Reopen();
             return;
         }
@@ -187,7 +188,10 @@ internal sealed class LibraryPage
             matching.Where(entry =>
                 entry.Kind == PluginKind.Native && !pinned.Contains(entry.Id)));
 
-        if (matching.Count == 0)
+        var gone = retired.Where(entry => filter.Matches(entry, true)).ToList();
+        Retired(gone);
+
+        if (matching.Count == 0 && gone.Count == 0)
         {
             list.Append(Nothing());
         }
@@ -249,6 +253,36 @@ internal sealed class LibraryPage
         foreach (var entry in found)
         {
             group.Add(Row(entry));
+        }
+
+        list.Append(group);
+    }
+
+    private void Retired(IReadOnlyList<LibraryEntry> gone)
+    {
+        if (gone.Count == 0)
+        {
+            return;
+        }
+
+        var group = Adw.PreferencesGroup.New();
+        group.SetTitle("No longer in the catalogue");
+        group.SetDescription(
+            "An earlier Cabinet installed these. They keep working until you remove them.");
+
+        foreach (var entry in gone)
+        {
+            var row = Adw.ActionRow.New();
+            row.SetUseMarkup(false);
+            row.SetTitle(entry.Id);
+            row.SetSubtitle(installed.GetValueOrDefault(entry.Id) is { } prefix
+                ? $"Windows plugin in {prefix}"
+                : "Linux plugin");
+
+            var remove = Ui.RowButton(Icons.Delete, $"Remove {entry.Id}", destructive: true);
+            remove.OnClicked += (_, _) => ConfirmRemove(entry);
+            row.AddSuffix(remove);
+            group.Add(row);
         }
 
         list.Append(group);

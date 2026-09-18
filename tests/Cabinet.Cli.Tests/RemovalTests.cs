@@ -122,6 +122,25 @@ public sealed class RemovalTests : IDisposable
     }
 
     [Fact]
+    public void AnInstallTheCatalogueNoLongerListsIsListedAndRemovedByItsId()
+    {
+        cli.Catalogue("thing", Plugin);
+        cli.Prefix("old", "gone");
+
+        Assert.EndsWith(
+            "No longer in the catalogue:\n"
+            + "ok  gone   windows   in old\n\n"
+            + "Remove one with `cabinet library remove <id>`.\n",
+            cli.Run("library").Out);
+
+        var outcome = cli.Answer("y\n", "library", "remove", "gone");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.False(Directory.Exists(cli.Layout.PrefixPath("old")));
+        Assert.DoesNotContain("gone", cli.Run("library").Out);
+    }
+
+    [Fact]
     public void RemovingWhatIsNotInstalledFails()
     {
         cli.Catalogue("thing", Plugin);

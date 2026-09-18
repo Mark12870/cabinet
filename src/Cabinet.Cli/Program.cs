@@ -501,42 +501,68 @@ internal static class Program
         var entries = all
             .Where(entry => filter.Matches(entry, installed.ContainsKey(entry.Id)))
             .ToList();
+        var retired = library.Retired().Where(entry => filter.Matches(entry, true)).ToList();
 
         if (json)
         {
-            Console.WriteLine(Json.Library(entries, installed));
+            Console.WriteLine(Json.Library(
+                [.. entries, .. retired],
+                installed,
+                retired.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal)));
             return 0;
         }
 
-        if (all.Count == 0)
+        if (all.Count == 0 && retired.Count == 0)
         {
             Console.WriteLine("This build shipped no library.");
             return 0;
         }
 
-        if (entries.Count == 0)
+        if (entries.Count == 0 && retired.Count == 0)
         {
             Console.WriteLine("Nothing in the library matches that.");
             return 0;
         }
 
-        var width = entries.Max(entry => entry.Id.Length);
+        var width = entries.Concat(retired).Max(entry => entry.Id.Length);
 
         foreach (var entry in entries)
         {
-            var kind = entry.Kind == PluginKind.Native ? "linux" : "windows";
             var cost = entry.Licence == "Commercial" ? "paid" : "free";
             var mark = installed.ContainsKey(entry.Id) ? "ok" : "  ";
 
             Console.WriteLine(
-                $"{mark}  {entry.Id.PadRight(width)}  {kind,-8}  {cost,-5}  "
+                $"{mark}  {entry.Id.PadRight(width)}  {KindWord(entry),-8}  {cost,-5}  "
                 + $"{entry.Category,-10}  {entry.Name}");
         }
 
-        Console.WriteLine();
-        Console.WriteLine("Install one with `cabinet library install <id>`.");
+        if (entries.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Install one with `cabinet library install <id>`.");
+        }
+
+        if (retired.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("No longer in the catalogue:");
+
+            foreach (var entry in retired)
+            {
+                Console.WriteLine(
+                    $"ok  {entry.Id.PadRight(width)}  {KindWord(entry),-8}  "
+                    + (installed[entry.Id] is { } prefix ? $"in {prefix}" : ""));
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("Remove one with `cabinet library remove <id>`.");
+        }
+
         return 0;
     }
+
+    private static string KindWord(LibraryEntry entry) =>
+        entry.Kind == PluginKind.Native ? "linux" : "windows";
 
     private static int ShowFromLibrary(
         Layout layout, IProcessRunner runner, string id, bool json)
@@ -547,7 +573,7 @@ internal static class Program
 
         if (json)
         {
-            Console.WriteLine(Json.Library([entry], installed));
+            Console.WriteLine(Json.Library([entry], installed, new HashSet<string>()));
             return 0;
         }
 
@@ -679,7 +705,7 @@ internal static class Program
     private static int RemoveFromLibrary(Layout layout, IProcessRunner runner, string id)
     {
         var library = new Library(layout, runner);
-        var removal = library.RemovalOf(library.Find(id));
+        var removal = library.RemovalOf(library.Removable(id));
 
         return removal.Kind switch
         {

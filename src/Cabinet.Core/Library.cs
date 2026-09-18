@@ -608,6 +608,19 @@ public enum StopResult
 
 public sealed record StopOutcome(StopResult Result, string Told);
 
+internal sealed record Pending(string Id, bool Created, IReadOnlyList<string> Keys)
+{
+    private const string Made = "created";
+    private const string Found = "found";
+
+    public static Pending? Parse(string? text) =>
+        text?.Split('\t', StringSplitOptions.TrimEntries) is [{ Length: > 0 } id, var made, .. var keys]
+            ? new Pending(id, made == Made, [.. keys.Where(key => key.Length > 0)])
+            : null;
+
+    public override string ToString() => string.Join('\t', [Id, Created ? Made : Found, .. Keys]);
+}
+
 public sealed record LibraryFilter(
     string? Search = null,
     string? Category = null,
@@ -700,15 +713,77 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         if (Directory.Exists(layout.NativeDir))
         {
-            foreach (var path in Directory.EnumerateDirectories(layout.NativeDir)
-                         .Where(path => Layout.IsName(Path.GetFileName(path))))
+            foreach (var id in Directory.EnumerateDirectories(layout.NativeDir)
+                         .Select(path => Path.GetFileName(path))
+                         .Where(id => Layout.IsName(id)
+                                      && !Underway.Marked(layout.NativeInstalling(id))))
             {
-                installed[Path.GetFileName(path)] = null;
+                installed[id] = null;
             }
         }
 
         return installed;
     }
+
+    public IReadOnlyList<LibraryEntry> Retired()
+    {
+        var shipped = Entries().Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
+
+        return Installed()
+            .Where(held => !shipped.Contains(held.Key) && Layout.IsName(held.Key))
+            .OrderBy(held => held.Key, StringComparer.Ordinal)
+            .Select(held => LibraryEntry.Parse(
+                held.Key,
+                held.Value is { } prefix
+                    ? $"Name: {held.Key}\nKind: windows\nSource: byo\nPrefix: {prefix}\n"
+                    : $"Name: {held.Key}\nKind: native\nSource: byo\n"))
+            .ToList();
+    }
+
+    public LibraryEntry Removable(string id) =>
+        Entries().Concat(Retired()).FirstOrDefault(entry => entry.Id == id)
+        ?? throw new InvalidOperationException($"no plugin '{id}' in the library");
+
+    public IReadOnlyList<(string Id, string? Prefix)> Unfinished()
+    {
+        var unfinished = new List<(string Id, string? Prefix)>();
+
+        foreach (var prefix in new Prefixes(layout, runner).Names())
+        {
+            if (Pending.Parse(Underway.Abandoned(layout.PrefixInstalling(prefix))) is { } left)
+            {
+                unfinished.Add((left.Id, prefix));
+            }
+        }
+
+        if (Directory.Exists(layout.NativeDir))
+        {
+            const string mark = Layout.NativeInstallingMarker;
+
+            foreach (var marker in Directory.EnumerateFiles(layout.NativeDir, mark + "*")
+                         .Order(StringComparer.Ordinal))
+            {
+                if (Underway.Abandoned(marker) is not null)
+                {
+                    unfinished.Add((Path.GetFileName(marker)[mark.Length..], null));
+                }
+            }
+        }
+
+        return unfinished;
+    }
+
+    public IReadOnlyList<(string Id, string Prefix)> LeftOpen() =>
+        [
+            .. new Prefixes(layout, runner).Names()
+                .SelectMany(
+                    prefix => Directory.EnumerateFiles(
+                            layout.PrefixPath(prefix), Layout.OpenMarker + "*")
+                        .Order(StringComparer.Ordinal)
+                        .Where(marker => Underway.Abandoned(marker) is not null),
+                    (prefix, marker) =>
+                        (Path.GetFileName(marker)[Layout.OpenMarker.Length..], prefix)),
+        ];
 
     public IReadOnlyDictionary<string, IReadOnlyList<string>> InstalledMoreThanOnce() =>
         new Prefixes(layout, runner).Names()
@@ -739,7 +814,10 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         var already = entry.Kind == PluginKind.Windows
             ? Installed().GetValueOrDefault(entry.Id)
             : null;
-        var where = prefix ?? already ?? entry.Prefix;
+        var where = prefix
+                    ?? already
+                    ?? Unfinished().FirstOrDefault(left => left.Id == entry.Id).Prefix
+                    ?? entry.Prefix;
 
         if (already is not null && already != where)
         {
@@ -944,6 +1022,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             }
         });
 
+        using var opened = Underway.Begin(layout.PrefixOpen(where, entry.Id));
+        opened?.Note(entry.Id);
         ProcessResult ran;
 
         try
@@ -978,6 +1058,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         Exception? recoverFailure = null;
+        var recovered = true;
 
         if (entry.Recover is not null)
         {
@@ -996,6 +1077,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             }
             catch (PrefixInUseException waiting)
             {
+                recovered = false;
                 Say($"{waiting.Message} What {entry.Name} downloaded is kept, and Cabinet "
                     + $"finishes the install the next time you open {entry.Name}.");
             }
@@ -1014,6 +1096,11 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         catch (Exception failure)
         {
             bridgeFailure = failure;
+        }
+
+        if (recovered && recoverFailure is null && bridgeFailure is null)
+        {
+            opened?.Finish();
         }
 
         var failures = new List<Exception>();
@@ -1426,13 +1513,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             throw new DirectoryNotFoundException($"{id} is not installed");
         }
 
+        using var installing = Underway.Begin(layout.NativeInstalling(id))
+                               ?? throw new InvalidOperationException(
+                                   $"Cabinet is installing {entry.Name} right now — wait for "
+                                   + "that to finish");
+
         foreach (var link in LinksInto(root).ToList())
         {
             File.Delete(link);
             onOutput?.Invoke($"  unlinked {Path.GetFileName(link)}");
         }
-
-        Directory.Delete(root, recursive: true);
 
         if (entry.Data is { } relative)
         {
@@ -1445,6 +1535,12 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             }
         }
 
+        using (var removing = Staging.Create(layout.NativeDir, "plugin"))
+        {
+            Directory.Move(root, Path.Combine(removing.Path, id));
+        }
+
+        installing.Finish();
         onOutput?.Invoke($"{id} and everything it linked are gone.");
     }
 
@@ -1469,8 +1565,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         var existing = prefixes.List().FirstOrDefault(one => one.Name == prefix);
         Directory.CreateDirectory(layout.PrefixPath(prefix));
         using var claim = prefixes.Claim(prefix, $"install {entry.Name} into {prefix}");
+        using var underway = Underway.Begin(layout.PrefixInstalling(prefix))
+                             ?? throw new PrefixInUseException(
+                                 $"Cabinet is already installing into {prefix}, so it will not "
+                                 + $"install {entry.Name} there yet — wait for that to finish.");
+        var left = Pending.Parse(underway.Left);
+        var created = existing is null || left is { Created: true } && !Recorded(prefix).Any();
+        var pending = new Pending(entry.Id, created, left?.Id == entry.Id ? left.Keys : []);
+        underway.Note(pending.ToString());
 
-        if (existing is not null && entry.Runner is { } wanted && !Answers(existing.Runner, wanted))
+        if (!created && entry.Runner is { } wanted && !Answers(existing!.Runner, wanted))
         {
             onOutput?.Invoke(
                 $"{prefix} keeps {existing.Runner}; {entry.Name} would rather have Wine {wanted}.");
@@ -1478,7 +1582,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         prefixes.Prepare(
             prefix,
-            existing is null && entry.Runner is { } spec
+            created && entry.Runner is { } spec
                 ? EnsureRunner(spec, onOutput, onProgress)
                 : null,
             onOutput);
@@ -1511,11 +1615,9 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             }
         }
 
-        var staging = Layout.Staging("library");
-
-        try
+        using (var staging = Staging.Create(layout.TempDir, "library"))
         {
-            var chosen = installer ?? Fetch(entry, staging, onOutput, onProgress);
+            var chosen = installer ?? Fetch(entry, staging.Path, onOutput, onProgress);
             var before = Registered(prefix);
 
             if (entry.Script is null)
@@ -1533,7 +1635,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 new InstallScript(layout, runner).Run(
                     entry,
                     chosen,
-                    staging,
+                    staging.Path,
                     layout.PrefixPath(prefix),
                     prefixes.Variables(prefix),
                     onOutput);
@@ -1543,14 +1645,13 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
             var appeared = Registered(prefix).Except(before, StringComparer.Ordinal).ToList();
 
-            Record(
-                prefix,
-                entry.Id,
-                appeared.Count > 0 ? appeared : RecordedKeys(prefix, entry.Id));
-        }
-        finally
-        {
-            Discard(staging);
+            pending = pending with
+            {
+                Keys = appeared.Count > 0 ? appeared
+                    : pending.Keys.Count > 0 ? pending.Keys
+                    : [.. RecordedKeys(prefix, entry.Id)],
+            };
+            underway.Note(pending.ToString());
         }
 
         var dxvk = new Dxvk(layout, runner);
@@ -1567,13 +1668,28 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             desktop.Set(prefix, onOutput);
         }
 
-        if (existing is null && entry.Sync != SyncMode.System)
+        if (created && entry.Sync != SyncMode.System)
         {
             prefixes.SetSync(prefix, entry.Sync);
             onOutput?.Invoke($"Sync mode {PrefixSettings.Word(entry.Sync)}.");
         }
 
+        Record(prefix, entry.Id, pending.Keys);
         Bridge(prefixes, onOutput);
+        underway.Finish();
+        ForgetUnfinished(entry, prefix);
+    }
+
+    private void ForgetUnfinished(LibraryEntry entry, string finished)
+    {
+        foreach (var (id, elsewhere) in Unfinished())
+        {
+            if (id == entry.Id && elsewhere is { } other && other != finished
+                && Underway.Begin(layout.PrefixInstalling(other)) is { } left)
+            {
+                left.Finish();
+            }
+        }
     }
 
     private void InstallNative(
@@ -1593,53 +1709,85 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
 
         var root = layout.NativePath(entry.Id);
+        var marker = layout.NativeInstalling(entry.Id);
+        var data = entry.Data is { } relative ? layout.DataPath(relative) : null;
+        var interrupted = Underway.Marked(marker);
 
-        if (Directory.Exists(root))
+        if (!interrupted && Directory.Exists(root))
         {
             throw new InvalidOperationException(
                 $"{entry.Name} is installed already — remove it first");
         }
 
-        var data = entry.Data is { } relative ? layout.DataPath(relative) : null;
-
-        if (data is not null && Directory.Exists(data))
-        {
-            throw new InvalidOperationException(
-                $"{data} is already there — {entry.Name} keeps its presets in it, so move it "
-                + "aside first");
-        }
-
-        var staging = Layout.Staging("library");
+        using var underway = Underway.Begin(marker)
+                             ?? throw new InvalidOperationException(
+                                 $"Cabinet is already installing {entry.Name} — wait for that to "
+                                 + "finish");
+        var links = new List<(string Link, string? Replaced)>();
+        var madeData = false;
 
         try
         {
-            var archive = supplied ?? Fetch(entry, staging, onOutput, onProgress);
+            if (underway.Left is { } left)
+            {
+                onOutput?.Invoke($"Clearing what an unfinished install of {entry.Name} left.");
+                Clear(root, left.Split('\n').ElementAtOrDefault(1) == data ? data : null);
+            }
+
+            underway.Note(entry.Id);
+
+            if (data is not null && Directory.Exists(data))
+            {
+                throw new InvalidOperationException(
+                    $"{data} is already there — {entry.Name} keeps its presets in it, so move it "
+                    + "aside first");
+            }
+
+            using var staging = Staging.Create(layout.TempDir, "library");
+            var archive = supplied ?? Fetch(entry, staging.Path, onOutput, onProgress);
             Directory.CreateDirectory(root);
 
             if (data is not null)
             {
+                underway.Note($"{entry.Id}\n{data}");
                 Directory.CreateDirectory(data);
+                madeData = true;
                 onOutput?.Invoke($"Its presets and resources go in {data}.");
             }
 
-            Lay(entry, archive, root, data, staging, onOutput);
+            Lay(entry, archive, root, data, staging.Path, onOutput);
             Relink(entry, root, onOutput);
-            Link(entry, root, onOutput);
+            Link(entry, root, links, onOutput);
         }
         catch
         {
+            Unlink(links);
             Discard(root);
 
-            if (data is not null)
+            if (madeData)
             {
-                Discard(data);
+                Discard(data!);
             }
 
+            underway.Finish();
             throw;
         }
-        finally
+
+        underway.Finish();
+    }
+
+    private void Clear(string root, string? data)
+    {
+        foreach (var link in LinksInto(root).ToList())
         {
-            Discard(staging);
+            File.Delete(link);
+        }
+
+        Discard(root);
+
+        if (data is not null)
+        {
+            Discard(data);
         }
     }
 
@@ -1774,39 +1922,64 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
     }
 
-    private void Link(LibraryEntry entry, string root, Action<string>? onOutput)
+    private void Link(
+        LibraryEntry entry,
+        string root,
+        List<(string Link, string? Replaced)> made,
+        Action<string>? onOutput)
     {
-        var linked = 0;
-
         foreach (var bundle in Bundles(root).OrderBy(path => path, StringComparer.Ordinal))
         {
             var directory = layout.ScanDir(Path.GetExtension(bundle));
             Directory.CreateDirectory(directory);
 
             var link = Path.Combine(directory, Path.GetFileName(bundle));
+            var replaced = new FileInfo(link).LinkTarget;
 
-            if (new FileInfo(link).LinkTarget is not null)
-            {
-                File.Delete(link);
-            }
-            else if (Path.Exists(link))
+            if (replaced is null
+                    ? Path.Exists(link)
+                    : !Inside(link, replaced, root)
+                      && !(Inside(link, replaced, layout.NativeDir) && !Path.Exists(link)))
             {
                 throw new InvalidOperationException(
                     $"{link} is already there and is not one of Cabinet's links — move it aside");
             }
 
+            made.Add((link, replaced));
+
+            if (replaced is not null)
+            {
+                File.Delete(link);
+            }
+
             File.CreateSymbolicLink(link, bundle);
             onOutput?.Invoke($"  {Path.GetFileName(bundle)} → {directory}");
-            linked++;
         }
 
-        if (linked == 0)
+        if (made.Count == 0)
         {
             throw new InvalidOperationException(
                 $"{entry.Name}'s archive holds no .vst3, .clap, .lv2 or .so where a DAW "
                 + "would find one");
         }
     }
+
+    private static void Unlink(IEnumerable<(string Link, string? Replaced)> made)
+    {
+        foreach (var (link, replaced) in made.Reverse())
+        {
+            File.Delete(link);
+
+            if (replaced is not null)
+            {
+                File.CreateSymbolicLink(link, replaced);
+            }
+        }
+    }
+
+    private static bool Inside(string link, string target, string directory) =>
+        Path.GetFullPath(target, Path.GetDirectoryName(link)!)
+            .StartsWith(directory + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
     private IEnumerable<string> LinksInto(string root)
     {
@@ -1821,9 +1994,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
             foreach (var link in Directory.EnumerateFileSystemEntries(directory))
             {
-                if (new FileInfo(link).LinkTarget is { } target
-                    && Path.GetFullPath(target, directory)
-                        .StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                if (new FileInfo(link).LinkTarget is { } target && Inside(link, target, root))
                 {
                     yield return link;
                 }

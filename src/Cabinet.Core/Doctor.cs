@@ -24,8 +24,13 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         };
 
         checks.AddRange(PrefixRunners());
+        checks.AddRange(BrokenRunners());
         checks.AddRange(Unnamed());
         checks.AddRange(InstalledTwice());
+        checks.AddRange(Unfinished());
+        checks.AddRange(LeftOpen());
+        checks.AddRange(PartialDxvk());
+        checks.AddRange(Retired());
         checks.AddRange(PluginRunners());
         checks.AddRange(PluginSync());
         checks.AddRange(PluginEnv());
@@ -61,6 +66,94 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             : new Check("prefix runners", Status.Fail,
                 $"missing runner for {string.Join(", ", broken)} — install it or move the "
                 + "prefix to another Wine");
+    }
+
+    private IEnumerable<Check> BrokenRunners()
+    {
+        var broken = new Runners(layout, runner).List()
+            .Where(installed => !installed.Usable)
+            .Select(installed => installed.Name)
+            .ToList();
+
+        if (broken.Count > 0)
+        {
+            yield return new Check("broken runners", Status.Warn,
+                $"{string.Join(", ", broken)} in {layout.RunnersDir} "
+                + $"{(broken.Count == 1 ? "has" : "have")} no {Path.Combine("bin", "wine")}, "
+                + "so no prefix can run on "
+                + $"{(broken.Count == 1 ? "it — delete it and install it" : "them — delete them and install them")} "
+                + "again");
+        }
+    }
+
+    private IEnumerable<Check> Unfinished()
+    {
+        var library = new Library(layout, runner);
+        var names = Names(library);
+        var unfinished = library.Unfinished()
+            .Select(left => left.Prefix is { } prefix
+                ? $"{names(left.Id)} in {prefix}"
+                : names(left.Id))
+            .ToList();
+
+        if (unfinished.Count > 0)
+        {
+            yield return new Check("unfinished installs", Status.Warn,
+                $"{string.Join(", ", unfinished)} stopped part-way through installing. "
+                + "Installing it again finishes it and clears what the first try left.");
+        }
+    }
+
+    private IEnumerable<Check> LeftOpen()
+    {
+        var library = new Library(layout, runner);
+        var names = Names(library);
+        var open = library.LeftOpen()
+            .Select(left => $"{names(left.Id)} in {left.Prefix}")
+            .ToList();
+
+        if (open.Count > 0)
+        {
+            yield return new Check("apps left open", Status.Warn,
+                $"Cabinet stopped while {string.Join(", ", open)} was open, so what it installed "
+                + "may not be bridged. Open it and close it again, and Cabinet finishes what it "
+                + "does when an app closes.");
+        }
+    }
+
+    private IEnumerable<Check> PartialDxvk()
+    {
+        var dxvk = new Dxvk(layout, runner);
+        var partial = new Prefixes(layout, runner).Names().Where(dxvk.Partial).ToList();
+
+        if (partial.Count > 0)
+        {
+            yield return new Check("partial DXVK", Status.Warn,
+                $"{string.Join(", ", partial)} {(partial.Count == 1 ? "holds" : "hold")} part of "
+                + "DXVK but Cabinet does not count it as on. Turn DXVK on to finish it, or take "
+                + "it out.");
+        }
+    }
+
+    private IEnumerable<Check> Retired()
+    {
+        var retired = new Library(layout, runner).Retired().Select(entry => entry.Id).ToList();
+
+        if (retired.Count > 0)
+        {
+            yield return new Check("retired plugins", Status.Warn,
+                $"{string.Join(", ", retired)} {(retired.Count == 1 ? "is" : "are")} installed "
+                + "but no longer in this build's catalogue. They keep working, and the Library "
+                + "lists them under No longer in the catalogue, where they can be removed.");
+        }
+    }
+
+    private static Func<string, string> Names(Library library)
+    {
+        var entries = library.Entries()
+            .ToDictionary(entry => entry.Id, entry => entry.Name, StringComparer.Ordinal);
+
+        return id => entries.GetValueOrDefault(id, id);
     }
 
     private IEnumerable<Check> Unnamed()

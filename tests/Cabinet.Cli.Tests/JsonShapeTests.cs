@@ -10,6 +10,7 @@ public sealed class JsonShapeTests : IDisposable
         "prefix", "runner", "dxvk", "sync", "winetricks", "desktop", "env", "script", "manager",
         "launchService", "launchHelper", "launchArgs", "scheme", "data", "developer", "version",
         "licence", "licensing", "formats", "description", "installed", "installedIn",
+        "retired",
     ];
 
     private readonly Cli cli = new();
@@ -38,6 +39,18 @@ public sealed class JsonShapeTests : IDisposable
         var entry = Assert.Single(Parsed.Objects(cli.Run("library", "--json").Out));
 
         Assert.Equal(EntryKeys, Parsed.Keys(entry));
+    }
+
+    [Fact]
+    public void AnInstallTheCatalogueNoLongerListsIsListedAsRetired()
+    {
+        cli.Prefix("old", "gone");
+
+        var entry = Assert.Single(Parsed.Objects(cli.Run("library", "--json").Out));
+
+        Assert.Equal("gone", entry.GetProperty("id").GetString());
+        Assert.Equal("old", entry.GetProperty("installedIn").GetString());
+        Assert.Equal(JsonValueKind.True, entry.GetProperty("retired").ValueKind);
     }
 
     [Fact]

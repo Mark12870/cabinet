@@ -60,7 +60,8 @@ internal static class Json
 
     public static string Library(
         IReadOnlyList<LibraryEntry> entries,
-        IReadOnlyDictionary<string, string?> installed) =>
+        IReadOnlyDictionary<string, string?> installed,
+        IReadOnlySet<string> retired) =>
         Write(writer =>
         {
             writer.WriteStartArray();
@@ -98,6 +99,7 @@ internal static class Json
                 Strings(writer, "description", entry.Description);
                 writer.WriteBoolean("installed", installed.ContainsKey(entry.Id));
                 writer.WriteString("installedIn", installed.GetValueOrDefault(entry.Id));
+                writer.WriteBoolean("retired", retired.Contains(entry.Id));
                 writer.WriteEndObject();
             }
 

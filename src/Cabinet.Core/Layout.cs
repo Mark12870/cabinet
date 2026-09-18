@@ -40,6 +40,16 @@ public sealed class Layout
 
     public const string KeptMarker = ".cabinet-kept";
 
+    public const string InstallingMarker = ".cabinet-installing";
+
+    public const string OpenMarker = ".cabinet-open-";
+
+    public const string NativeInstallingMarker = InstallingMarker + "-";
+
+    public const string StagingMarker = ".cabinet-staging-";
+
+    public const string StagingLock = ".lock";
+
     public const string BundledLibraryDir = "/app/share/cabinet/library";
 
     public static readonly IReadOnlyList<string> PluginExtensions =
@@ -57,7 +67,8 @@ public sealed class Layout
         string? sandboxDataHome = null,
         string? hostAppFiles = null,
         string? libraryDir = null,
-        string? yabridgeDir = null)
+        string? yabridgeDir = null,
+        string? tempDir = null)
     {
         Home = home;
         RuntimeDir = runtimeDir;
@@ -65,6 +76,7 @@ public sealed class Layout
         HostAppFiles = hostAppFiles ?? DefaultHostAppFiles(home);
         LibraryDir = libraryDir ?? BundledLibraryDir;
         BundledYabridgeDir = yabridgeDir ?? DefaultYabridgeDir;
+        TempDir = tempDir ?? Path.GetTempPath();
     }
 
     public static Layout FromEnvironment()
@@ -93,6 +105,8 @@ public sealed class Layout
     public string LibraryDir { get; }
 
     public string BundledYabridgeDir { get; }
+
+    public string TempDir { get; }
 
     public string HostYabridgeDir => Path.Combine(HostAppFiles, "lib", "yabridge");
 
@@ -134,11 +148,12 @@ public sealed class Layout
 
     public string RunnersDir => Path.Combine(SandboxDataHome, "runners");
 
-    public static string Staging(string what) => Path.Combine(Path.GetTempPath(), "cabinet-" + what);
-
     public string NativeDir => Path.Combine(SandboxDataHome, "native");
 
     public string NativePath(string name) => Path.Combine(NativeDir, Named(name, "plugin"));
+
+    public string NativeInstalling(string name) =>
+        Path.Combine(NativeDir, NativeInstallingMarker + Named(name, "plugin"));
 
     public string LibraryScript(string vendor, string name) =>
         Path.Combine(LibraryDir, vendor, name);
@@ -213,6 +228,12 @@ public sealed class Layout
 
     public string PrefixKeptDir(string name) =>
         Path.Combine(PrefixPath(name), KeptMarker);
+
+    public string PrefixInstalling(string name) =>
+        Path.Combine(PrefixPath(name), InstallingMarker);
+
+    public string PrefixOpen(string name, string id) =>
+        Path.Combine(PrefixPath(name), OpenMarker + Named(id, "plugin"));
 
     public string PrefixSystemReg(string name) =>
         Path.Combine(PrefixPath(name), "system.reg");

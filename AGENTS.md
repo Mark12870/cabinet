@@ -53,7 +53,8 @@ the name or the structure instead. Anything that genuinely will not fit there is
 
 ## Runtime architecture
 
-- `Bootstrap.Ensure` runs from both entry points and creates Cabinet's prefixes directory plus the yabridgectl link.
+- `Bootstrap.Ensure` runs from both entry points, creates Cabinet's prefixes directory plus the yabridgectl link,
+  and clears `Staging` directories whose owner's lock is free.
 - Only Wine runs inside the Cabinet sandbox for the yabridge bridge. The DAW reads yabridge's host-side halves from the
   installed Flatpak's `current/active/files`; `enrol` creates the DAW's
   `data/yabridge` link and prints the required `flatpak override` for the user to apply, because it grants

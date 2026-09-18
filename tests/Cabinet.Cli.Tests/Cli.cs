@@ -21,7 +21,8 @@ internal sealed class Cli : IDisposable
             Path.Combine(root, "data"),
             Path.Combine(root, "app"),
             Path.Combine(root, "library"),
-            Path.Combine(root, "yabridge"));
+            Path.Combine(root, "yabridge"),
+            Path.Combine(root, "tmp"));
 
         Directory.CreateDirectory(Layout.BundledYabridgeDir);
         File.WriteAllText(Path.Combine(Layout.BundledYabridgeDir, "yabridgectl"), "");

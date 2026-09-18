@@ -55,6 +55,11 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
 
     public string Version(Runner selected)
     {
+        if (!selected.Usable)
+        {
+            return "unknown";
+        }
+
         var result = runner.Run(selected.Wine, ["--version"], new Dictionary<string, string>
         {
             ["WINEPREFIX"] = Path.Combine(layout.RunnersDir, ".probe"),
@@ -77,20 +82,9 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         Action<string>? onOutput = null,
         Action<double>? onProgress = null)
     {
-        var staging = Layout.Staging("runner");
-
-        try
-        {
-            var tarball = new RunnerIndex(runner).Download(release, staging, onOutput, onProgress);
-            return Unpack(tarball, release.Name, onOutput);
-        }
-        finally
-        {
-            if (Directory.Exists(staging))
-            {
-                Directory.Delete(staging, recursive: true);
-            }
-        }
+        using var staging = Staging.Create(layout.TempDir, "runner");
+        var tarball = new RunnerIndex(runner).Download(release, staging.Path, onOutput, onProgress);
+        return Unpack(tarball, release.Name, onOutput);
     }
 
     public Runner Add(string tarball, string? name = null, Action<string>? onOutput = null)
@@ -135,7 +129,8 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
                 + "not remove it — close what is using it and try again.");
         }
 
-        Directory.Delete(path, recursive: true);
+        using var removing = Staging.Create(layout.RunnersDir, "runner");
+        Directory.Move(path, Path.Combine(removing.Path, name));
     }
 
     public static string DeriveName(string tarball)
@@ -181,41 +176,34 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
                 $"runner '{name}' is already there — remove it first");
         }
 
-        Directory.CreateDirectory(path);
+        using var unpacking = Staging.Create(layout.RunnersDir, "runner");
+        var result = runner.Run(
+            "tar", ["-xf", tarball, "--strip-components=1", "-C", unpacking.Path],
+            onOutput: onOutput);
 
-        try
+        if (!result.Ok)
         {
-            var result = runner.Run(
-                "tar", ["-xf", tarball, "--strip-components=1", "-C", path],
-                onOutput: onOutput);
-
-            if (!result.Ok)
-            {
-                throw new InvalidOperationException($"could not unpack {tarball}");
-            }
-
-            var unpacked = new Runner(name, layout.RunnerWine(name), Bundled: false);
-
-            if (!unpacked.Usable)
-            {
-                throw new InvalidOperationException(
-                    $"{tarball} has no {Path.Combine("bin", "wine")}, so it is not a Wine build");
-            }
-
-            if (!unpacked.Multilib)
-            {
-                onOutput?.Invoke(
-                    $"{name} carries no 32-bit tree — only 64-bit plugins can be bridged "
-                    + "under it.");
-            }
-
-            ShareBundledRuntimes(path);
-            return unpacked;
+            throw new InvalidOperationException($"could not unpack {tarball}");
         }
-        catch
+
+        var unpacked = new Runner(
+            name, Path.Combine(unpacking.Path, "bin", "wine"), Bundled: false);
+
+        if (!unpacked.Usable)
         {
-            Directory.Delete(path, recursive: true);
-            throw;
+            throw new InvalidOperationException(
+                $"{tarball} has no {Path.Combine("bin", "wine")}, so it is not a Wine build");
         }
+
+        if (!unpacked.Multilib)
+        {
+            onOutput?.Invoke(
+                $"{name} carries no 32-bit tree — only 64-bit plugins can be bridged "
+                + "under it.");
+        }
+
+        ShareBundledRuntimes(unpacking.Path);
+        unpacking.Publish(path);
+        return new Runner(name, layout.RunnerWine(name), Bundled: false);
     }
 }

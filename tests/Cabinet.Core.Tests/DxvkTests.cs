@@ -123,6 +123,42 @@ public sealed class DxvkTests : IDisposable
     }
 
     [Fact]
+    public void AnOverrideWineCouldNotTakeOutKeepsThePrefixOnDxvk()
+    {
+        Backed("gadget");
+        File.WriteAllText(Layout.PrefixUserReg("gadget"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Wine\\DllOverrides] 1787344290
+            "d3d11"="native"
+            """);
+        var failing = new RecordingRunner(exits: args => args.Contains("delete") ? 1 : 0);
+
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => new Dxvk(Layout, failing).Remove("gadget"));
+
+        Assert.Contains("d3d11", thrown.Message);
+        Assert.Equal(Dxvk.Version, Subject.InstalledIn("gadget"));
+        Assert.Equal("dxvk", File.ReadAllText(
+            Path.Combine(Layout.PrefixSystem32("gadget"), "d3d11.dll")));
+    }
+
+    [Fact]
+    public void DxvkThatStoppedPartWayInIsCountedPartialAndCanBeTakenOut()
+    {
+        Backed("gadget");
+        File.Delete(Layout.PrefixDxvkFile("gadget"));
+
+        Assert.True(Subject.Partial("gadget"));
+
+        new Dxvk(Layout, new RecordingRunner()).Remove("gadget");
+
+        Assert.False(Subject.Partial("gadget"));
+        Assert.Equal("wine", File.ReadAllText(
+            Path.Combine(Layout.PrefixSystem32("gadget"), "d3d11.dll")));
+    }
+
+    [Fact]
     public void APrefixWithEveryBackupIsNeverHandedToWineboot()
     {
         Backed("gadget");
