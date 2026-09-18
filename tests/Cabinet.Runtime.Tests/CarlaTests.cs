@@ -149,6 +149,7 @@ internal static class CarlaProcess
         result=0
         ready=0
         cleanup_failed=0
+        instance_check_failed=0
         deadline_pid=
 
         umask 077
@@ -158,6 +159,28 @@ internal static class CarlaProcess
             case "$(ps -o stat= -p "$1" 2>/dev/null)" in
                 Z*) return 1 ;;
             esac
+        }
+
+        instance_alive() {
+            listed=$(timeout --kill-after=2s 5s flatpak ps --columns=instance 2>/dev/null) || {
+                instance_check_failed=1
+                return 0
+            }
+            grep -Fxq "$1" <<<"$listed"
+        }
+
+        session_alive() {
+            for endpoint in "$socket_root"/cabinet-*.sock; do
+                [ -S "$endpoint" ] && return 0
+            done
+            return 1
+        }
+
+        instance_from_file_alive() {
+            while IFS= read -r instance || [ -n "$instance" ]; do
+                [ -n "$instance" ] && instance_alive "$instance" && return 0
+            done < "$instances"
+            return 1
         }
 
         if [ -f "$state/supervisor.pid" ]; then
@@ -207,13 +230,34 @@ internal static class CarlaProcess
             fi
 
             exec 9>&-
+            retirement_deadline=$((SECONDS + 20))
+            while [ "$SECONDS" -lt "$retirement_deadline" ] &&
+                { session_alive || instance_from_file_alive; }; do
+                sleep 0.25
+            done
+
             while IFS= read -r instance || [ -n "$instance" ]; do
                 [ -n "$instance" ] || continue
-                if ! timeout --kill-after=2s 5s flatpak kill "$instance" >/dev/null 2>&1; then
-                    timeout --kill-after=2s 5s flatpak ps --columns=instance 2>/dev/null |
-                        grep -Fxq "$instance" && cleanup_failed=1
+                if instance_alive "$instance"; then
+                    timeout --kill-after=2s 5s flatpak kill "$instance" >/dev/null 2>&1
+                fi
+                instance_deadline=$((SECONDS + 10))
+                while [ "$SECONDS" -lt "$instance_deadline" ] && instance_alive "$instance"; do
+                    sleep 0.25
+                done
+                if instance_alive "$instance"; then
+                    cleanup_failed=1
+                    printf 'CARLA_REMAINING_INSTANCE=%s\n' "$instance"
                 fi
             done < "$instances"
+
+            [ "$instance_check_failed" -eq 0 ] || cleanup_failed=1
+            if session_alive; then
+                cleanup_failed=1
+                for endpoint in "$socket_root"/cabinet-*.sock; do
+                    [ -S "$endpoint" ] && printf 'CARLA_REMAINING_SESSION=%s\n' "$endpoint"
+                done
+            fi
 
             printf 'CARLA_CLEANUP=%s\n' "$([ "$cleanup_failed" -eq 0 ] && printf ok || printf failed)"
             if [ -f "$report_log" ]; then
@@ -221,12 +265,15 @@ internal static class CarlaProcess
             elif [ -f "$log" ]; then
                 cat "$log"
             fi
-            for endpoint in "$socket_root"/cabinet-* "$socket_root"/yabridge-*; do
-                [ -e "$endpoint" ] || continue
-                rm -rf -- "$endpoint"
-            done
-            rm -rf "$state"
-            [ "$cleanup_failed" -eq 0 ] || result=1
+            if [ "$cleanup_failed" -eq 0 ]; then
+                for endpoint in "$socket_root"/cabinet-* "$socket_root"/yabridge-*; do
+                    [ -e "$endpoint" ] || continue
+                    rm -rf -- "$endpoint"
+                done
+                rm -rf "$state"
+            else
+                result=1
+            fi
             exit "$result"
         }
 
@@ -338,7 +385,6 @@ internal static class CarlaProcess
             FLATPAK_USER_DIR="$flatpak_user_dir" \
             FLATPAK_SYSTEM_DIRS=/var/lib/flatpak \
             "$CABINET_RUNTIME_FLATPAK" run \
-            --die-with-parent \
             --instance-id-fd=9 \
             --nofilesystem=home \
             --filesystem="$runtime_root":create \

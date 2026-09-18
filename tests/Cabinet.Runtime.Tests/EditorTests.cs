@@ -86,7 +86,7 @@ public sealed class EditorTests : IDisposable
             #!/usr/bin/env bash
             if [ "$1" = run ]; then
               shift
-              exec /usr/bin/flatpak run --die-with-parent --nofilesystem=home \
+              exec /usr/bin/flatpak run --nofilesystem=home \
                 --filesystem={RuntimeTestEnvironment.Root}:create \
                 --filesystem={session}:create \
                 --env=HOME={RuntimeTestEnvironment.Home} \
@@ -132,13 +132,16 @@ public sealed class EditorTests : IDisposable
         using var process = Process.Start(info)
             ?? throw new InvalidOperationException("could not start the editor probe");
         var output = process.StandardOutput.ReadToEndAsync();
-        _ = process.StandardError.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
 
         if (!process.WaitForExit(Patience))
         {
             process.Kill(entireProcessTree: true);
+            process.WaitForExit();
         }
 
-        return output.Wait(Patience) ? output.Result : "(no output before the timeout)";
+        Task.WaitAll([output, error], Patience);
+        var trace = File.Exists(log) ? File.ReadAllText(log) : "(no yabridge trace)";
+        return $"{output.Result}\nstderr:\n{error.Result}\nexit: {process.ExitCode}\nyabridge:\n{trace}";
     }
 }
