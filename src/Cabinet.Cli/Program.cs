@@ -15,7 +15,7 @@ internal static class Program
           cabinet install <name> <installer>   run a Windows installer in that prefix
           cabinet delete <name>                delete a prefix and everything in it
           cabinet list                         list prefixes
-          cabinet use <name> <runner>          point a prefix at a runner
+          cabinet use <name> <runner>          move a prefix to a runner and update it
           cabinet dxvk <name>                  install DXVK, the Direct3D some editors want
           cabinet show <name>                  everything a prefix is set to
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
@@ -226,9 +226,8 @@ internal static class Program
 
     private static int Use(Layout layout, IProcessRunner runner, string name, string runnerName)
     {
-        new Prefixes(layout, runner).SetRunner(name, runnerName);
+        new Prefixes(layout, runner).MoveToRunner(name, runnerName, Console.WriteLine);
         Console.WriteLine($"{name} now runs on {runnerName}.");
-        Console.WriteLine($"Run `cabinet run {name} wineboot -u` to update the prefix for it.");
         return 0;
     }
 
@@ -365,12 +364,7 @@ internal static class Program
 
     private static int Install(Layout layout, IProcessRunner runner, string name, string installer)
     {
-        var prefixes = new Prefixes(layout, runner);
-        prefixes.Create(name);
-
-        var result = prefixes.Install(name, installer, Console.WriteLine);
-        prefixes.Bridge(Console.WriteLine);
-        return result.ExitCode;
+        return new Prefixes(layout, runner).Install(name, installer, Console.WriteLine).ExitCode;
     }
 
     private static int Delete(Layout layout, IProcessRunner runner, string name)
@@ -596,8 +590,8 @@ internal static class Program
 
         Console.WriteLine();
         Console.WriteLine(Wrapped(entry.Source == PluginSource.Byo
-            ? Cabinet.Core.Library.BringYourOwn(entry)
-            : $"`{Cabinet.Core.Library.Command(entry)}` installs it."));
+            ? BringYourOwn(entry)
+            : $"`{Command(entry)}` installs it."));
         return 0;
 
         static void Field(string name, string? value)
@@ -609,37 +603,34 @@ internal static class Program
         }
     }
 
-    private static string Bridged(LibraryEntry entry)
-    {
-        var costs = new List<string> { "under Wine, bridged" };
+    private static string Bridged(LibraryEntry entry) =>
+        string.Join("  ·  ", ["under Wine, bridged", .. entry.Requirements()]);
 
-        if (entry.Runner is { } wine)
+    private static string Command(LibraryEntry entry, string? prefix = null) =>
+        entry.DemoUrl is not null
+            ? $"cabinet library install {entry.Id}"
+            : OwnCommand(entry, prefix);
+
+    private static string OwnCommand(LibraryEntry entry, string? prefix = null) =>
+        (entry.Source, entry.Kind) switch
         {
-            costs.Add($"Wine {wine}");
-        }
+            (PluginSource.Byo, PluginKind.Native) => $"cabinet library install {entry.Id} <file>",
+            (PluginSource.Byo, _) =>
+                $"cabinet library install {entry.Id} {prefix ?? "<prefix>"} <installer.exe>",
+            _ => $"cabinet library install {entry.Id}",
+        };
 
-        if (entry.Dxvk)
-        {
-            costs.Add("DXVK");
-        }
-
-        if (entry.Sync != SyncMode.System)
-        {
-            costs.Add(PrefixSettings.Word(entry.Sync));
-        }
-
-        if (entry.Env.Count > 0)
-        {
-            costs.Add(string.Join(", ", entry.Env.Keys));
-        }
-
-        if (entry.Winetricks.Count > 0)
-        {
-            costs.Add($"Winetricks {string.Join(", ", entry.Winetricks)}");
-        }
-
-        return string.Join("  ·  ", costs);
-    }
+    private static string BringYourOwn(LibraryEntry entry, string? prefix = null) =>
+        entry.DemoUrl is not null
+            ? $"{entry.Name} offers a demo — install it with `{Command(entry, prefix)}`, or "
+              + (entry.Account is { } account
+                  ? $"log in at {account}, download your installer, then "
+                    + $"`{OwnCommand(entry, prefix)}`"
+                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`")
+            : $"{entry.Name} cannot be downloaded — "
+              + (entry.Account is { } accountPage
+                  ? $"log in at {accountPage}, download it, then `{OwnCommand(entry, prefix)}`"
+                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`");
 
     private static string Wrapped(string paragraph)
     {
@@ -667,12 +658,16 @@ internal static class Program
         var entry = library.Find(Require(args, 0, "a plugin id"));
 
         var native = entry.Kind == PluginKind.Native;
+        var prefix = native ? null : Optional(args, 1);
+        var file = Optional(args, native ? 1 : 2);
 
-        library.Install(
-            entry,
-            native ? null : Optional(args, 1),
-            Optional(args, native ? 1 : 2),
-            Console.WriteLine);
+        if (entry.Source == PluginSource.Byo && file is null && entry.DemoUrl is null)
+        {
+            Console.Error.WriteLine($"cabinet: {BringYourOwn(entry, prefix)}");
+            return 1;
+        }
+
+        library.Install(entry, prefix, file, Console.WriteLine);
 
         Console.WriteLine();
         Console.WriteLine(entry.Kind == PluginKind.Native
@@ -684,26 +679,20 @@ internal static class Program
     private static int RemoveFromLibrary(Layout layout, IProcessRunner runner, string id)
     {
         var library = new Library(layout, runner);
-        var entry = library.Find(id);
+        var removal = library.RemovalOf(library.Find(id));
 
-        if (!library.Installed().TryGetValue(id, out var prefix))
+        return removal.Kind switch
         {
-            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
-            return 1;
-        }
-
-        var where = prefix ?? entry.Prefix;
-
-        return library.RemovalOf(entry, where) switch
-        {
-            { Kind: RemovalKind.Native } => RemoveNative(library, entry),
-            { Kind: RemovalKind.TakesPrefix } => RemoveManager(library, entry, where),
-            var removal => RemoveWindows(library, entry, where, removal.Sharing),
+            RemovalKind.Native => RemoveNative(library, removal),
+            RemovalKind.TakesPrefix => RemoveManager(library, removal),
+            _ => RemoveWindows(library, removal),
         };
     }
 
-    private static int RemoveNative(Library library, LibraryEntry entry)
+    private static int RemoveNative(Library library, Removal removal)
     {
+        var entry = removal.Entry;
+
         Console.Write(entry.Data is { } data
             ? $"Remove {entry.Name}, the links your DAW scans, and ~/{data} with the presets "
               + "in it? [y/N] "
@@ -715,7 +704,7 @@ internal static class Program
             return 1;
         }
 
-        library.Remove(entry, onOutput: Console.WriteLine);
+        library.Remove(removal, onOutput: Console.WriteLine);
         return 0;
     }
 
@@ -731,13 +720,7 @@ internal static class Program
             return 1;
         }
 
-        if (!library.Installed().TryGetValue(id, out var prefix))
-        {
-            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
-            return 1;
-        }
-
-        library.Launch(entry, prefix, Console.WriteLine);
+        library.Launch(entry, Console.WriteLine);
         return 0;
     }
 
@@ -753,13 +736,7 @@ internal static class Program
             return 1;
         }
 
-        if (!library.Installed().TryGetValue(id, out var prefix))
-        {
-            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
-            return 1;
-        }
-
-        var outcome = library.Stop(entry, prefix, onOutput: Console.WriteLine);
+        var outcome = library.Stop(entry, onOutput: Console.WriteLine);
 
         return outcome.Result == StopResult.LeftRunning ? 1 : 0;
     }
@@ -775,13 +752,13 @@ internal static class Program
         var library = new Library(layout, runner);
         var entry = library.Find(id);
 
-        if (!library.Installed().TryGetValue(id, out var prefix))
+        if (!library.Installed().ContainsKey(id))
         {
             Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
             return 1;
         }
 
-        if (library.LaunchLog(entry, prefix) is not { } written)
+        if (library.LaunchLog(entry) is not { } written)
         {
             Console.Error.WriteLine($"cabinet: no logs exist for {entry.Name}");
             return 1;
@@ -791,11 +768,21 @@ internal static class Program
         return 0;
     }
 
-    private static int RemoveManager(Library library, LibraryEntry entry, string prefix)
+    private static int RemoveManager(Library library, Removal removal)
     {
+        var (entry, prefix) = (removal.Entry, removal.Prefix);
+
         Console.WriteLine(
             $"{entry.Name}'s own uninstaller leaves everything it downloaded in prefix "
             + $"'{prefix}', so it is the prefix or nothing.");
+
+        if (removal.Sharing.Count > 0)
+        {
+            Console.WriteLine(
+                $"Prefix '{prefix}' also holds {string.Join(" and ", removal.Sharing)}, "
+                + "which go with it.");
+        }
+
         Console.Write($"Delete '{prefix}' and every library {entry.Name} put in it? [y/N] ");
 
         if (!Yes())
@@ -804,14 +791,15 @@ internal static class Program
             return 1;
         }
 
-        library.Remove(entry, prefix, takePrefix: true, onOutput: Console.WriteLine);
+        library.Remove(removal, takePrefix: true, onOutput: Console.WriteLine);
         return 0;
     }
 
-    private static int RemoveWindows(
-        Library library, LibraryEntry entry, string prefix, IReadOnlyList<string> sharing)
+    private static int RemoveWindows(Library library, Removal removal)
     {
-        if (sharing.Count == 0)
+        var (entry, prefix) = (removal.Entry, removal.Prefix);
+
+        if (removal.Kind == RemovalKind.PluginOrPrefix)
         {
             Console.WriteLine(
                 $"{entry.Name} is the only plugin Cabinet installed in prefix '{prefix}'.");
@@ -819,14 +807,15 @@ internal static class Program
 
             if (Yes())
             {
-                library.Remove(entry, prefix, takePrefix: true, onOutput: Console.WriteLine);
+                library.Remove(removal, takePrefix: true, onOutput: Console.WriteLine);
                 return 0;
             }
         }
         else
         {
             Console.WriteLine(
-                $"Prefix '{prefix}' also holds {string.Join(" and ", sharing)}, so it stays.");
+                $"Prefix '{prefix}' also holds {string.Join(" and ", removal.Sharing)}, "
+                + "so it stays.");
         }
 
         Console.Write($"Run {entry.Name}'s own uninstaller? It may open a window. [y/N] ");
@@ -837,8 +826,35 @@ internal static class Program
             return 1;
         }
 
-        library.Remove(entry, prefix, onOutput: Console.WriteLine);
+        var possible = library.PossibleUninstallers(removal);
+        var chosen = possible.Count > 1 ? Which(entry, possible) : null;
+
+        if (possible.Count > 1 && chosen is null)
+        {
+            Console.WriteLine("Left alone.");
+            return 1;
+        }
+
+        library.Remove(removal, uninstaller: chosen, onOutput: Console.WriteLine);
         return 0;
+    }
+
+    private static UninstallEntry? Which(LibraryEntry entry, IReadOnlyList<UninstallEntry> possible)
+    {
+        Console.WriteLine($"Any of these could be {entry.Name}'s uninstaller:");
+
+        for (var index = 0; index < possible.Count; index++)
+        {
+            Console.WriteLine($"  {index + 1}  {possible[index].Name}");
+        }
+
+        Console.Write($"Which one runs? [1-{possible.Count}, or Enter to leave it alone] ");
+
+        return int.TryParse(Console.ReadLine()?.Trim(), out var number)
+               && number >= 1
+               && number <= possible.Count
+            ? possible[number - 1]
+            : null;
     }
 
     private static bool Yes() =>

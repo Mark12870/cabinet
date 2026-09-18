@@ -99,7 +99,7 @@ internal static class Ui
         }, extra: entry);
     }
 
-    public static void Confirm(
+    public static Adw.AlertDialog Confirm(
         Gtk.Widget parent,
         string heading,
         string body,
@@ -133,6 +133,7 @@ internal static class Ui
         };
 
         dialog.Present(parent);
+        return dialog;
     }
 
     public static void Choose(

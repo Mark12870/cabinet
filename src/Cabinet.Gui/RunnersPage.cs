@@ -185,9 +185,16 @@ internal sealed class RunnersPage
                 changed));
 
     private void Remove(string name) =>
-        Operation.Run(
+        Ui.Confirm(
             window,
-            $"Deleting {name}",
-            _ => new Runners(layout, runner).Remove(name),
-            changed);
+            $"Delete {name}?",
+            "The runner's files are deleted. Getting it back means downloading or unpacking "
+            + "it again.",
+            "Delete",
+            () => Operation.Run(
+                window,
+                $"Deleting {name}",
+                _ => new Runners(layout, runner).Remove(name),
+                changed),
+            Adw.ResponseAppearance.Destructive);
 }

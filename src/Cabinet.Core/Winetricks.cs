@@ -15,7 +15,7 @@ public sealed class Winetricks(Layout layout, IProcessRunner runner)
         if (!Directory.Exists(Path.Combine(layout.PrefixPath(prefix), "dosdevices")))
         {
             throw new DirectoryNotFoundException(
-                $"no initialised prefix '{prefix}' — make one with `cabinet new {prefix}`");
+                $"no initialised prefix '{prefix}' — create it first");
         }
 
         var prefixes = new Prefixes(layout, runner);

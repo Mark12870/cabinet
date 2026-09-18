@@ -97,7 +97,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
         {
             1 => matches[0],
             0 => throw new InvalidOperationException(
-                $"no Wine {spec} upstream — `cabinet runners available` lists what there is"),
+                $"no Wine {spec} among the versions available upstream"),
             _ => throw new InvalidOperationException(
                 $"{spec} is more than one build — ask for "
                 + string.Join(" or ", matches.Select(match => match.Name))),

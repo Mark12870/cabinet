@@ -104,7 +104,7 @@ internal sealed class PrefixPage
 
             if (chosen != prefix.Runner)
             {
-                UseRunner(chosen);
+                ConfirmRunner(chosen, () => row.SetSelected((uint)choices.IndexOf(prefix.Runner)));
             }
         };
 
@@ -274,6 +274,25 @@ internal sealed class PrefixPage
     private static string Label(SyncMode mode) =>
         mode == SyncMode.System ? "System" : PrefixSettings.Word(mode);
 
+    private void ConfirmRunner(string runnerName, Action revert)
+    {
+        var dialog = Ui.Confirm(
+            window,
+            $"Move {Name} to {runnerName}?",
+            $"Wine updates {Name} for {runnerName} straight away. A prefix a newer Wine has "
+            + "updated may not go back cleanly to an older one.",
+            "Move",
+            () => UseRunner(runnerName));
+
+        dialog.OnResponse += (_, args) =>
+        {
+            if (args.Response != "ok")
+            {
+                revert();
+            }
+        };
+    }
+
     private void UseRunner(string runnerName) =>
         Operation.Run(
             window,
@@ -335,9 +354,7 @@ internal sealed class PrefixPage
                 $"Installing into {Name}",
                 output =>
                 {
-                    var prefixes = new Prefixes(layout, runner);
-                    var result = prefixes.Install(Name, path, output);
-                    prefixes.Bridge(output);
+                    var result = new Prefixes(layout, runner).Install(Name, path, output);
                     Operation.Ensure(result, Path.GetFileName(path));
                 },
                 changed));

@@ -28,6 +28,45 @@ public sealed class RemovalTests : IDisposable
     }
 
     [Fact]
+    public void AManagerNamesThePluginsThatGoWithItsPrefix()
+    {
+        var where = Installed(Manager, "thing", "other");
+
+        var outcome = cli.Answer("n\n", "library", "remove", "thing");
+
+        Assert.Equal(1, outcome.Exit);
+        Assert.Contains($"Prefix '{where}' also holds other, which go with it.\n", outcome.Out);
+    }
+
+    [Fact]
+    public void AnUninstallerCabinetCannotAttributeIsChosenByTheUser()
+    {
+        var where = Installed(Plugin, "thing", "other");
+        File.WriteAllText(cli.Layout.PrefixSystemReg(where), """
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\One] 1787344290
+            "DisplayName"="Thing version 1"
+            "UninstallString"="C:\\one.exe"
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Two] 1787344290
+            "DisplayName"="Thing Extras"
+            "UninstallString"="C:\\two.exe"
+            """);
+
+        var outcome = cli.Answer("y\n\n", "library", "remove", "thing");
+
+        Assert.Equal(1, outcome.Exit);
+        Assert.EndsWith(
+            "Any of these could be Thing's uninstaller:\n"
+            + "  1  Thing version 1\n"
+            + "  2  Thing Extras\n"
+            + "Which one runs? [1-2, or Enter to leave it alone] Left alone.\n",
+            outcome.Out);
+        Assert.Empty(cli.Runner.Ran);
+    }
+
+    [Fact]
     public void AManagerRemovedWithYesTakesItsPrefix()
     {
         var where = Installed(Manager, "thing");

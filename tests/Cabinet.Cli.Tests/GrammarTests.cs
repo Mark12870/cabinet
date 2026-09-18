@@ -165,7 +165,7 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
-    public void UsingARunnerOnlyRecordsItAndLeavesWinebootToTheUser()
+    public void UsingARunnerMovesThePrefixAndUpdatesItForThatWine()
     {
         cli.Prefix("gadget");
         File.WriteAllText(cli.Layout.PrefixRunnerFile("gadget"), "wine-9.21");
@@ -173,12 +173,35 @@ public sealed partial class GrammarTests : IDisposable
         var outcome = cli.Run("use", "gadget", Layout.BundledRunner);
 
         Assert.Equal(0, outcome.Exit);
-        Assert.Equal(
-            "gadget now runs on bundled." + Environment.NewLine
-            + "Run `cabinet run gadget wineboot -u` to update the prefix for it." + Environment.NewLine,
-            outcome.Out);
+        Assert.Equal("gadget now runs on bundled." + Environment.NewLine, outcome.Out);
         Assert.False(File.Exists(cli.Layout.PrefixRunnerFile("gadget")));
-        Assert.Empty(cli.Runner.Ran);
+        Assert.Equal(["-u"], Assert.Single(cli.Runner.Ran).Arguments);
+    }
+
+    [Fact]
+    public void APluginYouHadToBuyIsToldWhichCommandTakesItsInstaller()
+    {
+        cli.Catalogue("gadget", "Name: Gadget\nKind: windows\nSource: byo\n");
+
+        var outcome = cli.Run("library", "install", "gadget");
+
+        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(
+            "cabinet: Gadget cannot be downloaded — pass the installer you already have: "
+            + "`cabinet library install gadget <prefix> <installer.exe>`\n",
+            outcome.Error);
+        Assert.Empty(cli.Runner.Calls);
+    }
+
+    [Fact]
+    public void ANewPrefixCannotReuseTheNameOfOneThatIsThere()
+    {
+        cli.Prefix("gadget");
+
+        var outcome = cli.Run("new", "gadget", Layout.BundledRunner);
+
+        Assert.Equal(1, outcome.Exit);
+        Assert.Equal("cabinet: a prefix named gadget is already there\n", outcome.Error);
     }
 
     [Fact]

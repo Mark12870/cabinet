@@ -129,8 +129,48 @@ public sealed class PrefixesTests : IDisposable
         var expected = new Prefix(
             "gadget", path, true, Layout.BundledRunner, "2.7.1", SyncMode.Fsync, true);
 
-        Assert.Equal(expected, Subject.Create("gadget"));
+        Assert.Equal(expected, Subject.Prepare("gadget", null, null));
         Assert.Equal(expected, Assert.Single(Subject.List()));
+    }
+
+    [Fact]
+    public void CreatingAPrefixThatIsAlreadyThereLeavesItsRunnerAlone()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        File.WriteAllText(Layout.PrefixRunnerFile("gadget"), "wine-9.21\n");
+
+        Assert.Equal(
+            "a prefix named gadget is already there",
+            Assert.Throws<InvalidOperationException>(
+                () => Subject.Create("gadget", Layout.BundledRunner)).Message);
+        Assert.Equal("wine-9.21\n", File.ReadAllText(Layout.PrefixRunnerFile("gadget")));
+    }
+
+    [Theory]
+    [InlineData("../escape")]
+    [InlineData("/etc")]
+    [InlineData(".probe")]
+    [InlineData(" padded")]
+    [InlineData("")]
+    public void ANameThatIsNotOneWordOfAPathTouchesNothing(string name)
+    {
+        Assert.Throws<ArgumentException>(() => Subject.Create(name));
+        Assert.False(Directory.Exists(Layout.PrefixesDir));
+    }
+
+    [Theory]
+    [InlineData("bundled")]
+    [InlineData("")]
+    [InlineData("  ")]
+    [InlineData("../../escape")]
+    [InlineData(".probe")]
+    [InlineData("a\u0001b")]
+    public void AMarkerThatIsNotARunnerNameMeansTheBundledWineAsInTheShim(string marker)
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        File.WriteAllText(Layout.PrefixRunnerFile("gadget"), marker);
+
+        Assert.Equal(Layout.BundledRunner, Subject.RunnerOf("gadget"));
     }
 
     [Fact]
@@ -284,7 +324,7 @@ public sealed class PrefixesTests : IDisposable
 
         prefixes.Run("gadget", "winecfg", []);
         prefixes.Run("gadget", "wine", ["cmd", "/c", "exit"]);
-        prefixes.Install("gadget", installer);
+        prefixes.RunInstaller("gadget", installer, null);
         prefixes.Run("gadget", "wineserver", ["-w"]);
 
         var ran = recorder.Ran.Select(call => call.Arguments).ToList();

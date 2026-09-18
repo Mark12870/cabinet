@@ -388,7 +388,7 @@ public class LibraryTests : IDisposable
         var entry = LibraryEntry.Parse("thing", Linked + "LaunchHelper: ThingHelper.exe\n");
         var layout = Layout();
         var recorder = new RecordingRunner(outputs: _ => Gone);
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
 
         new Library(layout, recorder).Stop(entry);
 
@@ -406,7 +406,7 @@ public class LibraryTests : IDisposable
         var recorder = new RecordingRunner(
             outputs: _ => "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"",
             dawSession: true);
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
 
         new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
 
@@ -549,14 +549,14 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void ALinkForAManagerThatIsNotInstalledSaysHowToInstallIt()
+    public void ALinkForAManagerThatIsNotInstalledSaysSo()
     {
         Catalogue(("thing", Linked));
 
         var thrown = Assert.Throws<InvalidOperationException>(
             () => new Library(Layout(), new RecordingRunner()).Open("thingmanager://signed-in"));
 
-        Assert.Contains("`cabinet library install thing`", thrown.Message);
+        Assert.Equal("Thing opens thingmanager: links but is not installed", thrown.Message);
     }
 
     [Theory]
@@ -1002,7 +1002,7 @@ public class LibraryTests : IDisposable
     {
         var entry = Manager();
         var layout = Layout();
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
         Directory.CreateDirectory(layout.SocketDir);
         Directory.CreateDirectory(Path.GetDirectoryName(layout.InstallLogPath(entry.Id))!);
         File.WriteAllText(layout.InstallLogPath(entry.Id), "Installed Thing.\n");
@@ -1187,7 +1187,7 @@ public class LibraryTests : IDisposable
 
         var library = new Library(layout, recorder);
         var refused = Assert.Throws<PrefixInUseException>(
-            () => library.Remove(library.Find("thing"), "thing"));
+            () => library.Remove(library.RemovalOf(library.Find("thing"))));
 
         Assert.Contains("take Thing out of thing", refused.Message);
         Assert.Empty(recorder.Ran);
@@ -1633,19 +1633,18 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void AnUnknownIdSaysHowToSeeTheOnesThereAre()
+    public void AnUnknownIdIsNamed()
     {
         Catalogue(("surge-xt", SurgeXt));
 
         var missing = Assert.Throws<InvalidOperationException>(() => Subject().Find("nope"));
 
         Assert.Equal(
-            "no plugin 'nope' in the library — `cabinet library` lists what there is",
-            missing.Message);
+            "no plugin 'nope' in the library", missing.Message);
     }
 
     [Fact]
-    public void APluginYouHadToBuySaysWhichInstallerToPass()
+    public void APluginYouHadToBuyNeedsItsInstaller()
     {
         Catalogue(("gadget", "Name: Gadget\nKind: windows\nSource: byo\n"));
 
@@ -1653,9 +1652,7 @@ public class LibraryTests : IDisposable
             () => Subject().Install(Subject().Find("gadget")));
 
         Assert.Equal(
-            "Gadget cannot be downloaded — pass the installer you already have: "
-            + "`cabinet library install gadget gadget <installer.exe>`",
-            refused.Message);
+            "Gadget cannot be downloaded, so it needs the file you have", refused.Message);
     }
 
     [Fact]
@@ -1672,8 +1669,8 @@ public class LibraryTests : IDisposable
             () => Subject().Install(Subject().Find("vital")));
 
         Assert.Equal(
-            "Vital cannot be downloaded — log in at https://account.vital.audio, download it, "
-            + "then `cabinet library install vital <file>`",
+            "Vital cannot be downloaded, so it needs the file you have from "
+            + "https://account.vital.audio",
             refused.Message);
     }
 
@@ -1831,20 +1828,67 @@ public class LibraryTests : IDisposable
         var entry = library.Find("thing");
 
         library.Install(entry, "demo");
-        library.Install(entry, "own", own);
+        library.Install(entry, installer: own);
 
         var scripts = recording.Calls.Where(call => call.File == "sh").ToList();
 
         Assert.Equal(2, scripts.Count);
         Assert.Equal("TEST_SETTING=shared", File.ReadAllText(layout.PrefixEnvFile("demo")).Trim());
-        Assert.Equal("TEST_SETTING=shared", File.ReadAllText(layout.PrefixEnvFile("own")).Trim());
         Assert.Equal(SyncMode.Fsync, new PrefixSettings(layout).Sync("demo"));
-        Assert.Equal(SyncMode.Fsync, new PrefixSettings(layout).Sync("own"));
+        Assert.False(Directory.Exists(layout.PrefixPath("thing")));
         Assert.Equal(own, scripts[1].Environment["CABINET_ARCHIVE"]);
         Assert.Equal(scripts[0].Environment["WINE"], scripts[1].Environment["WINE"]);
         Assert.Equal("shared", scripts[0].Environment["TEST_SETTING"]);
         Assert.Equal("shared", scripts[1].Environment["TEST_SETTING"]);
         Assert.Single(recording.Calls, call => call.File == "curl");
+    }
+
+    [Fact]
+    public void InstallingAgainGoesToThePrefixThePluginIsRecordedIn()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("elsewhere"), "dosdevices"));
+        File.WriteAllText(layout.PrefixPluginsFile("elsewhere"), "thing\n");
+        var library = new Library(layout, new RecordingRunner());
+
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.False(Directory.Exists(layout.PrefixPath("thing")));
+        Assert.Equal("elsewhere", library.Installed()["thing"]);
+    }
+
+    [Fact]
+    public void APluginInstalledInOnePrefixIsNotInstalledIntoAnother()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("first"));
+        File.WriteAllText(layout.PrefixPluginsFile("first"), "thing\n");
+        var recording = new RecordingRunner();
+        var library = new Library(layout, recording);
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => library.Install(library.Find("thing"), "second", installer));
+
+        Assert.Equal(
+            "Thing is installed in first already — install it again there, or remove it first",
+            refused.Message);
+        Assert.False(Directory.Exists(layout.PrefixPath("second")));
+        Assert.Empty(recording.Ran);
+    }
+
+    [Fact]
+    public void ACatalogueEntryWhosePrefixIsNotANameIsRefused()
+    {
+        Assert.Contains(
+            "has Prefix: ../escape",
+            Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+                "thing", "Name: Thing\nKind: windows\nSource: byo\nPrefix: ../escape\n")).Message);
     }
 
     [Fact]
@@ -1908,29 +1952,33 @@ public class LibraryTests : IDisposable
     [Fact]
     public void AnIdThatWalksOutOfTheNativeDirectoryIsRefused()
     {
-        Assert.Throws<ArgumentException>(() => Subject().Remove(Native("../runners")));
+        Assert.Throws<ArgumentException>(() => Subject().RemovalOf(Native("../runners")));
     }
 
     [Fact]
     public void ANativePluginIsRemovedWithNoPrefixToDecideAbout()
     {
-        var library = new Library(Layout(), new UnusedRunner());
+        var layout = Layout();
+        Directory.CreateDirectory(layout.NativePath("synth"));
 
-        Assert.Equal(RemovalKind.Native, library.RemovalOf(Native("synth"), "").Kind);
+        var removal = new Library(layout, new UnusedRunner()).RemovalOf(Native("synth"));
+
+        Assert.Equal(RemovalKind.Native, removal.Kind);
+        Assert.Null(removal.Prefix);
     }
 
     [Fact]
-    public void AManagerTakesItsPrefixEvenWhenOtherPluginsShareIt()
+    public void AManagerTakesItsPrefixAndNamesEveryPluginThatGoesWithIt()
     {
         var layout = Layout();
         var entry = Manager();
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), "thing\nother\n");
 
-        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry, entry.Prefix);
+        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry);
 
         Assert.Equal(RemovalKind.TakesPrefix, removal.Kind);
-        Assert.Empty(removal.Sharing);
+        Assert.Equal(["other"], removal.Sharing);
     }
 
     [Fact]
@@ -1941,9 +1989,10 @@ public class LibraryTests : IDisposable
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), "thing\n");
 
-        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry, entry.Prefix);
+        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry);
 
         Assert.Equal(RemovalKind.PluginOrPrefix, removal.Kind);
+        Assert.Equal(entry.Prefix, removal.Prefix);
         Assert.Empty(removal.Sharing);
     }
 
@@ -1955,10 +2004,92 @@ public class LibraryTests : IDisposable
         Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), "thing\nother\nanother\n");
 
-        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry, entry.Prefix);
+        var removal = new Library(layout, new UnusedRunner()).RemovalOf(entry);
 
         Assert.Equal(RemovalKind.KeepsPrefix, removal.Kind);
         Assert.Equal(["other", "another"], removal.Sharing);
+    }
+
+    [Fact]
+    public void RemovalActsOnThePrefixThePluginIsRecordedInNotItsCatalogueDefault()
+    {
+        var layout = Layout();
+        var entry = LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "someone-else\n");
+        Directory.CreateDirectory(layout.PrefixPath("elsewhere"));
+        File.WriteAllText(layout.PrefixPluginsFile("elsewhere"), "thing\n");
+        var library = new Library(layout, new RecordingRunner());
+
+        library.Remove(library.RemovalOf(entry), takePrefix: true);
+
+        Assert.True(Directory.Exists(layout.PrefixPath("thing")));
+        Assert.False(Directory.Exists(layout.PrefixPath("elsewhere")));
+    }
+
+    [Fact]
+    public void APrefixIsNotDeletedForAPluginThatIsNotRecordedInIt()
+    {
+        var layout = Layout();
+        var entry = LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "someone-else\n");
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal(
+            "Thing is not installed",
+            Assert.Throws<InvalidOperationException>(() => library.RemovalOf(entry)).Message);
+        Assert.True(Directory.Exists(layout.PrefixPath("thing")));
+    }
+
+    [Fact]
+    public void ARemovalAgreedBeforeTheOtherPluginsChangedIsRefused()
+    {
+        var layout = Layout();
+        var entry = LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        var library = new Library(layout, new RecordingRunner());
+        var agreed = library.RemovalOf(entry);
+
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\narrived\n");
+
+        Assert.Contains(
+            "changed since you were asked",
+            Assert.Throws<InvalidOperationException>(
+                () => library.Remove(agreed, takePrefix: true)).Message);
+        Assert.True(Directory.Exists(layout.PrefixPath("thing")));
+    }
+
+    [Fact]
+    public void AManagerIsNeverTakenOutByItsOwnUninstaller()
+    {
+        var layout = Layout();
+        var entry = Manager();
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), "thing\n");
+        var library = new Library(layout, new RecordingRunner());
+
+        Assert.Contains(
+            "goes only with its prefix",
+            Assert.Throws<InvalidOperationException>(
+                () => library.Remove(library.RemovalOf(entry))).Message);
+    }
+
+    [Fact]
+    public void APrefixOtherPluginsShareIsNotDeletedToRemoveOne()
+    {
+        var layout = Layout();
+        var entry = LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\nother\n");
+        var library = new Library(layout, new RecordingRunner());
+
+        Assert.Contains(
+            "thing also holds other",
+            Assert.Throws<InvalidOperationException>(
+                () => library.Remove(library.RemovalOf(entry), takePrefix: true)).Message);
+        Assert.True(Directory.Exists(layout.PrefixPath("thing")));
     }
 
     [Fact]
@@ -2006,7 +2137,7 @@ public class LibraryTests : IDisposable
 
         var library = new Library(layout, new UnusedRunner());
         var refused = Assert.Throws<InvalidOperationException>(
-            () => library.Remove(library.Find("aalto"), "aalto"));
+            () => library.Remove(library.RemovalOf(library.Find("aalto"))));
 
         Assert.Equal(Library.NotFound(library.Find("aalto"), "aalto"), refused.Message);
         Assert.Equal("aalto", Assert.Single(library.Installed()).Key);
@@ -2045,13 +2176,124 @@ public class LibraryTests : IDisposable
 
         Assert.Equal(3, library.Uninstallers("aalto").Count);
         Assert.Throws<InvalidOperationException>(
-            () => library.Remove(library.Find("aalto"), "aalto"));
+            () => library.Remove(library.RemovalOf(library.Find("aalto"))));
 
         Assert.Equal(
             [["cmd", "/c", @"C:\cabinet-uninstall.bat"]],
             recording.Ran.Select(call => call.Arguments));
         Assert.Equal("C:\\aalto.exe\r\n", ran);
         Assert.False(File.Exists(script));
+    }
+
+    private const string Madrona = """
+        WINE REGISTRY Version 2
+
+        [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Aalto] 1787344290
+        "DisplayName"="Aalto version 1.9.4"
+        "QuietUninstallString"="C:\\aalto.exe"
+
+        [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Aaltoverb] 1787344290
+        "DisplayName"="Aaltoverb version 1.9.4"
+        "QuietUninstallString"="C:\\aaltoverb.exe"
+
+        [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Runtime] 1787344290
+        "DisplayName"="Microsoft Visual C++ 2022 Redistributable"
+        "QuietUninstallString"="C:\\vcredist.exe"
+        """;
+
+    [Fact]
+    public void RemovingAPluginNeverRunsTheUninstallerOfANeighbourWhoseNameContainsIt()
+    {
+        Catalogue(("aalto", "Name: Aalto\nKind: windows\nSource: byo\nPrefix: madrona\n"));
+
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("madrona"), "drive_c"));
+        File.WriteAllText(layout.PrefixPluginsFile("madrona"), "aalto\naaltoverb\n");
+        File.WriteAllText(layout.PrefixSystemReg("madrona"), Madrona);
+        var recording = new RecordingRunner();
+        var library = new Library(layout, recording);
+        var removal = library.RemovalOf(library.Find("aalto"));
+
+        Assert.Equal("Aalto version 1.9.4", Assert.Single(library.PossibleUninstallers(removal)).Name);
+        Assert.Throws<InvalidOperationException>(() => library.Remove(removal));
+
+        Assert.Single(recording.Ran);
+        Assert.Contains("aaltoverb", library.Recorded("madrona"));
+    }
+
+    [Theory]
+    [InlineData("Valhalla Supermassive", "ValhallaSupermassive version 5.0.0", 1)]
+    [InlineData("Serum 2", "Serum 2 x64", 1)]
+    [InlineData("Sitala 1", "Sitala 10.2", 0)]
+    [InlineData("Aalto", "Aaltoverb version 1.9.4", 0)]
+    public void AnUninstallerMatchesAPluginOnWholeWords(
+        string name, string uninstaller, int matches)
+    {
+        Catalogue(("thing", $"Name: {name}\nKind: windows\nSource: byo\n"));
+
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        File.WriteAllText(layout.PrefixSystemReg("thing"), $$"""
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\One] 1787344290
+            "DisplayName"="{{uninstaller}}"
+            "UninstallString"="C:\\one.exe"
+            """);
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal(
+            matches,
+            library.PossibleUninstallers(library.RemovalOf(library.Find("thing"))).Count);
+    }
+
+    [Fact]
+    public void UninstallersThatCouldEachBeThePluginsAreNotGuessedBetween()
+    {
+        Catalogue(("aalto", "Name: Aalto\nKind: windows\nSource: byo\nPrefix: madrona\n"));
+
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("madrona"), "drive_c"));
+        File.WriteAllText(layout.PrefixPluginsFile("madrona"), "aalto\n");
+        File.WriteAllText(layout.PrefixSystemReg("madrona"), Madrona.Replace(
+            "Aaltoverb version 1.9.4", "Aalto 2 version 2.0.0"));
+        var recording = new RecordingRunner();
+        var library = new Library(layout, recording);
+        var removal = library.RemovalOf(library.Find("aalto"));
+        var possible = library.PossibleUninstallers(removal);
+
+        Assert.Equal(2, possible.Count);
+        Assert.Contains(
+            "so Cabinet will not guess",
+            Assert.Throws<InvalidOperationException>(() => library.Remove(removal)).Message);
+        Assert.Empty(recording.Ran);
+
+        Assert.Throws<InvalidOperationException>(
+            () => library.Remove(removal, uninstaller: possible[1]));
+
+        Assert.Equal(
+            ["cmd", "/c", @"C:\cabinet-uninstall.bat"], Assert.Single(recording.Ran).Arguments);
+    }
+
+    [Fact]
+    public void AnUninstallerThatCouldNotBeThePluginsIsRefusedEvenWhenChosen()
+    {
+        Catalogue(("aalto", "Name: Aalto\nKind: windows\nSource: byo\nPrefix: madrona\n"));
+
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("madrona"));
+        File.WriteAllText(layout.PrefixPluginsFile("madrona"), "aalto\n");
+        File.WriteAllText(layout.PrefixSystemReg("madrona"), Madrona);
+        var recording = new RecordingRunner();
+        var library = new Library(layout, recording);
+        var runtime = library.Uninstallers("madrona").Single(one => one.Name.StartsWith("Microsoft"));
+
+        Assert.Contains(
+            "is not an uninstaller that could be Aalto's",
+            Assert.Throws<InvalidOperationException>(() => library.Remove(
+                library.RemovalOf(library.Find("aalto")), uninstaller: runtime)).Message);
+        Assert.Empty(recording.Ran);
     }
 
     [Fact]
@@ -2077,7 +2319,7 @@ public class LibraryTests : IDisposable
 
         Assert.Equal(
             Library.NotFound(entry, "aalto"),
-            Assert.Throws<InvalidOperationException>(() => library.Remove(entry, "aalto")).Message);
+            Assert.Throws<InvalidOperationException>(() => library.Remove(library.RemovalOf(entry))).Message);
     }
 
     [Fact]
@@ -2102,7 +2344,7 @@ public class LibraryTests : IDisposable
         var recording = new RecordingRunner();
         var library = new Library(layout, recording);
         var refused = Assert.Throws<InvalidOperationException>(
-            () => library.Remove(library.Find("gadget"), "gadget"));
+            () => library.Remove(library.RemovalOf(library.Find("gadget"))));
 
         Assert.Contains("nothing has been removed", refused.Message);
         Assert.Equal(
@@ -2139,7 +2381,7 @@ public class LibraryTests : IDisposable
 
         var library = new Library(layout, recording);
 
-        library.Remove(library.Find("supermassive"), "valhalla");
+        library.Remove(library.RemovalOf(library.Find("supermassive")));
 
         Assert.Contains(recording.Calls, Synced);
         Assert.Equal("freq-echo", Assert.Single(library.Installed()).Key);
@@ -2164,7 +2406,7 @@ public class LibraryTests : IDisposable
         File.CreateSymbolicLink(Path.Combine(scan, "Dexed.clap"), ours);
         File.CreateSymbolicLink(Path.Combine(scan, "Someone.clap"), elsewhere);
 
-        Subject().Remove(Native("dexed"));
+        Subject().Remove(Subject().RemovalOf(Native("dexed")));
 
         Assert.False(Directory.Exists(installed));
         Assert.False(Path.Exists(Path.Combine(scan, "Dexed.clap")));
@@ -2202,7 +2444,7 @@ public class LibraryTests : IDisposable
         Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".clap"), "Thing.clap")));
         Assert.False(Directory.Exists(layout.ScanDir(".so")));
 
-        library.Remove(library.Find("thing"));
+        library.Remove(library.RemovalOf(library.Find("thing")));
 
         Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".lv2"), "Thing.lv2")));
         Assert.Empty(library.Installed());
@@ -2330,7 +2572,7 @@ public class LibraryTests : IDisposable
         Assert.True(File.Exists(Path.Combine(data, "presets.txt")));
         Assert.Equal("thing", Assert.Single(library.Installed()).Key);
 
-        library.Remove(library.Find("thing"));
+        library.Remove(library.RemovalOf(library.Find("thing")));
 
         Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
         Assert.False(Directory.Exists(data));
@@ -2617,7 +2859,7 @@ public class LibraryTests : IDisposable
         var entry = Manager();
         var layout = Layout();
         var recorder = new RecordingRunner(outputs: _ => Gone);
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
 
         new Library(layout, recorder).Stop(entry);
 
@@ -2641,7 +2883,7 @@ public class LibraryTests : IDisposable
         var recorder = new RecordingRunner(
             acts: args => ended = ended || args.Contains("wineboot"),
             outputs: _ => ended ? "" : listing);
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
 
         var outcome = new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
 
@@ -2662,7 +2904,7 @@ public class LibraryTests : IDisposable
         var layout = Layout();
         var recorder = new RecordingRunner(
             outputs: _ => "\"Thing.exe\",\"316\",\"Console\",\"1\",\"64 K\"");
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
         using var plugin = SessionFiles.HeldByAPlugin(
             SessionFiles.Of(layout, entry.Prefix).Busy);
 
@@ -2686,7 +2928,7 @@ public class LibraryTests : IDisposable
         var layout = Layout();
         var recorder = new RecordingRunner(
             outputs: _ => "\"Thing Manager.exe\",\"316\",\"Console\",\"1\",\"64 K\"");
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
 
         new Library(layout, recorder).Stop(entry, grace: TimeSpan.Zero);
 
@@ -2706,7 +2948,7 @@ public class LibraryTests : IDisposable
 
         var layout = Layout();
         var recorder = new RecordingRunner(outputs: _ => Gone);
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
 
         new Library(layout, recorder).Stop(entry);
 
@@ -2726,7 +2968,7 @@ public class LibraryTests : IDisposable
         var layout = Layout();
         var log = layout.PrefixLaunchLog(entry.Prefix);
 
-        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        Recorded(layout, entry);
         File.WriteAllText(log, "Opening Thing.\n");
 
         new Library(layout, new RecordingRunner(outputs: _ => Gone)).Stop(entry);
@@ -2778,6 +3020,12 @@ public class LibraryTests : IDisposable
     }
 
     private Library Subject() => new(Layout(), new RecordingRunner());
+
+    private static void Recorded(Layout layout, LibraryEntry entry)
+    {
+        Directory.CreateDirectory(layout.PrefixPath(entry.Prefix));
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+    }
 
     private static bool Synced(RecordingRunner.Call call) =>
         Path.GetFileName(call.File) == "yabridgectl"

@@ -223,11 +223,11 @@ internal sealed class LibraryPage
             layout,
             window,
             entry,
-            one => Begin(one, prefix),
-            one => ConfirmRemove(one, prefix),
-            one => Launch(one, prefix),
-            one => Stop(one, prefix),
-            one => new Library(layout, runner).LaunchLog(one, prefix));
+            Begin,
+            ConfirmRemove,
+            Launch,
+            Stop,
+            one => new Library(layout, runner).LaunchLog(one));
         page.Show(entry, prefix, here, running.Contains(entry.Id));
 
         open = page;
@@ -295,7 +295,7 @@ internal sealed class LibraryPage
 
         if (entry.Manager && here)
         {
-            row.AddSuffix(Control(entry, prefix));
+            row.AddSuffix(Control(entry));
         }
 
         var enter = Ui.RowButton(Icons.Forward, $"About {entry.Name}");
@@ -306,18 +306,18 @@ internal sealed class LibraryPage
         return row;
     }
 
-    private Gtk.Button Control(LibraryEntry entry, string? prefix)
+    private Gtk.Button Control(LibraryEntry entry)
     {
         if (running.Contains(entry.Id))
         {
             var halt = Ui.RowButton(Icons.Stop, $"Stop {entry.Name}");
             halt.SetSensitive(!stopping.Contains(entry.Id));
-            halt.OnClicked += (_, _) => Stop(entry, prefix);
+            halt.OnClicked += (_, _) => Stop(entry);
             return halt;
         }
 
         var start = Ui.RowButton(Icons.Play, $"Open {entry.Name}");
-        start.OnClicked += (_, _) => Launch(entry, prefix);
+        start.OnClicked += (_, _) => Launch(entry);
         return start;
     }
 
@@ -379,7 +379,7 @@ internal sealed class LibraryPage
         return string.Join("  ·  ", parts);
     }
 
-    private void Begin(LibraryEntry entry, string? already)
+    private void Begin(LibraryEntry entry)
     {
         if (entry.Kind == PluginKind.Native)
         {
@@ -387,7 +387,7 @@ internal sealed class LibraryPage
             return;
         }
 
-        AskForPrefix(entry, already);
+        AskForPrefix(entry, new Library(layout, runner).Installed().GetValueOrDefault(entry.Id));
     }
 
     private void ConfirmInstall(LibraryEntry entry)
@@ -465,7 +465,7 @@ internal sealed class LibraryPage
     private void AskForPrefix(LibraryEntry entry, string? already)
     {
         var existing = new Prefixes(layout, runner).List().Select(one => one.Name).ToList();
-        List<string> choices = ["New prefix", .. existing];
+        List<string> choices = already is null ? ["New prefix", .. existing] : [already];
 
         var chosen = choices.IndexOf(already ?? entry.Prefix);
 
@@ -477,7 +477,7 @@ internal sealed class LibraryPage
         var name = Adw.EntryRow.New();
         name.SetTitle("Name");
         name.SetText(entry.Prefix);
-        name.SetVisible(where.GetSelected() == 0);
+        name.SetVisible(already is null && where.GetSelected() == 0);
 
         Adw.ComboRow? installer = null;
 
@@ -488,11 +488,17 @@ internal sealed class LibraryPage
             installer.SetModel(Gtk.StringList.New(["Download demo", "Use my installation file"]));
         }
 
+        Adw.AlertDialog? asking = null;
+
+        string? Into() =>
+            already ?? (where.GetSelected() == 0 ? null : choices[(int)where.GetSelected()]);
+
         where.OnNotify += (_, args) =>
         {
             if (args.Pspec.GetName() == "selected")
             {
-                name.SetVisible(where.GetSelected() == 0);
+                name.SetVisible(already is null && where.GetSelected() == 0);
+                asking?.SetBody(Prospect(entry, Into(), already is not null));
             }
         };
 
@@ -511,18 +517,32 @@ internal sealed class LibraryPage
         fields.Add(where);
         fields.Add(name);
 
-        Ui.Confirm(
+        asking = Ui.Confirm(
             window,
-            $"Install {entry.Name}?",
-            Prospect(entry, chosen > 0 ? choices[chosen] : null),
-            "Install",
+            already is null ? $"Install {entry.Name}?" : $"Reinstall {entry.Name}?",
+            Prospect(entry, Into(), already is not null),
+            already is null ? "Install" : "Reinstall",
             () =>
             {
-                var selected = (int)where.GetSelected();
-                var prefix = selected == 0 ? name.GetText().Trim() : choices[selected];
+                var prefix = Into() ?? name.GetText().Trim();
 
-                if (prefix.Length == 0)
+                if (Into() is null && prefix.Length == 0)
                 {
+                    toast("A new prefix needs a name.");
+                    return;
+                }
+
+                if (Into() is null && existing.Contains(prefix))
+                {
+                    toast($"A prefix named {prefix} is already there — choose it from the "
+                          + "list to install beside what it holds.");
+                    return;
+                }
+
+                if (Into() is null && !Layout.IsName(prefix))
+                {
+                    toast($"{prefix} cannot name a prefix: use one word of a path, not "
+                          + "starting with a dot.");
                     return;
                 }
 
@@ -541,9 +561,11 @@ internal sealed class LibraryPage
             extra: fields);
     }
 
-    private static string Prospect(LibraryEntry entry, string? into)
+    private static string Prospect(LibraryEntry entry, string? into, bool again)
     {
-        var prefix = into is null
+        var prefix = again
+            ? $"Its installer runs again in {into}, over what it installed there before."
+            : into is null
             ? "A prefix of its own keeps this plugin's dependencies away from every other."
             : $"It goes into the {into} prefix you already have, beside whatever is in it.";
 
@@ -571,11 +593,9 @@ internal sealed class LibraryPage
 
     private void Start(LibraryEntry entry, string? prefix, string? installer)
     {
-        var where = prefix ?? entry.Prefix;
-
-        if (prefixIsChanging(where))
+        if (prefix is not null && prefixIsChanging(prefix))
         {
-            toast($"{where} is changing; try installing {entry.Name} again when it is done.");
+            toast($"{prefix} is changing; try installing {entry.Name} again when it is done.");
             return;
         }
 
@@ -587,16 +607,28 @@ internal sealed class LibraryPage
             changed);
     }
 
-    private void ConfirmRemove(LibraryEntry entry, string? prefix)
+    private void ConfirmRemove(LibraryEntry entry)
     {
-        var where = prefix ?? entry.Prefix;
-        var removal = new Library(layout, runner).RemovalOf(entry, where);
+        Removal removal;
+
+        try
+        {
+            removal = new Library(layout, runner).RemovalOf(entry);
+        }
+        catch (Exception gone)
+        {
+            toast(gone.Message);
+            changed();
+            return;
+        }
 
         if (removal.Kind == RemovalKind.Native)
         {
-            ConfirmRemoveNative(entry);
+            ConfirmRemoveNative(removal);
             return;
         }
+
+        var where = removal.Prefix!;
 
         if (prefixIsChanging(where))
         {
@@ -611,9 +643,12 @@ internal sealed class LibraryPage
                 $"Delete “{where}”?",
                 $"{entry.Name}'s own uninstaller leaves everything it downloaded behind, so it "
                 + $"is the prefix or nothing: its Wine, its registry and every library "
-                + $"{entry.Name} put in it go together.",
+                + $"{entry.Name} put in it go together."
+                + (removal.Sharing.Count > 0
+                    ? $" {string.Join(" and ", removal.Sharing)} go with it."
+                    : ""),
                 "Delete Prefix",
-                () => Take(entry, where),
+                () => Take(removal),
                 Adw.ResponseAppearance.Destructive);
             return;
         }
@@ -625,7 +660,7 @@ internal sealed class LibraryPage
                 $"Remove {entry.Name}?",
                 Kept(where, removal.Sharing) + " " + Wizard(entry),
                 "Remove",
-                () => Uninstall(entry, where),
+                () => Uninstall(removal),
                 Adw.ResponseAppearance.Destructive);
             return;
         }
@@ -636,9 +671,9 @@ internal sealed class LibraryPage
             $"It is the only plugin Cabinet installed in “{where}”. Deleting the prefix takes "
             + $"its Wine, its registry and its settings with it. {Wizard(entry)}",
             "Remove Plugin Only",
-            () => Uninstall(entry, where),
+            () => Uninstall(removal),
             "Delete Prefix",
-            () => Take(entry, where));
+            () => Take(removal));
     }
 
     private static string Kept(string where, IReadOnlyList<string> sharing) =>
@@ -647,23 +682,23 @@ internal sealed class LibraryPage
     private static string Wizard(LibraryEntry entry) =>
         $"{entry.Name}'s own uninstaller runs, and may open a window of its own.";
 
-    private void ConfirmRemoveNative(LibraryEntry entry) => Ui.Confirm(
+    private void ConfirmRemoveNative(Removal removal) => Ui.Confirm(
         window,
-        $"Remove {entry.Name}?",
-        entry.Data is null
+        $"Remove {removal.Entry.Name}?",
+        removal.Entry.Data is null
             ? "Its files and the links your DAW scans are deleted. Presets you saved elsewhere "
               + "are left alone."
-            : $"Its files and the links your DAW scans are deleted, and so is ~/{entry.Data} — "
-              + "the presets you saved for it go with it.",
+            : $"Its files and the links your DAW scans are deleted, and so is "
+              + $"~/{removal.Entry.Data} — the presets you saved for it go with it.",
         "Remove",
         () => Operation.Run(
             window,
-            $"Removing {entry.Name}",
-            output => new Library(layout, runner).Remove(entry, onOutput: output),
+            $"Removing {removal.Entry.Name}",
+            output => new Library(layout, runner).Remove(removal, onOutput: output),
             changed),
         Adw.ResponseAppearance.Destructive);
 
-    private void Launch(LibraryEntry entry, string? prefix)
+    private void Launch(LibraryEntry entry)
     {
         running.Add(entry.Id);
         toast($"Opening {entry.Name}.");
@@ -674,7 +709,7 @@ internal sealed class LibraryPage
         {
             try
             {
-                new Library(layout, runner).Launch(entry, prefix);
+                new Library(layout, runner).Launch(entry);
             }
             catch (Exception exception)
             {
@@ -701,7 +736,7 @@ internal sealed class LibraryPage
         }));
     }
 
-    private void Stop(LibraryEntry entry, string? prefix)
+    private void Stop(LibraryEntry entry)
     {
         stopping.Add(entry.Id);
         toast($"Stopping {entry.Name}.");
@@ -711,7 +746,7 @@ internal sealed class LibraryPage
         {
             try
             {
-                var outcome = new Library(layout, runner).Stop(entry, prefix);
+                var outcome = new Library(layout, runner).Stop(entry);
                 Ui.OnMainLoop(() => toast(outcome.Told));
             }
             catch (Exception exception)
@@ -721,17 +756,51 @@ internal sealed class LibraryPage
         }).ContinueWith(_ => Ui.OnMainLoop(changed));
     }
 
-    private void Uninstall(LibraryEntry entry, string prefix) =>
-        RemoveWhenReady(
-            entry,
-            prefix,
-            takePrefix: false);
+    private void Uninstall(Removal removal) =>
+        Task.Run(() => new Library(layout, runner).PossibleUninstallers(removal))
+            .ContinueWith(found => Ui.OnMainLoop(() =>
+            {
+                if (found.IsFaulted)
+                {
+                    toast(found.Exception!.InnerException!.Message);
+                }
+                else if (found.Result.Count > 1)
+                {
+                    ChooseUninstaller(removal, found.Result);
+                }
+                else
+                {
+                    RemoveWhenReady(removal, takePrefix: false, null);
+                }
+            }));
 
-    private void Take(LibraryEntry entry, string prefix) =>
-        RemoveWhenReady(entry, prefix, takePrefix: true);
-
-    private void RemoveWhenReady(LibraryEntry entry, string prefix, bool takePrefix)
+    private void ChooseUninstaller(Removal removal, IReadOnlyList<UninstallEntry> possible)
     {
+        var which = Adw.ComboRow.New();
+        which.SetTitle("Uninstaller");
+        which.SetModel(Gtk.StringList.New([.. possible.Select(one => one.Name)]));
+
+        var fields = Adw.PreferencesGroup.New();
+        fields.Add(which);
+
+        Ui.Confirm(
+            window,
+            $"Which is {removal.Entry.Name}'s uninstaller?",
+            $"Cabinet did not see which uninstaller {removal.Entry.Name} registered, and more "
+            + "than one in its prefix could be it. Only the one you choose runs.",
+            "Run",
+            () => RemoveWhenReady(
+                removal, takePrefix: false, possible[(int)which.GetSelected()]),
+            Adw.ResponseAppearance.Destructive,
+            fields);
+    }
+
+    private void Take(Removal removal) => RemoveWhenReady(removal, takePrefix: true, null);
+
+    private void RemoveWhenReady(Removal removal, bool takePrefix, UninstallEntry? uninstaller)
+    {
+        var (entry, prefix) = (removal.Entry, removal.Prefix!);
+
         if (prefixIsChanging(prefix))
         {
             toast($"{prefix} is changing; try removing {entry.Name} again when it is done.");
@@ -742,7 +811,7 @@ internal sealed class LibraryPage
             window,
             takePrefix ? $"Deleting {prefix}" : $"Removing {entry.Name}",
             output => new Library(layout, runner)
-                .Remove(entry, prefix, takePrefix: takePrefix, onOutput: output),
+                .Remove(removal, takePrefix, uninstaller, output),
             changed);
     }
 }

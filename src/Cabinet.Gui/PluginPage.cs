@@ -189,6 +189,11 @@ internal sealed class PluginPage
             }
         }
 
+        if (entry.Kind == PluginKind.Windows)
+        {
+            row.Append(Pill("Reinstall", null, () => install(entry)));
+        }
+
         if (log(entry) is { } written)
         {
             row.Append(Pill(
@@ -246,35 +251,6 @@ internal sealed class PluginPage
         return string.Join("  ·  ", parts);
     }
 
-    private static string Bridged(LibraryEntry entry)
-    {
-        var costs = new List<string> { "Under Wine, bridged" };
-
-        if (entry.Runner is { } wine)
-        {
-            costs.Add($"Wine {wine}");
-        }
-
-        if (entry.Dxvk)
-        {
-            costs.Add("DXVK");
-        }
-
-        if (entry.Sync != SyncMode.System)
-        {
-            costs.Add(PrefixSettings.Word(entry.Sync));
-        }
-
-        if (entry.Env.Count > 0)
-        {
-            costs.Add(string.Join(", ", entry.Env.Keys));
-        }
-
-        if (entry.Winetricks.Count > 0)
-        {
-            costs.Add($"Winetricks {string.Join(", ", entry.Winetricks)}");
-        }
-
-        return string.Join("  ·  ", costs);
-    }
+    private static string Bridged(LibraryEntry entry) =>
+        string.Join("  ·  ", ["Under Wine, bridged", .. entry.Requirements()]);
 }

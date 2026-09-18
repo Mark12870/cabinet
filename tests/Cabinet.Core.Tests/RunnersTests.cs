@@ -51,6 +51,42 @@ public sealed class RunnersTests : IDisposable
         Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
     }
 
+    [Fact]
+    public void APluginRecordedInTwoPrefixesIsNamedWithTheOneCabinetActsOn()
+    {
+        GivePrefix("first");
+        GivePrefix("second");
+        File.WriteAllText(Layout.PrefixPluginsFile("first"), "aalto\n");
+        File.WriteAllText(Layout.PrefixPluginsFile("second"), "aalto\n");
+
+        var check = Assert.Single(Checks(), c => c.Name == "installed twice");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.StartsWith(
+            "aalto is recorded in first and second, and Cabinet acts only on the one in second",
+            check.Detail);
+    }
+
+    [Fact]
+    public void ADirectoryThatCannotNameAPrefixIsReportedRatherThanDropped()
+    {
+        GivePrefix("gadget");
+        Directory.CreateDirectory(Path.Combine(Layout.PrefixesDir, ".hidden"));
+
+        var check = Assert.Single(Checks(), c => c.Name == "prefix names");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.StartsWith("'.hidden' in", check.Detail);
+    }
+
+    [Fact]
+    public void AHiddenDirectoryBesideTheRunnersIsNoRunner()
+    {
+        Directory.CreateDirectory(Path.Combine(Layout.RunnersDir, ".probe"));
+
+        Assert.DoesNotContain(Subject.List(), r => r.Name == ".probe");
+    }
+
     private Layout Layout =>
         new(root, "/run/user/1000", Path.Combine(root, "data"), null,
             Path.Combine(root, "library"));
@@ -278,7 +314,7 @@ public sealed class RunnersTests : IDisposable
         var check = Checks().Single(found => found.Name == "native DAWs");
 
         Assert.Equal(Status.Fail, check.Status);
-        Assert.Contains("cabinet sync", check.Detail);
+        Assert.Contains("bridge what is installed again", check.Detail);
     }
 
     [Fact]
@@ -289,7 +325,7 @@ public sealed class RunnersTests : IDisposable
         var check = Checks().Single(found => found.Name == "native DAWs");
 
         Assert.Equal(Status.Fail, check.Status);
-        Assert.Contains("cabinet sync", check.Detail);
+        Assert.Contains("bridge what is installed again", check.Detail);
     }
 
     [Fact]

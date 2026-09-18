@@ -26,7 +26,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         runners.AddRange(Directory.EnumerateDirectories(layout.RunnersDir)
             .OrderBy(path => path, StringComparer.Ordinal)
             .Select(path => Path.GetFileName(path))
-            .Where(name => name != Layout.BundledRunner)
+            .Where(name => name != Layout.BundledRunner && Layout.IsName(name))
             .Select(name => new Runner(name, layout.RunnerWine(name), Bundled: false)));
 
         return runners;
@@ -77,7 +77,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         Action<string>? onOutput = null,
         Action<double>? onProgress = null)
     {
-        var staging = Path.Combine(Path.GetTempPath(), "cabinet-runner");
+        var staging = Layout.Staging("runner");
 
         try
         {
@@ -112,12 +112,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
             throw new ArgumentException("the bundled Wine ships in the Flatpak", nameof(name));
         }
 
-        var path = Path.GetFullPath(layout.RunnerPath(name));
-
-        if (Path.GetDirectoryName(path) != layout.RunnersDir)
-        {
-            throw new ArgumentException($"not a runner name: '{name}'", nameof(name));
-        }
+        var path = layout.RunnerPath(name);
 
         if (!Directory.Exists(path))
         {
@@ -128,8 +123,8 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         if (used.Count > 0)
         {
             throw new InvalidOperationException(
-                $"{name} is still used by {string.Join(", ", used)} — "
-                + $"move them with `cabinet use <prefix> {Layout.BundledRunner}` first");
+                $"{name} is still used by {string.Join(", ", used)} — move them to another "
+                + "Wine first");
         }
 
         var live = new Prefixes(layout, runner).LiveSessionsUsing(name);
@@ -183,7 +178,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         if (Directory.Exists(path))
         {
             throw new InvalidOperationException(
-                $"runner '{name}' is already there — remove it with `cabinet runners rm {name}`");
+                $"runner '{name}' is already there — remove it first");
         }
 
         Directory.CreateDirectory(path);

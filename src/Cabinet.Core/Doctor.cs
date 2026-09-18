@@ -24,6 +24,8 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         };
 
         checks.AddRange(PrefixRunners());
+        checks.AddRange(Unnamed());
+        checks.AddRange(InstalledTwice());
         checks.AddRange(PluginRunners());
         checks.AddRange(PluginSync());
         checks.AddRange(PluginEnv());
@@ -34,20 +36,9 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
     private IEnumerable<(string Prefix, string Runner)> PrefixesAndRunners()
     {
-        if (!Directory.Exists(layout.PrefixesDir))
-        {
-            yield break;
-        }
+        var prefixes = new Prefixes(layout, runner);
 
-        foreach (var dir in Directory.EnumerateDirectories(layout.PrefixesDir)
-                     .OrderBy(d => d, StringComparer.Ordinal))
-        {
-            var prefix = Path.GetFileName(dir);
-            var marker = layout.PrefixRunnerFile(prefix);
-            var name = File.Exists(marker) ? File.ReadAllText(marker).Trim() : "";
-
-            yield return (prefix, name.Length == 0 ? Layout.BundledRunner : name);
-        }
+        return prefixes.Names().Select(name => (name, prefixes.RunnerOf(name)));
     }
 
     private IEnumerable<Check> PrefixRunners()
@@ -69,7 +60,42 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             ? new Check("prefix runners", Status.Ok, "every prefix resolves to a Wine")
             : new Check("prefix runners", Status.Fail,
                 $"missing runner for {string.Join(", ", broken)} — install it or move the "
-                + $"prefix with `cabinet use <prefix> {Layout.BundledRunner}`");
+                + "prefix to another Wine");
+    }
+
+    private IEnumerable<Check> Unnamed()
+    {
+        var unnamed = new Prefixes(layout, runner).Unnamed();
+
+        if (unnamed.Count > 0)
+        {
+            yield return new Check("prefix names", Status.Warn,
+                $"{string.Join(", ", unnamed.Select(name => $"'{name}'"))} in "
+                + $"{layout.PrefixesDir} cannot name a prefix, so Cabinet leaves them out — "
+                + "rename them to one word of a path, not starting with a dot");
+        }
+    }
+
+    private IEnumerable<Check> InstalledTwice()
+    {
+        var library = new Library(layout, runner);
+        var installed = library.Installed();
+        var twice = library.InstalledMoreThanOnce()
+            .OrderBy(held => held.Key, StringComparer.Ordinal)
+            .Select(held =>
+                $"{held.Key} is recorded in {string.Join(" and ", held.Value)}, and Cabinet "
+                + $"acts only on the one in {installed[held.Key]}")
+            .ToList();
+
+        if (twice.Count == 0)
+        {
+            yield break;
+        }
+
+        yield return new Check("installed twice", Status.Warn,
+            string.Join("; ", twice)
+            + ". Remove it once for each copy and install it again where you want it; a plugin "
+            + "is installed in one prefix.");
     }
 
     private IEnumerable<Check> PluginRunners()
@@ -98,7 +124,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         yield return new Check("plugin runners", Status.Warn,
             string.Join("; ", drifted)
             + ". A plugin's entry pins the Wine its editor was tried on, and moving a prefix "
-            + "to it needs the DAW closed: `cabinet use <prefix> <runner>`.");
+            + "to it needs the DAW closed.");
     }
 
     private IEnumerable<Check> PluginSync()
@@ -128,7 +154,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         yield return new Check("plugin sync", Status.Warn,
             string.Join("; ", drifted)
             + ". A prefix that already existed when the plugin was installed keeps the sync "
-            + "mode it was made with: `cabinet set <prefix> sync <mode>`.");
+            + "mode it was made with, until you change it.");
     }
 
     private IEnumerable<Check> PluginEnv()
@@ -160,7 +186,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         yield return new Check("plugin env", Status.Warn,
             string.Join("; ", missing)
             + ". A prefix that already existed when the plugin was installed keeps the "
-            + "environment it was made with: `cabinet set <prefix> env KEY=VALUE`.");
+            + "environment it was made with, until you set those variables on it.");
     }
 
     private Check BundledYabridge()
@@ -251,13 +277,12 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
     private IEnumerable<string> EnrolledDawIds()
     {
-        var appsDir = Path.Combine(layout.Home, ".var", "app");
-        if (!Directory.Exists(appsDir))
+        if (!Directory.Exists(layout.AppsDir))
         {
             return [];
         }
 
-        return Directory.EnumerateDirectories(appsDir)
+        return Directory.EnumerateDirectories(layout.AppsDir)
             .OrderBy(d => d, StringComparer.Ordinal)
             .Select(Path.GetFileName)
             .OfType<string>()
@@ -282,7 +307,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         {
             yield return new Check("native DAWs", Status.Fail,
                 $"already owned by something else: {string.Join(", ", owned)} "
-                + "— move it aside and run `cabinet sync`");
+                + "— move it aside and bridge what is installed again");
             yield break;
         }
 
@@ -290,7 +315,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         {
             yield return new Check("native DAWs", Status.Fail,
                 $"missing Cabinet scan paths: {string.Join(", ", unlinked)} "
-                + "— run `cabinet sync`");
+                + "— bridge what is installed again");
             yield break;
         }
 
@@ -303,18 +328,17 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
                 $"Cabinet plugins are under {string.Join(", ", entries.Select(e => e.Link))}; "
                 + $"independent yabridge remains at {layout.NativeYabridgeDir}")
             : new Check("native DAWs", Status.Fail,
-                "no Cabinet native plugins have been published — run `cabinet sync`");
+                "no Cabinet native plugins have been published — bridge what is installed again");
     }
 
     private Check EnrolledDaw(string dawId)
     {
-        var overrides = Path.Combine(
-            layout.Home, ".local", "share", "flatpak", "overrides", dawId);
+        var overrides = layout.FlatpakOverride(dawId);
 
         if (!File.Exists(overrides))
         {
             return new Check($"DAW {dawId}", Status.Fail,
-                $"linked but not overridden — run `cabinet enrol {dawId}`");
+                $"linked but not overridden — enrol {dawId} again");
         }
 
         var ini = IniFile.Parse(File.ReadAllLines(overrides));

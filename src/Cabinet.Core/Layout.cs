@@ -134,9 +134,11 @@ public sealed class Layout
 
     public string RunnersDir => Path.Combine(SandboxDataHome, "runners");
 
+    public static string Staging(string what) => Path.Combine(Path.GetTempPath(), "cabinet-" + what);
+
     public string NativeDir => Path.Combine(SandboxDataHome, "native");
 
-    public string NativePath(string name) => Path.Combine(NativeDir, name);
+    public string NativePath(string name) => Path.Combine(NativeDir, Named(name, "plugin"));
 
     public string LibraryScript(string vendor, string name) =>
         Path.Combine(LibraryDir, vendor, name);
@@ -166,11 +168,24 @@ public sealed class Layout
         _ => throw new ArgumentException($"not a plugin extension: '{extension}'", nameof(extension)),
     });
 
-    public string RunnerPath(string name) => Path.Combine(RunnersDir, name);
+    public string RunnerPath(string name) => Path.Combine(RunnersDir, Named(name, "runner"));
 
     public string RunnerWine(string name) => Path.Combine(RunnerPath(name), "bin", "wine");
 
-    public string PrefixPath(string name) => Path.Combine(PrefixesDir, name);
+    public string PrefixPath(string name) => Path.Combine(PrefixesDir, Named(name, "prefix"));
+
+    public static bool IsName(string name) =>
+        name.Length > 0
+        && name == name.Trim()
+        && name[0] != '.'
+        && !name.Any(character => character == '/' || char.IsControl(character));
+
+    private static string Named(string name, string what) =>
+        IsName(name)
+            ? name
+            : throw new ArgumentException(
+                $"'{name}' is not a {what} name — one word of a path, not starting with a dot",
+                nameof(name));
 
     public string PrefixRunnerFile(string name) =>
         Path.Combine(PrefixPath(name), RunnerMarker);
@@ -231,8 +246,12 @@ public sealed class Layout
     private const string ProgramFiles64 = "Program Files";
     private const string ProgramFiles32 = "Program Files (x86)";
 
-    public string DawDataHome(string flatpakId) =>
-        Path.Combine(Home, ".var", "app", flatpakId, "data");
+    public string AppsDir => Path.Combine(Home, ".var", "app");
+
+    public string DawDataHome(string flatpakId) => Path.Combine(AppsDir, flatpakId, "data");
+
+    public string FlatpakOverride(string flatpakId) =>
+        Path.Combine(Home, ".local", "share", "flatpak", "overrides", flatpakId);
 
     public string DawYabridgeLink(string flatpakId) =>
         Path.Combine(DawDataHome(flatpakId), "yabridge");

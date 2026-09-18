@@ -96,7 +96,12 @@ where
     };
     let name = name.trim();
 
-    if name.is_empty() || name == BUNDLED_RUNNER || name.contains('/') {
+    if name.is_empty()
+        || name == BUNDLED_RUNNER
+        || name.starts_with('.')
+        || name.contains('/')
+        || name.chars().any(char::is_control)
+    {
         return fallback();
     }
 
@@ -820,7 +825,7 @@ mod tests {
 
     #[test]
     fn the_bundled_name_and_a_path_are_both_refused() {
-        for marker in ["bundled", "", "  ", "../../escape"] {
+        for marker in ["bundled", "", "  ", "../../escape", ".probe", "a\u{1}b"] {
             let argv = build_with_runner(&[("WINEPREFIX", PREFIX)], false, Some(marker));
             assert!(
                 argv.iter().any(|a| a == "wine"),

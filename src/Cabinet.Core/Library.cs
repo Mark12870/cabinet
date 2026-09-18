@@ -214,7 +214,7 @@ public sealed record LibraryEntry(
             Value(fields, "Sha256"),
             demo,
             Value(fields, "DemoSha256"),
-            Value(fields, "Prefix") ?? id,
+            Value(fields, "Prefix") is { } prefix ? ParsePrefix(id, prefix) : id,
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
@@ -238,6 +238,44 @@ public sealed record LibraryEntry(
             Split(Value(fields, "Formats")),
             Paragraphs(Value(fields, "Description")),
             vendor);
+    }
+
+    private static string ParsePrefix(string id, string name) =>
+        Layout.IsName(name)
+            ? name
+            : throw new InvalidOperationException(
+                $"{id}.yml has Prefix: {name} — the name of a prefix, one word of a path");
+
+    public IReadOnlyList<string> Requirements()
+    {
+        var costs = new List<string>();
+
+        if (Runner is { } wine)
+        {
+            costs.Add($"Wine {wine}");
+        }
+
+        if (Dxvk)
+        {
+            costs.Add("DXVK");
+        }
+
+        if (Sync != SyncMode.System)
+        {
+            costs.Add(PrefixSettings.Word(Sync));
+        }
+
+        if (Env.Count > 0)
+        {
+            costs.Add(string.Join(", ", Env.Keys));
+        }
+
+        if (Winetricks.Count > 0)
+        {
+            costs.Add($"Winetricks {string.Join(", ", Winetricks)}");
+        }
+
+        return costs;
     }
 
     private static string ParseScript(string id, string name)
@@ -551,7 +589,15 @@ public enum RemovalKind
     KeepsPrefix,
 }
 
-public sealed record Removal(RemovalKind Kind, IReadOnlyList<string> Sharing);
+public sealed record Removal(
+    LibraryEntry Entry, RemovalKind Kind, string? Prefix, IReadOnlyList<string> Sharing)
+{
+    public bool Agrees(Removal other) =>
+        other.Entry.Id == Entry.Id
+        && other.Kind == Kind
+        && other.Prefix == Prefix
+        && other.Sharing.ToHashSet(StringComparer.Ordinal).SetEquals(Sharing);
+}
 
 public enum StopResult
 {
@@ -638,24 +684,24 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
     public LibraryEntry Find(string id) =>
         Entries().FirstOrDefault(entry => entry.Id == id)
-        ?? throw new InvalidOperationException(
-            $"no plugin '{id}' in the library — `cabinet library` lists what there is");
+        ?? throw new InvalidOperationException($"no plugin '{id}' in the library");
 
     public IReadOnlyDictionary<string, string?> Installed()
     {
         var installed = new Dictionary<string, string?>(StringComparer.Ordinal);
 
-        foreach (var prefix in new Prefixes(layout, runner).List())
+        foreach (var prefix in new Prefixes(layout, runner).Names())
         {
-            foreach (var id in Recorded(prefix.Name))
+            foreach (var id in Recorded(prefix))
             {
-                installed[id] = prefix.Name;
+                installed[id] = prefix;
             }
         }
 
         if (Directory.Exists(layout.NativeDir))
         {
-            foreach (var path in Directory.EnumerateDirectories(layout.NativeDir))
+            foreach (var path in Directory.EnumerateDirectories(layout.NativeDir)
+                         .Where(path => Layout.IsName(Path.GetFileName(path))))
             {
                 installed[Path.GetFileName(path)] = null;
             }
@@ -664,6 +710,25 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         return installed;
     }
 
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> InstalledMoreThanOnce() =>
+        new Prefixes(layout, runner).Names()
+            .SelectMany(prefix => Recorded(prefix).Distinct(StringComparer.Ordinal),
+                (prefix, id) => (Id: id, Prefix: prefix))
+            .GroupBy(held => held.Id, StringComparer.Ordinal)
+            .Where(same => same.Count() > 1)
+            .ToDictionary(
+                same => same.Key,
+                IReadOnlyList<string> (same) => [.. same.Select(held => held.Prefix)],
+                StringComparer.Ordinal);
+
+    private string Where(LibraryEntry entry) =>
+        Installed().TryGetValue(entry.Id, out var where) && where is not null
+            ? where
+            : throw NotInstalled(entry);
+
+    private static InvalidOperationException NotInstalled(LibraryEntry entry) =>
+        new($"{entry.Name} is not installed");
+
     public void Install(
         LibraryEntry entry,
         string? prefix = null,
@@ -671,6 +736,18 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Action<string>? onOutput = null,
         Action<double>? onProgress = null)
     {
+        var already = entry.Kind == PluginKind.Windows
+            ? Installed().GetValueOrDefault(entry.Id)
+            : null;
+        var where = prefix ?? already ?? entry.Prefix;
+
+        if (already is not null && already != where)
+        {
+            throw new InvalidOperationException(
+                $"{entry.Name} is installed in {already} already — install it again there, or "
+                + "remove it first");
+        }
+
         var installLog = layout.InstallLogPath(entry.Id);
         Directory.CreateDirectory(Path.GetDirectoryName(installLog)!);
         File.WriteAllText(installLog, "");
@@ -694,11 +771,16 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             return;
         }
 
-        InstallWindows(entry, prefix ?? entry.Prefix, installer, Say, onProgress);
+        InstallWindows(entry, where, installer, Say, onProgress);
     }
 
     public IReadOnlyList<UninstallEntry> Uninstallers(string prefix) =>
         new PrefixRegistry(layout, runner).Uninstallers(prefix);
+
+    public IReadOnlyList<UninstallEntry> PossibleUninstallers(Removal removal) =>
+        removal.Prefix is { } prefix && !RecordedKeys(prefix, removal.Entry.Id).Any()
+            ? Candidates(prefix, removal.Entry)
+            : [];
 
     private IReadOnlyList<UninstallEntry> Candidates(string prefix, LibraryEntry entry)
     {
@@ -707,33 +789,67 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             .SelectMany(fields => fields.Skip(1))
             .ToHashSet(StringComparer.Ordinal);
 
-        var plausible = Uninstallers(prefix)
-            .Where(one => !attributed.Contains(one.Key) && !IsWine(one.Name))
+        return Uninstallers(prefix)
+            .Where(one => !attributed.Contains(one.Key)
+                          && !IsWine(one.Name)
+                          && Names(one.Name, entry.Name))
             .ToList();
-
-        return plausible.Where(one => Resembles(one.Name, entry.Name)).ToList() is { Count: > 0 } named
-            ? named
-            : plausible;
     }
 
     private static bool IsWine(string name) =>
         name.StartsWith("Wine ", StringComparison.OrdinalIgnoreCase);
 
-    private static bool Resembles(string uninstaller, string name) =>
-        Squashed(uninstaller).Contains(Squashed(name), StringComparison.Ordinal);
+    private static bool Names(string uninstaller, string name)
+    {
+        var words = Words(uninstaller);
+        var wanted = string.Concat(Words(name));
 
-    private static string Squashed(string text) =>
-        new([.. text.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant)]);
+        for (var first = 0; first < words.Count; first++)
+        {
+            var joined = "";
+
+            for (var last = first; last < words.Count && joined.Length < wanted.Length; last++)
+            {
+                joined += words[last];
+
+                if (joined == wanted)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> Words(string text) =>
+        new string([.. text.Select(character =>
+                char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : ' ')])
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
     public IReadOnlyList<string> Sharing(string prefix, string id) =>
         [.. Recorded(prefix).Where(other => other != id)];
 
-    public Removal RemovalOf(LibraryEntry entry, string prefix) =>
-        entry.Kind == PluginKind.Native ? new Removal(RemovalKind.Native, [])
-        : entry.Manager ? new Removal(RemovalKind.TakesPrefix, [])
-        : Sharing(prefix, entry.Id) is { Count: > 0 } sharing
-            ? new Removal(RemovalKind.KeepsPrefix, sharing)
-            : new Removal(RemovalKind.PluginOrPrefix, []);
+    public Removal RemovalOf(LibraryEntry entry)
+    {
+        if (entry.Kind == PluginKind.Native)
+        {
+            return Directory.Exists(layout.NativePath(entry.Id))
+                ? new Removal(entry, RemovalKind.Native, null, [])
+                : throw NotInstalled(entry);
+        }
+
+        var where = Where(entry);
+        var sharing = Sharing(where, entry.Id);
+
+        return new Removal(
+            entry,
+            entry.Manager ? RemovalKind.TakesPrefix
+            : sharing.Count > 0 ? RemovalKind.KeepsPrefix
+            : RemovalKind.PluginOrPrefix,
+            where,
+            sharing);
+    }
 
     private const int ServiceAlreadyRunning = 1056 & 0xff;
 
@@ -743,9 +859,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
     private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
 
-    public void Launch(
-        LibraryEntry entry, string? prefix = null, Action<string>? onOutput = null,
-        string? link = null)
+    public void Launch(LibraryEntry entry, Action<string>? onOutput = null, string? link = null)
     {
         if (entry.Launch is null)
         {
@@ -753,12 +867,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 $"{entry.Name} is a plugin, not an application Cabinet can open");
         }
 
-        var where = prefix ?? entry.Prefix;
-
-        if (!Recorded(where).Contains(entry.Id, StringComparer.Ordinal))
-        {
-            throw new InvalidOperationException($"{entry.Name} is not installed in {where}");
-        }
+        var where = Where(entry);
 
         var prefixes = new Prefixes(layout, runner);
         var log = layout.PrefixLaunchLog(where);
@@ -796,7 +905,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         if (new VirtualDesktop(layout, runner).EnabledIn(where))
         {
             Say($"{where} draws on a desktop of its own, so {entry.Name} is confined to it, "
-                + $"the pointer too. Turn it off with: cabinet set {where} desktop off");
+                + $"the pointer too, until {where}'s virtual desktop is turned off.");
         }
 
         if (entry.LaunchService is { } service)
@@ -946,10 +1055,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         prefixes.Run(where, "wineserver", ["-k"], logTo: logTo);
 
     public StopOutcome Stop(
-        LibraryEntry entry,
-        string? prefix = null,
-        TimeSpan? grace = null,
-        Action<string>? onOutput = null)
+        LibraryEntry entry, TimeSpan? grace = null, Action<string>? onOutput = null)
     {
         if (entry.Launch is null)
         {
@@ -957,7 +1063,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 $"{entry.Name} is a plugin, not an application Cabinet can open");
         }
 
-        var where = prefix ?? entry.Prefix;
+        var where = Where(entry);
         var prefixes = new Prefixes(layout, runner);
         var log = layout.PrefixLaunchLog(where);
         var waiting = grace ?? StopGrace;
@@ -1062,8 +1168,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         if (!Installed().TryGetValue(entry.Id, out var where) || where is null)
         {
             throw new InvalidOperationException(
-                $"{entry.Name} opens {scheme}: links but is not installed — "
-                + $"`cabinet library install {entry.Id}` installs it");
+                $"{entry.Name} opens {scheme}: links but is not installed");
         }
 
         var prefixes = new Prefixes(layout, runner);
@@ -1085,14 +1190,14 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             return;
         }
 
-        Launch(entry, where, onOutput, link);
+        Launch(entry, onOutput, link);
     }
 
     private static bool Running(Prefixes prefixes, string where, string exe) =>
         prefixes.RunJoined(where, ["tasklist", "/fo", "csv", "/nh"])
             .Stdout.Contains($"\"{exe}\"", StringComparison.OrdinalIgnoreCase);
 
-    public string? LaunchLog(LibraryEntry entry, string? prefix = null)
+    public string? LaunchLog(LibraryEntry entry)
     {
         var sections = new List<string>();
 
@@ -1101,8 +1206,8 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             sections.Add($"Cabinet installation log{Environment.NewLine}{install}");
         }
 
-        if (entry.Kind == PluginKind.Windows
-            && LogFile.Read(layout.PrefixLaunchLog(prefix ?? entry.Prefix)) is { } launch)
+        if (Installed().GetValueOrDefault(entry.Id) is { } prefix
+            && LogFile.Read(layout.PrefixLaunchLog(prefix)) is { } launch)
         {
             sections.Add($"Cabinet launch log{Environment.NewLine}{launch}");
         }
@@ -1171,47 +1276,52 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     }
 
     public void Remove(
-        LibraryEntry entry,
-        string? prefix = null,
+        Removal agreed,
         bool takePrefix = false,
+        UninstallEntry? uninstaller = null,
         Action<string>? onOutput = null)
     {
-        if (entry.Kind == PluginKind.Native)
-        {
-            if (prefix is not null)
-            {
-                throw new ArgumentException(
-                    $"{entry.Name} is a Linux plugin, so it is in no prefix", nameof(prefix));
-            }
+        var entry = agreed.Entry;
+        using var claim = agreed.Prefix is { } held
+            ? new Prefixes(layout, runner).Claim(held, $"take {entry.Name} out of {held}")
+            : null;
+        var current = RemovalOf(entry);
 
-            RemoveNative(entry, onOutput);
-            return;
+        if (!current.Agrees(agreed))
+        {
+            throw new InvalidOperationException(
+                $"{entry.Name} or the prefix holding it changed since you were asked, so nothing "
+                + "was removed — look again before removing it");
         }
 
-        var where = prefix ?? entry.Prefix;
+        switch (current.Kind)
+        {
+            case RemovalKind.Native:
+                RemoveNative(entry, onOutput);
+                return;
+            case RemovalKind.TakesPrefix when !takePrefix:
+                throw new InvalidOperationException(
+                    $"{entry.Name}'s own uninstaller leaves everything it downloaded behind, so "
+                    + "it goes only with its prefix");
+            case RemovalKind.KeepsPrefix when takePrefix:
+                throw new InvalidOperationException(
+                    $"{current.Prefix} also holds {string.Join(" and ", current.Sharing)}, so "
+                    + $"it stays when {entry.Name} goes");
+        }
 
         if (takePrefix)
         {
-            new Prefixes(layout, runner).Delete(where, onOutput);
+            new Prefixes(layout, runner).Delete(current.Prefix!, onOutput);
             onOutput?.Invoke($"{entry.Name} and the prefix that held it are gone.");
             return;
         }
 
-        RemoveWindows(entry, where, onOutput);
+        RemoveWindows(entry, current.Prefix!, uninstaller, onOutput);
     }
 
-    private void RemoveWindows(LibraryEntry entry, string prefix, Action<string>? onOutput)
+    private void RemoveWindows(
+        LibraryEntry entry, string prefix, UninstallEntry? uninstaller, Action<string>? onOutput)
     {
-        if (!Directory.Exists(layout.PrefixPath(prefix)))
-        {
-            throw new DirectoryNotFoundException($"no such prefix: {prefix}");
-        }
-
-        if (!Recorded(prefix).Contains(entry.Id, StringComparer.Ordinal))
-        {
-            throw new InvalidOperationException($"{entry.Name} is not installed in {prefix}");
-        }
-
         var prefixes = new Prefixes(layout, runner);
         using var claim = prefixes.Claim(prefix, $"take {entry.Name} out of {prefix}");
         var recorded = RecordedKeys(prefix, entry.Id).ToList();
@@ -1219,7 +1329,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             ? Uninstallers(prefix)
                 .Where(one => recorded.Contains(one.Key, StringComparer.Ordinal))
                 .ToList()
-            : Candidates(prefix, entry);
+            : Chosen(entry, prefix, Candidates(prefix, entry), uninstaller);
 
         if (chosen.Count == 0)
         {
@@ -1271,10 +1381,31 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
     }
 
+    private static IReadOnlyList<UninstallEntry> Chosen(
+        LibraryEntry entry,
+        string prefix,
+        IReadOnlyList<UninstallEntry> possible,
+        UninstallEntry? uninstaller)
+    {
+        if (uninstaller is not null)
+        {
+            return possible.FirstOrDefault(one => one.Key == uninstaller.Key) is { } current
+                ? [current]
+                : throw new InvalidOperationException(
+                    $"{uninstaller.Name} is not an uninstaller that could be {entry.Name}'s");
+        }
+
+        return possible.Count > 1
+            ? throw new InvalidOperationException(
+                $"{string.Join(" and ", possible.Select(one => one.Name))} could each be "
+                + $"{entry.Name}'s uninstaller in {prefix}, so Cabinet will not guess — choose one")
+            : possible;
+    }
+
     public static string NotFound(LibraryEntry entry, string prefix) =>
         $"Nothing in prefix {prefix} looks like {entry.Name}'s uninstaller, so there is no way "
-        + $"to take it out on its own — `cabinet delete {prefix}` removes the prefix and "
-        + "everything in it";
+        + $"to take it out on its own — deleting {prefix} removes it with everything in the "
+        + "prefix";
 
     private IEnumerable<string> Registered(string prefix) =>
         Uninstallers(prefix).Select(one => one.Key).ToList();
@@ -1288,12 +1419,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     private void RemoveNative(LibraryEntry entry, Action<string>? onOutput)
     {
         var id = entry.Id;
-        var root = Path.GetFullPath(layout.NativePath(id));
-
-        if (Path.GetDirectoryName(root) != layout.NativeDir)
-        {
-            throw new ArgumentException($"not a plugin id: '{id}'", nameof(entry));
-        }
+        var root = layout.NativePath(id);
 
         if (!Directory.Exists(root))
         {
@@ -1331,7 +1457,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     {
         if (entry.Source == PluginSource.Byo && installer is null && entry.DemoUrl is null)
         {
-            throw new InvalidOperationException(BringYourOwn(entry, prefix));
+            throw new InvalidOperationException(Undownloadable(entry));
         }
 
         if (installer is not null && !File.Exists(installer))
@@ -1350,7 +1476,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 $"{prefix} keeps {existing.Runner}; {entry.Name} would rather have Wine {wanted}.");
         }
 
-        prefixes.Create(
+        prefixes.Prepare(
             prefix,
             existing is null && entry.Runner is { } spec
                 ? EnsureRunner(spec, onOutput, onProgress)
@@ -1385,7 +1511,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             }
         }
 
-        var staging = Path.Combine(Path.GetTempPath(), "cabinet-library");
+        var staging = Layout.Staging("library");
 
         try
         {
@@ -1394,7 +1520,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
             if (entry.Script is null)
             {
-                var result = prefixes.Install(prefix, chosen, onOutput);
+                var result = prefixes.RunInstaller(prefix, chosen, onOutput);
 
                 if (!result.Ok)
                 {
@@ -1458,7 +1584,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     {
         if (entry.Source == PluginSource.Byo && supplied is null)
         {
-            throw new InvalidOperationException(BringYourOwn(entry));
+            throw new InvalidOperationException(Undownloadable(entry));
         }
 
         if (supplied is not null && !File.Exists(supplied))
@@ -1471,7 +1597,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         if (Directory.Exists(root))
         {
             throw new InvalidOperationException(
-                $"{entry.Name} is installed already — `cabinet library remove {entry.Id}` first");
+                $"{entry.Name} is installed already — remove it first");
         }
 
         var data = entry.Data is { } relative ? layout.DataPath(relative) : null;
@@ -1483,7 +1609,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                 + "aside first");
         }
 
-        var staging = Path.Combine(Path.GetTempPath(), "cabinet-library");
+        var staging = Layout.Staging("library");
 
         try
         {
@@ -1574,31 +1700,9 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             : name;
     }
 
-    public static string Command(LibraryEntry entry, string? prefix = null) =>
-        entry.DemoUrl is not null
-            ? $"cabinet library install {entry.Id}"
-            : OwnCommand(entry, prefix);
-
-    public static string OwnCommand(LibraryEntry entry, string? prefix = null) =>
-        (entry.Source, entry.Kind) switch
-        {
-            (PluginSource.Byo, PluginKind.Native) => $"cabinet library install {entry.Id} <file>",
-            (PluginSource.Byo, _) =>
-                $"cabinet library install {entry.Id} {prefix ?? "<prefix>"} <installer.exe>",
-            _ => $"cabinet library install {entry.Id}",
-        };
-
-    public static string BringYourOwn(LibraryEntry entry, string? prefix = null) =>
-        entry.DemoUrl is not null
-            ? $"{entry.Name} offers a demo — install it with `{Command(entry, prefix)}`, or "
-              + (entry.Account is { } account
-                  ? $"log in at {account}, download your installer, then "
-                    + $"`{OwnCommand(entry, prefix)}`"
-                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`")
-            : $"{entry.Name} cannot be downloaded — "
-              + (entry.Account is { } accountPage
-                  ? $"log in at {accountPage}, download it, then `{OwnCommand(entry, prefix)}`"
-                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`");
+    private static string Undownloadable(LibraryEntry entry) =>
+        $"{entry.Name} cannot be downloaded, so it needs the file you have"
+        + (entry.Account is { } account ? $" from {account}" : "");
 
     public static string Unverifiable(string url) =>
         $"{new Uri(url).Host} publishes no checksum and changes this download with every "

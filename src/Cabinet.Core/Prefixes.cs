@@ -18,26 +18,25 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
     public const string PathsMode = "--cabinet-paths";
     public const string SessionLiveWord = "live";
 
-    public IReadOnlyList<Prefix> List()
-    {
-        if (!Directory.Exists(layout.PrefixesDir))
-        {
-            return [];
-        }
+    public IReadOnlyList<Prefix> List() => [.. Names().Select(Describe)];
 
-        return Directory.EnumerateDirectories(layout.PrefixesDir)
-            .OrderBy(path => path, StringComparer.Ordinal)
-            .Select(path => Path.GetFileName(path))
-            .Select(Describe)
-            .ToList();
-    }
+    public IReadOnlyList<string> Names() => [.. Directories().Where(Layout.IsName)];
+
+    public IReadOnlyList<string> Unnamed() => [.. Directories().Where(name => !Layout.IsName(name))];
+
+    private IEnumerable<string> Directories() =>
+        Directory.Exists(layout.PrefixesDir)
+            ? Directory.EnumerateDirectories(layout.PrefixesDir)
+                .OrderBy(path => path, StringComparer.Ordinal)
+                .Select(path => Path.GetFileName(path))
+            : [];
 
     public string RunnerOf(string name)
     {
         var marker = layout.PrefixRunnerFile(name);
 
         return File.Exists(marker)
-            ? File.ReadAllText(marker).Trim() is { Length: > 0 } recorded
+            ? File.ReadAllText(marker).Trim() is var recorded && Layout.IsName(recorded)
                 ? recorded
                 : Layout.BundledRunner
             : Layout.BundledRunner;
@@ -76,6 +75,16 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
     }
 
     public Prefix Create(string name, string? runnerName = null, Action<string>? onOutput = null)
+    {
+        if (Directory.Exists(layout.PrefixPath(name)))
+        {
+            throw new InvalidOperationException($"a prefix named {name} is already there");
+        }
+
+        return Prepare(name, runnerName, onOutput);
+    }
+
+    internal Prefix Prepare(string name, string? runnerName, Action<string>? onOutput)
     {
         var path = layout.PrefixPath(name);
         Directory.CreateDirectory(path);
@@ -152,12 +161,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public void Delete(string name, Action<string>? onOutput = null)
     {
-        var path = Path.GetFullPath(layout.PrefixPath(name));
-
-        if (Path.GetDirectoryName(path) != layout.PrefixesDir)
-        {
-            throw new ArgumentException($"not a prefix name: '{name}'", nameof(name));
-        }
+        var path = layout.PrefixPath(name);
 
         if (!Directory.Exists(path))
         {
@@ -181,9 +185,18 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             throw new FileNotFoundException($"no such installer: {full}", full);
         }
 
+        Prepare(name, null, onOutput);
+        var result = RunInstaller(name, installer, onOutput);
+        Bridge(onOutput);
+
+        return result;
+    }
+
+    internal ProcessResult RunInstaller(string name, string installer, Action<string>? onOutput)
+    {
         using var claim = Claim(name, $"run an installer in {name}");
 
-        return Wine(name, "wine", [full], onOutput);
+        return Wine(name, "wine", [Path.GetFullPath(installer)], onOutput);
     }
 
     public ProcessResult Run(
