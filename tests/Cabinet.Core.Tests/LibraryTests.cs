@@ -613,7 +613,9 @@ public class LibraryTests : IDisposable
 
         Assert.Contains(
             "confined to it", File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
-        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("reg"));
+        Assert.DoesNotContain(
+            recorder.Calls,
+            call => call.Arguments.Contains("reg") && !call.Arguments.Contains("query"));
     }
 
     [Fact]
@@ -632,7 +634,9 @@ public class LibraryTests : IDisposable
 
         Assert.DoesNotContain(
             "confined to it", File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
-        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("reg"));
+        Assert.DoesNotContain(
+            recorder.Calls,
+            call => call.Arguments.Contains("reg") && !call.Arguments.Contains("query"));
     }
 
     [Fact]

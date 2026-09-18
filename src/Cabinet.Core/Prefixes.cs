@@ -11,7 +11,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
     private readonly VirtualDesktop desktop = new(layout, runner);
     private readonly PrefixSettings settings = new(layout);
 
-    public static readonly IReadOnlyList<string> Blanked = ["WAYLAND_DISPLAY"];
+    public static readonly IReadOnlySet<string> Blanked = new HashSet<string>(["WAYLAND_DISPLAY"]);
 
     public const string JoinMode = "--cabinet-join";
     public const string SessionMode = "--cabinet-session";
@@ -188,8 +188,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public ProcessResult Run(
         string name, string command, IReadOnlyList<string> arguments,
-        Action<string>? onOutput = null, string? logTo = null) =>
-        Wine(name, command, arguments, onOutput, logTo: logTo);
+        Action<string>? onOutput = null, string? logTo = null, bool inheritStdin = false) =>
+        Wine(name, command, arguments, onOutput, logTo: logTo, inheritStdin: inheritStdin);
 
     public bool SessionLive(string name) =>
         Ask(name, SessionMode).Stdout.Contains(SessionLiveWord, StringComparison.Ordinal);
@@ -280,17 +280,20 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public ProcessResult RunJoined(
         string name, IReadOnlyList<string> arguments,
-        Action<string>? onOutput = null, string? logTo = null) =>
-        Shim(name, [JoinMode, .. arguments], onOutput, logTo);
+        Action<string>? onOutput = null, string? logTo = null, bool inheritStdin = false) =>
+        Shim(name, [JoinMode, .. arguments], onOutput, logTo, inheritStdin);
 
     private ProcessResult Shim(
-        string name, IReadOnlyList<string> arguments, Action<string>? onOutput, string? logTo) =>
+        string name, IReadOnlyList<string> arguments, Action<string>? onOutput, string? logTo,
+        bool inheritStdin = false) =>
         runner.Run(
             layout.ShimPath,
             arguments,
-            WineVariables(name, runners.Resolve(RunnerOf(name)), null),
+            SessionVariables(name, runners.Resolve(RunnerOf(name))),
             onOutput,
-            logTo: logTo);
+            logTo: logTo,
+            blankEnvironment: Blanked,
+            inheritStdin: inheritStdin);
 
     public IReadOnlyDictionary<string, string> Variables(string name)
     {
@@ -310,12 +313,14 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         IReadOnlyList<string> arguments,
         Action<string>? onOutput,
         string? dllOverrides = null,
-        string? logTo = null)
+        string? logTo = null,
+        bool inheritStdin = false)
     {
         if (dllOverrides is null && command != "wineserver" && SessionLive(prefix))
         {
             return RunJoined(
-                prefix, command == "wine" ? arguments : [command, .. arguments], onOutput, logTo);
+                prefix, command == "wine" ? arguments : [command, .. arguments], onOutput, logTo,
+                inheritStdin);
         }
 
         var selected = runners.Resolve(RunnerOf(prefix));
@@ -325,7 +330,9 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             arguments,
             WineVariables(prefix, selected, dllOverrides),
             onOutput,
-            logTo: logTo);
+            logTo: logTo,
+            blankEnvironment: Blanked,
+            inheritStdin: inheritStdin);
     }
 
     private Dictionary<string, string> WineVariables(
@@ -357,6 +364,28 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         {
             environment["WINEDLLOVERRIDES"] = dllOverrides;
         }
+
+        return environment;
+    }
+
+    private Dictionary<string, string> SessionVariables(string prefix, Runner selected)
+    {
+        var environment = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var key in settings.Variables(prefix).Keys)
+        {
+            environment[key] = "";
+        }
+
+        foreach (var (key, value) in PrefixSettings.SyncVariables(settings.Sync(prefix)))
+        {
+            environment[key] = value;
+        }
+
+        environment["WINEPREFIX"] = layout.PrefixPath(prefix);
+        environment["YABRIDGE_TEMP_DIR"] = layout.SocketDir;
+        environment["YABRIDGE_DEBUG_FILE"] = layout.RuntimeLogPath;
+        environment["WINELOADER"] = selected.Wine;
 
         return environment;
     }

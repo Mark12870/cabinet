@@ -70,6 +70,7 @@ public sealed partial class GrammarTests : IDisposable
 
         var ran = Assert.Single(cli.Runner.Ran, call => call.File == "cmd");
         Assert.Equal(["/c", "echo"], ran.Arguments);
+        Assert.True(ran.InheritStdin);
     }
 
     [Fact]

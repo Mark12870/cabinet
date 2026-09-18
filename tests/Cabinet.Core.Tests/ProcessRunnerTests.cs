@@ -73,6 +73,35 @@ public sealed class ProcessRunnerTests : IDisposable
     }
 
     [Fact]
+    public void AnExplicitBlankValueRemainsPresent()
+    {
+        var result = Subject.Run(
+            "sh", ["-c", "test \"${CABINET_BLANK+x}\" = x && test -z \"$CABINET_BLANK\""],
+            blankEnvironment: new HashSet<string> { "CABINET_BLANK" });
+
+        Assert.True(result.Ok);
+    }
+
+    [Fact]
+    public void ACapturedChildReadsEndOfFileFromStdin()
+    {
+        var result = Subject.Run("sh", ["-c", "if read value; then echo read; else echo eof; fi"]);
+
+        Assert.Equal("eof" + Environment.NewLine, result.Stdout);
+    }
+
+    [Fact]
+    public void OutputWithoutATrailingNewlineIsCollectedAndStreamed()
+    {
+        var streamed = new List<string>();
+
+        var result = Subject.Run("sh", ["-c", "printf fragment"], onOutput: streamed.Add);
+
+        Assert.Equal("fragment", result.Stdout);
+        Assert.Equal(["fragment"], streamed);
+    }
+
+    [Fact]
     public void AMeterDrawnWithCarriageReturnsArrivesAsOneLinePerUpdate()
     {
         var lines = new List<string>();

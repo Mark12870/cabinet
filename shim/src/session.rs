@@ -1,9 +1,12 @@
 use crate::x11;
+use std::collections::HashSet;
 use std::ffi::{OsStr, OsString};
 use std::fs::File;
 use std::io::{self, Read, Write};
+use std::os::fd::OwnedFd;
 use std::os::raw::{c_int, c_long, c_short, c_void};
 use std::os::unix::ffi::{OsStrExt, OsStringExt};
+use std::os::unix::fs::MetadataExt;
 use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::os::unix::process::{CommandExt, ExitStatusExt};
@@ -22,6 +25,7 @@ macro_rules! note {
 }
 
 const IDLE_GRACE: Duration = Duration::from_secs(10);
+const HOST_GRACE: Duration = Duration::from_secs(3);
 const START_TIMEOUT: Duration = Duration::from_secs(30);
 const TICK: Duration = Duration::from_millis(20);
 const ATTEMPTS: u32 = 3;
@@ -212,7 +216,7 @@ fn send_job(stream: &UnixStream, payload: &[u8], fds: [RawFd; 3]) -> io::Result<
     Ok(())
 }
 
-fn receive_job(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Vec<RawFd>)> {
+fn receive_job(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Vec<OwnedFd>)> {
     let mut buffer = vec![0u8; JOB_LIMIT];
     let mut control = [0u8; CONTROL_SPACE];
     let iov = IoVec {
@@ -244,7 +248,7 @@ fn receive_job(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Vec<RawFd>)> {
                 let count = ((*header).len - CMSG_HEADER) / std::mem::size_of::<c_int>();
                 let fds = control.as_ptr().add(CMSG_HEADER).cast::<c_int>();
                 for slot in 0..count {
-                    passed.push(fds.add(slot).read());
+                    passed.push(OwnedFd::from_raw_fd(fds.add(slot).read()));
                 }
             }
         }
@@ -301,26 +305,28 @@ where
             }
         };
 
-        if let Err(error) = send_job(&stream, &encode(argv), fds) {
-            last = error;
-            continue;
-        }
+        send_job(&stream, &encode(argv), fds)?;
 
-        match read_frame(&mut stream) {
-            Ok(payload) if payload.len() == 4 => {
-                return Ok(i32::from_le_bytes(
-                    payload[..4].try_into().unwrap_or_default(),
-                ))
-            }
-            Ok(_) => last = io::Error::other("the wine session sent a malformed status"),
-            Err(error) => last = error,
-        }
+        let payload = read_frame(&mut stream)?;
+        return if payload.len() == 4 {
+            Ok(i32::from_le_bytes(
+                payload[..4].try_into().unwrap_or_default(),
+            ))
+        } else {
+            Err(io::Error::other("the wine session sent a malformed status"))
+        };
     }
 
     Err(last)
 }
 
-pub fn join(socket: &Path, argv: &[OsString]) -> io::Result<Option<i32>> {
+pub fn join(socket: &Path, lock: &Path, argv: &[OsString]) -> io::Result<Option<i32>> {
+    let file = match File::create(lock) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let _guard = Lock::hold(file.as_raw_fd())?;
     let mut stream = match UnixStream::connect(socket) {
         Ok(stream) => stream,
         Err(error)
@@ -365,10 +371,6 @@ fn connect_or_start<S>(socket: &Path, lock: &Path, start: &S) -> io::Result<Unix
 where
     S: Fn() -> io::Result<std::process::Child>,
 {
-    if let Ok(stream) = UnixStream::connect(socket) {
-        return Ok(stream);
-    }
-
     let file = File::create(lock)?;
     let _guard = Lock::hold(file.as_raw_fd())?;
 
@@ -430,6 +432,19 @@ pub fn run_broker(args: &[OsString]) -> i32 {
     let socket = PathBuf::from(socket);
     let lock = socket.with_extension("lock");
     let record = socket.with_extension("session");
+    let lock_file = match File::options()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(&lock)
+    {
+        Ok(file) => file,
+        Err(error) => {
+            note!("cabinet-wine: cannot open {lock:?}: {error}");
+            return 127;
+        }
+    };
 
     divert_diagnostics(&socket.with_extension("log"));
 
@@ -448,6 +463,7 @@ pub fn run_broker(args: &[OsString]) -> i32 {
             return 127;
         }
     };
+    let socket_identity = file_identity(&socket);
 
     if listener.set_nonblocking(true).is_err() {
         note!("cabinet-wine: cannot poll {socket:?}");
@@ -456,40 +472,53 @@ pub fn run_broker(args: &[OsString]) -> i32 {
 
     let prefix = std::env::var_os("WINEPREFIX");
     remember_session(&record, prefix.as_deref(), runner);
+    let record_identity = file_identity(&record);
     let watcher = x11::Watcher::start();
     let live = Arc::new(AtomicUsize::new(0));
+    let activity = Arc::new(Mutex::new(Instant::now()));
     let owned = Arc::new(Mutex::new(Vec::new()));
-    let mut idle = Some(Instant::now());
+    let variables = Arc::new(Mutex::new(HashSet::new()));
 
     loop {
         match listener.accept() {
-            Ok((stream, _)) => {
-                idle = None;
-                live.fetch_add(1, Ordering::SeqCst);
-                let runner = runner.clone();
-                let prefix = prefix.clone();
-                let counted = Job(Arc::clone(&live));
-                let owned = Arc::clone(&owned);
-                thread::spawn(move || {
-                    let _counted = counted;
-                    serve(stream, &runner, prefix.as_deref(), &owned);
-                });
-            }
+            Ok((stream, _)) => admit(
+                stream,
+                runner,
+                prefix.as_deref(),
+                &live,
+                &activity,
+                &owned,
+                &variables,
+            ),
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
                 reap_orphans(&owned);
 
-                if live.load(Ordering::SeqCst) > 0 {
-                    idle = None;
-                } else {
-                    match idle {
-                        None => idle = Some(Instant::now()),
-                        Some(since) if since.elapsed() >= IDLE_GRACE => {
-                            if retire(&lock, &socket, &record, &live, end_descendants) {
-                                break;
-                            }
-                            idle = None;
-                        }
-                        Some(_) => {}
+                let idle = activity
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .elapsed();
+
+                if idle >= IDLE_GRACE {
+                    match retire(
+                        &lock_file,
+                        (&socket, socket_identity),
+                        (&record, record_identity),
+                        &live,
+                        &activity,
+                        || listener.accept().map(|(stream, _)| stream),
+                        end_descendants,
+                    ) {
+                        Retirement::Continue => {}
+                        Retirement::Admit(stream) => admit(
+                            stream,
+                            runner,
+                            prefix.as_deref(),
+                            &live,
+                            &activity,
+                            &owned,
+                            &variables,
+                        ),
+                        Retirement::Retired => break,
                     }
                 }
 
@@ -534,6 +563,33 @@ fn remember_session(record: &Path, prefix: Option<&OsStr>, runner: &OsStr) {
     let _ = std::fs::write(record, written);
 }
 
+fn admit(
+    stream: UnixStream,
+    runner: &OsStr,
+    prefix: Option<&OsStr>,
+    live: &Arc<AtomicUsize>,
+    activity: &Arc<Mutex<Instant>>,
+    owned: &Arc<Mutex<Vec<i32>>>,
+    variables: &Arc<Mutex<HashSet<String>>>,
+) {
+    live.fetch_add(1, Ordering::SeqCst);
+    let runner = runner.to_os_string();
+    let prefix = prefix.map(OsStr::to_os_string);
+    let counted = Job::new(Arc::clone(live), Arc::clone(activity));
+    let owned = Arc::clone(owned);
+    let variables = Arc::clone(variables);
+    thread::spawn(move || {
+        serve(
+            stream,
+            &runner,
+            prefix.as_deref(),
+            &owned,
+            &variables,
+            counted,
+        );
+    });
+}
+
 fn end_descendants() {
     let session = unsafe { getpid() };
     let deadline = Instant::now() + IDLE_GRACE;
@@ -574,40 +630,109 @@ fn descendants(processes: &[ProcessInfo], root: i32) -> Vec<i32> {
     found
 }
 
-struct Job(Arc<AtomicUsize>);
+struct Job {
+    live: Arc<AtomicUsize>,
+    activity: Arc<Mutex<Instant>>,
+    admitted: bool,
+}
+
+impl Job {
+    fn new(live: Arc<AtomicUsize>, activity: Arc<Mutex<Instant>>) -> Self {
+        Self {
+            live,
+            activity,
+            admitted: false,
+        }
+    }
+
+    fn admit(&mut self) {
+        self.admitted = true;
+        *self.activity.lock().unwrap_or_else(PoisonError::into_inner) = Instant::now();
+    }
+}
 
 impl Drop for Job {
     fn drop(&mut self) {
-        self.0.fetch_sub(1, Ordering::SeqCst);
+        if self.admitted {
+            *self.activity.lock().unwrap_or_else(PoisonError::into_inner) = Instant::now();
+        }
+        self.live.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
-fn retire<E: FnOnce()>(
-    lock: &Path,
-    socket: &Path,
-    record: &Path,
+enum Retirement {
+    Continue,
+    Admit(UnixStream),
+    Retired,
+}
+
+fn retire<A, E>(
+    lock: &File,
+    socket: (&Path, Option<(u64, u64)>),
+    record: (&Path, Option<(u64, u64)>),
     live: &AtomicUsize,
+    activity: &Mutex<Instant>,
+    accept: A,
     end: E,
-) -> bool {
-    let Ok(file) = File::create(lock) else {
-        return false;
-    };
-    let Ok(_guard) = Lock::hold(file.as_raw_fd()) else {
-        return false;
+) -> Retirement
+where
+    A: FnOnce() -> io::Result<UnixStream>,
+    E: FnOnce(),
+{
+    let Ok(_guard) = Lock::hold(lock.as_raw_fd()) else {
+        return Retirement::Continue;
     };
 
-    if live.load(Ordering::SeqCst) > 0 {
-        return false;
+    if live.load(Ordering::SeqCst) > 0
+        || activity
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .elapsed()
+            < IDLE_GRACE
+    {
+        return Retirement::Continue;
     }
 
-    let _ = std::fs::remove_file(socket);
-    let _ = std::fs::remove_file(record);
-    end();
+    match accept() {
+        Ok(stream) => return Retirement::Admit(stream),
+        Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+        Err(error) => {
+            note!("cabinet-wine: cannot make the final session check: {error}");
+            return Retirement::Continue;
+        }
+    }
 
-    true
+    remove_if_unchanged(socket.0, socket.1);
+    end();
+    remove_if_unchanged(record.0, record.1);
+
+    Retirement::Retired
 }
 
-fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: &Mutex<Vec<i32>>) {
+fn file_identity(path: &Path) -> Option<(u64, u64)> {
+    std::fs::symlink_metadata(path)
+        .ok()
+        .map(|metadata| (metadata.dev(), metadata.ino()))
+}
+
+fn remove_if_unchanged(path: &Path, expected: Option<(u64, u64)>) {
+    let Some(expected) = expected else {
+        return;
+    };
+
+    if file_identity(path) == Some(expected) {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
+fn serve(
+    mut stream: UnixStream,
+    runner: &OsStr,
+    prefix: Option<&OsStr>,
+    owned: &Mutex<Vec<i32>>,
+    variables: &Mutex<HashSet<String>>,
+    mut counted: Job,
+) {
     let Ok((payload, passed)) = receive_job(&mut stream) else {
         return;
     };
@@ -616,12 +741,20 @@ fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: 
         return;
     };
 
-    let mirror = passed.get(2).copied().and_then(Spare::of);
+    if passed.len() != 3 {
+        let _ = write_frame(&mut stream, &127i32.to_le_bytes());
+        return;
+    }
 
-    let status = match start_owned(owned, runner, &argv, passed, prefix) {
+    counted.admit();
+    let mirror = passed.get(2).and_then(|fd| Spare::of(fd.as_raw_fd()));
+
+    let started = start_owned(owned, runner, &argv, passed, prefix, variables);
+    let status = match started {
         Ok(mut child) => {
+            drop(mirror);
             let group = child.id() as i32;
-            let status = supervise(&mut child, group, argv.first(), &mut stream);
+            let status = supervise(&mut child, group, &argv, &mut stream);
             forget(owned, group);
             status
         }
@@ -637,8 +770,6 @@ fn serve(mut stream: UnixStream, runner: &OsStr, prefix: Option<&OsStr>, owned: 
         }
     };
 
-    drop(mirror);
-
     let _ = write_frame(&mut stream, &status.to_le_bytes());
 }
 
@@ -646,7 +777,7 @@ struct Spare(RawFd);
 
 impl Spare {
     fn of(fd: RawFd) -> Option<Self> {
-        let copy = unsafe { dup(fd) };
+        let copy = unsafe { fcntl(fd, F_DUPFD_CLOEXEC, 0) };
 
         (copy != -1).then_some(Self(copy))
     }
@@ -669,11 +800,12 @@ fn start_owned(
     owned: &Mutex<Vec<i32>>,
     runner: &OsStr,
     argv: &[OsString],
-    passed: Vec<RawFd>,
+    passed: Vec<OwnedFd>,
     prefix: Option<&OsStr>,
+    variables: &Mutex<HashSet<String>>,
 ) -> io::Result<std::process::Child> {
     let mut held = owned.lock().unwrap_or_else(PoisonError::into_inner);
-    let child = spawn(runner, argv, passed, prefix)?;
+    let child = spawn(runner, argv, passed, prefix, variables)?;
     held.push(child.id() as i32);
 
     Ok(child)
@@ -682,22 +814,33 @@ fn start_owned(
 fn spawn(
     runner: &OsStr,
     argv: &[OsString],
-    passed: Vec<RawFd>,
+    passed: Vec<OwnedFd>,
     prefix: Option<&OsStr>,
+    variables: &Mutex<HashSet<String>>,
 ) -> io::Result<std::process::Child> {
     let mut command = Command::new(runner);
     command.args(argv);
     command.env_remove("WINELOADER");
-    command.envs(prefix_environment(prefix, |path| {
-        std::fs::read_to_string(path).ok()
-    }));
+    let environment = prefix_environment(prefix, |path| std::fs::read_to_string(path).ok());
+    let mut controlled = variables.lock().unwrap_or_else(PoisonError::into_inner);
+    controlled.extend(environment.iter().map(|(key, _)| key.clone()));
+    for key in controlled.iter() {
+        command.env_remove(key);
+    }
+    drop(controlled);
 
-    if let [input, output, error] = passed[..] {
-        unsafe {
-            command.stdin(Stdio::from_raw_fd(input));
-            command.stdout(Stdio::from_raw_fd(output));
-            command.stderr(Stdio::from_raw_fd(error));
-        }
+    for (key, value) in environment {
+        match value {
+            Some(value) => command.env(key, value),
+            None => command.env_remove(key),
+        };
+    }
+
+    if passed.len() == 3 {
+        let mut passed = passed.into_iter();
+        command.stdin(Stdio::from(passed.next().unwrap()));
+        command.stdout(Stdio::from(passed.next().unwrap()));
+        command.stderr(Stdio::from(passed.next().unwrap()));
     }
 
     let session = unsafe { getpid() };
@@ -723,7 +866,7 @@ fn spawn(
     command.spawn()
 }
 
-fn prefix_environment<R>(prefix: Option<&OsStr>, read: R) -> Vec<(String, String)>
+fn prefix_environment<R>(prefix: Option<&OsStr>, read: R) -> Vec<(String, Option<String>)>
 where
     R: Fn(&Path) -> Option<String>,
 {
@@ -743,7 +886,10 @@ where
             if key.is_empty() || crate::CABINET_OWNED.contains(&key) {
                 return None;
             }
-            Some((key.to_string(), value.to_string()))
+            Some((
+                key.to_string(),
+                (!value.is_empty()).then(|| value.to_string()),
+            ))
         })
         .collect()
 }
@@ -751,24 +897,37 @@ where
 fn supervise(
     child: &mut std::process::Child,
     group: i32,
-    host: Option<&OsString>,
+    argv: &[OsString],
     stream: &mut UnixStream,
 ) -> i32 {
-    let expected = host.and_then(|host| expected_process_name(host));
+    let expected = argv.first().and_then(|host| expected_process_name(host));
+    let yabridge_host = expected
+        .as_deref()
+        .is_some_and(|name| name.starts_with(YABRIDGE_HOST));
+    let identity = yabridge_host.then(|| argv.get(3)).flatten();
     let mut seen: Option<(ProcessInfo, Option<PidFd>)> = None;
+    let mut launcher = None;
+    let mut launcher_ended = None;
 
     loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                terminate_tree(group);
-                return exit_code(status);
-            }
-            Ok(None) => {}
-            Err(error) => {
-                note!("cabinet-wine: cannot check Wine: {error}");
-                terminate_tree(group);
-                let _ = child.wait();
-                return 127;
+        if launcher.is_none() {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    launcher = Some(exit_code(status));
+                    launcher_ended = Some(Instant::now());
+
+                    if expected.is_none() {
+                        terminate_tree(group);
+                        return launcher.unwrap_or(127);
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    note!("cabinet-wine: cannot check Wine: {error}");
+                    terminate_tree(group);
+                    let _ = child.wait();
+                    return 127;
+                }
             }
         }
 
@@ -782,12 +941,21 @@ fn supervise(
             let processes = process_snapshot();
 
             if let Some(observed) = seen.as_ref() {
-                if !alive(observed, &processes) {
+                if !alive(observed, &processes, yabridge_host) {
                     terminate_tree(group);
-                    let status = child.wait();
-                    return status.map(exit_code).unwrap_or(127);
+                    return match launcher {
+                        Some(status) => status,
+                        None => child.wait().map(exit_code).unwrap_or(127),
+                    };
                 }
-            } else if let Some(found) = find_host(&processes, group, expected) {
+            } else if let Some(found) = find_host(
+                &processes,
+                group,
+                unsafe { getpid() },
+                expected,
+                identity.map(OsString::as_os_str),
+                |pid| std::fs::read(format!("/proc/{pid}/cmdline")).ok(),
+            ) {
                 if found.state == b'Z' {
                     terminate_tree(group);
                     let status = child.wait();
@@ -795,6 +963,9 @@ fn supervise(
                 }
 
                 seen = Some((found.clone(), PidFd::open(&found)));
+            } else if launcher_ended.is_some_and(|ended| ended.elapsed() >= HOST_GRACE) {
+                terminate_tree(group);
+                return launcher.unwrap_or(127);
             }
         }
 
@@ -802,17 +973,17 @@ fn supervise(
     }
 }
 
-fn alive(observed: &(ProcessInfo, Option<PidFd>), processes: &[ProcessInfo]) -> bool {
+fn alive(
+    observed: &(ProcessInfo, Option<PidFd>),
+    processes: &[ProcessInfo],
+    yabridge_host: bool,
+) -> bool {
     let (host, pidfd) = observed;
-    let current = processes.iter().find(|process| {
-        process.pid == host.pid
-            && process.start_time == host.start_time
-            && process.comm == host.comm
-    });
+    let current = processes
+        .iter()
+        .find(|process| process.pid == host.pid && process.start_time == host.start_time);
 
-    if current
-        .is_some_and(|process| process.state == b'Z' && process.comm.starts_with(YABRIDGE_HOST))
-    {
+    if yabridge_host && current.is_some_and(|process| process.state == b'Z') {
         return false;
     }
 
@@ -863,6 +1034,10 @@ pub fn exit_code(status: std::process::ExitStatus) -> i32 {
 
 pub fn expected_process_name(host: &OsStr) -> Option<String> {
     let mut name = Path::new(host).file_name()?.to_string_lossy().into_owned();
+
+    if name.starts_with('-') {
+        return None;
+    }
 
     if name.ends_with(".so") {
         name.truncate(name.len() - 3);
@@ -922,10 +1097,35 @@ fn process_info(pid: i32) -> Option<ProcessInfo> {
     parse_process_stat(&std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?)
 }
 
-pub fn find_host(processes: &[ProcessInfo], group: i32, expected: &str) -> Option<ProcessInfo> {
+fn find_host<R>(
+    processes: &[ProcessInfo],
+    group: i32,
+    session: i32,
+    expected: &str,
+    identity: Option<&OsStr>,
+    read_cmdline: R,
+) -> Option<ProcessInfo>
+where
+    R: Fn(i32) -> Option<Vec<u8>>,
+{
     processes
         .iter()
-        .find(|process| process.group == group && process.comm == expected)
+        .find(|process| {
+            if process.group == group && process.comm == expected {
+                return true;
+            }
+
+            let Some(identity) = identity else {
+                return false;
+            };
+
+            (process.group == group || process.parent == session)
+                && read_cmdline(process.pid).is_some_and(|cmdline| {
+                    cmdline
+                        .split(|byte| *byte == 0)
+                        .any(|argument| argument == identity.as_bytes())
+                })
+        })
         .cloned()
 }
 
@@ -1019,6 +1219,7 @@ const SOL_SOCKET: c_int = 1;
 const SCM_RIGHTS: c_int = 1;
 const MSG_CMSG_CLOEXEC: c_int = 0x4000_0000;
 const F_GETFD: c_int = 1;
+const F_DUPFD_CLOEXEC: c_int = 1030;
 const CMSG_HEADER: usize = 16;
 const CONTROL_LEN: usize = CMSG_HEADER + 3 * 4;
 const CONTROL_SPACE: usize = CMSG_HEADER + 16;
@@ -1057,7 +1258,6 @@ struct PollFd {
 
 extern "C" {
     fn close(fd: c_int) -> c_int;
-    fn dup(fd: c_int) -> c_int;
     fn dup2(old: c_int, new: c_int) -> c_int;
     fn flock(fd: c_int, operation: c_int) -> c_int;
     fn getpid() -> i32;
@@ -1113,6 +1313,7 @@ mod tests {
             expected_process_name(OsStr::new("cmd")),
             Some("cmd.exe".to_string())
         );
+        assert_eq!(expected_process_name(OsStr::new("--version")), None);
     }
 
     #[test]
@@ -1138,14 +1339,52 @@ mod tests {
         ];
 
         assert_eq!(
-            find_host(&processes, 11, "yabridge-host.e").unwrap().pid,
+            find_host(&processes, 11, 9, "yabridge-host.e", None, |_| None)
+                .unwrap()
+                .pid,
             12
         );
         assert_eq!(
-            find_host(&processes, 20, "yabridge-host.e").unwrap().pid,
+            find_host(&processes, 20, 9, "yabridge-host.e", None, |_| None)
+                .unwrap()
+                .pid,
             13
         );
-        assert_eq!(find_host(&processes, 30, "yabridge-host.e"), None);
+        assert_eq!(
+            find_host(&processes, 30, 9, "yabridge-host.e", None, |_| None),
+            None
+        );
+    }
+
+    #[test]
+    fn a_reparented_wine_process_is_owned_by_its_yabridge_connection() {
+        let processes = vec![
+            grouped(11, 9, 40, b'S', "wine"),
+            grouped(12, 9, 40, b'S', "wine"),
+            grouped(13, 8, 50, b'S', "wine"),
+        ];
+        let identity = OsStr::new("/run/user/1000/yabridge/c/yabridge-Sitala-unique");
+        let cmdline = |pid| {
+            let connection = match pid {
+                11 | 13 => identity.as_bytes(),
+                _ => b"/run/user/1000/yabridge/c/yabridge-Sitala-other",
+            };
+            Some([b"wine\0".as_slice(), b"host.exe\0", connection, b"\0"].concat())
+        };
+
+        assert_eq!(
+            find_host(
+                &processes,
+                40,
+                9,
+                "yabridge-host.e",
+                Some(identity),
+                cmdline
+            )
+            .unwrap()
+            .pid,
+            11
+        );
     }
 
     #[test]
@@ -1161,13 +1400,9 @@ mod tests {
 
         assert_eq!(decode(&payload), Some(argv));
         assert_eq!(passed.len(), 3);
-        assert!(passed.iter().all(|fd| *fd >= 0 && *fd != spare));
-
-        for fd in passed {
-            unsafe {
-                close(fd);
-            }
-        }
+        assert!(passed
+            .iter()
+            .all(|fd| fd.as_raw_fd() >= 0 && fd.as_raw_fd() != spare));
 
         drop(file);
     }
@@ -1207,6 +1442,7 @@ mod tests {
                 &argv,
                 Vec::new(),
                 Some(prefix.as_os_str()),
+                &Mutex::new(HashSet::new()),
             )
             .unwrap();
             assert!(child.wait().unwrap().success());
@@ -1225,8 +1461,16 @@ mod tests {
         let starting = {
             let owned = Arc::clone(&owned);
             thread::spawn(move || {
-                let mut child =
-                    start_owned(&owned, OsStr::new("/bin/sh"), &argv, Vec::new(), None).unwrap();
+                let variables = Mutex::new(HashSet::new());
+                let mut child = start_owned(
+                    &owned,
+                    OsStr::new("/bin/sh"),
+                    &argv,
+                    Vec::new(),
+                    None,
+                    &variables,
+                )
+                .unwrap();
                 (
                     child.id() as i32,
                     child.wait().map(exit_code).unwrap_or(127),
@@ -1259,11 +1503,55 @@ mod tests {
         assert_eq!(
             prefix_environment(Some(OsStr::new("/prefix")), |path: &Path| {
                 (path.file_name() == Some(OsStr::new(crate::ENV_MARKER))).then(|| {
-                    "\n# a note\nnonsense\n=orphan\nKEEP=1\nWINEPREFIX=/elsewhere\n".to_string()
+                    "\n# a note\nnonsense\n=orphan\nKEEP=1\nGONE=\nWINEPREFIX=/elsewhere\n"
+                        .to_string()
                 })
             }),
-            vec![("KEEP".to_string(), "1".to_string())]
+            vec![
+                ("KEEP".to_string(), Some("1".to_string())),
+                ("GONE".to_string(), None),
+            ]
         );
+    }
+
+    #[test]
+    fn a_probe_does_not_restart_the_idle_period() {
+        let live = Arc::new(AtomicUsize::new(1));
+        let activity = Arc::new(Mutex::new(Instant::now() - IDLE_GRACE));
+        let before = *activity.lock().unwrap();
+
+        drop(Job::new(live, Arc::clone(&activity)));
+
+        assert_eq!(*activity.lock().unwrap(), before);
+    }
+
+    #[test]
+    fn a_dispatched_job_is_not_submitted_again_when_its_status_is_lost() {
+        let directory = std::env::temp_dir().join(format!(
+            "cabinet-no-replay-{}-{:?}",
+            std::process::id(),
+            thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let socket = directory.join("session.sock");
+        let lock = directory.join("session.lock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let serving = thread::spawn(move || {
+            let (mut first, _) = listener.accept().unwrap();
+            let _ = receive_job(&mut first).unwrap();
+            drop(first);
+            thread::sleep(Duration::from_millis(100));
+            listener.set_nonblocking(true).unwrap();
+            listener.accept().is_ok()
+        });
+
+        let result = submit(&socket, &lock, &[OsString::from("one")], || {
+            Err(io::Error::other("must not start"))
+        });
+
+        assert!(result.is_err());
+        assert!(!serving.join().unwrap());
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     fn outliving(comm: &str) -> ((ProcessInfo, Option<PidFd>), ProcessInfo) {
@@ -1285,15 +1573,22 @@ mod tests {
     fn a_yabridge_host_whose_main_thread_died_is_dead_though_its_other_threads_run() {
         let (observed, dead_leader) = outliving("yabridge-host.e");
 
-        assert!(alive(&observed, std::slice::from_ref(&observed.0)));
-        assert!(!alive(&observed, &[dead_leader]));
+        assert!(alive(&observed, std::slice::from_ref(&observed.0), true));
+        assert!(!alive(&observed, &[dead_leader], true));
+    }
+
+    #[test]
+    fn a_reparented_yabridge_host_whose_main_thread_died_is_dead() {
+        let (observed, dead_leader) = outliving("wine");
+
+        assert!(!alive(&observed, &[dead_leader], true));
     }
 
     #[test]
     fn any_other_program_may_outlive_its_main_thread() {
         let (observed, dead_leader) = outliving("cmd.exe");
 
-        assert!(alive(&observed, &[dead_leader]));
+        assert!(alive(&observed, &[dead_leader], false));
     }
 
     #[test]
@@ -1342,11 +1637,63 @@ mod tests {
         supervise(
             &mut child,
             group,
-            Some(&OsString::from("yabridge-host.exe.so")),
+            &[OsString::from("yabridge-host.exe.so")],
             &mut session,
         );
 
         assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn a_job_outlives_its_launcher_while_its_yabridge_host_runs() {
+        let directory = std::env::temp_dir().join(format!(
+            "cabinet-host-lifetime-{}-{:?}",
+            std::process::id(),
+            thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let ready = directory.join("ready");
+        let release = directory.join("release");
+        let script = format!(
+            "import ctypes, os, time\n\
+             pid = os.fork()\n\
+             if pid: raise SystemExit(0)\n\
+             ctypes.CDLL(None).prctl(15, b'yabridge-host.e', 0, 0, 0)\n\
+             open({ready:?}, 'w').close()\n\
+             while not os.path.exists({release:?}): time.sleep(0.02)\n",
+        );
+        let mut child = Command::new("python3")
+            .args(["-c", &script])
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let group = child.id() as i32;
+        let (_plugin, mut session) = UnixStream::pair().unwrap();
+        let (sent, received) = std::sync::mpsc::channel();
+        let supervising = thread::spawn(move || {
+            sent.send(supervise(
+                &mut child,
+                group,
+                &[OsString::from("yabridge-host.exe.so")],
+                &mut session,
+            ))
+            .unwrap();
+        });
+        let deadline = Instant::now() + Duration::from_secs(5);
+
+        while !ready.exists() && Instant::now() < deadline {
+            thread::sleep(TICK);
+        }
+
+        assert!(ready.exists());
+        assert!(matches!(
+            received.recv_timeout(Duration::from_millis(200)),
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout)
+        ));
+        std::fs::write(&release, "").unwrap();
+        assert_eq!(received.recv_timeout(Duration::from_secs(5)).unwrap(), 0);
+        supervising.join().unwrap();
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
@@ -1388,19 +1735,136 @@ mod tests {
             "prefix /prefixes/recorded\nrunner /runners/soda/bin/wine\n"
         );
 
+        let lock = File::create(lock_path(&directory, &name)).unwrap();
+        let activity = Mutex::new(Instant::now() - IDLE_GRACE);
         let retired = retire(
-            &lock_path(&directory, &name),
-            &socket,
-            &record,
+            &lock,
+            (&socket, file_identity(&socket)),
+            (&record, file_identity(&record)),
             &AtomicUsize::new(0),
+            &activity,
+            || Err(io::Error::from(io::ErrorKind::WouldBlock)),
             || {},
         );
 
-        assert!(retired);
+        assert!(matches!(retired, Retirement::Retired));
         assert!(!record.exists());
         assert!(!socket.exists());
 
         std::fs::remove_dir_all(&directory).unwrap();
+    }
+
+    #[test]
+    fn a_queued_connection_prevents_session_retirement() {
+        let directory = std::env::temp_dir().join(format!(
+            "cabinet-queued-session-{}-{:?}",
+            std::process::id(),
+            thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let socket = directory.join("session.sock");
+        let record = directory.join("session.record");
+        let lock = File::create(directory.join("session.lock")).unwrap();
+        let listener = UnixListener::bind(&socket).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        std::fs::write(&record, "session").unwrap();
+        let socket_identity = file_identity(&socket);
+        let record_identity = file_identity(&record);
+        let activity = Mutex::new(Instant::now() - IDLE_GRACE);
+        let _client = UnixStream::connect(&socket).unwrap();
+        let ended = AtomicUsize::new(0);
+
+        let retired = retire(
+            &lock,
+            (&socket, socket_identity),
+            (&record, record_identity),
+            &AtomicUsize::new(0),
+            &activity,
+            || listener.accept().map(|(stream, _)| stream),
+            || {
+                ended.store(1, Ordering::SeqCst);
+            },
+        );
+
+        assert!(matches!(retired, Retirement::Admit(_)));
+        assert_eq!(ended.load(Ordering::SeqCst), 0);
+        assert!(socket.exists());
+        assert!(record.exists());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_session_retires_when_its_directory_has_disappeared() {
+        let directory = std::env::temp_dir().join(format!(
+            "cabinet-missing-session-{}-{:?}",
+            std::process::id(),
+            thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let socket = directory.join("session.sock");
+        let record = directory.join("session.record");
+        let lock = File::create(directory.join("session.lock")).unwrap();
+        std::fs::write(&socket, "").unwrap();
+        std::fs::write(&record, "").unwrap();
+        let socket_identity = file_identity(&socket);
+        let record_identity = file_identity(&record);
+        std::fs::remove_dir_all(&directory).unwrap();
+        let ended = AtomicUsize::new(0);
+        let activity = Mutex::new(Instant::now() - IDLE_GRACE);
+
+        let retired = retire(
+            &lock,
+            (&socket, socket_identity),
+            (&record, record_identity),
+            &AtomicUsize::new(0),
+            &activity,
+            || Err(io::Error::from(io::ErrorKind::WouldBlock)),
+            || {
+                ended.store(1, Ordering::SeqCst);
+            },
+        );
+
+        assert!(matches!(retired, Retirement::Retired));
+        assert_eq!(ended.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn an_old_session_never_removes_replacement_files() {
+        let directory = std::env::temp_dir().join(format!(
+            "cabinet-replaced-session-{}-{:?}",
+            std::process::id(),
+            thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let socket = directory.join("session.sock");
+        let record = directory.join("session.record");
+        let lock = File::create(directory.join("session.lock")).unwrap();
+        std::fs::write(&socket, "old").unwrap();
+        std::fs::write(&record, "old").unwrap();
+        let old_socket = file_identity(&socket);
+        let old_record = file_identity(&record);
+        std::fs::remove_file(&socket).unwrap();
+        std::fs::remove_file(&record).unwrap();
+        std::fs::write(&socket, "new").unwrap();
+        std::fs::write(&record, "new").unwrap();
+        let activity = Mutex::new(Instant::now() - IDLE_GRACE);
+
+        assert!(matches!(
+            retire(
+                &lock,
+                (&socket, old_socket),
+                (&record, old_record),
+                &AtomicUsize::new(0),
+                &activity,
+                || Err(io::Error::from(io::ErrorKind::WouldBlock)),
+                || {},
+            ),
+            Retirement::Retired
+        ));
+        assert_eq!(std::fs::read_to_string(&socket).unwrap(), "new");
+        assert_eq!(std::fs::read_to_string(&record).unwrap(), "new");
+
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]
@@ -1411,8 +1875,18 @@ mod tests {
         let fd = stderr.as_raw_fd();
         send_job(&client, &encode(&[OsString::from("exit")]), [fd, fd, fd]).unwrap();
         let owned = Mutex::new(Vec::new());
+        let variables = Mutex::new(HashSet::new());
+        let live = Arc::new(AtomicUsize::new(1));
+        let activity = Arc::new(Mutex::new(Instant::now()));
 
-        serve(server, OsStr::new("/nonexistent/bin/wine"), None, &owned);
+        serve(
+            server,
+            OsStr::new("/nonexistent/bin/wine"),
+            None,
+            &owned,
+            &variables,
+            Job::new(live, activity),
+        );
 
         let mut client = client;
         assert_eq!(read_frame(&mut client).unwrap(), 127i32.to_le_bytes());

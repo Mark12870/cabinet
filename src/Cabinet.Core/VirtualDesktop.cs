@@ -11,7 +11,7 @@ public sealed class VirtualDesktop(Layout layout, IProcessRunner runner)
 
     public bool EnabledIn(string prefix)
     {
-        var registry = new PrefixRegistry(layout);
+        var registry = new PrefixRegistry(layout, runner);
 
         return registry.Lookup(prefix, ExplorerPath, "Desktop") is { Length: > 0 } named
             && registry.Lookup(prefix, DesktopsPath, named) is { Length: > 0 };
@@ -39,11 +39,12 @@ public sealed class VirtualDesktop(Layout layout, IProcessRunner runner)
         using var claim = new Prefixes(layout, runner).Claim(
             prefix, $"take {prefix}'s own desktop away");
 
-        var registry = new PrefixRegistry(layout);
+        var registry = new PrefixRegistry(layout, runner);
         var named = registry.Lookup(prefix, ExplorerPath, "Desktop");
         var desktopName = named is { Length: > 0 } ? named : DesktopName;
+        var configured = registry.Lookup(prefix, DesktopsPath, desktopName) is { Length: > 0 };
 
-        if (registry.Lookup(prefix, DesktopsPath, desktopName) is { Length: > 0 })
+        if (configured)
         {
             Ensure(
                 Reg(prefix, ["delete", DesktopsKey, "/v", desktopName, "/f"]),

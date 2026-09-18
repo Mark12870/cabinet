@@ -174,6 +174,45 @@ public sealed class PrefixRegistryTests : IDisposable
         Assert.Null(Subject.Lookup("valhalla", @"Software\Wine\Explorer\Desktops", "Other"));
     }
 
+    [Fact]
+    public void ALiveSessionIsQueriedInsteadOfAStaleRegistryFile()
+    {
+        User("[Software\\Wine\\Explorer]\n\"Desktop\"=\"Old\"\n");
+        var runner = new RecordingRunner(
+            outputs: args => args is [Prefixes.JoinMode, "reg", "query", ..]
+                ? "    Desktop    REG_SZ    Current\n"
+                : "",
+            dawSession: true);
+
+        var value = new PrefixRegistry(Layout, runner).Lookup(
+            "valhalla", @"Software\Wine\Explorer", "Desktop");
+
+        Assert.Equal("Current", value);
+        Assert.Contains(
+            runner.Ran,
+            call => call.Arguments is
+                [Prefixes.JoinMode, "reg", "query", @"HKCU\Software\Wine\Explorer", "/v", "Desktop"]);
+    }
+
+    [Fact]
+    public void LiveUninstallEntriesAreReadFromWineInsteadOfAStaleFile()
+    {
+        System(FabFilter);
+        var output = """
+            HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\Current
+                DisplayName    REG_SZ    Current Product
+                UninstallString    REG_SZ    C:\Current\uninstall.exe /quiet
+            """;
+        var runner = new RecordingRunner(
+            outputs: args => args is [Prefixes.JoinMode, "reg", "query", ..] ? output : "",
+            dawSession: true);
+
+        var entries = new PrefixRegistry(Layout, runner).Uninstallers("valhalla");
+
+        Assert.All(entries, entry => Assert.Equal("Current Product", entry.Name));
+        Assert.NotEmpty(entries);
+    }
+
     private void System(string text) => File.WriteAllText(
         Layout.PrefixSystemReg("valhalla"),
         "WINE REGISTRY Version 2\n;; All keys relative to REGISTRY\\\\Machine\n\n" + text + "\n");

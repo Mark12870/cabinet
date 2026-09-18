@@ -865,7 +865,7 @@ internal static class Program
         Layout layout, IProcessRunner runner, string name, string command, string[] arguments)
     {
         var prefixes = new Prefixes(layout, runner);
-        var result = prefixes.Run(name, command, arguments, Console.WriteLine);
+        var result = prefixes.Run(name, command, arguments, Console.WriteLine, inheritStdin: true);
         prefixes.Bridge(Console.Error.WriteLine);
         return result.ExitCode;
     }

@@ -91,5 +91,23 @@ public sealed class VirtualDesktopTests : IDisposable
         Assert.Equal("Editor", runner.Ran[0].Arguments[^2]);
     }
 
+    [Fact]
+    public void DisablingReadsTheDesktopOnlyAfterClaimingThePrefix()
+    {
+        var registry = Layout.PrefixUserReg("gadget");
+        File.WriteAllText(
+            registry,
+            "[Software\\\\Wine\\\\Explorer]\n\"Desktop\"=\"Old\"\n"
+            + "[Software\\\\Wine\\\\Explorer\\\\Desktops]\n\"Old\"=\"1280x720\"\n");
+        var runner = new RecordingRunner(paths: () => File.WriteAllText(
+            registry,
+            "[Software\\\\Wine\\\\Explorer]\n\"Desktop\"=\"Current\"\n"
+            + "[Software\\\\Wine\\\\Explorer\\\\Desktops]\n\"Current\"=\"1920x1080\"\n"));
+
+        new VirtualDesktop(Layout, runner).Unset("gadget", null);
+
+        Assert.Equal("Current", runner.Ran[0].Arguments[^2]);
+    }
+
     public void Dispose() => Directory.Delete(root, recursive: true);
 }

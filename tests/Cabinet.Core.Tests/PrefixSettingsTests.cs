@@ -116,6 +116,18 @@ public sealed class PrefixSettingsTests : IDisposable
     }
 
     [Fact]
+    public void HandEditedCabinetVariablesAreIgnored()
+    {
+        File.WriteAllLines(
+            Layout.PrefixEnvFile("gadget"),
+            PrefixSettings.Owned.Select(key => $"{key}=wrong").Append("KEEP=1"));
+
+        Assert.Equal(
+            new Dictionary<string, string> { ["KEEP"] = "1" },
+            Subject.Variables("gadget"));
+    }
+
+    [Fact]
     public void ANameThatWouldNotSurviveTheFileIsRefused()
     {
         Assert.Throws<ArgumentException>(() => Subject.SetVariable("gadget", "A=B", "1"));

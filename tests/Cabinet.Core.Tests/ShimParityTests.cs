@@ -34,6 +34,19 @@ public class ShimParityTests
         Assert.Equal(Prefixes.JoinMode, Constant("JOIN_MODE"));
         Assert.Equal(Prefixes.SessionMode, Constant("SESSION_MODE"));
         Assert.Equal(Prefixes.SessionLiveWord, Constant("SESSION_LIVE"));
+        Assert.Equal(Prefixes.PathsMode, Constant("PATHS_MODE"));
+    }
+
+    [Fact]
+    public void BothSidesNameTheApplicationAndSocketDirectoryTheSameWay()
+    {
+        Assert.Equal(Layout.AppId, Constant("DEFAULT_APP"));
+        Assert.Equal(
+            Path.Combine("/app/lib/yabridge", Path.GetFileName(new Layout("/home/test", "/run/user/1").ShimPath)),
+            Constant("INNER_COMMAND"));
+        Assert.Equal(
+            Path.GetFileName(new Layout("/home/test", "/run/user/1").SocketDir),
+            Constant("SOCKET_DIR"));
     }
 
     [Fact]

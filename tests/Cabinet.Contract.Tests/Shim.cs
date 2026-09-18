@@ -18,6 +18,7 @@ internal sealed class Shim : IDisposable
             ["DISPLAY"] = null,
             ["WAYLAND_DISPLAY"] = "contract-wayland",
             ["CABINET_BLANK"] = "inherited",
+            ["CABINET_LATE"] = "inherited",
         };
 
     private readonly string root = Directory.CreateTempSubdirectory("cabinet-contract-").FullName;
@@ -82,6 +83,9 @@ internal sealed class Shim : IDisposable
 
     public static bool Appears(string path) =>
         SpinWait.SpinUntil(() => File.Exists(path), TimeSpan.FromSeconds(30));
+
+    public bool NoBroker() =>
+        SpinWait.SpinUntil(() => !Brokers().Any(), TimeSpan.FromSeconds(30));
 
     public void Dispose()
     {
@@ -177,7 +181,7 @@ internal sealed class Shim : IDisposable
               fi
             done ;;
           stdin)
-            readlink /proc/self/fd/0 ;;
+            if read value; then echo read; else echo eof; fi ;;
           hold)
             : > "$2"
             while [ ! -e "$3" ]; do sleep 0.05; done ;;

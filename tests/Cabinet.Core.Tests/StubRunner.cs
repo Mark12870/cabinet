@@ -10,7 +10,9 @@ internal sealed class StubRunner(ProcessResult result) : IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        string? logTo = null) =>
+        string? logTo = null,
+        IReadOnlySet<string>? blankEnvironment = null,
+        bool inheritStdin = false) =>
         args is [Prefixes.PathsMode]
             ? new ProcessResult(0, SessionFiles.Printed(env ?? new Dictionary<string, string>()), "")
             : result;

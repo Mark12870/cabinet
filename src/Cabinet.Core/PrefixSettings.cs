@@ -14,7 +14,10 @@ public sealed class PrefixSettings(Layout layout)
         [SyncMode.System, SyncMode.Esync, SyncMode.Fsync, SyncMode.Ntsync];
 
     public static readonly IReadOnlyList<string> Owned =
-        ["WINEPREFIX", "WINELOADER", "WINEDLLPATH", "YABRIDGE_TEMP_DIR", "YABRIDGE_DEBUG_FILE"];
+    [
+        "WINEPREFIX", "WINELOADER", "WINEDLLPATH", "YABRIDGE_TEMP_DIR", "YABRIDGE_DEBUG_FILE",
+        "WINEESYNC", "WINEFSYNC", "WINENTSYNC", "WAYLAND_DISPLAY", "YABRIDGE_NO_WATCHDOG",
+    ];
 
     public static string Word(SyncMode mode) => mode.ToString().ToLowerInvariant();
 
@@ -85,7 +88,12 @@ public sealed class PrefixSettings(Layout layout)
 
             if (at > 0 && !text.StartsWith('#'))
             {
-                found[text[..at].TrimEnd()] = text[(at + 1)..];
+                var key = text[..at].TrimEnd();
+
+                if (!Owned.Contains(key, StringComparer.Ordinal))
+                {
+                    found[key] = text[(at + 1)..];
+                }
             }
         }
 

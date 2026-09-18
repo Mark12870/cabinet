@@ -698,7 +698,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     }
 
     public IReadOnlyList<UninstallEntry> Uninstallers(string prefix) =>
-        new PrefixRegistry(layout).Uninstallers(prefix);
+        new PrefixRegistry(layout, runner).Uninstallers(prefix);
 
     private IReadOnlyList<UninstallEntry> Candidates(string prefix, LibraryEntry entry)
     {

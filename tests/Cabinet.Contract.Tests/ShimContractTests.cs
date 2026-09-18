@@ -50,12 +50,13 @@ public sealed class ShimContractTests : IDisposable
     }
 
     [Fact]
-    public void ACapturedCallThatStartsTheSessionReturnsOnlyOnceTheSessionHasRetired()
+    public void ACapturedCallReturnsOnceItsJobEndsWhileTheSessionRemainsAvailable()
     {
         var result = shim.Prefixes.RunJoined(Shim.Prefix, ["exit", "3"]);
 
         Assert.Equal(3, result.ExitCode);
-        Assert.Empty(shim.Sockets);
+        Assert.Single(shim.Sockets);
+        Assert.Equal(0, shim.Prefixes.RunJoined(Shim.Prefix, ["exit", "0"]).ExitCode);
     }
 
     [Fact]
@@ -80,7 +81,7 @@ public sealed class ShimContractTests : IDisposable
     }
 
     [Fact]
-    public void DirectWineUnsetsAnEmptyValueAndTheBlankedSocket()
+    public void DirectWineUnsetsAnEmptyValueAndExplicitlyBlanksTheSocket()
     {
         shim.WriteEnvironment("CABINET_PROBE=one", "CABINET_BLANK=");
 
@@ -88,7 +89,7 @@ public sealed class ShimContractTests : IDisposable
             Shim.Prefix, "wine", ["env", "CABINET_PROBE", "CABINET_BLANK", "WAYLAND_DISPLAY"]);
 
         Assert.Equal(
-            ["CABINET_PROBE=[one]", "CABINET_BLANK unset", "WAYLAND_DISPLAY unset"],
+            ["CABINET_PROBE=[one]", "CABINET_BLANK unset", "WAYLAND_DISPLAY=[]"],
             Lines(result.Stdout));
     }
 
@@ -103,26 +104,112 @@ public sealed class ShimContractTests : IDisposable
             Shim.Prefix, ["env", "CABINET_PROBE", "CABINET_BLANK", "WAYLAND_DISPLAY"]);
 
         Assert.Equal(
-            ["CABINET_PROBE=[two]", "CABINET_BLANK=[]", "WAYLAND_DISPLAY=[]"],
+            ["CABINET_PROBE=[two]", "CABINET_BLANK unset", "WAYLAND_DISPLAY=[]"],
             Lines(result.Stdout));
     }
 
     [Fact]
-    public void DirectWineInheritsTheCallersStdin()
+    public void RemovingAnEnvironmentOverrideRemovesItFromTheNextJob()
     {
-        var result = shim.Prefixes.Run(Shim.Prefix, "wine", ["stdin"]);
+        shim.WriteEnvironment("CABINET_PROBE=one");
+        Assert.Contains(
+            "CABINET_PROBE=[one]",
+            shim.Prefixes.RunJoined(Shim.Prefix, ["env", "CABINET_PROBE"]).Stdout);
 
-        Assert.Equal(CallersStdin(), result.Stdout.Trim());
+        shim.WriteEnvironment();
+        var result = shim.Prefixes.RunJoined(Shim.Prefix, ["env", "CABINET_PROBE"]);
+
+        Assert.Equal(["CABINET_PROBE unset"], Lines(result.Stdout));
     }
 
     [Fact]
-    public void AJoinedJobInheritsTheCallersStdin()
+    public void RemovingAnOverrideAddedAfterSessionStartDoesNotRevealTheBrokersEnvironment()
+    {
+        shim.Prefixes.RunJoined(Shim.Prefix, ["exit", "0"]);
+        shim.WriteEnvironment("CABINET_LATE=override");
+        Assert.Contains(
+            "CABINET_LATE=[override]",
+            shim.Prefixes.RunJoined(Shim.Prefix, ["env", "CABINET_LATE"]).Stdout);
+
+        shim.WriteEnvironment();
+        var result = shim.Prefixes.RunJoined(Shim.Prefix, ["env", "CABINET_LATE"]);
+
+        Assert.Equal(["CABINET_LATE unset"], Lines(result.Stdout));
+    }
+
+    [Fact]
+    public void ADawStartedSessionUsesTheSameEmptyAndBlankEnvironmentRules()
+    {
+        shim.WriteEnvironment("CABINET_PROBE=one", "CABINET_BLANK=");
+
+        var result = shim.Plugin(
+            ["env", "CABINET_PROBE", "CABINET_BLANK", "WAYLAND_DISPLAY"]);
+
+        Assert.Equal(
+            ["CABINET_PROBE=[one]", "CABINET_BLANK unset", "WAYLAND_DISPLAY=[]"],
+            Lines(result.Stdout));
+    }
+
+    [Fact]
+    public void SyncModeRemainsFixedForTheLifeOfTheSession()
+    {
+        new PrefixSettings(shim.Layout).SetSync(Shim.Prefix, SyncMode.Esync);
+        var first = shim.Prefixes.RunJoined(
+            Shim.Prefix, ["env", "WINEESYNC", "WINEFSYNC", "WINENTSYNC"]);
+        File.WriteAllText(shim.Layout.PrefixSyncFile(Shim.Prefix), "ntsync\n");
+
+        var second = shim.Prefixes.RunJoined(
+            Shim.Prefix, ["env", "WINEESYNC", "WINEFSYNC", "WINENTSYNC"]);
+
+        Assert.Equal(
+            ["WINEESYNC=[1]", "WINEFSYNC=[0]", "WINENTSYNC=[0]"],
+            Lines(first.Stdout));
+        Assert.Equal(Lines(first.Stdout), Lines(second.Stdout));
+    }
+
+    [Fact]
+    public async Task OneCompletedJobDoesNotWaitForAnotherJobOrTheBroker()
+    {
+        var started = shim.Scratch("overlap-started");
+        var release = shim.Scratch("overlap-release");
+        var held = Task.Run(() => shim.Prefixes.RunJoined(
+            Shim.Prefix, ["hold", started, release]));
+        Assert.True(Shim.Appears(started));
+
+        var completed = shim.Prefixes.RunJoined(Shim.Prefix, ["exit", "3"]);
+
+        Assert.Equal(3, completed.ExitCode);
+        Assert.False(held.IsCompleted);
+        File.WriteAllText(release, "");
+        Assert.Equal(0, (await held).ExitCode);
+    }
+
+    [Fact]
+    public void ASessionCanRetireAfterItsDirectoryDisappears()
+    {
+        shim.Prefixes.RunJoined(Shim.Prefix, ["exit", "0"]);
+
+        Directory.Delete(shim.Layout.SocketDir, recursive: true);
+
+        Assert.True(shim.NoBroker());
+    }
+
+    [Fact]
+    public void DirectWineReceivesEndOfFileOnStdin()
+    {
+        var result = shim.Prefixes.Run(Shim.Prefix, "wine", ["stdin"]);
+
+        Assert.Equal("eof", result.Stdout.Trim());
+    }
+
+    [Fact]
+    public void AJoinedJobReceivesEndOfFileOnStdin()
     {
         shim.Settle("session.log");
 
         var result = shim.Prefixes.RunJoined(Shim.Prefix, ["stdin"]);
 
-        Assert.Equal(CallersStdin(), result.Stdout.Trim());
+        Assert.Equal("eof", result.Stdout.Trim());
     }
 
     [Fact]
@@ -188,8 +275,6 @@ public sealed class ShimContractTests : IDisposable
         Assert.Contains("cannot start Wine", result.Stderr);
         Assert.Contains("cannot start Wine", File.ReadAllText(paths.Log));
     }
-
-    private static string CallersStdin() => new FileInfo("/proc/self/fd/0").LinkTarget!;
 
     private static string[] Lines(string output) =>
         output.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);

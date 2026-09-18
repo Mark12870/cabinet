@@ -4,7 +4,7 @@ use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 mod session;
 mod x11;
@@ -73,6 +73,11 @@ const CABINET_OWNED: &[&str] = &[
     "WINEDLLPATH",
     "YABRIDGE_TEMP_DIR",
     "YABRIDGE_DEBUG_FILE",
+    "WINEESYNC",
+    "WINEFSYNC",
+    "WINENTSYNC",
+    "WAYLAND_DISPLAY",
+    "YABRIDGE_NO_WATCHDOG",
 ];
 
 fn wine_command<R>(prefix: Option<&OsStr>, read: &R) -> OsString
@@ -364,7 +369,7 @@ fn main() {
     let joining = mode.as_deref() == Some(OsStr::new(JOIN_MODE));
 
     if joining {
-        match session::join(&socket, &job) {
+        match session::join(&socket, &lock, &job) {
             Ok(Some(status)) => std::process::exit(status),
             Ok(None) => {}
             Err(error) => {
@@ -413,7 +418,9 @@ fn main() {
         }
     }
 
-    match session::submit(&socket, &lock, &job, || start(&argv)) {
+    let log = session::log_path(&directory, &name);
+
+    match session::submit(&socket, &lock, &job, || start(&argv, &log)) {
         Ok(status) => std::process::exit(status),
         Err(error) => {
             eprintln!("cabinet-wine: cannot reach the Wine session {socket:?}: {error}");
@@ -422,9 +429,16 @@ fn main() {
     }
 }
 
-fn start(argv: &[OsString]) -> io::Result<std::process::Child> {
+fn start(argv: &[OsString], log: &Path) -> io::Result<std::process::Child> {
+    let diagnostics = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log)?;
     let mut command = Command::new(&argv[0]);
     command.args(&argv[1..]);
+    command.stdin(Stdio::null());
+    command.stdout(Stdio::null());
+    command.stderr(Stdio::from(diagnostics));
 
     unsafe {
         command.pre_exec(|| {
@@ -604,7 +618,10 @@ mod tests {
     fn joining_a_prefix_with_no_session_reports_no_session() {
         let socket = Path::new("/run/user/1000/yabridge/cabinet-nothing-here.sock");
 
-        assert!(matches!(session::join(socket, &[]), Ok(None)));
+        assert!(matches!(
+            session::join(socket, &socket.with_extension("lock"), &[]),
+            Ok(None)
+        ));
     }
 
     #[test]

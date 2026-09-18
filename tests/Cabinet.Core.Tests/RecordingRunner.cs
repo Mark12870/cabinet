@@ -6,7 +6,8 @@ internal sealed class RecordingRunner(
     Action<IReadOnlyList<string>>? acts = null,
     Func<IReadOnlyList<string>, int>? exits = null,
     Func<IReadOnlyList<string>, string>? outputs = null,
-    bool dawSession = false) : IProcessRunner
+    bool dawSession = false,
+    Action? paths = null) : IProcessRunner
 {
     private readonly List<Call> calls = [];
     private int joining;
@@ -17,7 +18,9 @@ internal sealed class RecordingRunner(
         IReadOnlyList<string> Arguments,
         IReadOnlyDictionary<string, string> Environment,
         string? WorkingDirectory,
-        string? LogTo);
+        string? LogTo,
+        IReadOnlySet<string> BlankEnvironment,
+        bool InheritStdin);
 
     public IReadOnlyList<Call> Calls => calls;
 
@@ -51,15 +54,20 @@ internal sealed class RecordingRunner(
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        string? logTo = null)
+        string? logTo = null,
+        IReadOnlySet<string>? blankEnvironment = null,
+        bool inheritStdin = false)
     {
         Environment = env ?? new Dictionary<string, string>();
-        calls.Add(new Call(file, args, Environment, workingDirectory, logTo));
+        calls.Add(new Call(
+            file, args, Environment, workingDirectory, logTo,
+            blankEnvironment ?? new HashSet<string>(), inheritStdin));
         LastFile = file;
         LastArguments = args;
 
         if (args is [Prefixes.PathsMode])
         {
+            paths?.Invoke();
             return new ProcessResult(0, SessionFiles.Printed(Environment), "");
         }
 

@@ -295,6 +295,17 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void ARunThatJoinsADawSessionKeepsItsStdinPolicy()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var recorder = new RecordingRunner(dawSession: true);
+
+        new Prefixes(Layout, recorder).Run("gadget", "wine", ["cmd"], inheritStdin: true);
+
+        Assert.True(Assert.Single(recorder.Ran).InheritStdin);
+    }
+
+    [Fact]
     public void WithoutASessionCabinetRunsWineItself()
     {
         Directory.CreateDirectory(Layout.PrefixPath("gadget"));

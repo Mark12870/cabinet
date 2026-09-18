@@ -15,7 +15,9 @@ public interface IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        string? logTo = null);
+        string? logTo = null,
+        IReadOnlySet<string>? blankEnvironment = null,
+        bool inheritStdin = false);
 }
 
 public sealed class ProcessRunner : IProcessRunner
@@ -26,13 +28,16 @@ public sealed class ProcessRunner : IProcessRunner
         IReadOnlyDictionary<string, string>? env = null,
         Action<string>? onOutput = null,
         string? workingDirectory = null,
-        string? logTo = null)
+        string? logTo = null,
+        IReadOnlySet<string>? blankEnvironment = null,
+        bool inheritStdin = false)
     {
         var info = logTo is null
             ? new ProcessStartInfo(file)
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                RedirectStandardInput = !inheritStdin,
             }
             : Redirected(file, logTo);
 
@@ -59,8 +64,21 @@ public sealed class ProcessRunner : IProcessRunner
             }
         }
 
+        if (blankEnvironment is not null)
+        {
+            foreach (var key in blankEnvironment)
+            {
+                info.Environment[key] = "";
+            }
+        }
+
         using var process = Process.Start(info)
                             ?? throw new InvalidOperationException($"could not start {file}");
+
+        if (info.RedirectStandardInput)
+        {
+            process.StandardInput.Close();
+        }
 
         if (logTo is not null)
         {
@@ -97,10 +115,36 @@ public sealed class ProcessRunner : IProcessRunner
     private static Task Drain(StreamReader reader, TextWriter collected, Action<string>? onOutput) =>
         Task.Run(() =>
         {
-            while (reader.ReadLine() is { } line)
+            var line = new StringWriter();
+            var afterCarriageReturn = false;
+
+            while (reader.Read() is var value && value >= 0)
             {
-                collected.WriteLine(line);
-                onOutput?.Invoke(line);
+                var character = (char)value;
+                collected.Write(character);
+
+                if (character == '\n' && afterCarriageReturn)
+                {
+                    afterCarriageReturn = false;
+                    continue;
+                }
+
+                if (character is '\r' or '\n')
+                {
+                    onOutput?.Invoke(line.ToString());
+                    line.GetStringBuilder().Clear();
+                    afterCarriageReturn = character == '\r';
+                }
+                else
+                {
+                    line.Write(character);
+                    afterCarriageReturn = false;
+                }
+            }
+
+            if (line.GetStringBuilder().Length > 0)
+            {
+                onOutput?.Invoke(line.ToString());
             }
         });
 }

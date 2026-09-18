@@ -4,7 +4,7 @@ namespace Cabinet.Core;
 
 public sealed record UninstallEntry(string Key, string Name, string Command);
 
-public sealed class PrefixRegistry(Layout layout)
+public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
 {
     private static readonly IReadOnlyList<string> Uninstall =
     [
@@ -12,14 +12,29 @@ public sealed class PrefixRegistry(Layout layout)
         @"Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\",
     ];
 
-    public IReadOnlyList<UninstallEntry> Uninstallers(string prefix) =>
-    [
-        .. Entries(layout.PrefixSystemReg(prefix), "HKLM"),
-        .. Entries(layout.PrefixUserReg(prefix), "HKCU"),
-    ];
+    public IReadOnlyList<UninstallEntry> Uninstallers(string prefix)
+    {
+        if (Live(prefix) is { } wine)
+        {
+            return LiveEntries(wine, prefix);
+        }
+
+        return
+        [
+            .. Entries(layout.PrefixSystemReg(prefix), "HKLM"),
+            .. Entries(layout.PrefixUserReg(prefix), "HKCU"),
+        ];
+    }
 
     public string? Lookup(string prefix, string key, string name)
     {
+        if (Live(prefix) is { } wine)
+        {
+            var result = wine.RunJoined(prefix, ["reg", "query", $@"HKCU\{key}", "/v", name]);
+
+            return result.Ok ? QueryValue(result.Stdout, name) : null;
+        }
+
         var path = layout.PrefixUserReg(prefix);
 
         if (!File.Exists(path))
@@ -45,6 +60,103 @@ public sealed class PrefixRegistry(Layout layout)
 
         return null;
     }
+
+    private Prefixes? Live(string prefix)
+    {
+        if (runner is null)
+        {
+            return null;
+        }
+
+        var prefixes = new Prefixes(layout, runner);
+
+        return prefixes.SessionLive(prefix) ? prefixes : null;
+    }
+
+    private static IReadOnlyList<UninstallEntry> LiveEntries(Prefixes wine, string prefix)
+    {
+        var entries = new List<UninstallEntry>();
+
+        foreach (var root in new[] { "HKLM", "HKCU" })
+        {
+            foreach (var branch in Uninstall)
+            {
+                var key = $@"{root}\{branch.TrimEnd('\\')}";
+                var result = wine.RunJoined(prefix, ["reg", "query", key, "/s"]);
+
+                if (result.Ok)
+                {
+                    entries.AddRange(QueryEntries(result.Stdout));
+                }
+            }
+        }
+
+        return entries;
+    }
+
+    private static IEnumerable<UninstallEntry> QueryEntries(string output)
+    {
+        string? key = null;
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in output.Split('\n'))
+        {
+            var text = line.TrimEnd('\r');
+
+            if (text.StartsWith("HKEY_", StringComparison.Ordinal))
+            {
+                if (Entry(KeyRoot(key), KeyPath(key), values) is { } closed)
+                {
+                    yield return closed;
+                }
+
+                key = text;
+                values.Clear();
+            }
+            else if (key is not null && QueryPair(text) is { } pair)
+            {
+                values[pair.Name] = pair.Text;
+            }
+        }
+
+        if (Entry(KeyRoot(key), KeyPath(key), values) is { } last)
+        {
+            yield return last;
+        }
+    }
+
+    private static string? QueryValue(string output, string name) =>
+        output.Split('\n')
+            .Select(line => QueryPair(line.TrimEnd('\r')))
+            .FirstOrDefault(pair => pair is not null
+                                    && string.Equals(
+                                        pair.Value.Name, name, StringComparison.OrdinalIgnoreCase))
+            ?.Text;
+
+    private static (string Name, string Text)? QueryPair(string line)
+    {
+        var fields = line.Split((char[]?)null, 3, StringSplitOptions.RemoveEmptyEntries);
+
+        return fields.Length == 3 && fields[1].StartsWith("REG_", StringComparison.Ordinal)
+            ? (fields[0], fields[2])
+            : null;
+    }
+
+    private static string KeyRoot(string? key) =>
+        key?.StartsWith("HKEY_LOCAL_MACHINE\\", StringComparison.Ordinal) == true
+            ? "HKLM"
+            : key?.StartsWith("HKEY_CURRENT_USER\\", StringComparison.Ordinal) == true
+                ? "HKCU"
+                : "";
+
+    private static string? KeyPath(string? key) => key switch
+    {
+        { } machine when machine.StartsWith("HKEY_LOCAL_MACHINE\\", StringComparison.Ordinal) =>
+            machine["HKEY_LOCAL_MACHINE\\".Length..],
+        { } user when user.StartsWith("HKEY_CURRENT_USER\\", StringComparison.Ordinal) =>
+            user["HKEY_CURRENT_USER\\".Length..],
+        _ => null,
+    };
 
     private static IEnumerable<UninstallEntry> Entries(string path, string root)
     {
