@@ -471,7 +471,7 @@ pub fn run_broker(args: &[OsString]) -> i32 {
     }
 
     let prefix = std::env::var_os("WINEPREFIX");
-    remember_session(&record, prefix.as_deref(), runner);
+    let _record = remember_session(&record, prefix.as_deref(), runner);
     let record_identity = file_identity(&record);
     let watcher = x11::Watcher::start();
     let live = Arc::new(AtomicUsize::new(0));
@@ -547,7 +547,7 @@ fn divert_diagnostics(log: &Path) {
     }
 }
 
-fn remember_session(record: &Path, prefix: Option<&OsStr>, runner: &OsStr) {
+fn remember_session(record: &Path, prefix: Option<&OsStr>, runner: &OsStr) -> Option<File> {
     let mut written = Vec::new();
 
     if let Some(prefix) = prefix {
@@ -560,7 +560,9 @@ fn remember_session(record: &Path, prefix: Option<&OsStr>, runner: &OsStr) {
     written.extend_from_slice(runner.as_bytes());
     written.push(b'\n');
 
-    let _ = std::fs::write(record, written);
+    let mut file = File::create(record).ok()?;
+    file.write_all(&written).ok()?;
+    Some(file)
 }
 
 fn admit(
@@ -1841,6 +1843,8 @@ mod tests {
         let lock = File::create(directory.join("session.lock")).unwrap();
         std::fs::write(&socket, "old").unwrap();
         std::fs::write(&record, "old").unwrap();
+        let _old_socket = File::open(&socket).unwrap();
+        let _old_record = File::open(&record).unwrap();
         let old_socket = file_identity(&socket);
         let old_record = file_identity(&record);
         std::fs::remove_file(&socket).unwrap();
