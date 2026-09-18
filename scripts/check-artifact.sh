@@ -11,12 +11,6 @@ app=io.github.mark12870.cabinet
 build=$(realpath "${1:-$root/build}")
 files=$build/files
 
-if command -v flatpak-builder >/dev/null; then
-  builder=(flatpak-builder)
-else
-  builder=(flatpak run org.flatpak.Builder)
-fi
-
 fail() { printf 'check-artifact: %s\n' "$*" >&2; exit 1; }
 
 executable() { [ -x "$files/$1" ] || fail "$1 is missing or not executable"; }
@@ -73,7 +67,7 @@ same "data/$app.Links.desktop" "share/applications/$app.Links.desktop"
 same "data/$app.svg" "share/icons/hicolor/scalable/apps/$app.svg"
 [ -f "$files/share/glib-2.0/schemas/gschemas.compiled" ] || fail "the GSettings schema is not compiled"
 
-run() { "${builder[@]}" --run "$build" "$root/$app.yml" "$@"; }
+run() { flatpak build "$build" "$@"; }
 
 [[ $(run cabinet --help) == *$'\nUsage:\n'* ]] || fail "cabinet --help does not run"
 [[ $(run /app/lib/yabridge/cabinet-wine --cabinet-self-test) == *' ok' ]] || fail "the shim does not run"
