@@ -82,6 +82,25 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void InstallingSaysWhoseTermsItAccepts()
+    {
+        Assert.Equal(
+            "Cabinet installs Surge XT without showing you its licence, so installing it accepts "
+            + "Surge Synth Team's terms on your behalf. Winetricks accepts the licences of "
+            + "corefonts, vcrun2022 as well.",
+            LibraryEntry.Parse("surge-xt", SurgeXt).Consent);
+    }
+
+    [Fact]
+    public void AnEntryWithNoDeveloperStillSaysItsTermsAreAccepted()
+    {
+        Assert.Equal(
+            "Cabinet installs Gadget without showing you its licence, so installing it accepts "
+            + "its developer's terms on your behalf.",
+            LibraryEntry.Parse("gadget", "Name: Gadget\nKind: windows\nSource: byo\n").Consent);
+    }
+
+    [Fact]
     public void AKeyAfterADescriptionEndsIt()
     {
         var entry = LibraryEntry.Parse("thing", """

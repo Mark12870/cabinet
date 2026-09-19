@@ -32,6 +32,9 @@ permissions, `sync`, the window and `doctor` say so, and `enrol` prints the new 
 
 Everything is in the window. For the command line, `flatpak run io.github.mark12870.cabinet --help` lists every command.
 
+The Library installs without showing vendors' licences, so installing accepts their terms on your behalf; the window
+and `library install` say whose before anything runs.
+
 ## Permissions
 
 `enrol` prints the `flatpak override` rather than applying it, because one of the permissions it asks for is

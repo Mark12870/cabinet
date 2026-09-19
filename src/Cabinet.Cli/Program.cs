@@ -721,6 +721,8 @@ internal static class Program
 
         return line.Then(() =>
         {
+            Console.WriteLine(Wrapped(entry.Consent));
+            Console.WriteLine();
             library.Install(entry, prefix, file, Console.WriteLine);
 
             Console.WriteLine();

@@ -55,6 +55,13 @@ public sealed record LibraryEntry(
 
     public string? LaunchExe => Launch?.Split('\\')[^1];
 
+    public string Consent =>
+        $"Cabinet installs {Name} without showing you its licence, so installing it accepts "
+        + $"{(Developer is null ? "its developer" : Developer)}'s terms on your behalf."
+        + (Winetricks.Count == 0
+            ? ""
+            : $" Winetricks accepts the licences of {string.Join(", ", Winetricks)} as well.");
+
     public static LibraryEntry Parse(string id, string text, string vendor = "")
     {
         var fields = Fields(text);

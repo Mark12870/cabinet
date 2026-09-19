@@ -225,6 +225,7 @@ internal sealed class PrefixPage
 
                 if (!tryBeginChange())
                 {
+                    toggle.SetActive(enabled);
                     return;
                 }
 
@@ -290,12 +291,6 @@ internal sealed class PrefixPage
         operations.Run(
             $"Moving {Name} to {runnerName}",
             output => new Prefixes(layout, runner).MoveToRunner(Name, runnerName, output),
-            changed);
-
-    private void UseSync(SyncMode mode) =>
-        operations.Run(
-            $"Putting {Name} on {Label(mode)}",
-            output => new Prefixes(layout, runner).SetSync(Name, mode, output),
             changed);
 
     private void EditVariables() =>

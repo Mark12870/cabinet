@@ -173,7 +173,7 @@ public sealed class YabridgectlTests : IDisposable
         var layout = TestLayout();
         var runner = new RecordingRunner();
 
-        new Yabridgectl(layout, runner).Status();
+        new Yabridgectl(layout, runner).Sync();
 
         Assert.Equal(layout.BridgeHome, runner.Environment["HOME"]);
         Assert.Equal(layout.BridgeDataHome, runner.Environment["XDG_DATA_HOME"]);

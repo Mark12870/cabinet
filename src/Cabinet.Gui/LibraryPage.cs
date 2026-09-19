@@ -479,7 +479,8 @@ internal sealed class LibraryPage
                 $"Cabinet cannot download {entry.Name}. Log in, download it, then choose the "
                 + "file — Cabinet keeps it in its own directory and links it into ~/.vst3, "
                 + "~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW afterwards."
-                + Presets(entry),
+                + Presets(entry)
+                + $"\n\n{entry.Consent}",
                 "Choose File…",
                 () => Ui.ChooseFile(
                     window,
@@ -499,7 +500,8 @@ internal sealed class LibraryPage
                 : $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own "
                   + "directory and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in "
                   + "your DAW afterwards.")
-            + Presets(entry),
+            + Presets(entry)
+            + $"\n\n{entry.Consent}",
             "Install",
             () => Start(entry, null, null));
     }
@@ -644,7 +646,10 @@ internal sealed class LibraryPage
             extra: fields);
     }
 
-    private static string Prospect(LibraryEntry entry, string? into, bool again)
+    private static string Prospect(LibraryEntry entry, string? into, bool again) =>
+        $"{Placement(entry, into, again)}\n\n{entry.Consent}";
+
+    private static string Placement(LibraryEntry entry, string? into, bool again)
     {
         var prefix = again
             ? $"Its installer runs again in {into}, over what it installed there before."

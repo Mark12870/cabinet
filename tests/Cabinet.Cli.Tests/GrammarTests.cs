@@ -201,6 +201,19 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
+    public void AnInstallSaysWhoseTermsItAcceptsBeforeItStarts()
+    {
+        cli.Catalogue("thing", "Name: Thing\nKind: windows\nSource: byo\nDeveloper: Vendor\n");
+
+        var outcome = cli.Run("library", "install", "thing", "Setup.exe");
+
+        Assert.Equal(
+            "Cabinet installs Thing without showing you its licence, so installing it\n"
+            + "accepts Vendor's terms on your behalf.\n\n",
+            outcome.Out);
+    }
+
+    [Fact]
     public void APrefixForAWindowsInstallIsGivenByOption()
     {
         cli.Catalogue("thing", "Name: Thing\nKind: windows\nSource: byo\n");

@@ -12,10 +12,7 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 
     public ProcessResult Remove(string pluginDirectory) => Run(["rm", pluginDirectory]);
 
-    public ProcessResult Sync(bool prune = true) =>
-        Run(prune ? ["sync", "--prune"] : ["sync"]);
-
-    public ProcessResult Status() => Run(["status"]);
+    public ProcessResult Sync() => Run(["sync", "--prune"]);
 
     public string Version()
     {
@@ -29,8 +26,6 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 
         return line?.Split(' ').LastOrDefault() is { Length: > 0 } version ? version : "unknown";
     }
-
-    public IReadOnlyList<string> Registered() => ParseRegistered(Run(["list"]).Stdout);
 
     private static IReadOnlyList<string> ParseRegistered(string stdout) =>
         stdout
