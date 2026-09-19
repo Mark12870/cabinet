@@ -2,6 +2,10 @@
 
 "$WINE" reg add 'HKCU\Software\Wine\AppDefaults\msedgewebview2.exe' /v Version /d win7 /f
 "$WINE" reg add 'HKCU\Software\Wine' /v Version /d win7 /f
+for host in yabridge-host.exe 'SINE Player.exe'; do
+    "$WINE" reg add 'HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments' /v "$host" \
+        /d '--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu' /f
+done
 
 drive="$CABINET_PREFIX/drive_c/Program Files"
 vst3="$drive/Common Files/VST3/SINE Player.vst3/Contents/x86_64-win/SINE Player.vst3"
