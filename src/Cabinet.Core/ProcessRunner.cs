@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 
 namespace Cabinet.Core;
@@ -17,7 +18,8 @@ public interface IProcessRunner
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false);
+        bool inheritStdin = false,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class ProcessRunner : IProcessRunner
@@ -30,8 +32,11 @@ public sealed class ProcessRunner : IProcessRunner
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false)
+        bool inheritStdin = false,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var info = logTo is null
             ? new ProcessStartInfo(file)
             {
@@ -74,6 +79,7 @@ public sealed class ProcessRunner : IProcessRunner
 
         using var process = Process.Start(info)
                             ?? throw new InvalidOperationException($"could not start {file}");
+        using var cancellation = cancellationToken.Register(static state => Terminate((Process)state!), process);
 
         if (info.RedirectStandardInput)
         {
@@ -83,6 +89,7 @@ public sealed class ProcessRunner : IProcessRunner
         if (logTo is not null)
         {
             process.WaitForExit();
+            cancellationToken.ThrowIfCancellationRequested();
 
             return new ProcessResult(process.ExitCode, "", "");
         }
@@ -96,8 +103,23 @@ public sealed class ProcessRunner : IProcessRunner
 
         process.WaitForExit();
         draining.GetAwaiter().GetResult();
+        cancellationToken.ThrowIfCancellationRequested();
 
         return new ProcessResult(process.ExitCode, stdout.ToString(), stderr.ToString());
+    }
+
+    private static void Terminate(Process process)
+    {
+        try
+        {
+            process.Kill(entireProcessTree: true);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (Win32Exception)
+        {
+        }
     }
 
     private static ProcessStartInfo Redirected(string file, string logTo)

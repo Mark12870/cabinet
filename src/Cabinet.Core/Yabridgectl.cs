@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Cabinet.Core;
 
 public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
@@ -39,10 +41,19 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
     public IEnumerable<string> StaleRegistrations(
         IEnumerable<string> registered, IReadOnlySet<string> wanted)
     {
-        var ours = layout.PrefixesDir + Path.DirectorySeparatorChar;
+        var ours = Canonical(layout.PrefixesDir);
+        var wantedCanonical = wanted.Select(Canonical).ToHashSet(StringComparer.Ordinal);
 
         return registered.Where(directory =>
-            !wanted.Contains(directory) && directory.StartsWith(ours, StringComparison.Ordinal));
+        {
+            var canonical = Canonical(directory);
+            var relative = Path.GetRelativePath(ours, canonical);
+            return !wantedCanonical.Contains(canonical)
+                   && relative != "."
+                   && relative != ".."
+                   && !relative.StartsWith(".." + Path.DirectorySeparatorChar,
+                       StringComparison.Ordinal);
+        });
     }
 
     public ProcessResult SyncPrefixes(IReadOnlyList<Prefix> prefixes)
@@ -51,33 +62,45 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
             .Where(prefix => prefix.Initialised)
             .SelectMany(prefix => layout.PrefixPluginDirs(prefix.Name))
             .Where(Directory.Exists)
-            .ToHashSet(StringComparer.Ordinal);
-        ProcessResult? failure = null;
-
-        foreach (var directory in wanted)
-        {
-            var result = Add(directory);
-            if (!result.Ok)
-            {
-                failure ??= result;
-            }
-        }
+            .Select(Canonical)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(directory => directory, StringComparer.Ordinal)
+            .ToList();
+        var failures = new List<FailedOperation>();
 
         var registered = Run(["list"]);
         if (!registered.Ok)
         {
-            failure ??= registered;
+            failures.Add(new("list registrations", null, registered));
         }
-        else foreach (var directory in StaleRegistrations(ParseRegistered(registered.Stdout), wanted))
+        else
         {
-            var result = Remove(directory);
-            if (!result.Ok)
+            var registrations = ParseRegistered(registered.Stdout);
+            var registeredCanonical = registrations
+                .Select(Canonical)
+                .ToHashSet(StringComparer.Ordinal);
+
+            foreach (var directory in wanted.Where(directory => !registeredCanonical.Contains(directory)))
             {
-                failure ??= result;
+                var result = Add(directory);
+                if (!result.Ok)
+                {
+                    failures.Add(new("add", directory, result));
+                }
+            }
+
+            var wantedCanonical = wanted.ToHashSet(StringComparer.Ordinal);
+            foreach (var directory in StaleRegistrations(registrations, wantedCanonical))
+            {
+                var result = Remove(directory);
+                if (!result.Ok)
+                {
+                    failures.Add(new("remove", directory, result));
+                }
             }
         }
 
-        return failure ?? Sync();
+        return failures.Count > 0 ? Aggregate(failures) : Sync();
     }
 
     public ProcessResult SyncAndPublish(IReadOnlyList<Prefix> prefixes)
@@ -111,14 +134,16 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
         foreach (var line in (result.Stdout + result.Stderr)
                      .Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
-            onOutput?.Invoke(line);
+            onOutput?.Invoke(line.TrimEnd('\r'));
         }
 
         if (!result.Ok)
         {
-            throw new InvalidOperationException($"yabridgectl exited with {result.ExitCode}");
+            throw new InvalidOperationException(onOutput is null
+                ? $"yabridgectl exited with {result.ExitCode}:\n"
+                  + (result.Stdout + result.Stderr).TrimEnd()
+                : $"yabridgectl exited with {result.ExitCode}; what it said is above");
         }
-
     }
 
     private ProcessResult Run(IReadOnlyList<string> arguments)
@@ -139,4 +164,38 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
             ["WINELOADER"] = Layout.Wine,
         });
     }
+
+    private sealed record FailedOperation(string Name, string? Directory, ProcessResult Result);
+
+    private static ProcessResult Aggregate(IReadOnlyList<FailedOperation> failures)
+    {
+        var stdout = new StringBuilder();
+        var stderr = new StringBuilder();
+
+        foreach (var failure in failures)
+        {
+            var subject = failure.Directory is null
+                ? failure.Name
+                : $"{failure.Name} {failure.Directory}";
+            Append(stdout, $"{subject} failed with exit code {failure.Result.ExitCode}",
+                failure.Result.Stdout);
+            Append(stderr, $"{subject} failed with exit code {failure.Result.ExitCode}",
+                failure.Result.Stderr);
+        }
+
+        return new(failures[0].Result.ExitCode, stdout.ToString(), stderr.ToString());
+    }
+
+    private static void Append(StringBuilder text, string header, string output)
+    {
+        text.AppendLine(header);
+        text.Append(output);
+        if (!output.EndsWith('\n'))
+        {
+            text.AppendLine();
+        }
+    }
+
+    private static string Canonical(string path) =>
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
 }

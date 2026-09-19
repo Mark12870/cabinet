@@ -353,7 +353,44 @@ public sealed class RunnersTests : IDisposable
 
         Assert.Equal(Status.Fail, check.Status);
         Assert.Contains($"--env=YABRIDGE_DEBUG_FILE={Layout.RuntimeLogPath}", check.Detail);
+        Assert.Contains("--env=YABRIDGE_NO_WATCHDOG=1", check.Detail);
         Assert.Equal([daw], new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
+    }
+
+    [Fact]
+    public void DoctorDoesNotAcceptAFilesystemPathThatOnlyContainsTheExpectedPath()
+    {
+        var daw = "fm.reaper.Reaper";
+        Directory.CreateDirectory(Layout.HostYabridgeDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.DawYabridgeLink(daw))!);
+        File.CreateSymbolicLink(Layout.DawYabridgeLink(daw), Layout.HostYabridgeDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.SandboxYabridgeLink)!);
+        File.CreateSymbolicLink(Layout.SandboxYabridgeLink, Layout.HostYabridgeDir);
+
+        var overrides = Path.Combine(root, ".local", "share", "flatpak", "overrides", daw);
+        Directory.CreateDirectory(Path.GetDirectoryName(overrides)!);
+        File.WriteAllLines(
+            overrides,
+            [
+                "[Context]",
+                "devices=shm;",
+                $"filesystems=xdg-run/yabridge:create;{Layout.HostAppFiles}-other;"
+                    + $"{Layout.PrefixesDir};{Layout.NativeDir};{Layout.BridgeHome};",
+                "",
+                "[Session Bus Policy]",
+                "org.freedesktop.Flatpak=talk",
+                "",
+                "[Environment]",
+                $"WINELOADER={Layout.ShimPath}",
+                $"YABRIDGE_TEMP_DIR={Layout.SocketDir}",
+                $"YABRIDGE_DEBUG_FILE={Layout.RuntimeLogPath}",
+                "YABRIDGE_NO_WATCHDOG=1",
+            ]);
+
+        var check = Checks().Single(found => found.Name == $"DAW {daw}");
+
+        Assert.Equal(Status.Fail, check.Status);
+        Assert.Contains($"--filesystem={Layout.HostAppFiles}:ro", check.Detail);
     }
 
     [Fact]

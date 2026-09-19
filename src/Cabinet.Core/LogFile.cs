@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Cabinet.Core;
 
 internal static class LogFile
@@ -11,23 +13,29 @@ internal static class LogFile
             return null;
         }
 
-        using var file = File.OpenRead(path);
+        using var file = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         var offset = Math.Max(0, file.Length - MaximumBytes);
         file.Seek(offset, SeekOrigin.Begin);
 
-        using var reader = new StreamReader(file);
-        var text = reader.ReadToEnd();
+        var bytes = new byte[file.Length - offset];
+        var read = file.ReadAtLeast(bytes, bytes.Length, throwOnEndOfStream: false);
+        var text = Encoding.UTF8.GetString(bytes, 0, read);
 
         if (offset > 0)
         {
-            if (text.IndexOf('\n') is var end && end >= 0)
-            {
-                text = text[(end + 1)..];
-            }
-
-            File.WriteAllText(path, text);
+            var end = text.IndexOf('\n');
+            text = end >= 0 ? text[(end + 1)..] : "";
         }
 
         return text.Length > 0 ? text : null;
+    }
+
+    public static void Rotate(string path)
+    {
+        if (new FileInfo(path) is { Exists: true, Length: > MaximumBytes })
+        {
+            File.Move(path, path + ".1", overwrite: true);
+        }
     }
 }

@@ -14,7 +14,8 @@ internal sealed class StreamingRunner(params string[] lines) : IProcessRunner
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false)
+        bool inheritStdin = false,
+        CancellationToken cancellationToken = default)
     {
         LastArguments = args;
 

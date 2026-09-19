@@ -2,12 +2,69 @@ namespace Cabinet.Gui;
 
 internal static class Ui
 {
+    private static Action<Exception>? errorHandler;
+
+    public static void SetErrorHandler(Action<Exception> handler) => errorHandler = handler;
+
+    public static void Guard(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception exception)
+        {
+            Handle(exception);
+        }
+    }
+
     public static void OnMainLoop(Action action) =>
         GLib.Functions.IdleAdd(0, () =>
         {
-            action();
+            Guard(action);
             return false;
         });
+
+    public static void Observe(Task task) =>
+        task.ContinueWith(completed =>
+        {
+            if (completed.Exception?.GetBaseException() is { } exception)
+            {
+                OnMainLoop(() => Handle(exception));
+            }
+        });
+
+    public static void Observe<T>(Task<T> task, Action<T> completed) =>
+        task.ContinueWith(finished =>
+        {
+            if (finished.Exception?.GetBaseException() is { } exception)
+            {
+                OnMainLoop(() => Handle(exception));
+            }
+            else if (finished.IsCompletedSuccessfully)
+            {
+                OnMainLoop(() => completed(finished.Result));
+            }
+        });
+
+    private static void Handle(Exception exception)
+    {
+        if (errorHandler is null)
+        {
+            Console.Error.WriteLine(exception);
+            return;
+        }
+
+        try
+        {
+            errorHandler(exception);
+        }
+        catch (Exception reporting)
+        {
+            Console.Error.WriteLine(exception);
+            Console.Error.WriteLine(reporting);
+        }
+    }
 
     public static void Clear(Gtk.Box box)
     {
@@ -73,7 +130,7 @@ internal static class Ui
         }
 
         var button = RowButton(iconName, title, destructive);
-        button.OnClicked += (_, _) => clicked();
+        button.OnClicked += (_, _) => Guard(clicked);
         row.AddSuffix(button);
         row.SetActivatableWidget(button);
 
@@ -128,7 +185,7 @@ internal static class Ui
         {
             if (args.Response == "ok")
             {
-                accepted();
+                Guard(accepted);
             }
         };
 
@@ -159,11 +216,11 @@ internal static class Ui
         {
             if (args.Response == "first")
             {
-                chose();
+                Guard(chose);
             }
             else if (args.Response == "second")
             {
-                alsoChose();
+                Guard(alsoChose);
             }
         };
 
@@ -208,14 +265,14 @@ internal static class Ui
         var chooser = Gtk.FileDialog.New();
         chooser.SetTitle(title);
 
-        chooser.OpenAsync(parent).ContinueWith(task =>
+        Observe(chooser.OpenAsync(parent), file =>
         {
-            if (task.IsFaulted || task.Result?.GetPath() is not { Length: > 0 } path)
+            if (file?.GetPath() is not { Length: > 0 } path)
             {
                 return;
             }
 
-            OnMainLoop(() => chosen(path));
+            chosen(path);
         });
     }
 }

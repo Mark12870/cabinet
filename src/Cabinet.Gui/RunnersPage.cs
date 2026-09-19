@@ -8,14 +8,22 @@ internal sealed class RunnersPage
     private readonly IProcessRunner runner;
     private readonly Gtk.Window window;
     private readonly Action changed;
+    private readonly Operation operations;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly RefreshGeneration generation = new();
 
-    public RunnersPage(Layout layout, IProcessRunner runner, Gtk.Window window, Action changed)
+    public RunnersPage(
+        Layout layout,
+        IProcessRunner runner,
+        Gtk.Window window,
+        Action changed,
+        Operation operations)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
         this.changed = changed;
+        this.operations = operations;
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -26,9 +34,34 @@ internal sealed class RunnersPage
 
     public void Refresh()
     {
-        Ui.Clear(list);
+        var current = generation.Next();
+        Task.Run(() =>
+        {
+            var runners = new Runners(layout, runner);
+            return runners.List()
+                .Select(installed => new DescribedRunner(
+                    installed, Describe(runners, installed)))
+                .ToList();
+        }).ContinueWith(task => Ui.OnMainLoop(() =>
+        {
+            if (!generation.IsCurrent(current))
+            {
+                return;
+            }
 
-        var runners = new Runners(layout, runner);
+            if (task.IsFaulted)
+            {
+                ShowFailure(task.Exception!.InnerException!.Message);
+                return;
+            }
+
+            Show(task.Result, current);
+        }));
+    }
+
+    private void Show(IReadOnlyList<DescribedRunner> installedRunners, int current)
+    {
+        Ui.Clear(list);
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Installed");
 
@@ -36,9 +69,10 @@ internal sealed class RunnersPage
 
         var described = new List<(Runner Runner, Adw.ActionRow Row, string Subtitle)>();
 
-        foreach (var installed in runners.List())
+        foreach (var describedRunner in installedRunners)
         {
-            var subtitle = Describe(runners, installed);
+            var installed = describedRunner.Runner;
+            var subtitle = describedRunner.Subtitle;
             var row = Adw.ActionRow.New();
             row.SetTitle(installed.Name);
             row.SetSubtitle(subtitle);
@@ -48,7 +82,7 @@ internal sealed class RunnersPage
             {
                 var remove = Ui.IconButton(Icons.Delete, "Delete this runner");
                 remove.SetValign(Gtk.Align.Center);
-                remove.OnClicked += (_, _) => Remove(installed.Name);
+                remove.OnClicked += (_, _) => Ui.Guard(() => Remove(installed.Name));
                 row.AddSuffix(remove);
             }
 
@@ -57,16 +91,26 @@ internal sealed class RunnersPage
         }
 
         list.Append(group);
-        ShowVersions(described);
+        ShowVersions(described, current);
+    }
+
+    private void ShowFailure(string message)
+    {
+        Ui.Clear(list);
+        var failed = Adw.StatusPage.New();
+        failed.SetIconName(Icons.Fail);
+        failed.SetTitle("Could not read Wine runners");
+        failed.SetDescription(message);
+        list.Append(failed);
     }
 
     private Gtk.Box Actions()
     {
         var add = Ui.RowButton(Icons.Archive, "Unpack a Wine build you already have");
-        add.OnClicked += (_, _) => ChooseArchive();
+        add.OnClicked += (_, _) => Ui.Guard(ChooseArchive);
 
         var available = Ui.RowButton(Icons.Download, "Wine versions");
-        available.OnClicked += (_, _) => ShowAvailable();
+        available.OnClicked += (_, _) => Ui.Guard(ShowAvailable);
 
         var box = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
         box.Append(available);
@@ -75,15 +119,36 @@ internal sealed class RunnersPage
     }
 
     private void ShowVersions(
-        IReadOnlyList<(Runner Runner, Adw.ActionRow Row, string Subtitle)> described) =>
+        IReadOnlyList<(Runner Runner, Adw.ActionRow Row, string Subtitle)> described,
+        int current) =>
         Task.Run(() =>
         {
-            var runners = new Runners(layout, runner);
-
-            foreach (var (installed, row, subtitle) in described.Where(shown => shown.Runner.Usable))
+            try
             {
-                var version = runners.Version(installed);
-                Ui.OnMainLoop(() => row.SetSubtitle($"{subtitle}  ·  {version}"));
+                var runners = new Runners(layout, runner);
+
+                foreach (var (installed, row, subtitle) in described
+                             .Where(shown => shown.Runner.Usable))
+                {
+                    var version = runners.Version(installed);
+                    Ui.OnMainLoop(() =>
+                    {
+                        if (generation.IsCurrent(current))
+                        {
+                            row.SetSubtitle($"{subtitle}  ·  {version}");
+                        }
+                    });
+                }
+            }
+            catch (Exception exception)
+            {
+                Ui.OnMainLoop(() =>
+                {
+                    if (generation.IsCurrent(current))
+                    {
+                        Ui.Report(window, "Could not read Wine versions", exception.Message);
+                    }
+                });
             }
         });
 
@@ -97,6 +162,8 @@ internal sealed class RunnersPage
 
     private void ShowAvailable()
     {
+        var cancellation = new CancellationTokenSource();
+        var open = true;
         var dialog = Adw.Dialog.New();
         dialog.SetTitle("Wine versions");
         dialog.SetContentWidth(560);
@@ -112,16 +179,26 @@ internal sealed class RunnersPage
         view.AddTopBar(Adw.HeaderBar.New());
         view.SetContent(body);
         dialog.SetChild(view);
+        dialog.OnClosed += (_, _) =>
+        {
+            open = false;
+            cancellation.Cancel();
+        };
         dialog.Present(window);
 
         Task.Run(() =>
         {
             try
             {
-                var families = new RunnerIndex(runner).Available()
+                var families = new RunnerIndex(runner).Available(cancellation.Token)
                     .GroupBy(release => release.Family);
                 Ui.OnMainLoop(() =>
                 {
+                    if (!open)
+                    {
+                        return;
+                    }
+
                     group.SetDescription(null);
 
                     foreach (var family in families)
@@ -130,9 +207,18 @@ internal sealed class RunnersPage
                     }
                 });
             }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+            }
             catch (Exception exception)
             {
-                Ui.OnMainLoop(() => group.SetDescription(exception.Message));
+                Ui.OnMainLoop(() =>
+                {
+                    if (open)
+                    {
+                        group.SetDescription(exception.Message);
+                    }
+                });
             }
         });
     }
@@ -161,16 +247,15 @@ internal sealed class RunnersPage
 
         var install = Ui.IconButton(Icons.Download, $"Install {release.Name}");
         install.SetValign(Gtk.Align.Center);
-        install.OnClicked += (_, _) =>
+        install.OnClicked += (_, _) => Ui.Guard(() =>
         {
             dialog.ForceClose();
-            Operation.Run(
-                window,
+            operations.RunCancellable(
                 $"Installing {release.Name}",
-                (output, progress) =>
-                    new Runners(layout, runner).Install(release, output, progress),
+                (output, progress, token) =>
+                    new Runners(layout, runner).Install(release, output, progress, token),
                 changed);
-        };
+        });
 
         row.AddSuffix(install);
         return row;
@@ -178,10 +263,10 @@ internal sealed class RunnersPage
 
     private void ChooseArchive() =>
         Ui.ChooseFile(window, "Choose a Wine archive", path =>
-            Operation.Run(
-                window,
+            operations.RunCancellable(
                 $"Unpacking {Path.GetFileName(path)}",
-                output => new Runners(layout, runner).Add(path, onOutput: output),
+                (output, token) => new Runners(layout, runner).Add(
+                    path, onOutput: output, cancellationToken: token),
                 changed));
 
     private void Remove(string name) =>
@@ -191,10 +276,11 @@ internal sealed class RunnersPage
             "The runner's files are deleted. Getting it back means downloading or unpacking "
             + "it again.",
             "Delete",
-            () => Operation.Run(
-                window,
+            () => operations.Run(
                 $"Deleting {name}",
                 _ => new Runners(layout, runner).Remove(name),
                 changed),
             Adw.ResponseAppearance.Destructive);
+
+    private sealed record DescribedRunner(Runner Runner, string Subtitle);
 }

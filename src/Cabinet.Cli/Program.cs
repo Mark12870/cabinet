@@ -299,9 +299,7 @@ internal static class Program
         Layout layout, IProcessRunner runner, string name, string word)
     {
         var mode = PrefixSettings.ParseSync(word);
-        new Prefixes(layout, runner).SetSync(name, mode);
-
-        Console.WriteLine($"{name} now waits on {PrefixSettings.Word(mode)}.");
+        new Prefixes(layout, runner).SetSync(name, mode, Console.WriteLine);
         return 0;
     }
 

@@ -3,7 +3,7 @@ using Cabinet.Core;
 namespace Cabinet.Gui;
 
 internal sealed class VariablesDialog(
-    Gtk.Window window, Layout layout, string prefix, Action changed)
+    Gtk.Window window, Layout layout, string prefix, Action changed, Operation operations)
 {
     private const string Hint =
         "Set for every Wine this prefix starts, here and in a bridged DAW. "
@@ -40,7 +40,7 @@ internal sealed class VariablesDialog(
         group.SetDescription(Hint);
 
         var add = Ui.RowButton(Icons.New, "Add a variable");
-        add.OnClicked += (_, _) => Ask();
+        add.OnClicked += (_, _) => Ui.Guard(Ask);
         group.SetHeaderSuffix(add);
 
         var variables = settings.Variables(prefix);
@@ -67,7 +67,7 @@ internal sealed class VariablesDialog(
         row.SetSubtitle(value.Length == 0 ? "unset for this prefix" : value);
 
         var remove = Ui.RowButton(Icons.Delete, $"Remove {key}", destructive: true);
-        remove.OnClicked += (_, _) => Apply(key, null);
+        remove.OnClicked += (_, _) => Ui.Guard(() => Apply(key, null));
         row.AddSuffix(remove);
 
         return row;
@@ -97,20 +97,22 @@ internal sealed class VariablesDialog(
 
         ask.OnResponse += (_, args) =>
         {
-            var entered = key.GetText().Trim();
-
-            if (args.Response == "ok" && entered.Length > 0)
+            Ui.Guard(() =>
             {
-                Apply(entered, value.GetText());
-            }
+                var entered = key.GetText().Trim();
+
+                if (args.Response == "ok" && entered.Length > 0)
+                {
+                    Apply(entered, value.GetText());
+                }
+            });
         };
 
         ask.Present(dialog);
     }
 
     private void Apply(string key, string? value) =>
-        Operation.Run(
-            dialog,
+        operations.Run(
             value is null ? $"Removing {key}" : $"Setting {key}",
             _ => settings.SetVariable(prefix, key, value),
             () =>

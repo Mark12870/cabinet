@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=Cabinet
-Exec=cabinet library open %u
+Exec=cabinet-gui %u
 Icon=io.github.mark12870.cabinet
 Terminal=false
 Type=Application

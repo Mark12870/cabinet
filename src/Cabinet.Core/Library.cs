@@ -1238,7 +1238,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         }
     }
 
-    public void Open(string link, Action<string>? onOutput = null)
+    public LibraryEntry ForLink(string link)
     {
         var at = link.IndexOf(':');
 
@@ -1252,12 +1252,19 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             ?? throw new InvalidOperationException(
                 $"no app in the library opens {scheme}: links");
 
-        if (!Installed().TryGetValue(entry.Id, out var where) || where is null)
+        if (Installed().GetValueOrDefault(entry.Id) is null)
         {
             throw new InvalidOperationException(
                 $"{entry.Name} opens {scheme}: links but is not installed");
         }
 
+        return entry;
+    }
+
+    public void Open(string link, Action<string>? onOutput = null)
+    {
+        var entry = ForLink(link);
+        var where = Where(entry);
         var prefixes = new Prefixes(layout, runner);
 
         if (prefixes.SessionLive(where) && Running(prefixes, where, entry.LaunchExe!))

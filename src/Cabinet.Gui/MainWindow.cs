@@ -15,6 +15,7 @@ internal sealed class MainWindow
     private readonly RunnersPage runners;
     private readonly DoctorPage doctor;
     private readonly AboutPage about;
+    private readonly Operation operations;
     private int activeOperations;
     private bool hidden;
 
@@ -28,21 +29,24 @@ internal sealed class MainWindow
         settings.Bind("window-height", window, "default-height", Gio.SettingsBindFlags.Default);
         window.SetHideOnClose(false);
         window.OnCloseRequest += (_, _) => CloseRequested();
+        operations = new Operation(window, Hold, Release);
 
         prefixes = new PrefixesPage(
-            layout, runner, window, navigation, RefreshAll, Toast, Hold, Release);
+            layout, runner, window, navigation, RefreshState, Toast, operations);
         library = new LibraryPage(
             layout,
             runner,
             window,
             navigation,
-            RefreshAll,
+            RefreshState,
             Toast,
+            Report,
             Hold,
             Release,
-            prefixes.IsChanging);
-        runners = new RunnersPage(layout, runner, window, RefreshAll);
-        doctor = new DoctorPage(layout, runner, window, RefreshAll);
+            prefixes.IsChanging,
+            operations);
+        runners = new RunnersPage(layout, runner, window, RefreshRunners, operations);
+        doctor = new DoctorPage(layout, runner, window, RefreshDoctor, RefreshAll, operations);
         about = new AboutPage(layout, runner, window);
 
         stack.AddTitledWithIcon(library.Widget, "library", "Library", Icons.Library);
@@ -68,6 +72,19 @@ internal sealed class MainWindow
     {
         hidden = false;
         window.Present();
+    }
+
+    public void OpenLink(string link)
+    {
+        Present();
+        stack.SetVisibleChildName("library");
+        library.OpenLink(link);
+    }
+
+    public void ReportFailure(Exception exception)
+    {
+        Present();
+        Ui.Report(window, "Cabinet could not continue", exception.Message);
     }
 
     private bool CloseRequested()
@@ -125,18 +142,29 @@ internal sealed class MainWindow
 
             Ui.OnMainLoop(() =>
             {
-                if (failure is not null)
+                try
                 {
-                    Toast($"Could not bridge plugins: {failure}");
-                }
+                    if (hidden && (failure is not null || unpermitted.Count > 0))
+                    {
+                        Present();
+                    }
 
-                foreach (var dawId in unpermitted)
+                    if (failure is not null)
+                    {
+                        Report($"Could not bridge plugins: {failure}", () => failure);
+                    }
+
+                    foreach (var dawId in unpermitted)
+                    {
+                        PermissionsToast(layout, dawId);
+                    }
+
+                    doctor.Refresh();
+                }
+                finally
                 {
-                    PermissionsToast(layout, dawId);
+                    Release();
                 }
-
-                doctor.Refresh();
-                Release();
             });
         });
     }
@@ -146,12 +174,30 @@ internal sealed class MainWindow
         var toast = Adw.Toast.New($"{dawId} needs updated permissions to load Windows plugins");
         toast.SetButtonLabel("Show");
         toast.SetTimeout(0);
-        toast.OnButtonClicked += (_, _) =>
-            new EnrolmentDialog(window, layout, dawId, layout.DawYabridgeLink(dawId)).Present();
+        toast.OnButtonClicked += (_, _) => Ui.Guard(() =>
+            new EnrolmentDialog(window, layout, dawId, layout.DawYabridgeLink(dawId)).Present());
         toasts.AddToast(toast);
     }
 
     private void Toast(string message) => toasts.AddToast(Adw.Toast.New(message));
+
+    private void Report(string message, Func<string?>? details)
+    {
+        var headline = message.Split('\n')[0];
+        var toast = Adw.Toast.New(headline);
+        toast.SetUseMarkup(false);
+        toast.SetTimeout(0);
+
+        if (details is not null)
+        {
+            toast.SetButtonLabel("Details");
+            toast.OnButtonClicked += (_, _) => Ui.Guard(() =>
+                Ui.Observe(Task.Run(details), text =>
+                    Ui.Log(window, headline, text ?? message)));
+        }
+
+        toasts.AddToast(toast);
+    }
 
     private Adw.ViewSwitcherBar Switcher()
     {
@@ -169,4 +215,21 @@ internal sealed class MainWindow
         doctor.Refresh();
         about.Refresh();
     }
+
+    private void RefreshState()
+    {
+        library.Refresh();
+        prefixes.Refresh();
+        runners.Refresh();
+        doctor.Refresh();
+    }
+
+    private void RefreshRunners()
+    {
+        prefixes.Refresh();
+        runners.Refresh();
+        doctor.Refresh();
+    }
+
+    private void RefreshDoctor() => doctor.Refresh();
 }

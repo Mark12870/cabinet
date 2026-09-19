@@ -151,7 +151,8 @@ internal sealed class PluginPage
             row.SetSubtitle(new Uri(homepage).Host);
 
             var visit = Ui.RowButton(Icons.Link, $"{entry.Name} on the web");
-            visit.OnClicked += (_, _) => Gtk.UriLauncher.New(homepage).LaunchAsync(window);
+            visit.OnClicked += (_, _) =>
+                Ui.Guard(() => Ui.Observe(Gtk.UriLauncher.New(homepage).LaunchAsync(window)));
             row.AddSuffix(visit);
             row.SetActivatableWidget(visit);
 
@@ -197,7 +198,7 @@ internal sealed class PluginPage
         if (log(entry) is { } written)
         {
             row.Append(Pill(
-                "Logs", null, () => Ui.Log(window, "Cabinet and yabridge logs", written)));
+                "Logs", null, () => Ui.Log(window, "Cabinet and yabridge logs", log(entry) ?? written)));
         }
 
         row.Append(Pill($"Remove {entry.Name}", "destructive-action", () => remove(entry)));
@@ -209,7 +210,7 @@ internal sealed class PluginPage
     {
         var button = Gtk.Button.NewWithLabel(label);
         button.AddCssClass("pill");
-        button.OnClicked += (_, _) => clicked();
+        button.OnClicked += (_, _) => Ui.Guard(clicked);
 
         if (appearance is not null)
         {

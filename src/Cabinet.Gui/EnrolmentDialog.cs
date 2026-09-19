@@ -60,11 +60,11 @@ internal sealed class EnrolmentDialog(
         var copy = Gtk.Button.NewWithLabel("Copy");
         copy.SetHalign(Gtk.Align.End);
         copy.AddCssClass("suggested-action");
-        copy.OnClicked += (_, _) =>
+        copy.OnClicked += (_, _) => Ui.Guard(() =>
         {
             window.GetClipboard().SetText(command);
             copy.SetLabel("Copied");
-        };
+        });
 
         var step = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
         step.Append(heading);

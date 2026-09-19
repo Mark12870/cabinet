@@ -291,10 +291,11 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         return noted;
     }
 
-    public void SetSync(string name, SyncMode mode)
+    public void SetSync(string name, SyncMode mode, Action<string>? onOutput = null)
     {
         using var claim = Claim(name, $"change how {name} synchronises");
         settings.SetSync(name, mode);
+        onOutput?.Invoke($"{name} now waits on {PrefixSettings.Word(mode)}.");
     }
 
     public ProcessResult RunJoined(

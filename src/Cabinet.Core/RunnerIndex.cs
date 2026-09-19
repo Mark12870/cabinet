@@ -78,9 +78,11 @@ public sealed class RunnerIndex(IProcessRunner runner)
             "909e283e1e087a93e196defffd2a67120ab2df6ea4edd7f6f45b97528bf8646b"),
     ];
 
-    public IReadOnlyList<RunnerRelease> Available()
+    public IReadOnlyList<RunnerRelease> Available(CancellationToken cancellationToken = default)
     {
-        var entries = Components.Entries(http.Text(Components.IndexUrl));
+        cancellationToken.ThrowIfCancellationRequested();
+        var entries = Components.Entries(http.Text(Components.IndexUrl, cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
 
         return Families.SelectMany(family => ReleasesFrom(family, entries))
             .Concat(Fixed.Select(known => known.Release))
@@ -111,19 +113,25 @@ public sealed class RunnerIndex(IProcessRunner runner)
         RunnerRelease release,
         string directory,
         Action<string>? onOutput = null,
-        Action<double>? onProgress = null)
+        Action<double>? onProgress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(directory);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (Fixed.FirstOrDefault(known => known.Release == release) is { } found)
         {
             var downloaded = Path.Combine(directory, release.Asset);
-            http.ToFile(found.Url, downloaded, onOutput, onProgress);
+            http.ToFile(found.Url, downloaded, onOutput, onProgress, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             Checksum.Expect(downloaded, found.Sha256);
+            cancellationToken.ThrowIfCancellationRequested();
             return downloaded;
         }
 
-        var listed = Components.Manifest(http.Text(release.ManifestUrl));
+        var listed = Components.Manifest(http.Text(release.ManifestUrl, cancellationToken));
+        cancellationToken.ThrowIfCancellationRequested();
         if (listed.Url.Length == 0 || listed.FileName != release.Asset)
         {
             throw new InvalidOperationException(
@@ -131,19 +139,23 @@ public sealed class RunnerIndex(IProcessRunner runner)
         }
 
         var target = Path.Combine(directory, release.Asset);
-        http.ToFile(listed.Url, target, onOutput, onProgress);
+        http.ToFile(listed.Url, target, onOutput, onProgress, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (release.Family.SumsFile is not { } sums)
         {
             Checksum.ExpectMd5(target, listed.Checksum);
+            cancellationToken.ThrowIfCancellationRequested();
             return target;
         }
 
-        var expected = ChecksumFor(http.Text(SumsUrlFor(listed.Url, sums)), release.Asset)
+        var expected = ChecksumFor(http.Text(SumsUrlFor(listed.Url, sums), cancellationToken), release.Asset)
                        ?? throw new InvalidOperationException(
                            $"{release.Asset} is not listed in {sums}");
 
+        cancellationToken.ThrowIfCancellationRequested();
         Checksum.Expect(target, expected);
+        cancellationToken.ThrowIfCancellationRequested();
         return target;
     }
 

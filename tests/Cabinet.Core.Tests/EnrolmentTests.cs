@@ -12,6 +12,7 @@ public class EnrolmentTests
     [InlineData("--talk-name=org.freedesktop.Flatpak")]
     [InlineData("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge")]
     [InlineData("--env=YABRIDGE_DEBUG_FILE=/run/user/1000/yabridge/yabridge.log")]
+    [InlineData("--env=YABRIDGE_NO_WATCHDOG=1")]
     [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files:ro")]
     [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
@@ -22,6 +23,18 @@ public class EnrolmentTests
     public void TheOverrideCarriesEverythingTheBoundaryNeeds(string expected)
     {
         Assert.Contains(expected, Enrolment.OverrideArguments("fm.reaper.Reaper", Layout));
+    }
+
+    [Fact]
+    public void EveryOverrideFlagIsOfAKindDoctorChecks()
+    {
+        var unknown = Enrolment.OverrideArguments("fm.reaper.Reaper", Layout)
+            .Where(argument => argument.StartsWith("--", StringComparison.Ordinal))
+            .Where(argument => argument != "--user")
+            .Where(argument => !new[] { "--device=", "--filesystem=", "--talk-name=", "--env=" }
+                .Any(kind => argument.StartsWith(kind, StringComparison.Ordinal)));
+
+        Assert.Empty(unknown);
     }
 
     [Fact]

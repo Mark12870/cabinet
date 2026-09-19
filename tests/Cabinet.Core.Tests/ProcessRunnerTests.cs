@@ -168,4 +168,80 @@ public sealed class ProcessRunnerTests : IDisposable
 
         File.Delete(log);
     }
+
+    [Fact]
+    public async Task CancellingACapturedRunKillsItsProcessTree()
+    {
+        var started = Path.Combine(root, "captured-started");
+        var child = Path.Combine(root, "captured-child");
+        using var cancelled = new CancellationTokenSource();
+        var running = Task.Run(() => Subject.Run(
+            "sh",
+            [
+                "-c",
+                "touch \"$1\"; sleep 30 & child=$!; "
+                + "echo \"$child\" > \"$2\"; printf 'ready\\n'; wait",
+                "sh",
+                started,
+                child,
+            ],
+            cancellationToken: cancelled.Token));
+
+        await WaitForFile(child);
+        cancelled.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => running.WaitAsync(TimeSpan.FromSeconds(5)));
+        var childPid = int.Parse(await File.ReadAllTextAsync(child));
+        await WaitForProcessExit(childPid);
+
+        Assert.False(Directory.Exists($"/proc/{childPid}"));
+    }
+
+    [Fact]
+    public async Task CancellingALoggedRunKillsItsProcessTree()
+    {
+        var child = Path.Combine(root, "logged-child");
+        var log = Path.Combine(root, "cancelled.log");
+        using var cancelled = new CancellationTokenSource();
+        var running = Task.Run(() => Subject.Run(
+            "sh",
+            [
+                "-c",
+                "sleep 30 & child=$!; echo \"$child\" > \"$1\"; echo ready; wait",
+                "sh",
+                child,
+            ],
+            logTo: log,
+            cancellationToken: cancelled.Token));
+
+        await WaitForFile(child);
+        cancelled.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => running.WaitAsync(TimeSpan.FromSeconds(5)));
+        var childPid = int.Parse(await File.ReadAllTextAsync(child));
+        await WaitForProcessExit(childPid);
+
+        Assert.Contains("ready", File.ReadAllText(log));
+        Assert.False(Directory.Exists($"/proc/{childPid}"));
+    }
+
+    private static async Task WaitForFile(string path)
+    {
+        for (var attempt = 0; attempt < 500 && !File.Exists(path); attempt++)
+        {
+            await Task.Delay(10);
+        }
+
+        Assert.True(File.Exists(path), $"timed out waiting for {path}");
+    }
+
+    private static async Task WaitForProcessExit(int processId)
+    {
+        for (var attempt = 0; attempt < 500 && Directory.Exists($"/proc/{processId}"); attempt++)
+        {
+            await Task.Delay(10);
+        }
+    }
 }

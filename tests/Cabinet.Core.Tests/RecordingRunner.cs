@@ -56,7 +56,8 @@ internal sealed class RecordingRunner(
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false)
+        bool inheritStdin = false,
+        CancellationToken cancellationToken = default)
     {
         Environment = env ?? new Dictionary<string, string>();
         calls.Add(new Call(

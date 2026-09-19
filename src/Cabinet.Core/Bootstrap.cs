@@ -6,7 +6,7 @@ public static class Bootstrap
     {
         Directory.CreateDirectory(layout.PrefixesDir);
         Directory.CreateDirectory(layout.SocketDir);
-        LogFile.Read(layout.RuntimeLogPath);
+        LogFile.Rotate(layout.RuntimeLogPath);
         LinkYabridgeForYabridgectl(layout);
 
         foreach (var parent in new[]

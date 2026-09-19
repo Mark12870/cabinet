@@ -10,12 +10,12 @@ internal sealed class PrefixesPage
     private readonly Adw.NavigationView navigation;
     private readonly Action changed;
     private readonly Action<string> toast;
-    private readonly Action hold;
-    private readonly Action release;
+    private readonly Operation operations;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly HashSet<string> changing = new(StringComparer.Ordinal);
 
     private PrefixPage? open;
+    private readonly RefreshGeneration generation = new();
 
     public PrefixesPage(
         Layout layout,
@@ -24,8 +24,7 @@ internal sealed class PrefixesPage
         Adw.NavigationView navigation,
         Action changed,
         Action<string> toast,
-        Action hold,
-        Action release)
+        Operation operations)
     {
         this.layout = layout;
         this.runner = runner;
@@ -33,10 +32,9 @@ internal sealed class PrefixesPage
         this.navigation = navigation;
         this.changed = changed;
         this.toast = toast;
-        this.hold = hold;
-        this.release = release;
+        this.operations = operations;
 
-        navigation.OnPopped += (_, _) => open = null;
+        navigation.OnPopped += (_, _) => Ui.Guard(() => open = null);
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -49,32 +47,63 @@ internal sealed class PrefixesPage
 
     public void Refresh()
     {
-        Ui.Clear(list);
+        var current = generation.Next();
+        Task.Run(() => new Snapshot(
+            new Prefixes(layout, runner).List(),
+            new Runners(layout, runner).List().Select(found => found.Name).ToList()))
+            .ContinueWith(task => Ui.OnMainLoop(() =>
+            {
+                if (!generation.IsCurrent(current))
+                {
+                    return;
+                }
 
-        var prefixes = new Prefixes(layout, runner).List();
+                if (task.IsFaulted)
+                {
+                    ShowFailure(task.Exception!.InnerException!.Message);
+                    return;
+                }
+
+                Show(task.Result);
+            }));
+    }
+
+    private void Show(Snapshot snapshot)
+    {
+        Ui.Clear(list);
+        var prefixes = snapshot.Prefixes;
 
         if (prefixes.Count == 0)
         {
             list.Append(Empty());
-            Reopen(prefixes, []);
+            Reopen(prefixes, snapshot.RunnerNames);
             return;
         }
 
-        var names = RunnerNames();
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Prefixes");
 
         var create = Ui.RowButton(Icons.New, "New prefix");
-        create.OnClicked += (_, _) => NewPrefix();
+        create.OnClicked += (_, _) => Ui.Guard(NewPrefix);
         group.SetHeaderSuffix(create);
 
         foreach (var prefix in prefixes)
         {
-            group.Add(Row(prefix, names));
+            group.Add(Row(prefix, snapshot.RunnerNames));
         }
 
         list.Append(group);
-        Reopen(prefixes, names);
+        Reopen(prefixes, snapshot.RunnerNames);
+    }
+
+    private void ShowFailure(string message)
+    {
+        Ui.Clear(list);
+        var failed = Adw.StatusPage.New();
+        failed.SetIconName(Icons.Fail);
+        failed.SetTitle("Could not read prefixes");
+        failed.SetDescription(message);
+        list.Append(failed);
     }
 
     private void Reopen(IReadOnlyList<Prefix> prefixes, IReadOnlyList<string> runnerNames)
@@ -107,7 +136,7 @@ internal sealed class PrefixesPage
         create.SetHalign(Gtk.Align.Center);
         create.AddCssClass("suggested-action");
         create.AddCssClass("pill");
-        create.OnClicked += (_, _) => NewPrefix();
+        create.OnClicked += (_, _) => Ui.Guard(NewPrefix);
         empty.SetChild(create);
 
         return empty;
@@ -124,7 +153,7 @@ internal sealed class PrefixesPage
         row.AddPrefix(Gtk.Image.NewFromIconName(Icons.Prefixes));
 
         var enter = Ui.RowButton(Icons.Forward, $"Open {prefix.Name}");
-        enter.OnClicked += (_, _) => Open(prefix, runnerNames);
+        enter.OnClicked += (_, _) => Ui.Guard(() => Open(prefix, runnerNames));
         row.AddSuffix(enter);
         row.SetActivatableWidget(enter);
 
@@ -142,8 +171,7 @@ internal sealed class PrefixesPage
             toast,
             () => BeginChange(prefix.Name),
             () => EndChange(prefix.Name),
-            hold,
-            release);
+            operations);
         page.Show(prefix, runnerNames, changing.Contains(prefix.Name));
 
         open = page;
@@ -197,9 +225,12 @@ internal sealed class PrefixesPage
     }
 
     private void CreatePrefix(string name, string? runnerName) =>
-        Operation.Run(
-            window,
+        operations.Run(
             $"Creating {name}",
             output => new Prefixes(layout, runner).Create(name, runnerName, output),
             changed);
+
+    private sealed record Snapshot(
+        IReadOnlyList<Prefix> Prefixes,
+        IReadOnlyList<string> RunnerNames);
 }

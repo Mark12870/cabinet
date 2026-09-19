@@ -4,10 +4,15 @@ namespace Cabinet.Core;
 
 public sealed class Http(IProcessRunner runner)
 {
-    public string Text(string url)
+    public string Text(string url, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var result = runner.Run(
-            "curl", ["-sSL", "--retry", "2", "--max-time", "30", "-D", "/dev/stderr", url]);
+            "curl", ["-sSL", "--retry", "2", "--max-time", "30", "-D", "/dev/stderr", url],
+            cancellationToken: cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         var host = new Uri(url).Host;
 
@@ -28,9 +33,12 @@ public sealed class Http(IProcessRunner runner)
         string url,
         string target,
         Action<string>? onOutput = null,
-        Action<double>? onProgress = null)
+        Action<double>? onProgress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        cancellationToken.ThrowIfCancellationRequested();
         onOutput?.Invoke($"Downloading {url}");
 
         var reported = -1d;
@@ -71,7 +79,10 @@ public sealed class Http(IProcessRunner runner)
                     announced = tens;
                     onOutput?.Invoke($"Downloading… {tens * 10}%");
                 }
-            });
+            },
+            cancellationToken: cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!fetched.Ok)
         {

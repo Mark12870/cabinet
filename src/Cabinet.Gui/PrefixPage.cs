@@ -11,8 +11,7 @@ internal sealed class PrefixPage
     private readonly Action<string> toast;
     private readonly Func<bool> tryBeginChange;
     private readonly Action endChange;
-    private readonly Action hold;
-    private readonly Action release;
+    private readonly Operation operations;
     private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
 
     public PrefixPage(
@@ -24,8 +23,7 @@ internal sealed class PrefixPage
         Action<string> toast,
         Func<bool> tryBeginChange,
         Action endChange,
-        Action hold,
-        Action release)
+        Operation operations)
     {
         this.layout = layout;
         this.runner = runner;
@@ -34,8 +32,7 @@ internal sealed class PrefixPage
         this.toast = toast;
         this.tryBeginChange = tryBeginChange;
         this.endChange = endChange;
-        this.hold = hold;
-        this.release = release;
+        this.operations = operations;
         Name = name;
 
         var content = Ui.Page();
@@ -95,17 +92,21 @@ internal sealed class PrefixPage
 
         row.OnNotify += (_, args) =>
         {
-            if (args.Pspec.GetName() != "selected")
+            Ui.Guard(() =>
             {
-                return;
-            }
+                if (args.Pspec.GetName() != "selected")
+                {
+                    return;
+                }
 
-            var chosen = choices[(int)row.GetSelected()];
+                var chosen = choices[(int)row.GetSelected()];
 
-            if (chosen != prefix.Runner)
-            {
-                ConfirmRunner(chosen, () => row.SetSelected((uint)choices.IndexOf(prefix.Runner)));
-            }
+                if (chosen != prefix.Runner)
+                {
+                    ConfirmRunner(
+                        chosen, () => row.SetSelected((uint)choices.IndexOf(prefix.Runner)));
+                }
+            });
         };
 
         return row;
@@ -128,28 +129,31 @@ internal sealed class PrefixPage
 
         combo.OnNotify += (_, args) =>
         {
-            if (args.Pspec.GetName() != "selected")
+            Ui.Guard(() =>
             {
-                return;
-            }
-
-            var chosen = choices[(int)combo.GetSelected()];
-
-            if (chosen != prefix.Sync)
-            {
-                if (!tryBeginChange())
+                if (args.Pspec.GetName() != "selected")
                 {
-                    combo.SetSelected((uint)choices.ToList().IndexOf(prefix.Sync));
                     return;
                 }
 
-                body.SetSensitive(false);
-                spinner.SetVisible(true);
-                spinner.Start();
-                RunSetting(
-                    spinner,
-                    () => new Prefixes(layout, runner).SetSync(Name, chosen));
-            }
+                var chosen = choices[(int)combo.GetSelected()];
+
+                if (chosen != prefix.Sync)
+                {
+                    if (!tryBeginChange())
+                    {
+                        combo.SetSelected((uint)choices.ToList().IndexOf(prefix.Sync));
+                        return;
+                    }
+
+                    body.SetSensitive(false);
+                    spinner.SetVisible(true);
+                    spinner.Start();
+                    RunSetting(
+                        spinner,
+                        (output, _) => new Prefixes(layout, runner).SetSync(Name, chosen, output));
+                }
+            });
         };
 
         return row;
@@ -160,15 +164,15 @@ internal sealed class PrefixPage
             "DXVK",
             prefix.Dxvk is null ? "not installed" : prefix.Dxvk,
             prefix.Dxvk is not null,
-            enabled =>
+            (enabled, output, progress) =>
             {
                 if (enabled)
                 {
-                    new Dxvk(layout, runner).Install(Name);
+                    new Dxvk(layout, runner).Install(Name, output, progress);
                 }
                 else
                 {
-                    new Dxvk(layout, runner).Remove(Name);
+                    new Dxvk(layout, runner).Remove(Name, output);
                 }
             });
 
@@ -177,17 +181,17 @@ internal sealed class PrefixPage
             "Virtual desktop",
             "Confines this prefix's windows to their own desktop",
             prefix.Desktop,
-            enabled =>
+            (enabled, output, _) =>
             {
                 var desktop = new VirtualDesktop(layout, runner);
 
                 if (enabled)
                 {
-                    desktop.Set(Name, null);
+                    desktop.Set(Name, output);
                 }
                 else
                 {
-                    desktop.Unset(Name, null);
+                    desktop.Unset(Name, output);
                 }
             });
 
@@ -195,7 +199,7 @@ internal sealed class PrefixPage
         string title,
         string subtitle,
         bool enabled,
-        Action<bool> operation)
+        Action<bool, Action<string>, Action<double>> operation)
     {
         var spinner = Gtk.Spinner.New();
         var toggle = Gtk.Switch.New();
@@ -212,63 +216,49 @@ internal sealed class PrefixPage
 
         toggle.OnNotify += (_, args) =>
         {
-            if (args.Pspec.GetName() != "active" || toggle.GetActive() == enabled)
+            Ui.Guard(() =>
             {
-                return;
-            }
+                if (args.Pspec.GetName() != "active" || toggle.GetActive() == enabled)
+                {
+                    return;
+                }
 
-            if (!tryBeginChange())
-            {
-                return;
-            }
+                if (!tryBeginChange())
+                {
+                    return;
+                }
 
-            var wanted = toggle.GetActive();
-            body.SetSensitive(false);
-            spinner.SetVisible(true);
-            spinner.Start();
-            RunSetting(spinner, () => operation(wanted));
+                var wanted = toggle.GetActive();
+                body.SetSensitive(false);
+                spinner.SetVisible(true);
+                spinner.Start();
+                RunSetting(spinner, (output, progress) => operation(wanted, output, progress));
+            });
         };
 
         return row;
     }
 
-    private void RunSetting(Gtk.Spinner spinner, Action operation)
-    {
-        hold();
-
-        Task.Run(() =>
-        {
-            try
-            {
-                operation();
-                Ui.OnMainLoop(() => FinishSetting(spinner, null));
-            }
-            catch (Exception exception)
-            {
-                Ui.OnMainLoop(() => FinishSetting(spinner, exception));
-            }
-        });
-    }
-
-    private void FinishSetting(Gtk.Spinner spinner, Exception? exception)
+    private void RunSetting(Gtk.Spinner spinner, Action<Action<string>, Action<double>> operation)
     {
         try
         {
-            spinner.Stop();
-            spinner.SetVisible(false);
-            endChange();
-            body.SetSensitive(true);
-            changed();
-
-            if (exception is not null)
-            {
-                toast(exception.Message);
-            }
+            operations.Run($"Changing {Name}", operation, () => FinishSetting(spinner));
         }
-        finally
+        catch
         {
-            release();
+            FinishSetting(spinner);
+            throw;
         }
+    }
+
+    private void FinishSetting(Gtk.Spinner spinner)
+    {
+        spinner.Stop();
+        spinner.SetVisible(false);
+        endChange();
+        body.SetSensitive(true);
+        changed();
     }
 
     private static string Label(SyncMode mode) =>
@@ -286,33 +276,33 @@ internal sealed class PrefixPage
 
         dialog.OnResponse += (_, args) =>
         {
-            if (args.Response != "ok")
+            Ui.Guard(() =>
             {
-                revert();
-            }
+                if (args.Response != "ok")
+                {
+                    revert();
+                }
+            });
         };
     }
 
     private void UseRunner(string runnerName) =>
-        Operation.Run(
-            window,
+        operations.Run(
             $"Moving {Name} to {runnerName}",
             output => new Prefixes(layout, runner).MoveToRunner(Name, runnerName, output),
             changed);
 
     private void UseSync(SyncMode mode) =>
-        Operation.Run(
-            window,
+        operations.Run(
             $"Putting {Name} on {Label(mode)}",
-            _ => new Prefixes(layout, runner).SetSync(Name, mode),
+            output => new Prefixes(layout, runner).SetSync(Name, mode, output),
             changed);
 
     private void EditVariables() =>
-        new VariablesDialog(window, layout, Name, changed).Present();
+        new VariablesDialog(window, layout, Name, changed, operations).Present();
 
     private void OpenWinetricks() =>
-        Operation.Run(
-            window,
+        operations.Run(
             $"Configuring {Name} with Winetricks",
             output =>
             {
@@ -323,8 +313,7 @@ internal sealed class PrefixPage
             changed);
 
     private void Run(string command, IReadOnlyList<string> arguments) =>
-        Operation.Run(
-            window,
+        operations.Run(
             $"{command} in {Name}",
             output =>
             {
@@ -343,14 +332,20 @@ internal sealed class PrefixPage
             "regedit",
             entered =>
             {
-                var parts = entered.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                Run(parts[0], parts[1..]);
+                try
+                {
+                    var parts = CommandArguments.Parse(entered);
+                    Run(parts[0], parts.Skip(1).ToList());
+                }
+                catch (ArgumentException exception)
+                {
+                    Ui.Report(window, "Could not read the command", exception.Message);
+                }
             });
 
     private void ChooseInstaller() =>
         Ui.ChooseFile(window, "Choose a Windows installer", path =>
-            Operation.Run(
-                window,
+            operations.Run(
                 $"Installing into {Name}",
                 output =>
                 {
@@ -364,8 +359,7 @@ internal sealed class PrefixPage
         $"Delete “{Name}”?",
         "The prefix and every plugin installed in it will be removed.",
         "Delete",
-        () => Operation.Run(
-            window,
+        () => operations.Run(
             $"Deleting {Name}",
             output => new Prefixes(layout, runner).Delete(Name, output),
             changed),

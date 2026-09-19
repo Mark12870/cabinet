@@ -7,15 +7,26 @@ internal sealed class DoctorPage
     private readonly Layout layout;
     private readonly IProcessRunner runner;
     private readonly Gtk.Window window;
-    private readonly Action changed;
+    private readonly Action repaired;
+    private readonly Action refreshAll;
+    private readonly Operation operations;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly RefreshGeneration generation = new();
 
-    public DoctorPage(Layout layout, IProcessRunner runner, Gtk.Window window, Action changed)
+    public DoctorPage(
+        Layout layout,
+        IProcessRunner runner,
+        Gtk.Window window,
+        Action repaired,
+        Action refreshAll,
+        Operation operations)
     {
         this.layout = layout;
         this.runner = runner;
         this.window = window;
-        this.changed = changed;
+        this.repaired = repaired;
+        this.refreshAll = refreshAll;
+        this.operations = operations;
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -26,6 +37,7 @@ internal sealed class DoctorPage
 
     public void Refresh()
     {
+        var current = generation.Next();
         Ui.Clear(list);
 
         var group = Adw.PreferencesGroup.New();
@@ -40,6 +52,11 @@ internal sealed class DoctorPage
                 var checks = new Doctor(layout, runner).Run();
                 Ui.OnMainLoop(() =>
                 {
+                    if (!generation.IsCurrent(current))
+                    {
+                        return;
+                    }
+
                     foreach (var check in checks)
                     {
                         group.Add(Row(check));
@@ -48,7 +65,13 @@ internal sealed class DoctorPage
             }
             catch (Exception exception)
             {
-                Ui.OnMainLoop(() => group.SetDescription(exception.Message));
+                Ui.OnMainLoop(() =>
+                {
+                    if (generation.IsCurrent(current))
+                    {
+                        group.SetDescription(exception.Message);
+                    }
+                });
             }
         });
     }
@@ -74,18 +97,17 @@ internal sealed class DoctorPage
             "Look at everything again",
             "Read every page afresh, for what changed outside Cabinet",
             Icons.Refresh,
-            () => Ui.OnMainLoop(changed)));
+            () => Ui.OnMainLoop(refreshAll)));
 
         return group;
     }
 
     private void Sync() =>
-        Operation.Run(
-            window,
+        operations.Run(
             "Bridging plugins",
             output => new Yabridgectl(layout, runner)
                 .Bridge(new Prefixes(layout, runner).List(), output),
-            changed);
+            repaired);
 
     private void AskForDaw() =>
         Ui.Prompt(
@@ -111,7 +133,7 @@ internal sealed class DoctorPage
 
         new EnrolmentDialog(window, layout, dawId, link).Present();
 
-        changed();
+        repaired();
     }
 
     private static Adw.ActionRow Row(Check check)

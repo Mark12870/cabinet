@@ -80,23 +80,36 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
     public Runner Install(
         RunnerRelease release,
         Action<string>? onOutput = null,
-        Action<double>? onProgress = null)
+        Action<double>? onProgress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var staging = Staging.Create(layout.TempDir, "runner");
-        var tarball = new RunnerIndex(runner).Download(release, staging.Path, onOutput, onProgress);
-        return Unpack(tarball, release.Name, onOutput);
+        cancellationToken.ThrowIfCancellationRequested();
+        var tarball = new RunnerIndex(runner).Download(
+            release, staging.Path, onOutput, onProgress, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Unpack(tarball, release.Name, onOutput, cancellationToken);
     }
 
-    public Runner Add(string tarball, string? name = null, Action<string>? onOutput = null)
+    public Runner Add(
+        string tarball,
+        string? name = null,
+        Action<string>? onOutput = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var full = Path.GetFullPath(tarball);
+        var exists = File.Exists(full);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        if (!File.Exists(full))
+        if (!exists)
         {
             throw new FileNotFoundException($"no such archive: {full}", full);
         }
 
-        return Unpack(full, name ?? DeriveName(full), onOutput);
+        cancellationToken.ThrowIfCancellationRequested();
+        return Unpack(full, name ?? DeriveName(full), onOutput, cancellationToken);
     }
 
     public void Remove(string name)
@@ -166,20 +179,31 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         }
     }
 
-    private Runner Unpack(string tarball, string name, Action<string>? onOutput)
+    private Runner Unpack(
+        string tarball,
+        string name,
+        Action<string>? onOutput,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var path = layout.RunnerPath(name);
+        var exists = Directory.Exists(path);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        if (Directory.Exists(path))
+        if (exists)
         {
             throw new InvalidOperationException(
                 $"runner '{name}' is already there — remove it first");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         using var unpacking = Staging.Create(layout.RunnersDir, "runner");
         var result = runner.Run(
             "tar", ["-xf", tarball, "--strip-components=1", "-C", unpacking.Path],
-            onOutput: onOutput);
+            onOutput: onOutput,
+            cancellationToken: cancellationToken);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (!result.Ok)
         {
@@ -195,6 +219,7 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
                 $"{tarball} has no {Path.Combine("bin", "wine")}, so it is not a Wine build");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         if (!unpacked.Multilib)
         {
             onOutput?.Invoke(
@@ -202,7 +227,9 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
                 + "under it.");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         ShareBundledRuntimes(unpacking.Path);
+        cancellationToken.ThrowIfCancellationRequested();
         unpacking.Publish(path);
         return new Runner(name, layout.RunnerWine(name), Bundled: false);
     }

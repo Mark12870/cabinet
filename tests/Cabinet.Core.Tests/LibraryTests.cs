@@ -538,6 +538,21 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void ALinkIsMatchedToItsManagerWithoutRunningAnything()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        var entry = new Library(layout, recorder).ForLink("ThingManager://signed-in");
+
+        Assert.Equal("thing", entry.Id);
+        Assert.Empty(recorder.Calls);
+    }
+
+    [Fact]
     public void ALinkNoAppInTheLibraryRegistersIsRefused()
     {
         Catalogue(("thing", Linked));
@@ -1036,18 +1051,19 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
-    public void OversizedLogsAreReducedToTheirRecentTail()
+    public void OversizedLogsAreShownAsTheirRecentTailAndLeftWhole()
     {
         var entry = Native("thing");
         var layout = Layout();
         Directory.CreateDirectory(layout.SocketDir);
-        File.WriteAllText(layout.RuntimeLogPath, new string('x', 4 * 1024 * 1024) + "\nRecent.\n");
+        var content = new string('x', 4 * 1024 * 1024) + "\nRecent.\n";
+        File.WriteAllText(layout.RuntimeLogPath, content);
 
         var written = Assert.IsType<string>(new Library(layout, new UnusedRunner()).LaunchLog(entry));
 
         Assert.Contains("Recent.", written);
         Assert.DoesNotContain(new string('x', 100), written);
-        Assert.True(new FileInfo(layout.RuntimeLogPath).Length <= 4 * 1024 * 1024);
+        Assert.Equal(content.Length, new FileInfo(layout.RuntimeLogPath).Length);
     }
 
     [Fact]

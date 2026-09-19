@@ -10,9 +10,11 @@ internal sealed class LibraryPage
     private readonly Adw.NavigationView navigation;
     private readonly Action changed;
     private readonly Action<string> toast;
+    private readonly Action<string, Func<string?>?> report;
     private readonly Action hold;
     private readonly Action release;
     private readonly Func<string, bool> prefixIsChanging;
+    private readonly Operation operations;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
     private readonly Gtk.Box filters = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly Gtk.SearchEntry search = Gtk.SearchEntry.New();
@@ -33,6 +35,8 @@ internal sealed class LibraryPage
         new Dictionary<string, string?>(StringComparer.Ordinal);
 
     private PluginPage? open;
+    private readonly RefreshGeneration generation = new();
+    private bool fillingFilters;
 
     public LibraryPage(
         Layout layout,
@@ -41,9 +45,11 @@ internal sealed class LibraryPage
         Adw.NavigationView navigation,
         Action changed,
         Action<string> toast,
+        Action<string, Func<string?>?> report,
         Action hold,
         Action release,
-        Func<string, bool> prefixIsChanging)
+        Func<string, bool> prefixIsChanging,
+        Operation operations)
     {
         this.layout = layout;
         this.runner = runner;
@@ -51,11 +57,13 @@ internal sealed class LibraryPage
         this.navigation = navigation;
         this.changed = changed;
         this.toast = toast;
+        this.report = report;
         this.hold = hold;
         this.release = release;
         this.prefixIsChanging = prefixIsChanging;
+        this.operations = operations;
 
-        navigation.OnPopped += (_, _) => open = null;
+        navigation.OnPopped += (_, _) => Ui.Guard(() => open = null);
 
         var page = Ui.Page();
         page.Append(Filters());
@@ -67,22 +75,49 @@ internal sealed class LibraryPage
 
     public void Refresh()
     {
-        var library = new Library(layout, runner);
-        entries = library.Entries();
-        installed = library.Installed();
-        retired = library.Retired();
+        var current = generation.Next();
 
-        Fill(categories, "Any category", Library.Categories(entries));
-        Fill(developers, "Any developer", Library.Developers(entries));
+        Task.Run(() =>
+        {
+            var library = new Library(layout, runner);
+            return new Snapshot(library.Entries(), library.Installed(), library.Retired());
+        }).ContinueWith(task => Ui.OnMainLoop(() =>
+        {
+            if (!generation.IsCurrent(current))
+            {
+                return;
+            }
 
-        Rebuild();
+            if (task.IsFaulted)
+            {
+                ShowFailure(task.Exception!.InnerException!.Message);
+                return;
+            }
+
+            entries = task.Result.Entries;
+            installed = task.Result.Installed;
+            retired = task.Result.Retired;
+            fillingFilters = true;
+
+            try
+            {
+                Fill(categories, "Any category", Library.Categories(entries));
+                Fill(developers, "Any developer", Library.Developers(entries));
+            }
+            finally
+            {
+                fillingFilters = false;
+            }
+
+            Rebuild();
+        }));
     }
 
     private Gtk.Widget Filters()
     {
         search.SetPlaceholderText("Search by name, developer or what it does");
         search.SetHexpand(true);
-        search.OnSearchChanged += (_, _) => Rebuild();
+        search.OnSearchChanged += (_, _) => Ui.Guard(Rebuild);
         filters.Append(search);
 
         var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
@@ -101,9 +136,9 @@ internal sealed class LibraryPage
         drop.SetHexpand(true);
         drop.OnNotify += (_, args) =>
         {
-            if (args.Pspec.GetName() == "selected")
+            if (!fillingFilters && args.Pspec.GetName() == "selected")
             {
-                Rebuild();
+                Ui.Guard(Rebuild);
             }
         };
 
@@ -199,6 +234,16 @@ internal sealed class LibraryPage
         Reopen();
     }
 
+    private void ShowFailure(string message)
+    {
+        Ui.Clear(list);
+        var failed = Adw.StatusPage.New();
+        failed.SetIconName(Icons.Fail);
+        failed.SetTitle("Could not read the library");
+        failed.SetDescription(message);
+        list.Append(failed);
+    }
+
     private void Reopen()
     {
         if (open is null)
@@ -231,7 +276,7 @@ internal sealed class LibraryPage
             ConfirmRemove,
             Launch,
             Stop,
-            one => new Library(layout, runner).LaunchLog(one));
+            one => LaunchLog(one)());
         page.Show(entry, prefix, here, running.Contains(entry.Id));
 
         open = page;
@@ -280,7 +325,7 @@ internal sealed class LibraryPage
                 : "Linux plugin");
 
             var remove = Ui.RowButton(Icons.Delete, $"Remove {entry.Id}", destructive: true);
-            remove.OnClicked += (_, _) => ConfirmRemove(entry);
+            remove.OnClicked += (_, _) => Ui.Guard(() => ConfirmRemove(entry));
             row.AddSuffix(remove);
             group.Add(row);
         }
@@ -307,7 +352,7 @@ internal sealed class LibraryPage
         var clear = Gtk.Button.NewWithLabel("Clear filters");
         clear.SetHalign(Gtk.Align.Center);
         clear.AddCssClass("pill");
-        clear.OnClicked += (_, _) => Clear();
+        clear.OnClicked += (_, _) => Ui.Guard(Clear);
         empty.SetChild(clear);
 
         return empty;
@@ -333,7 +378,7 @@ internal sealed class LibraryPage
         }
 
         var enter = Ui.RowButton(Icons.Forward, $"About {entry.Name}");
-        enter.OnClicked += (_, _) => Open(entry, prefix, here);
+        enter.OnClicked += (_, _) => Ui.Guard(() => Open(entry, prefix, here));
         row.AddSuffix(enter);
         row.SetActivatableWidget(enter);
 
@@ -346,12 +391,12 @@ internal sealed class LibraryPage
         {
             var halt = Ui.RowButton(Icons.Stop, $"Stop {entry.Name}");
             halt.SetSensitive(!stopping.Contains(entry.Id));
-            halt.OnClicked += (_, _) => Stop(entry);
+            halt.OnClicked += (_, _) => Ui.Guard(() => Stop(entry));
             return halt;
         }
 
         var start = Ui.RowButton(Icons.Play, $"Open {entry.Name}");
-        start.OnClicked += (_, _) => Launch(entry);
+        start.OnClicked += (_, _) => Ui.Guard(() => Launch(entry));
         return start;
     }
 
@@ -489,7 +534,8 @@ internal sealed class LibraryPage
         row.SetSubtitle(host);
 
         var open = Ui.RowButton(Icons.Link, $"{entry.Name} at {host}");
-        open.OnClicked += (_, _) => Gtk.UriLauncher.New(account).LaunchAsync(window);
+        open.OnClicked += (_, _) => Ui.Guard(() =>
+            Ui.Observe(Gtk.UriLauncher.New(account).LaunchAsync(window)));
         row.AddSuffix(open);
         row.SetActivatableWidget(open);
 
@@ -529,11 +575,14 @@ internal sealed class LibraryPage
 
         where.OnNotify += (_, args) =>
         {
-            if (args.Pspec.GetName() == "selected")
+            Ui.Guard(() =>
             {
-                name.SetVisible(already is null && where.GetSelected() == 0);
-                asking?.SetBody(Prospect(entry, Into(), already is not null));
-            }
+                if (args.Pspec.GetName() == "selected")
+                {
+                    name.SetVisible(already is null && where.GetSelected() == 0);
+                    asking?.SetBody(Prospect(entry, Into(), already is not null));
+                }
+            });
         };
 
         var fields = Adw.PreferencesGroup.New();
@@ -633,8 +682,7 @@ internal sealed class LibraryPage
             return;
         }
 
-        Operation.Run(
-            window,
+        operations.Run(
             $"Installing {entry.Name}",
             (output, progress) =>
                 new Library(layout, runner).Install(entry, prefix, installer, output, progress),
@@ -725,14 +773,70 @@ internal sealed class LibraryPage
             : $"Its files and the links your DAW scans are deleted, and so is "
               + $"~/{removal.Entry.Data} — the presets you saved for it go with it.",
         "Remove",
-        () => Operation.Run(
-            window,
+        () => operations.Run(
             $"Removing {removal.Entry.Name}",
             output => new Library(layout, runner).Remove(removal, onOutput: output),
             changed),
         Adw.ResponseAppearance.Destructive);
 
-    private void Launch(LibraryEntry entry)
+    public void OpenLink(string link)
+    {
+        hold();
+
+        Task.Run(() => new Library(layout, runner).ForLink(link)).ContinueWith(found =>
+            Ui.OnMainLoop(() =>
+            {
+                try
+                {
+                    if (found.Exception?.GetBaseException() is { } exception)
+                    {
+                        report($"Cabinet could not open the link: {exception.Message}", null);
+                    }
+                    else
+                    {
+                        HandLink(found.Result, link);
+                    }
+                }
+                finally
+                {
+                    release();
+                }
+            }));
+    }
+
+    private void HandLink(LibraryEntry entry, string link)
+    {
+        if (!running.Contains(entry.Id))
+        {
+            Launch(entry, library => library.Open(link));
+            return;
+        }
+
+        toast($"Handing the link to {entry.Name}.");
+        hold();
+
+        Task.Run(() => new Library(layout, runner).Open(link)).ContinueWith(handed =>
+            Ui.OnMainLoop(() =>
+            {
+                try
+                {
+                    if (handed.Exception?.GetBaseException() is { } exception)
+                    {
+                        report($"{entry.Name} was not handed the link: {Told(exception)}",
+                            LaunchLog(entry));
+                    }
+                }
+                finally
+                {
+                    release();
+                }
+            }));
+    }
+
+    private void Launch(LibraryEntry entry) =>
+        Launch(entry, library => library.Launch(entry));
+
+    private void Launch(LibraryEntry entry, Action<Library> start)
     {
         running.Add(entry.Id);
         toast($"Opening {entry.Name}.");
@@ -743,15 +847,16 @@ internal sealed class LibraryPage
         {
             try
             {
-                new Library(layout, runner).Launch(entry);
+                start(new Library(layout, runner));
             }
             catch (Exception exception)
             {
+                var told = Told(exception);
                 Ui.OnMainLoop(() =>
                 {
                     if (!stopping.Contains(entry.Id))
                     {
-                        toast(exception.Message);
+                        report($"{entry.Name} did not open: {told}", LaunchLog(entry));
                     }
                 });
             }
@@ -781,14 +886,41 @@ internal sealed class LibraryPage
             try
             {
                 var outcome = new Library(layout, runner).Stop(entry);
-                Ui.OnMainLoop(() => toast(outcome.Told));
+                Ui.OnMainLoop(() =>
+                {
+                    if (outcome.Result == StopResult.Closed)
+                    {
+                        toast(outcome.Told);
+                        return;
+                    }
+
+                    if (outcome.Result == StopResult.LeftRunning)
+                    {
+                        stopping.Remove(entry.Id);
+                    }
+
+                    report(outcome.Told, LaunchLog(entry));
+                });
             }
             catch (Exception exception)
             {
-                Ui.OnMainLoop(() => toast(exception.Message));
+                var told = Told(exception);
+                Ui.OnMainLoop(() =>
+                {
+                    stopping.Remove(entry.Id);
+                    report($"{entry.Name} did not stop: {told}", LaunchLog(entry));
+                });
             }
         }).ContinueWith(_ => Ui.OnMainLoop(changed));
     }
+
+    private Func<string?> LaunchLog(LibraryEntry entry) =>
+        () => new Library(layout, runner).LaunchLog(entry);
+
+    private static string Told(Exception exception) =>
+        exception is AggregateException many
+            ? string.Join(" ", many.Flatten().InnerExceptions.Select(inner => inner.Message))
+            : exception.Message;
 
     private void Uninstall(Removal removal) =>
         Task.Run(() => new Library(layout, runner).PossibleUninstallers(removal))
@@ -841,11 +973,15 @@ internal sealed class LibraryPage
             return;
         }
 
-        Operation.Run(
-            window,
+        operations.Run(
             takePrefix ? $"Deleting {prefix}" : $"Removing {entry.Name}",
             output => new Library(layout, runner)
                 .Remove(removal, takePrefix, uninstaller, output),
             changed);
     }
+
+    private sealed record Snapshot(
+        IReadOnlyList<LibraryEntry> Entries,
+        IReadOnlyDictionary<string, string?> Installed,
+        IReadOnlyList<LibraryEntry> Retired);
 }

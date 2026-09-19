@@ -8,6 +8,7 @@ internal sealed class AboutPage
     private readonly IProcessRunner runner;
     private readonly Gtk.Window window;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly RefreshGeneration generation = new();
 
     public AboutPage(Layout layout, IProcessRunner runner, Gtk.Window window)
     {
@@ -24,6 +25,7 @@ internal sealed class AboutPage
 
     public void Refresh()
     {
+        var current = generation.Next();
         Ui.Clear(list);
 
         var cabinet = Group("Cabinet");
@@ -36,11 +38,23 @@ internal sealed class AboutPage
             try
             {
                 var build = new About(layout, runner).Read();
-                Ui.OnMainLoop(() => Fill(cabinet, bundled, build));
+                Ui.OnMainLoop(() =>
+                {
+                    if (generation.IsCurrent(current))
+                    {
+                        Fill(cabinet, bundled, build);
+                    }
+                });
             }
             catch (Exception exception)
             {
-                Ui.OnMainLoop(() => cabinet.SetDescription(exception.Message));
+                Ui.OnMainLoop(() =>
+                {
+                    if (generation.IsCurrent(current))
+                    {
+                        cabinet.SetDescription(exception.Message);
+                    }
+                });
             }
         });
     }
@@ -132,7 +146,8 @@ internal sealed class AboutPage
         var row = Row(title, uri);
         row.AddSuffix(Gtk.Image.NewFromIconName(Icons.Link));
         row.SetActivatable(true);
-        row.OnActivated += (_, _) => Gtk.UriLauncher.New(uri).LaunchAsync(window);
+        row.OnActivated += (_, _) =>
+            Ui.Guard(() => Ui.Observe(Gtk.UriLauncher.New(uri).LaunchAsync(window)));
         return row;
     }
 

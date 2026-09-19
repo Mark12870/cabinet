@@ -437,61 +437,57 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         var ini = IniFile.Parse(File.ReadAllLines(overrides));
         var missing = new List<string>();
 
-        if (!(ini.Get("Context", "devices")?.Split(';').Contains("shm") ?? false))
+        foreach (var argument in Enrolment.OverrideArguments(dawId, layout))
         {
-            missing.Add("--device=shm");
-        }
-
-        var filesystems = ini.Get("Context", "filesystems");
-
-        if (!(filesystems?.Contains("xdg-run/yabridge") ?? false))
-        {
-            missing.Add("--filesystem=xdg-run/yabridge:create");
-        }
-
-        if (!(filesystems?.Contains(layout.HostAppFiles) ?? false))
-        {
-            missing.Add($"--filesystem={layout.HostAppFiles}:ro");
-        }
-
-        if (!(filesystems?.Contains(layout.PrefixesDir) ?? false))
-        {
-            missing.Add($"--filesystem={layout.PrefixesDir}:ro");
-        }
-
-        if (!(filesystems?.Contains(layout.NativeDir) ?? false))
-        {
-            missing.Add($"--filesystem={layout.NativeDir}:ro");
-        }
-
-        if (!(filesystems?.Contains(layout.BridgeHome) ?? false))
-        {
-            missing.Add($"--filesystem={layout.BridgeHome}:ro");
-        }
-
-        if (ini.Get("Session Bus Policy", "org.freedesktop.Flatpak") != "talk")
-        {
-            missing.Add("--talk-name=org.freedesktop.Flatpak");
-        }
-
-        if (ini.Get("Environment", "WINELOADER") != layout.ShimPath)
-        {
-            missing.Add($"--env=WINELOADER={layout.ShimPath}");
-        }
-
-        if (ini.Get("Environment", "YABRIDGE_TEMP_DIR") != layout.SocketDir)
-        {
-            missing.Add($"--env=YABRIDGE_TEMP_DIR={layout.SocketDir}");
-        }
-
-        if (ini.Get("Environment", "YABRIDGE_DEBUG_FILE") != layout.RuntimeLogPath)
-        {
-            missing.Add($"--env=YABRIDGE_DEBUG_FILE={layout.RuntimeLogPath}");
+            if (argument.StartsWith("--device=", StringComparison.Ordinal))
+            {
+                var device = argument["--device=".Length..];
+                if (!Values(ini.Get("Context", "devices")).Contains(device, StringComparer.Ordinal))
+                {
+                    missing.Add(argument);
+                }
+            }
+            else if (argument.StartsWith("--filesystem=", StringComparison.Ordinal))
+            {
+                var filesystem = argument["--filesystem=".Length..];
+                if (!HasFilesystem(ini.Get("Context", "filesystems"), filesystem))
+                {
+                    missing.Add(argument);
+                }
+            }
+            else if (argument.StartsWith("--talk-name=", StringComparison.Ordinal))
+            {
+                var name = argument["--talk-name=".Length..];
+                if (ini.Get("Session Bus Policy", name) != "talk")
+                {
+                    missing.Add(argument);
+                }
+            }
+            else if (argument.StartsWith("--env=", StringComparison.Ordinal))
+            {
+                var assignment = argument["--env=".Length..].Split('=', 2);
+                if (ini.Get("Environment", assignment[0]) != assignment[^1])
+                {
+                    missing.Add(argument);
+                }
+            }
         }
 
         return missing.Count == 0
             ? new Check($"DAW {dawId}", Status.Ok, "enrolled")
             : new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));
+    }
+
+    private static IEnumerable<string> Values(string? value) =>
+        value?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
+
+    private static bool HasFilesystem(string? configured, string expected)
+    {
+        var withoutReadOnly = expected.EndsWith(":ro", StringComparison.Ordinal)
+            ? expected[..^3]
+            : expected;
+
+        return Values(configured).Any(value => value == expected || value == withoutReadOnly);
     }
 
     private static long? ReadMemlockLimit()

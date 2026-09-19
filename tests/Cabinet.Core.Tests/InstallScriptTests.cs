@@ -54,7 +54,7 @@ public sealed class InstallScriptTests : IDisposable
         var vendor = Directory.CreateDirectory(Path.Combine(root, "library", "a-vendor")).FullName;
         var work = Path.Combine(root, "work");
         File.WriteAllText(Path.Combine(vendor, "fixture.sh"), """
-            sh -c 'while [ ! -e "$1" ]; do sleep 0.2; done' sh "$CABINET_WORK/release" &
+            sh -c 'while [ -d "$1" ] && [ ! -e "$1/release" ]; do sleep 0.2; done' sh "$CABINET_WORK" &
             echo "the script is done"
             """);
         var entry = LibraryEntry.Parse(
