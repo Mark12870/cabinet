@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 using Cabinet.Core;
@@ -73,6 +74,38 @@ public class ManifestTests
         var undeclared = required.Where(name => !declared.Contains(name)).ToList();
 
         Assert.Empty(undeclared);
+    }
+
+    [Fact]
+    public void EveryExtensionDownloadedWithTheAppIsMirrored()
+    {
+        var block = Lines
+            .SkipWhile(line => line != "add-extensions:")
+            .Skip(1)
+            .TakeWhile(line => line.Length == 0 || line.StartsWith(' '))
+            .ToList();
+        var starts = block
+            .Select((line, index) => (line, index))
+            .Where(entry => Regex.IsMatch(entry.line, @"^  [\w.]+:$"))
+            .Select(entry => entry.index)
+            .Append(block.Count)
+            .ToList();
+
+        var expected = starts
+            .Zip(starts.Skip(1), (from, to) => block[from..to].Select(line => line.Trim()).ToList())
+            .Where(extension => !extension.Contains("no-autodownload: true"))
+            .Select(extension =>
+                $"runtime/{extension[0].TrimEnd(':')}/x86_64/"
+                + extension.Single(line => line.StartsWith("version: ", StringComparison.Ordinal))
+                    ["version: ".Length..].Trim('\''))
+            .Order(StringComparer.Ordinal);
+
+        var mirrored = Repo.Lines("scripts/mirror-extensions.sh")
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("runtime/", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(expected, mirrored);
     }
 
     [Fact]

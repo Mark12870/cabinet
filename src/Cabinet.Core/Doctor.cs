@@ -23,6 +23,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             MemoryLock(),
         };
 
+        checks.AddRange(ThirtyTwoBit(Layout.FlatpakInfo));
         checks.AddRange(PrefixRunners());
         checks.AddRange(BrokenRunners());
         checks.AddRange(Unnamed());
@@ -343,6 +344,45 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
             : new Check("/dev/shm shared", Status.Fail,
                 "Cabinet lacks --device=shm; audio buffers cannot cross the boundary");
     }
+
+    internal static IEnumerable<Check> ThirtyTwoBit(IniFile info)
+    {
+        const string compat = "org.freedesktop.Platform.Compat.i386";
+        const string gl = "org.freedesktop.Platform.GL.";
+        const string gl32 = "org.freedesktop.Platform.GL32.";
+
+        var runtime = info.Get("Instance", "runtime-extensions");
+        if (runtime is null)
+        {
+            yield break;
+        }
+
+        var mounted = ExtensionNames(info.Get("Instance", "app-extensions") ?? "");
+
+        yield return mounted.Contains(compat)
+            ? new Check("32-bit libraries", Status.Ok, compat)
+            : new Check("32-bit libraries", Status.Fail,
+                $"{compat} is not installed, so no Wine that carries a 32-bit loader can start "
+                + $"— run `flatpak update {Layout.AppId}`");
+
+        var missing = ExtensionNames(runtime)
+            .Where(name => name.StartsWith(gl, StringComparison.Ordinal))
+            .Select(name => gl32 + name[gl.Length..])
+            .Where(name => !mounted.Contains(name))
+            .Distinct()
+            .ToList();
+
+        yield return missing.Count == 0
+            ? new Check("32-bit graphics", Status.Ok, "matches the graphics driver")
+            : new Check("32-bit graphics", Status.Warn,
+                "32-bit plugins cannot draw their editors — run "
+                + string.Join(" and ", missing.Select(name => $"`flatpak install flathub {name}`")));
+    }
+
+    private static HashSet<string> ExtensionNames(string extensions) =>
+        extensions.Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(extension => extension.Split('=')[0])
+            .ToHashSet(StringComparer.Ordinal);
 
     private static Check MemoryLock()
     {

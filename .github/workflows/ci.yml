@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  # Weekly, so the Flathub extensions mirrored beside Cabinet pick up their security updates
+  # without waiting for a release.
+  schedule:
+    - cron: '17 4 * * 1'
 
 permissions:
   contents: read
@@ -36,6 +40,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     outputs:
+      release: ${{ steps.gate.outputs.release }}
       publish: ${{ steps.gate.outputs.publish }}
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
@@ -93,16 +98,24 @@ jobs:
 
           if [ "${version}" = "${published}" ]; then
             echo "::notice::${version} is already published; nothing to release"
-            echo "publish=false" >> "$GITHUB_OUTPUT"
+            release=false
           else
             echo "::notice::releasing ${version}${published:+ over ${published}}"
-            echo "publish=true" >> "$GITHUB_OUTPUT"
+            release=true
           fi
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
+
+          case "${{ github.event_name }}" in
+            schedule|workflow_dispatch) publish=true ;;
+            *) publish="${release}" ;;
+          esac
+          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
 
   # Runs on every push and pull request, not only for a release, so a green run means the
-  # artifact builds. Only publish is gated on a new version, and it ships this very build.
+  # artifact builds. Only a new version ships this very build; a refresh republishes what is out.
   build:
     needs: checks
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
@@ -117,39 +130,8 @@ jobs:
       - name: Seed the repo from the published history
         run: |
           owner="${GITHUB_REPOSITORY%%/*}"
-          url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
-
-          # Branch on the status itself, not on curl's exit: -f collapses every 4xx
-          # and 5xx into exit 22, so a 403 or a down Pages would read as "nothing
-          # published yet" and silently re-root the history.
-          code="$(curl -sSI -o /dev/null -w '%{http_code}' \
-                  --retry 3 --retry-all-errors "${url}summary")" || code=000
-          case "${code}" in
-            200) ;;
-            404|410)
-              echo "::notice::nothing published at ${url} yet; starting a fresh history"
-              exit 0 ;;
-            *)
-              echo "::error::cannot reach ${url} (HTTP ${code})"
-              exit 1 ;;
-          esac
-
-          ostree --repo=repo init --mode=archive-z2
-          ostree --repo=repo remote add --no-gpg-verify published "${url}"
-          # Signatures ride along with the commits and clients re-verify them, so
-          # verifying our own upload here would buy nothing. Depth -1 is safe past
-          # the pruned end: ostree stops there rather than failing. Pages answers a
-          # burst of object fetches with HTTP 429, which ostree does not retry; a
-          # repeated pull keeps the objects it already has, so back off and resume.
-          attempt=1
-          until ostree --repo=repo pull --mirror --depth=-1 published; do
-            [ "${attempt}" -lt 5 ] || exit 1
-            sleep $((attempt * 60))
-            attempt=$((attempt + 1))
-          done
-          # --mirror wrote plain local refs, so the remote is spent -- and it would
-          # otherwise be published inside repo/config.
-          ostree --repo=repo remote delete published
+          scripts/seed-repo.sh \
+            "https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/" repo
 
       - name: Install the runtime, SDK, Wine and the build toolchains
         run: flatpak install -y --noninteractive flathub ${BUILD_REFS}
@@ -203,15 +185,18 @@ jobs:
 
   publish:
     needs: [checks, build]
-    if: needs.checks.outputs.publish == 'true'
+    if: >-
+      always() && needs.checks.outputs.publish == 'true'
+      && (needs.build.result == 'success' || needs.checks.outputs.release != 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
       id-token: write
-    # Backstop: every step here is seconds to a minute, so anything that stalls is
-    # wedged, and a wedged job holds the concurrency group for the six-hour limit.
-    timeout-minutes: 30
+    # Backstop: seeding and mirroring take minutes and every other step seconds, so
+    # anything past this is wedged, and a wedged job holds the concurrency group for the
+    # six-hour limit.
+    timeout-minutes: 60
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
@@ -230,20 +215,46 @@ jobs:
           sudo apt-get install -y --no-install-recommends flatpak ostree
 
       - uses: actions/download-artifact@v8
+        if: needs.checks.outputs.release == 'true'
         with:
           name: repo
 
       - name: Unpack the built repo
+        if: needs.checks.outputs.release == 'true'
         run: |
           # flatpak-builder already wrote it as archive-z2, which is what Pages
           # needs to serve; the tar lands as _site/repo.
           mkdir -p _site
           tar -xf repo.tar -C _site
 
+      # A refresh republishes what is already out, never a rebuild of the same version.
+      - name: Take the published repo
+        if: needs.checks.outputs.release != 'true'
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          mkdir -p _site
+          scripts/seed-repo.sh \
+            "https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/" _site/repo
+
+      # Flatpak looks for an app's extensions only in the remote the app came from, so
+      # Cabinet's remote has to carry the Flathub ones it downloads with the app.
+      - name: Mirror the Flathub extensions
+        id: mirror
+        run: |
+          changed="$(scripts/mirror-extensions.sh _site/repo)"
+          if [ -n "${changed}" ] || [ "${{ needs.checks.outputs.release }}" = true ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::the mirrored extensions are current; nothing to publish"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/configure-pages@v6
+        if: steps.mirror.outputs.deploy == 'true'
         id: pages
 
       - name: Import the signing key
+        if: steps.mirror.outputs.deploy == 'true'
         id: gpg
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -299,6 +310,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Update and sign the repo
+        if: steps.mirror.outputs.deploy == 'true'
         run: |
           # The build job exports commits unsigned, and a client with gpg-verify=true
           # refuses those.
@@ -333,7 +345,14 @@ jobs:
             fi
           done
 
+          size="$(du -sb _site/repo | cut -f1)"
+          if [ "${size}" -ge 1000000000 ]; then
+            echo "::error::the repo is ${size} bytes; Pages publishes at most 1 GB"
+            exit 1
+          fi
+
       - name: Render the site
+        if: steps.mirror.outputs.deploy == 'true'
         env:
           BASE: ${{ steps.pages.outputs.base_url }}
         run: |
@@ -354,10 +373,12 @@ jobs:
           touch _site/.nojekyll
 
       - uses: actions/upload-pages-artifact@v5
+        if: steps.mirror.outputs.deploy == 'true'
         with:
           path: _site
           # .nojekyll would otherwise be dropped.
           include-hidden-files: true
 
       - uses: actions/deploy-pages@v5
+        if: steps.mirror.outputs.deploy == 'true'
         id: deploy

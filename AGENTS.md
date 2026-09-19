@@ -258,6 +258,11 @@ and deploys to Pages only when that newest `<release>` differs from the version 
 of rollback. So a metainfo bump on `main` is the release. Read the `bump` skill before changing the metainfo, signing,
 or the published OSTree repository.
 
+Flatpak fetches an app's `add-extensions` only from the remote the app came from, so `scripts/mirror-extensions.sh`
+re-commits the auto-downloaded Flathub ones into Cabinet's repo on every release, and a weekly or manual run
+republishes the repo already out when one of them changed. That refresh never rebuilds the app, but it renders the
+site from `main`. `ManifestTests` keeps the mirrored list in step with the manifest.
+
 ## When stuck
 
 If progress depends on information, a runtime observation, or a decision that only the user can provide, ask the user
