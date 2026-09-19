@@ -61,5 +61,27 @@ public sealed class LogFileTests : IDisposable
         Assert.False(File.Exists(Log + ".1"));
     }
 
+    [Fact]
+    public async Task LinesAppendedFromSeveralThreadsBesideAShellAppenderAreAllKept()
+    {
+        const int Each = 3000;
+        var child = Task.Run(() => new ProcessRunner().Run("sh", [
+            "-c", $"exec >>\"$0\"; i=0; while [ $i -lt {Each} ]; do echo child $i; i=$((i+1)); done", Log]));
+
+        Parallel.For(0, 2, writer =>
+        {
+            for (var line = 0; line < Each; line++)
+            {
+                LogFile.Append(Log, $"cabinet {writer} {line}");
+            }
+        });
+
+        Assert.True((await child).Ok);
+        var expected = Enumerable.Range(0, Each)
+            .SelectMany(line => new[] { $"child {line}", $"cabinet 0 {line}", $"cabinet 1 {line}" })
+            .Order(StringComparer.Ordinal);
+        Assert.Equal(expected, File.ReadAllLines(Log).Order(StringComparer.Ordinal));
+    }
+
     public void Dispose() => Directory.Delete(root, recursive: true);
 }

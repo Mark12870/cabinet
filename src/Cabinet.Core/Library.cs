@@ -832,7 +832,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         void Say(string line)
         {
-            File.AppendAllText(installLog, line + Environment.NewLine);
+            LogFile.Append(installLog, line);
             onOutput?.Invoke(line);
         }
 
@@ -952,7 +952,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         void Say(string line)
         {
-            File.AppendAllText(log, line + Environment.NewLine);
+            LogFile.Append(log, line);
             onOutput?.Invoke(line);
         }
 
@@ -1157,7 +1157,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
         void Say(string line)
         {
-            File.AppendAllText(log, line + Environment.NewLine);
+            LogFile.Append(log, line);
             onOutput?.Invoke(line);
         }
 
@@ -1271,7 +1271,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         {
             var log = layout.PrefixLaunchLog(where);
             var line = $"Handing the link to {entry.Name}.";
-            File.AppendAllText(log, line + Environment.NewLine);
+            LogFile.Append(log, line);
             onOutput?.Invoke(line);
             var handed = prefixes.RunJoined(where, ["start", link], logTo: log);
 

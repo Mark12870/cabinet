@@ -28,6 +28,7 @@ const IDLE_GRACE: Duration = Duration::from_secs(10);
 const HOST_GRACE: Duration = Duration::from_secs(3);
 const START_TIMEOUT: Duration = Duration::from_secs(30);
 const TICK: Duration = Duration::from_millis(20);
+const WATCH: Duration = Duration::from_secs(1);
 const ATTEMPTS: u32 = 3;
 const YABRIDGE_HOST: &str = "yabridge-host";
 
@@ -491,7 +492,7 @@ pub fn run_broker(args: &[OsString]) -> i32 {
                 &variables,
             ),
             Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                reap_orphans(&owned);
+                let exit_unclaimed = reap_orphans(&owned);
 
                 let idle = activity
                     .lock()
@@ -522,7 +523,14 @@ pub fn run_broker(args: &[OsString]) -> i32 {
                     }
                 }
 
-                thread::sleep(TICK);
+                let wait = if exit_unclaimed {
+                    TICK
+                } else if live.load(Ordering::SeqCst) > 0 {
+                    WATCH
+                } else {
+                    WATCH.min(IDLE_GRACE.saturating_sub(idle)).max(TICK)
+                };
+                wait_readable(&[listener.as_raw_fd()], Some(wait));
             }
             Err(error) => {
                 note!("cabinet-wine: cannot accept on {socket:?}: {error}");
@@ -910,6 +918,8 @@ fn supervise(
     let mut seen: Option<(ProcessInfo, Option<PidFd>)> = None;
     let mut launcher = None;
     let mut launcher_ended = None;
+    let launcher_exit = PidFd::of_child(child.id() as i32);
+    let mut search = TICK;
 
     loop {
         if launcher.is_none() {
@@ -940,10 +950,10 @@ fn supervise(
         }
 
         if let Some(expected) = expected.as_deref() {
-            let processes = process_snapshot();
-
             if let Some(observed) = seen.as_ref() {
-                if !alive(observed, &processes, yabridge_host) {
+                let current: Vec<ProcessInfo> = process_info(observed.0.pid).into_iter().collect();
+
+                if !alive(observed, &current, yabridge_host) {
                     terminate_tree(group);
                     return match launcher {
                         Some(status) => status,
@@ -951,7 +961,7 @@ fn supervise(
                     };
                 }
             } else if let Some(found) = find_host(
-                &processes,
+                &process_snapshot(),
                 group,
                 unsafe { getpid() },
                 expected,
@@ -971,7 +981,33 @@ fn supervise(
             }
         }
 
-        thread::sleep(TICK);
+        let mut watched = vec![stream.as_raw_fd()];
+        watched.extend(
+            launcher
+                .is_none()
+                .then_some(launcher_exit.as_ref())
+                .flatten()
+                .map(|pidfd| pidfd.0),
+        );
+        watched.extend(
+            seen.as_ref()
+                .and_then(|(_, pidfd)| pidfd.as_ref())
+                .map(|pidfd| pidfd.0),
+        );
+
+        let wait = if launcher.is_none() && launcher_exit.is_none() {
+            Some(TICK)
+        } else if expected.is_none() {
+            None
+        } else if let Some((_, pidfd)) = seen.as_ref() {
+            (yabridge_host || pidfd.is_none()).then_some(WATCH)
+        } else {
+            let wait = search;
+            search = (search * 2).min(WATCH);
+            Some(wait)
+        };
+
+        wait_readable(&watched, wait);
     }
 }
 
@@ -995,6 +1031,22 @@ fn alive(
     }
 }
 
+pub(crate) fn wait_readable(fds: &[RawFd], timeout: Option<Duration>) {
+    let mut polled: Vec<PollFd> = fds
+        .iter()
+        .map(|&fd| PollFd {
+            fd,
+            events: POLLIN,
+            revents: 0,
+        })
+        .collect();
+    let timeout = timeout.map_or(-1, |timeout| timeout.as_millis() as c_int);
+
+    unsafe {
+        poll(polled.as_mut_ptr(), polled.len(), timeout);
+    }
+}
+
 fn hung_up(stream: &UnixStream) -> bool {
     let mut pollfd = PollFd {
         fd: stream.as_raw_fd(),
@@ -1012,18 +1064,26 @@ fn forget(owned: &Mutex<Vec<i32>>, pid: i32) {
     }
 }
 
-fn reap_orphans(owned: &Mutex<Vec<i32>>) {
-    let Ok(owned) = owned.lock() else {
-        return;
-    };
-    let mine = unsafe { getpid() };
+fn reap_orphans(owned: &Mutex<Vec<i32>>) -> bool {
+    loop {
+        let mut exited = ChildInfo::default();
 
-    for process in process_snapshot() {
-        if process.parent == mine && process.state == b'Z' && !owned.contains(&process.pid) {
-            let mut status = 0;
-            unsafe {
-                waitpid(process.pid, &mut status, WNOHANG);
-            }
+        if unsafe { waitid(P_ALL, 0, &mut exited, WEXITED | WNOHANG | WNOWAIT) } != 0
+            || exited.pid == 0
+        {
+            return false;
+        }
+
+        let Ok(owned) = owned.lock() else {
+            return false;
+        };
+
+        if owned.contains(&exited.pid) {
+            return true;
+        }
+
+        unsafe {
+            waitpid(exited.pid, ptr::null_mut(), WNOHANG);
         }
     }
 }
@@ -1164,6 +1224,12 @@ fn has_live(group: i32) -> bool {
 struct PidFd(RawFd);
 
 impl PidFd {
+    fn of_child(pid: i32) -> Option<Self> {
+        let fd = unsafe { syscall(SYS_PIDFD_OPEN, pid as c_long, 0) };
+
+        (fd >= 0).then_some(Self(fd as RawFd))
+    }
+
     fn open(expected: &ProcessInfo) -> Option<Self> {
         let fd = unsafe { syscall(SYS_PIDFD_OPEN, expected.pid as c_long, 0) };
         let pidfd = (fd >= 0).then_some(Self(fd as RawFd))?;
@@ -1198,6 +1264,9 @@ const PR_SET_CHILD_SUBREAPER: i32 = 36;
 const SIGKILL: i32 = 9;
 const SIGTERM: i32 = 15;
 const WNOHANG: i32 = 1;
+const WEXITED: i32 = 4;
+const WNOWAIT: i32 = 0x0100_0000;
+const P_ALL: c_int = 0;
 const POLLIN: i16 = 1;
 const POLLERR: i16 = 8;
 const POLLHUP: i16 = 16;
@@ -1252,6 +1321,14 @@ struct CmsgHdr {
 }
 
 #[repr(C)]
+#[derive(Default)]
+struct ChildInfo {
+    _head: [c_int; 4],
+    pid: i32,
+    _rest: [c_int; 27],
+}
+
+#[repr(C)]
 struct PollFd {
     fd: c_int,
     events: i16,
@@ -1272,6 +1349,7 @@ extern "C" {
     fn sendmsg(fd: c_int, message: *const MsgHdr, flags: c_int) -> isize;
     fn setpgid(pid: i32, pgid: i32) -> i32;
     fn syscall(number: c_long, ...) -> c_long;
+    fn waitid(kind: c_int, id: u32, info: *mut ChildInfo, options: i32) -> c_int;
     fn waitpid(pid: i32, status: *mut i32, options: i32) -> i32;
 }
 
