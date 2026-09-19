@@ -138,8 +138,15 @@ jobs:
           ostree --repo=repo remote add --no-gpg-verify published "${url}"
           # Signatures ride along with the commits and clients re-verify them, so
           # verifying our own upload here would buy nothing. Depth -1 is safe past
-          # the pruned end: ostree stops there rather than failing.
-          ostree --repo=repo pull --mirror --depth=-1 published
+          # the pruned end: ostree stops there rather than failing. Pages answers a
+          # burst of object fetches with HTTP 429, which ostree does not retry; a
+          # repeated pull keeps the objects it already has, so back off and resume.
+          attempt=1
+          until ostree --repo=repo pull --mirror --depth=-1 published; do
+            [ "${attempt}" -lt 5 ] || exit 1
+            sleep $((attempt * 60))
+            attempt=$((attempt + 1))
+          done
           # --mirror wrote plain local refs, so the remote is spent -- and it would
           # otherwise be published inside repo/config.
           ostree --repo=repo remote delete published
