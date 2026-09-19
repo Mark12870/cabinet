@@ -23,7 +23,7 @@ if [ -z "${CABINET_CHECKS_IN_SDK:-}" ]; then
   exec flatpak run --share=network --filesystem="$root" --command=sh org.gnome.Sdk//50 -c '
     . /usr/lib/sdk/dotnet10/enable.sh
     export PATH=/usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/llvm20/bin:$PATH
-    export MSBUILDDISABLENODEREUSE=1 UseSharedCompilation=false
+    export MSBUILDDISABLENODEREUSE=1 UseSharedCompilation=false DOTNET_SKIP_WORKLOAD_INTEGRITY_CHECK=1
     CABINET_CHECKS_IN_SDK=1 exec "$0" "$@"' "$(realpath "$0")" "$@"
 fi
 
