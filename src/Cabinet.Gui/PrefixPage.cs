@@ -64,7 +64,8 @@ internal sealed class PrefixPage
         var actions = Adw.PreferencesGroup.New();
         actions.SetTitle("Prefix");
         actions.Add(Ui.ActionRow("Environment variables", "", Icons.Variables, EditVariables));
-        actions.Add(Ui.ActionRow("Winetricks", "", Icons.Configure, OpenWinetricks));
+        actions.Add(
+            Ui.ActionRow("Winetricks", Winetricks.Consent([]), Icons.Configure, OpenWinetricks));
         actions.Add(
             Ui.ActionRow("Wine configuration", "", Icons.Configure, () => Run("winecfg", [])));
         actions.Add(Ui.ActionRow("Windows installer", "", Icons.Install, ChooseInstaller));

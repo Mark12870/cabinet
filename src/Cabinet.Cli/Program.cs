@@ -304,6 +304,8 @@ internal static class Program
 
         return line.Then(() =>
         {
+            Console.WriteLine(Wrapped(Winetricks.Consent(verbs)));
+            Console.WriteLine();
             var winetricks = new Winetricks(layout, runner);
             var result = verbs.Count == 0
                 ? winetricks.Open(name, Console.WriteLine)

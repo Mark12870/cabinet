@@ -28,6 +28,7 @@ internal sealed class LibraryPage
 
     private readonly HashSet<string> running = new(StringComparer.Ordinal);
     private readonly HashSet<string> stopping = new(StringComparer.Ordinal);
+    private IReadOnlySet<string> opened = new HashSet<string>(StringComparer.Ordinal);
 
     private IReadOnlyList<LibraryEntry> entries = [];
     private IReadOnlyList<LibraryEntry> retired = [];
@@ -80,7 +81,8 @@ internal sealed class LibraryPage
         Task.Run(() =>
         {
             var library = new Library(layout, runner);
-            return new Snapshot(library.Entries(), library.Installed(), library.Retired());
+            return new Snapshot(
+                library.Entries(), library.Installed(), library.Retired(), library.Opened());
         }).ContinueWith(task => Ui.OnMainLoop(() =>
         {
             if (!generation.IsCurrent(current))
@@ -97,6 +99,8 @@ internal sealed class LibraryPage
             entries = task.Result.Entries;
             installed = task.Result.Installed;
             retired = task.Result.Retired;
+            opened = task.Result.Opened;
+            stopping.RemoveWhere(id => !Running(id));
             fillingFilters = true;
 
             try
@@ -112,6 +116,20 @@ internal sealed class LibraryPage
             Rebuild();
         }));
     }
+
+    public void RefreshOpened() =>
+        Task.Run(() => new Library(layout, runner).Opened()).ContinueWith(found =>
+            Ui.OnMainLoop(() =>
+            {
+                if (found.IsFaulted || found.Result.SetEquals(opened))
+                {
+                    return;
+                }
+
+                opened = found.Result;
+                stopping.RemoveWhere(id => !Running(id));
+                Rebuild();
+            }));
 
     private Gtk.Widget Filters()
     {
@@ -263,7 +281,7 @@ internal sealed class LibraryPage
             still,
             installed.GetValueOrDefault(still.Id),
             installed.ContainsKey(still.Id),
-            running.Contains(still.Id));
+            Running(still.Id));
     }
 
     private void Open(LibraryEntry entry, string? prefix, bool here)
@@ -277,7 +295,7 @@ internal sealed class LibraryPage
             Launch,
             Stop,
             one => LaunchLog(one)());
-        page.Show(entry, prefix, here, running.Contains(entry.Id));
+        page.Show(entry, prefix, here, Running(entry.Id));
 
         open = page;
         navigation.Push(page.Page);
@@ -387,7 +405,7 @@ internal sealed class LibraryPage
 
     private Gtk.Button Control(LibraryEntry entry)
     {
-        if (running.Contains(entry.Id))
+        if (Running(entry.Id))
         {
             var halt = Ui.RowButton(Icons.Stop, $"Stop {entry.Name}");
             halt.SetSensitive(!stopping.Contains(entry.Id));
@@ -546,7 +564,8 @@ internal sealed class LibraryPage
 
     private void AskForPrefix(LibraryEntry entry, string? already)
     {
-        var existing = new Prefixes(layout, runner).List().Select(one => one.Name).ToList();
+        var prefixes = new Prefixes(layout, runner);
+        var existing = prefixes.Names();
         List<string> choices = already is null ? ["New prefix", .. existing] : [already];
 
         var chosen = choices.IndexOf(already ?? entry.Prefix);
@@ -575,6 +594,9 @@ internal sealed class LibraryPage
         string? Into() =>
             already ?? (where.GetSelected() == 0 ? null : choices[(int)where.GetSelected()]);
 
+        string? NameProblem() =>
+            Into() is null ? prefixes.NewNameProblem(name.GetText().Trim()) : null;
+
         where.OnNotify += (_, args) =>
         {
             Ui.Guard(() =>
@@ -583,6 +605,7 @@ internal sealed class LibraryPage
                 {
                     name.SetVisible(already is null && where.GetSelected() == 0);
                     asking?.SetBody(Prospect(entry, Into(), already is not null));
+                    asking?.SetResponseEnabled("ok", NameProblem() is null);
                 }
             });
         };
@@ -611,26 +634,6 @@ internal sealed class LibraryPage
             {
                 var prefix = Into() ?? name.GetText().Trim();
 
-                if (Into() is null && prefix.Length == 0)
-                {
-                    toast("A new prefix needs a name.");
-                    return;
-                }
-
-                if (Into() is null && existing.Contains(prefix))
-                {
-                    toast($"A prefix named {prefix} is already there — choose it from the "
-                          + "list to install beside what it holds.");
-                    return;
-                }
-
-                if (Into() is null && !Layout.IsName(prefix))
-                {
-                    toast($"{prefix} cannot name a prefix: use one word of a path, not "
-                          + "starting with a dot.");
-                    return;
-                }
-
                 if (entry.Source == PluginSource.Byo
                     && (installer is null || installer.GetSelected() == 1))
                 {
@@ -644,6 +647,7 @@ internal sealed class LibraryPage
                 Start(entry, prefix, null);
             },
             extra: fields);
+        Ui.RequireName(asking, name, NameProblem);
     }
 
     private static string Prospect(LibraryEntry entry, string? into, bool again) =>
@@ -811,7 +815,7 @@ internal sealed class LibraryPage
 
     private void HandLink(LibraryEntry entry, string link)
     {
-        if (!running.Contains(entry.Id))
+        if (!Running(entry.Id))
         {
             Launch(entry, library => library.Open(link));
             return;
@@ -919,6 +923,8 @@ internal sealed class LibraryPage
         }).ContinueWith(_ => Ui.OnMainLoop(changed));
     }
 
+    private bool Running(string id) => running.Contains(id) || opened.Contains(id);
+
     private Func<string?> LaunchLog(LibraryEntry entry) =>
         () => new Library(layout, runner).LaunchLog(entry);
 
@@ -988,5 +994,6 @@ internal sealed class LibraryPage
     private sealed record Snapshot(
         IReadOnlyList<LibraryEntry> Entries,
         IReadOnlyDictionary<string, string?> Installed,
-        IReadOnlyList<LibraryEntry> Retired);
+        IReadOnlyList<LibraryEntry> Retired,
+        IReadOnlySet<string> Opened);
 }

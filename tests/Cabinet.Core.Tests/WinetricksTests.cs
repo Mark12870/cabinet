@@ -12,6 +12,19 @@ public sealed class WinetricksTests : IDisposable
         Directory.CreateDirectory(Path.Combine(Layout.PrefixPath("gadget"), "dosdevices"));
 
     [Fact]
+    public void WinetricksNamesTheLicencesItAccepts() =>
+        Assert.Equal(
+            "Winetricks accepts the licences of corefonts, vcrun2022 without showing them.",
+            Winetricks.Consent(["corefonts", "vcrun2022"]));
+
+    [Fact]
+    public void WinetricksSaysItsMenuAcceptsLicencesUnseen() =>
+        Assert.Equal(
+            "Winetricks runs unattended, so it accepts the licence of each component you install "
+            + "without showing it.",
+            Winetricks.Consent([]));
+
+    [Fact]
     public void ApplyingDependenciesUsesThePrefixAndItsWineRunner()
     {
         var recorder = new RecordingRunner();

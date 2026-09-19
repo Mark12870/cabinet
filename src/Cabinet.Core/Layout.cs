@@ -38,6 +38,8 @@ public sealed class Layout
 
     public const string InstallLog = ".cabinet-install.log";
 
+    public const string InstallLock = ".cabinet-install.lock";
+
     public const string KeptMarker = ".cabinet-kept";
 
     public const string InstallingMarker = ".cabinet-installing";
@@ -150,6 +152,9 @@ public sealed class Layout
 
     public string InstallLogPath(string id) =>
         Path.Combine(SandboxDataHome, "logs", id + InstallLog);
+
+    public string InstallLockPath(string id) =>
+        Path.Combine(SandboxDataHome, "logs", Named(id, "plugin") + InstallLock);
 
     public string RunnersDir => Path.Combine(SandboxDataHome, "runners");
 

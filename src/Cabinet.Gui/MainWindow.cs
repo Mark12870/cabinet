@@ -64,6 +64,14 @@ internal sealed class MainWindow
         toasts.SetChild(navigation);
         window.SetContent(toasts);
 
+        window.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() == "is-active" && window.IsActive)
+            {
+                Ui.Guard(library.RefreshOpened);
+            }
+        };
+
         RefreshAll();
         BridgeInBackground(layout, runner);
     }

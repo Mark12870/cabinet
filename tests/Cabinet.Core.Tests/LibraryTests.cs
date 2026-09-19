@@ -1918,6 +1918,28 @@ public class LibraryTests : IDisposable
     }
 
     [Fact]
+    public void APluginIsNotInstalledTwiceAtTheSameTime()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        Directory.CreateDirectory(Path.GetDirectoryName(layout.InstallLogPath("thing"))!);
+        File.WriteAllText(layout.InstallLogPath("thing"), "first install\n");
+        var recording = new RecordingRunner();
+        var library = new Library(layout, recording);
+        using var first = Underway.Begin(layout.InstallLockPath("thing"));
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => library.Install(library.Find("thing"), "second", installer));
+
+        Assert.Equal("Cabinet is installing Thing right now — wait for that to finish", refused.Message);
+        Assert.Equal("first install\n", File.ReadAllText(layout.InstallLogPath("thing")));
+        Assert.False(Directory.Exists(layout.PrefixPath("second")));
+        Assert.Empty(recording.Ran);
+    }
+
+    [Fact]
     public void ACatalogueEntryWhosePrefixIsNotANameIsRefused()
     {
         Assert.Contains(
@@ -2807,6 +2829,17 @@ public class LibraryTests : IDisposable
 
         Assert.Empty(library.LeftOpen());
         Assert.False(Underway.Marked(layout.PrefixOpen(entry.Prefix, entry.Id)));
+    }
+
+    [Fact]
+    public void AnAppAnotherCabinetHasOpenIsSeenAsOpen()
+    {
+        var layout = Layout();
+        Directory.CreateDirectory(layout.PrefixPath("first"));
+        File.WriteAllText(layout.PrefixOpen("first", "closed"), "closed");
+        using var elsewhere = Underway.Begin(layout.PrefixOpen("first", "manager"));
+
+        Assert.Equal(["manager"], new Library(layout, new RecordingRunner()).Opened());
     }
 
     [Fact]

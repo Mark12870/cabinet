@@ -193,6 +193,36 @@ internal static class Ui
         return dialog;
     }
 
+    public static void RequireName(
+        Adw.AlertDialog dialog, Adw.EntryRow name, Func<string?> problem)
+    {
+        void Check()
+        {
+            var found = problem();
+            name.SetTitle(found ?? "Name");
+            dialog.SetResponseEnabled("ok", found is null);
+
+            if (found is null)
+            {
+                name.RemoveCssClass("error");
+            }
+            else
+            {
+                name.AddCssClass("error");
+            }
+        }
+
+        name.OnNotify += (_, args) =>
+        {
+            if (args.Pspec.GetName() == "text")
+            {
+                Guard(Check);
+            }
+        };
+
+        Check();
+    }
+
     public static void Choose(
         Gtk.Widget parent,
         string heading,

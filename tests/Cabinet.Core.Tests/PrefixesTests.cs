@@ -147,6 +147,21 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Theory]
+    [InlineData("", "A new prefix needs a name")]
+    [InlineData("../escape", "One word of a path, not starting with a dot")]
+    [InlineData(".probe", "One word of a path, not starting with a dot")]
+    [InlineData("gadget", "A prefix named gadget is already there")]
+    public void ANewPrefixNameSaysWhatIsWrongWithIt(string name, string problem)
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+
+        Assert.Equal(problem, Subject.NewNameProblem(name));
+    }
+
+    [Fact]
+    public void AFreeNameIsFineForANewPrefix() => Assert.Null(Subject.NewNameProblem("widget"));
+
+    [Theory]
     [InlineData("../escape")]
     [InlineData("/etc")]
     [InlineData(".probe")]

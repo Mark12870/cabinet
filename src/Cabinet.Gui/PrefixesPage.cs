@@ -209,19 +209,15 @@ internal sealed class PrefixesPage
         fields.Add(name);
         fields.Add(wine);
 
-        Ui.Confirm(
+        var prefixes = new Prefixes(layout, runner);
+        var creating = Ui.Confirm(
             window,
             "New prefix",
             "A name for the prefix, such as the plugin it will hold.",
             "Create",
-            () =>
-            {
-                if (name.GetText().Trim() is { Length: > 0 } entered)
-                {
-                    CreatePrefix(entered, choices[(int)wine.GetSelected()]);
-                }
-            },
+            () => CreatePrefix(name.GetText().Trim(), choices[(int)wine.GetSelected()]),
             extra: fields);
+        Ui.RequireName(creating, name, () => prefixes.NewNameProblem(name.GetText().Trim()));
     }
 
     private void CreatePrefix(string name, string? runnerName) =>

@@ -151,6 +151,8 @@ public sealed partial class GrammarTests : IDisposable
         var outcome = cli.Run("winetricks", "gadget", "--", "--force", "vcrun2019");
 
         Assert.Equal(0, outcome.Exit);
+        Assert.StartsWith(
+            "Winetricks accepts the licences of vcrun2019 without showing them.\n\n", outcome.Out);
         Assert.Equal(
             ["--unattended", "--force", "vcrun2019"],
             Assert.Single(cli.Runner.Ran, call => call.File == Layout.Winetricks).Arguments);

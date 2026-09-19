@@ -75,6 +75,12 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         }
     }
 
+    public string? NewNameProblem(string name) =>
+        name.Length == 0 ? "A new prefix needs a name"
+        : !Layout.IsName(name) ? "One word of a path, not starting with a dot"
+        : Directory.Exists(layout.PrefixPath(name)) ? $"A prefix named {name} is already there"
+        : null;
+
     public Prefix Create(string name, string? runnerName = null, Action<string>? onOutput = null)
     {
         if (Directory.Exists(layout.PrefixPath(name)))

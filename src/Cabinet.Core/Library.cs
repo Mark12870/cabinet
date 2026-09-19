@@ -792,6 +792,14 @@ public sealed class Library(Layout layout, IProcessRunner runner)
                         (Path.GetFileName(marker)[Layout.OpenMarker.Length..], prefix)),
         ];
 
+    public IReadOnlySet<string> Opened() =>
+        new Prefixes(layout, runner).Names()
+            .SelectMany(prefix => Directory.EnumerateFiles(
+                layout.PrefixPath(prefix), Layout.OpenMarker + "*"))
+            .Where(Underway.Held)
+            .Select(marker => Path.GetFileName(marker)[Layout.OpenMarker.Length..])
+            .ToHashSet(StringComparer.Ordinal);
+
     public IReadOnlyDictionary<string, IReadOnlyList<string>> InstalledMoreThanOnce() =>
         new Prefixes(layout, runner).Names()
             .SelectMany(prefix => Recorded(prefix).Distinct(StringComparer.Ordinal),
@@ -818,6 +826,10 @@ public sealed class Library(Layout layout, IProcessRunner runner)
         Action<string>? onOutput = null,
         Action<double>? onProgress = null)
     {
+        using var installing = Underway.Begin(layout.InstallLockPath(entry.Id))
+                               ?? throw new InvalidOperationException(
+                                   $"Cabinet is installing {entry.Name} right now — wait for "
+                                   + "that to finish");
         var already = entry.Kind == PluginKind.Windows
             ? Installed().GetValueOrDefault(entry.Id)
             : null;

@@ -58,6 +58,26 @@ public sealed class Underway : IDisposable
         }
     }
 
+    public static bool Held(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var file = new FileStream(
+                path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+            return false;
+        }
+        catch (IOException)
+        {
+            return true;
+        }
+    }
+
     public static bool Marked(string path) => File.Exists(path) && new FileInfo(path).Length > 0;
 
     public void Note(string text)
