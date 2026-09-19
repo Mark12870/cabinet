@@ -91,6 +91,26 @@ public sealed class ProcessRunnerTests : IDisposable
     }
 
     [Fact]
+    public void AnInteractiveChildWritesToTheCallersOwnStreams()
+    {
+        var result = Subject.Run(
+            "sh",
+            ["-c", "[ /proc/$$/fd/1 -ef /proc/$PPID/fd/1 ] && [ /proc/$$/fd/2 -ef /proc/$PPID/fd/2 ]"],
+            interactive: true);
+
+        Assert.True(result.Ok);
+        Assert.Equal("", result.Stdout);
+    }
+
+    [Fact]
+    public void ACapturedChildDoesNotWriteToTheCallersOwnStreams()
+    {
+        var result = Subject.Run("sh", ["-c", "[ /proc/$$/fd/1 -ef /proc/$PPID/fd/1 ]"]);
+
+        Assert.False(result.Ok);
+    }
+
+    [Fact]
     public void OutputWithoutATrailingNewlineIsCollectedAndStreamed()
     {
         var streamed = new List<string>();

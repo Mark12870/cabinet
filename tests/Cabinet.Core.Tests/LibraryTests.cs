@@ -1653,7 +1653,7 @@ public class LibraryTests : IDisposable
     {
         Catalogue(("surge-xt", SurgeXt));
 
-        var missing = Assert.Throws<InvalidOperationException>(() => Subject().Find("nope"));
+        var missing = Assert.Throws<KeyNotFoundException>(() => Subject().Find("nope"));
 
         Assert.Equal(
             "no plugin 'nope' in the library", missing.Message);
@@ -2054,7 +2054,7 @@ public class LibraryTests : IDisposable
 
         Assert.Equal(
             "Thing is not installed",
-            Assert.Throws<InvalidOperationException>(() => library.RemovalOf(entry)).Message);
+            Assert.Throws<KeyNotFoundException>(() => library.RemovalOf(entry)).Message);
         Assert.True(Directory.Exists(layout.PrefixPath("thing")));
     }
 

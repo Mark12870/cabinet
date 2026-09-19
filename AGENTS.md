@@ -125,9 +125,10 @@ the name or the structure instead. Anything that genuinely will not fit there is
   `ShimParityTests` read the real tree. Substitute a runner with
   `StubRunner`, `RecordingRunner` or `StreamingRunner` instead of a mocking library.
 - Tests must be always deterministic. No conditions are allowed in them.
-- A new CLI verb also belongs in `Program.Usage`. `--json` is stripped from the arguments before dispatch, and JSON is
-  written by hand with `Utf8JsonWriter` in `src/Cabinet.Cli/Json.cs` because NativeAOT trims reflection-based
-  serialization.
+- A new CLI verb also belongs in `Program.Usage`. Every command parses its arguments through `CommandLine` before
+  bootstrap or any side effect; `--json` is accepted only where a command asks for it with `Then(json => …)`, and
+  nothing after `run <name>` or `winetricks <name>` is parsed. JSON is written by hand with `Utf8JsonWriter` in
+  `src/Cabinet.Cli/Json.cs` because NativeAOT trims reflection-based serialization.
 - In the GUI, user-visible operations with progress or logs use `Operation.Run`. Background page loads may use
   `Task.Run`, but every widget update from off the main loop must go through
   `Ui.OnMainLoop`. Take page chrome from `Ui` and icon names from `Icons`.

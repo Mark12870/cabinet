@@ -98,7 +98,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
         return matches.Count switch
         {
             1 => matches[0],
-            0 => throw new InvalidOperationException(
+            0 => throw new KeyNotFoundException(
                 $"no Wine {spec} among the versions available upstream"),
             _ => throw new InvalidOperationException(
                 $"{spec} is more than one build — ask for "

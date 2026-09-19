@@ -12,7 +12,7 @@ internal sealed class UnusedRunner : IProcessRunner
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false,
+        bool interactive = false,
         CancellationToken cancellationToken = default) =>
         args switch
         {

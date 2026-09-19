@@ -18,12 +18,13 @@ public sealed class RemovalTests : IDisposable
 
         var outcome = cli.Answer("n\n", "library", "remove", "thing");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(3, outcome.Exit);
         Assert.Equal(
             $"Thing's own uninstaller leaves everything it downloaded in prefix '{where}', "
             + "so it is the prefix or nothing.\n"
             + $"Delete '{where}' and every library Thing put in it? [y/N] Left alone.\n",
-            outcome.Out);
+            outcome.Error);
+        Assert.Empty(outcome.Out);
         Assert.True(Directory.Exists(cli.Layout.PrefixPath(where)));
     }
 
@@ -34,8 +35,8 @@ public sealed class RemovalTests : IDisposable
 
         var outcome = cli.Answer("n\n", "library", "remove", "thing");
 
-        Assert.Equal(1, outcome.Exit);
-        Assert.Contains($"Prefix '{where}' also holds other, which go with it.\n", outcome.Out);
+        Assert.Equal(3, outcome.Exit);
+        Assert.Contains($"Prefix '{where}' also holds other, which go with it.\n", outcome.Error);
     }
 
     [Fact]
@@ -56,13 +57,13 @@ public sealed class RemovalTests : IDisposable
 
         var outcome = cli.Answer("y\n\n", "library", "remove", "thing");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(3, outcome.Exit);
         Assert.EndsWith(
             "Any of these could be Thing's uninstaller:\n"
             + "  1  Thing version 1\n"
             + "  2  Thing Extras\n"
             + "Which one runs? [1-2, or Enter to leave it alone] Left alone.\n",
-            outcome.Out);
+            outcome.Error);
         Assert.Empty(cli.Runner.Ran);
     }
 
@@ -85,12 +86,12 @@ public sealed class RemovalTests : IDisposable
 
         var outcome = cli.Answer("n\nn\n", "library", "remove", "thing");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(3, outcome.Exit);
         Assert.Equal(
             $"Thing is the only plugin Cabinet installed in prefix '{where}'.\n"
             + "Delete the prefix and everything in it? [y/N] "
             + "Run Thing's own uninstaller? It may open a window. [y/N] Left alone.\n",
-            outcome.Out);
+            outcome.Error);
         Assert.Empty(cli.Runner.Ran);
     }
 
@@ -101,11 +102,11 @@ public sealed class RemovalTests : IDisposable
 
         var outcome = cli.Answer("n\n", "library", "remove", "thing");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(3, outcome.Exit);
         Assert.Equal(
             $"Prefix '{where}' also holds other, so it stays.\n"
             + "Run Thing's own uninstaller? It may open a window. [y/N] Left alone.\n",
-            outcome.Out);
+            outcome.Error);
     }
 
     [Fact]
@@ -116,8 +117,8 @@ public sealed class RemovalTests : IDisposable
 
         var outcome = cli.Answer("n\n", "library", "remove", "synth");
 
-        Assert.Equal(1, outcome.Exit);
-        Assert.Equal("Remove Synth and the links your DAW scans? [y/N] Left alone.\n", outcome.Out);
+        Assert.Equal(3, outcome.Exit);
+        Assert.Equal("Remove Synth and the links your DAW scans? [y/N] Left alone.\n", outcome.Error);
         Assert.True(Directory.Exists(cli.Layout.NativePath("synth")));
     }
 
@@ -141,13 +142,13 @@ public sealed class RemovalTests : IDisposable
     }
 
     [Fact]
-    public void RemovingWhatIsNotInstalledFails()
+    public void RemovingWhatIsNotInstalledIsAbsent()
     {
         cli.Catalogue("thing", Plugin);
 
         var outcome = cli.Run("library", "remove", "thing");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(4, outcome.Exit);
         Assert.Equal("cabinet: Thing is not installed\n", outcome.Error);
     }
 

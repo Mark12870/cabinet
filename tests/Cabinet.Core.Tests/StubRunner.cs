@@ -12,7 +12,7 @@ internal sealed class StubRunner(ProcessResult result) : IProcessRunner
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false,
+        bool interactive = false,
         CancellationToken cancellationToken = default) =>
         args is [Prefixes.PathsMode]
             ? new ProcessResult(0, SessionFiles.Printed(env ?? new Dictionary<string, string>()), "")

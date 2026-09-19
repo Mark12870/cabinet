@@ -18,7 +18,7 @@ public interface IProcessRunner
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false,
+        bool interactive = false,
         CancellationToken cancellationToken = default);
 }
 
@@ -32,7 +32,7 @@ public sealed class ProcessRunner : IProcessRunner
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false,
+        bool interactive = false,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -40,9 +40,9 @@ public sealed class ProcessRunner : IProcessRunner
         var info = logTo is null
             ? new ProcessStartInfo(file)
             {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                RedirectStandardInput = !inheritStdin,
+                RedirectStandardOutput = !interactive,
+                RedirectStandardError = !interactive,
+                RedirectStandardInput = !interactive,
             }
             : Redirected(file, logTo);
 
@@ -86,7 +86,7 @@ public sealed class ProcessRunner : IProcessRunner
             process.StandardInput.Close();
         }
 
-        if (logTo is not null)
+        if (logTo is not null || interactive)
         {
             process.WaitForExit();
             cancellationToken.ThrowIfCancellationRequested();

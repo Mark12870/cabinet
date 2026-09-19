@@ -266,7 +266,7 @@ public sealed class YabridgectlTests : IDisposable
             string? workingDirectory = null,
             string? logTo = null,
             IReadOnlySet<string>? blankEnvironment = null,
-            bool inheritStdin = false,
+            bool interactive = false,
             CancellationToken cancellationToken = default)
         {
             Calls.Add(args);

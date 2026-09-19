@@ -46,8 +46,8 @@ flatpak run $cabinet library install surge-xt               # a Linux build, so 
 flatpak run $cabinet library install fabfilter-total-bundle # downloaded for you, prefix and all
 flatpak run $cabinet library install vital ~/Downloads/VitalInstaller.zip  # yours to download
 flatpak run $cabinet library remove valhalla-supermassive   # its own uninstaller, then unbridged
-flatpak run $cabinet library launch spitfire-audio          # a manager; what it installs, bridged
-flatpak run $cabinet library stop spitfire-audio            # close it, and the Wine it left
+flatpak run $cabinet library launch native-access           # a manager; what it installs, bridged
+flatpak run $cabinet library stop native-access             # close it, and the Wine it left
 flatpak run $cabinet library --search reverb --installed    # narrow by words, category or kind
 
 flatpak run $cabinet new serum                              # a prefix of its own

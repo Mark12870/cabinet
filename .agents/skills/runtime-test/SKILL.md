@@ -37,7 +37,7 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
      XDG_DATA_HOME="$ROOT/home/.local/share" \
      FLATPAK_USER_DIR="$ROOT/home/.local/share/flatpak" \
      flatpak run --nofilesystem=home --filesystem="$ROOT":create \
-     io.github.mark12870.cabinet library install <id> <fresh-prefix>
+     io.github.mark12870.cabinet library install <id> --prefix <fresh-prefix>
    toolbox run --container cabinet-runtime env \
      HOME="$ROOT/home" XDG_RUNTIME_DIR="$ROOT/runtime" \
      XDG_DATA_HOME="$ROOT/home/.local/share" \

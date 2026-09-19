@@ -21,13 +21,13 @@ internal static class Program
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
-          cabinet set <name> desktop <on|off>   enable or disable a Wine desktop of its own
+          cabinet set <name> desktop <on|off>  enable or disable a Wine desktop of its own
           cabinet winetricks <name> [verb...]  open Winetricks, or install the verbs given
           cabinet library                      plugins Cabinet knows how to install
           cabinet library show <id>            what a plugin is, and what installing costs
-          cabinet library install <id> [prefix] [file]
+          cabinet library install <id> [--prefix <name>] [file]
                                                install one; demo entries download without a file
-          cabinet library remove <id>          uninstall one, links, prefix and all
+          cabinet library remove <id>          uninstall one; asks before taking its prefix
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library stop <id>            close a manager Cabinet opened
           cabinet library open <link>          hand a sign-in link to the manager that registered it
@@ -43,7 +43,10 @@ internal static class Program
           cabinet about                        which Cabinet this is, and what it bundles
 
         Options:
-          --json                               machine-readable output where it applies
+          --json                               JSON on stdout, from list, library, library show,
+                                               doctor and about only
+          --                                   no options after this; whatever follows the prefix
+                                               of run and winetricks is passed on as it is
 
         Narrowing `cabinet library`:
           --search <text>                      every word must appear somewhere in the entry
@@ -51,6 +54,11 @@ internal static class Program
           --developer <name>                   who makes it
           --kind <windows|linux>               under Wine, or native
           --installed, --not-installed         only what is here, or only what is not
+
+        Exit status:
+          0 done, 1 failed, 2 not a valid command, 3 declined at a prompt,
+          4 no such prefix, plugin, runner, file or log. `run` exits with its command's status.
+          Prompts and errors go to stderr.
         """;
 
     private static int Main(string[] args) =>
@@ -58,25 +66,20 @@ internal static class Program
 
     internal static int Invoke(string[] args, Func<Layout> environment, IProcessRunner runner)
     {
-        var json = args.Contains("--json");
-        var positional = args.Where(a => a != "--json").ToArray();
-
-        if (positional.Length > 0 && positional[0] is "-h" or "--help" or "help")
-        {
-            Console.WriteLine(Usage);
-            return 0;
-        }
-
         try
         {
-            return positional.Length == 0
-                ? LaunchGui()
-                : Dispatch(positional, json, environment(), runner);
+            return args.Length == 0 ? LaunchGui() : Dispatch(CommandLine.Parse(args), environment, runner);
         }
         catch (Exception exception)
         {
             Console.Error.WriteLine($"cabinet: {exception.Message}");
-            return 1;
+
+            return exception switch
+            {
+                UsageException => Exit.Usage,
+                KeyNotFoundException or FileNotFoundException or DirectoryNotFoundException => Exit.Absent,
+                _ => Exit.Failed,
+            };
         }
     }
 
@@ -89,36 +92,47 @@ internal static class Program
         return gui.ExitCode;
     }
 
-    private static int Dispatch(string[] args, bool json, Layout layout, IProcessRunner runner)
+    private static int Dispatch(CommandLine line, Func<Layout> environment, IProcessRunner runner)
     {
-        Bootstrap.Ensure(layout);
-
-        return args[0] switch
+        if (line.Help)
         {
-            "enrol" or "enroll" => Enrol(layout, Require(args, 1, "a DAW flatpak id")),
-            "new" => New(layout, runner, Require(args, 1, "a prefix name"),
-                args.Length > 2 ? args[2] : null),
-            "library" => Library(layout, runner, args.Skip(1).ToArray(), json),
-            "runners" => Runners(layout, runner, args.Skip(1).ToArray()),
-            "use" => Use(layout, runner, Require(args, 1, "a prefix name"),
-                Require(args, 2, "a runner name")),
-            "dxvk" => InstallDxvk(layout, runner, Require(args, 1, "a prefix name")),
-            "show" => Show(layout, runner, Require(args, 1, "a prefix name")),
-            "set" => Set(layout, runner, Require(args, 1, "a prefix name"),
-                args.Skip(2).ToArray()),
-            "winetricks" => RunWinetricks(layout, runner, Require(args, 1, "a prefix name"),
-                args.Skip(2).ToArray()),
-            "install" => Install(layout, runner, Require(args, 1, "a prefix name"),
-                Require(args, 2, "an installer path")),
-            "delete" => Delete(layout, runner, Require(args, 1, "a prefix name")),
-            "list" => List(layout, runner, json),
-            "sync" => Sync(layout, runner),
-            "run" => Run(layout, runner, Require(args, 1, "a prefix name"),
-                Require(args, 2, "a command"), args.Skip(3).ToArray()),
-            "doctor" => RunDoctor(layout, runner, json),
-            "about" => ShowAbout(layout, runner, json),
-            _ => Unknown(args[0]),
+            Console.WriteLine(Usage);
+            return Exit.Ok;
+        }
+
+        var layout = environment();
+        var command = Parse(line, layout, runner);
+
+        Bootstrap.Ensure(layout);
+        return command();
+    }
+
+    private static Func<int> Parse(CommandLine line, Layout layout, IProcessRunner runner) =>
+        line.Verb() switch
+        {
+            "enrol" or "enroll" => One(line, "a DAW flatpak id", id => Enrol(layout, id)),
+            "new" => New(line, layout, runner),
+            "library" => Library(line, layout, runner),
+            "runners" => Runners(line, layout, runner),
+            "use" => Use(line, layout, runner),
+            "dxvk" => One(line, "a prefix name", name => InstallDxvk(layout, runner, name)),
+            "show" => One(line, "a prefix name", name => Show(layout, runner, name)),
+            "set" => Set(line, layout, runner),
+            "winetricks" => RunWinetricks(line, layout, runner),
+            "install" => Install(line, layout, runner),
+            "delete" => One(line, "a prefix name", name => Delete(layout, runner, name)),
+            "list" => line.Then(json => List(layout, runner, json)),
+            "sync" => line.Then(() => Sync(layout, runner)),
+            "run" => Run(line, layout, runner),
+            "doctor" => line.Then(json => RunDoctor(layout, runner, json)),
+            "about" => line.Then(json => ShowAbout(layout, runner, json)),
+            var unknown => throw line.Unknown(unknown),
         };
+
+    private static Func<int> One(CommandLine line, string what, Func<string, int> act)
+    {
+        var word = line.Word(what);
+        return line.Then(() => act(word));
     }
 
     private static int Enrol(Layout layout, string dawId)
@@ -138,27 +152,32 @@ internal static class Program
         Console.WriteLine("than the one it was built against on some DAWs:");
         Console.WriteLine();
         Console.WriteLine("  " + Enrolment.SelfTestCommand(dawId, layout));
-        return 0;
+        return Exit.Ok;
     }
 
-    private static int New(
-        Layout layout, IProcessRunner runner, string name, string? runnerName)
+    private static Func<int> New(CommandLine line, Layout layout, IProcessRunner runner)
     {
-        var prefix = new Prefixes(layout, runner).Create(name, runnerName, Console.WriteLine);
-        Console.WriteLine($"{prefix.Name}  {prefix.Path}  ({prefix.Runner})");
-        Console.WriteLine($"Install plugins with `cabinet install {prefix.Name} <installer>`.");
-        return 0;
+        var name = line.Word("a prefix name");
+        var runnerName = line.OptionalWord();
+
+        return line.Then(() =>
+        {
+            var prefix = new Prefixes(layout, runner).Create(name, runnerName, Console.WriteLine);
+            Console.WriteLine($"{prefix.Name}  {prefix.Path}  ({prefix.Runner})");
+            Console.WriteLine($"Install plugins with `cabinet install {prefix.Name} <installer>`.");
+            return Exit.Ok;
+        });
     }
 
-    private static int Runners(Layout layout, IProcessRunner runner, string[] args) =>
-        args.FirstOrDefault() switch
+    private static Func<int> Runners(CommandLine line, Layout layout, IProcessRunner runner) =>
+        line.Subcommand() switch
         {
-            null => ListRunners(layout, runner),
-            "available" => AvailableRunners(runner),
-            "install" => InstallRunner(layout, runner, Require(args, 1, "a Wine version")),
-            "add" => AddRunner(layout, runner, Require(args, 1, "an archive path")),
-            "rm" => RemoveRunner(layout, runner, Require(args, 1, "a runner name")),
-            var unknown => Unknown($"runners {unknown}"),
+            null => line.Then(() => ListRunners(layout, runner)),
+            "available" => line.Then(() => AvailableRunners(runner)),
+            "install" => One(line, "a Wine version", version => InstallRunner(layout, runner, version)),
+            "add" => One(line, "an archive path", archive => AddRunner(layout, runner, archive)),
+            "rm" => One(line, "a runner name", name => RemoveRunner(layout, runner, name)),
+            var unknown => throw line.Unknown($"runners {unknown}"),
         };
 
     private static int ListRunners(Layout layout, IProcessRunner runner)
@@ -174,7 +193,7 @@ internal static class Program
                 + $"{(found.Multilib ? "32+64" : "64   ")}  {runners.Version(found),-34}  {by}");
         }
 
-        return 0;
+        return Exit.Ok;
     }
 
     private static int AvailableRunners(IProcessRunner runner)
@@ -193,7 +212,7 @@ internal static class Program
             Console.WriteLine();
         }
 
-        return 0;
+        return Exit.Ok;
     }
 
     private static int InstallRunner(Layout layout, IProcessRunner runner, string version)
@@ -204,7 +223,7 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine($"{installed.Name}  {installed.Wine}");
         Console.WriteLine($"Put a prefix on it with `cabinet use <prefix> {installed.Name}`.");
-        return 0;
+        return Exit.Ok;
     }
 
     private static int AddRunner(Layout layout, IProcessRunner runner, string archive)
@@ -214,21 +233,27 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine($"{added.Name}  {added.Wine}");
         Console.WriteLine($"Put a prefix on it with `cabinet use <prefix> {added.Name}`.");
-        return 0;
+        return Exit.Ok;
     }
 
     private static int RemoveRunner(Layout layout, IProcessRunner runner, string name)
     {
         new Runners(layout, runner).Remove(name);
         Console.WriteLine($"Deleted {layout.RunnerPath(name)}");
-        return 0;
+        return Exit.Ok;
     }
 
-    private static int Use(Layout layout, IProcessRunner runner, string name, string runnerName)
+    private static Func<int> Use(CommandLine line, Layout layout, IProcessRunner runner)
     {
-        new Prefixes(layout, runner).MoveToRunner(name, runnerName, Console.WriteLine);
-        Console.WriteLine($"{name} now runs on {runnerName}.");
-        return 0;
+        var name = line.Word("a prefix name");
+        var runnerName = line.Word("a runner name");
+
+        return line.Then(() =>
+        {
+            new Prefixes(layout, runner).MoveToRunner(name, runnerName, Console.WriteLine);
+            Console.WriteLine($"{name} now runs on {runnerName}.");
+            return Exit.Ok;
+        });
     }
 
     private static int InstallDxvk(Layout layout, IProcessRunner runner, string name)
@@ -236,82 +261,99 @@ internal static class Program
         new Dxvk(layout, runner).Install(name, Console.WriteLine);
 
         Console.WriteLine("Reopen the plugin in your DAW; its editor should redraw as you use it.");
-        return 0;
+        return Exit.Ok;
     }
 
     private static int RemoveDxvk(Layout layout, IProcessRunner runner, string name)
     {
         new Dxvk(layout, runner).Remove(name, Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
-    private static int Set(Layout layout, IProcessRunner runner, string name, string[] args) =>
-        args.FirstOrDefault() switch
-        {
-            "sync" => SetSync(layout, runner, name, Require(args, 1, "a sync mode")),
-            "dxvk" => SetDxvk(layout, runner, name, Require(args, 1, "on or off")),
-            "env" => SetVariable(layout, name, Require(args, 1, "KEY=VALUE")),
-            "desktop" => SetDesktop(layout, runner, name, Require(args, 1, "on or off")),
-            var unknown => Unknown($"set {name} {unknown}"),
-        };
-
-    private static int RunWinetricks(
-        Layout layout, IProcessRunner runner, string name, string[] verbs)
+    private static Func<int> Set(CommandLine line, Layout layout, IProcessRunner runner)
     {
-        var winetricks = new Winetricks(layout, runner);
-        var result = verbs.Length == 0
-            ? winetricks.Open(name, Console.WriteLine)
-            : winetricks.Apply(name, verbs, Console.WriteLine);
-        new Prefixes(layout, runner).Bridge(Console.WriteLine);
+        var name = line.Word("a prefix name");
 
-        return result.Ok ? 0 : result.ExitCode;
+        return line.Subcommand() switch
+        {
+            "sync" => One(line, "a sync mode", word => SetSync(layout, runner, name, Sync(word))),
+            "dxvk" => One(line, "on or off", word => OnOff(word)
+                ? InstallDxvk(layout, runner, name)
+                : RemoveDxvk(layout, runner, name)),
+            "env" => One(line, "KEY=VALUE", assignment => SetVariable(layout, name, Assignment(assignment))),
+            "desktop" => One(line, "on or off", word => SetDesktop(layout, runner, name, OnOff(word))),
+            null => throw new UsageException("expected sync, dxvk, env or desktop"),
+            var unknown => throw line.Unknown($"set {name} {unknown}"),
+        };
     }
 
-    private static int SetDxvk(Layout layout, IProcessRunner runner, string name, string word) =>
-        word.Trim().ToLowerInvariant() switch
-        {
-            "on" => InstallDxvk(layout, runner, name),
-            "off" => RemoveDxvk(layout, runner, name),
-            _ => throw new ArgumentException($"not on or off: '{word}'"),
-        };
+    private static Func<int> RunWinetricks(CommandLine line, Layout layout, IProcessRunner runner)
+    {
+        var name = line.Word("a prefix name");
+        var verbs = line.PassedThrough;
 
-    private static int SetDesktop(
-        Layout layout, IProcessRunner runner, string name, string word)
+        return line.Then(() =>
+        {
+            var winetricks = new Winetricks(layout, runner);
+            var result = verbs.Count == 0
+                ? winetricks.Open(name, Console.WriteLine)
+                : winetricks.Apply(name, verbs, Console.WriteLine);
+            new Prefixes(layout, runner).Bridge(Console.WriteLine);
+
+            return Exited("winetricks", result);
+        });
+    }
+
+    private static bool OnOff(string word) => word.Trim().ToLowerInvariant() switch
+    {
+        "on" => true,
+        "off" => false,
+        _ => throw new UsageException($"expected on or off, not '{word}'"),
+    };
+
+    private static SyncMode Sync(string word)
+    {
+        try
+        {
+            return PrefixSettings.ParseSync(word);
+        }
+        catch (ArgumentException invalid)
+        {
+            throw new UsageException(invalid.Message);
+        }
+    }
+
+    private static int SetDesktop(Layout layout, IProcessRunner runner, string name, bool on)
     {
         var desktop = new VirtualDesktop(layout, runner);
 
-        switch (word.Trim().ToLowerInvariant())
+        if (on)
         {
-            case "on":
-                desktop.Set(name, Console.WriteLine);
-                break;
-            case "off":
-                desktop.Unset(name, Console.WriteLine);
-                break;
-            default:
-                throw new ArgumentException($"not on or off: '{word}'");
+            desktop.Set(name, Console.WriteLine);
+        }
+        else
+        {
+            desktop.Unset(name, Console.WriteLine);
         }
 
-        return 0;
+        return Exit.Ok;
     }
 
-    private static int SetSync(
-        Layout layout, IProcessRunner runner, string name, string word)
+    private static int SetSync(Layout layout, IProcessRunner runner, string name, SyncMode mode)
     {
-        var mode = PrefixSettings.ParseSync(word);
         new Prefixes(layout, runner).SetSync(name, mode, Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
-    private static int SetVariable(Layout layout, string name, string assignment)
+    private static int SetVariable(Layout layout, string name, (string Key, string? Value) assignment)
     {
-        var (key, value) = Assignment(assignment);
+        var (key, value) = assignment;
         new PrefixSettings(layout).SetVariable(name, key, value);
 
         Console.WriteLine(value is null
             ? $"{key} removed from {name}."
             : $"{key}={value} in {name}.");
-        return 0;
+        return Exit.Ok;
     }
 
     private static (string Key, string? Value) Assignment(string text)
@@ -320,7 +362,7 @@ internal static class Program
 
         if (at <= 0)
         {
-            throw new ArgumentException($"expected <name>=<value>, got '{text}'");
+            throw new UsageException($"expected <name>=<value>, got '{text}'");
         }
 
         var value = text[(at + 1)..];
@@ -331,7 +373,7 @@ internal static class Program
     {
         var prefix = new Prefixes(layout, runner).List()
             .FirstOrDefault(candidate => candidate.Name == name)
-            ?? throw new ArgumentException($"no such prefix '{name}'");
+            ?? throw new KeyNotFoundException($"no such prefix '{name}'");
 
         Console.WriteLine($"{"name",-16}  {prefix.Name}");
         Console.WriteLine($"{"path",-16}  {prefix.Path}");
@@ -343,7 +385,7 @@ internal static class Program
 
         Describe("env", new PrefixSettings(layout).Variables(name));
 
-        return 0;
+        return Exit.Ok;
     }
 
     private static void Describe(string label, IReadOnlyDictionary<string, string> entries)
@@ -360,31 +402,29 @@ internal static class Program
         }
     }
 
-    private static int Install(Layout layout, IProcessRunner runner, string name, string installer)
+    private static Func<int> Install(CommandLine line, Layout layout, IProcessRunner runner)
     {
-        return new Prefixes(layout, runner).Install(name, installer, Console.WriteLine).ExitCode;
+        var name = line.Word("a prefix name");
+        var installer = line.Word("an installer path");
+
+        return line.Then(() => Exited(
+            Path.GetFileName(installer),
+            new Prefixes(layout, runner).Install(name, installer, Console.WriteLine)));
     }
 
     private static int Delete(Layout layout, IProcessRunner runner, string name)
     {
         var prefixes = new Prefixes(layout, runner);
-        var prefix = prefixes.List().FirstOrDefault(candidate => candidate.Name == name);
+        var prefix = prefixes.List().FirstOrDefault(candidate => candidate.Name == name)
+                     ?? throw new KeyNotFoundException($"no such prefix '{name}'");
 
-        if (prefix is null)
+        if (!Confirmed($"Delete '{prefix.Name}' and every plugin installed in it? [y/N] "))
         {
-            Console.Error.WriteLine($"cabinet: no such prefix '{name}'");
-            return 1;
-        }
-
-        Console.Write($"Delete '{prefix.Name}' and every plugin installed in it? [y/N] ");
-        if (!Yes())
-        {
-            Console.WriteLine("Left alone.");
-            return 1;
+            return LeftAlone();
         }
 
         prefixes.Delete(prefix.Name, Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
     private static int List(Layout layout, IProcessRunner runner, bool json)
@@ -394,13 +434,13 @@ internal static class Program
         if (json)
         {
             Console.WriteLine(Json.Prefixes(prefixes));
-            return 0;
+            return Exit.Ok;
         }
 
         if (prefixes.Count == 0)
         {
             Console.WriteLine("No prefixes yet. Create one with `cabinet new <name>`.");
-            return 0;
+            return Exit.Ok;
         }
 
         foreach (var prefix in prefixes)
@@ -412,81 +452,48 @@ internal static class Program
                 + $"  {prefix.Path}");
         }
 
-        return 0;
+        return Exit.Ok;
     }
 
-    private static int Library(Layout layout, IProcessRunner runner, string[] args, bool json)
-    {
-        var (filter, rest) = Narrowing(args);
-
-        return rest.FirstOrDefault() switch
+    private static Func<int> Library(CommandLine line, Layout layout, IProcessRunner runner) =>
+        line.Subcommand() switch
         {
-            null => ListLibrary(layout, runner, filter, json),
-            "show" => ShowFromLibrary(layout, runner, Require(rest, 1, "a plugin id"), json),
-            "install" => InstallFromLibrary(layout, runner, rest.Skip(1).ToArray()),
-            "remove" => RemoveFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
-            "launch" => LaunchFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
-            "stop" => StopFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
-            "open" => OpenFromLibrary(layout, runner, Require(rest, 1, "a link")),
-            "log" => LogFromLibrary(layout, runner, Require(rest, 1, "a plugin id")),
-            var unknown => Unknown($"library {unknown}"),
+            null => ListLibrary(line, layout, runner),
+            "show" => ShowFromLibrary(line, layout, runner),
+            "install" => InstallFromLibrary(line, layout, runner),
+            "remove" => One(line, "a plugin id", id => RemoveFromLibrary(layout, runner, id)),
+            "launch" => One(line, "a plugin id", id => LaunchFromLibrary(layout, runner, id)),
+            "stop" => One(line, "a plugin id", id => StopFromLibrary(layout, runner, id)),
+            "open" => One(line, "a link", link => OpenFromLibrary(layout, runner, link)),
+            "log" => One(line, "a plugin id", id => LogFromLibrary(layout, runner, id)),
+            var unknown => throw line.Unknown($"library {unknown}"),
         };
-    }
 
-    private static (LibraryFilter Filter, string[] Remaining) Narrowing(string[] args)
+    private static Func<int> ListLibrary(CommandLine line, Layout layout, IProcessRunner runner)
     {
-        string? search = null;
-        string? category = null;
-        string? developer = null;
-        PluginKind? kind = null;
-        bool? installed = null;
-        var rest = new List<string>();
+        var installed = line.Flag("--installed");
+        var notInstalled = line.Flag("--not-installed");
 
-        for (var index = 0; index < args.Length; index++)
+        if (installed && notInstalled)
         {
-            switch (args[index])
-            {
-                case "--search":
-                    search = Follows(args, ref index);
-                    break;
-                case "--category":
-                    category = Follows(args, ref index);
-                    break;
-                case "--developer":
-                    developer = Follows(args, ref index);
-                    break;
-                case "--kind":
-                    kind = Kind(Follows(args, ref index));
-                    break;
-                case "--installed":
-                    installed = true;
-                    break;
-                case "--not-installed":
-                    installed = false;
-                    break;
-                default:
-                    rest.Add(args[index]);
-                    break;
-            }
+            throw new UsageException("--installed and --not-installed exclude each other");
         }
 
-        return (new LibraryFilter(search, category, developer, kind, installed), [.. rest]);
-    }
+        var filter = new LibraryFilter(
+            line.Option("--search"),
+            line.Option("--category"),
+            line.Option("--developer"),
+            line.Option("--kind") is { } kind ? Kind(kind) : null,
+            installed ? true : notInstalled ? false : null);
 
-    private static string Follows(string[] args, ref int index)
-    {
-        var flag = args[index];
-
-        return ++index < args.Length
-            ? args[index]
-            : throw new InvalidOperationException($"{flag} needs something after it");
+        return line.Then(json => ListLibrary(layout, runner, filter, json));
     }
 
     private static PluginKind Kind(string word) => word.ToLowerInvariant() switch
     {
         "windows" => PluginKind.Windows,
         "linux" or "native" => PluginKind.Native,
-        _ => throw new InvalidOperationException($"--kind takes windows or linux, not {word}"),
+        _ => throw new UsageException($"--kind takes windows or linux, not {word}"),
     };
 
     private static int ListLibrary(
@@ -507,19 +514,19 @@ internal static class Program
                 [.. entries, .. retired],
                 installed,
                 retired.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal)));
-            return 0;
+            return Exit.Ok;
         }
 
         if (all.Count == 0 && retired.Count == 0)
         {
             Console.WriteLine("This build shipped no library.");
-            return 0;
+            return Exit.Ok;
         }
 
         if (entries.Count == 0 && retired.Count == 0)
         {
             Console.WriteLine("Nothing in the library matches that.");
-            return 0;
+            return Exit.Ok;
         }
 
         var width = entries.Concat(retired).Max(entry => entry.Id.Length);
@@ -556,11 +563,17 @@ internal static class Program
             Console.WriteLine("Remove one with `cabinet library remove <id>`.");
         }
 
-        return 0;
+        return Exit.Ok;
     }
 
     private static string KindWord(LibraryEntry entry) =>
         entry.Kind == PluginKind.Native ? "linux" : "windows";
+
+    private static Func<int> ShowFromLibrary(CommandLine line, Layout layout, IProcessRunner runner)
+    {
+        var id = line.Word("a plugin id");
+        return line.Then(json => ShowFromLibrary(layout, runner, id, json));
+    }
 
     private static int ShowFromLibrary(
         Layout layout, IProcessRunner runner, string id, bool json)
@@ -572,7 +585,7 @@ internal static class Program
         if (json)
         {
             Console.WriteLine(Json.Library([entry], installed, new HashSet<string>()));
-            return 0;
+            return Exit.Ok;
         }
 
         Console.WriteLine(entry.Name);
@@ -616,7 +629,7 @@ internal static class Program
         Console.WriteLine(Wrapped(entry.Source == PluginSource.Byo
             ? BringYourOwn(entry)
             : $"`{Command(entry)}` installs it."));
-        return 0;
+        return Exit.Ok;
 
         static void Field(string name, string? value)
         {
@@ -632,7 +645,7 @@ internal static class Program
 
     private static string Command(LibraryEntry entry, string? prefix = null) =>
         entry.DemoUrl is not null
-            ? $"cabinet library install {entry.Id}"
+            ? $"cabinet library install {entry.Id}{PrefixOption(prefix)}"
             : OwnCommand(entry, prefix);
 
     private static string OwnCommand(LibraryEntry entry, string? prefix = null) =>
@@ -640,9 +653,12 @@ internal static class Program
         {
             (PluginSource.Byo, PluginKind.Native) => $"cabinet library install {entry.Id} <file>",
             (PluginSource.Byo, _) =>
-                $"cabinet library install {entry.Id} {prefix ?? "<prefix>"} <installer.exe>",
-            _ => $"cabinet library install {entry.Id}",
+                $"cabinet library install {entry.Id}{PrefixOption(prefix)} <installer.exe>",
+            _ => $"cabinet library install {entry.Id}{PrefixOption(prefix)}",
         };
+
+    private static string PrefixOption(string? prefix) =>
+        prefix is null ? "" : $" --prefix {prefix}";
 
     private static string BringYourOwn(LibraryEntry entry, string? prefix = null) =>
         entry.DemoUrl is not null
@@ -676,28 +692,33 @@ internal static class Program
         return string.Join(Environment.NewLine, lines);
     }
 
-    private static int InstallFromLibrary(Layout layout, IProcessRunner runner, string[] args)
+    private static Func<int> InstallFromLibrary(CommandLine line, Layout layout, IProcessRunner runner)
     {
         var library = new Library(layout, runner);
-        var entry = library.Find(Require(args, 0, "a plugin id"));
+        var entry = library.Find(line.Word("a plugin id"));
+        var prefix = line.Option("--prefix");
+        var file = line.OptionalWord();
 
-        var native = entry.Kind == PluginKind.Native;
-        var prefix = native ? null : Optional(args, 1);
-        var file = Optional(args, native ? 1 : 2);
+        if (prefix is not null && entry.Kind == PluginKind.Native)
+        {
+            throw new UsageException($"{entry.Name} is a Linux plugin, so it takes no --prefix");
+        }
 
         if (entry.Source == PluginSource.Byo && file is null && entry.DemoUrl is null)
         {
-            Console.Error.WriteLine($"cabinet: {BringYourOwn(entry, prefix)}");
-            return 1;
+            throw new UsageException(BringYourOwn(entry, prefix));
         }
 
-        library.Install(entry, prefix, file, Console.WriteLine);
+        return line.Then(() =>
+        {
+            library.Install(entry, prefix, file, Console.WriteLine);
 
-        Console.WriteLine();
-        Console.WriteLine(entry.Kind == PluginKind.Native
-            ? $"{entry.Name} is installed. Your DAW loads it directly — rescan to find it."
-            : $"{entry.Name} is installed and bridged.");
-        return 0;
+            Console.WriteLine();
+            Console.WriteLine(entry.Kind == PluginKind.Native
+                ? $"{entry.Name} is installed. Your DAW loads it directly — rescan to find it."
+                : $"{entry.Name} is installed and bridged.");
+            return Exit.Ok;
+        });
     }
 
     private static int RemoveFromLibrary(Layout layout, IProcessRunner runner, string id)
@@ -717,58 +738,48 @@ internal static class Program
     {
         var entry = removal.Entry;
 
-        Console.Write(entry.Data is { } data
-            ? $"Remove {entry.Name}, the links your DAW scans, and ~/{data} with the presets "
-              + "in it? [y/N] "
-            : $"Remove {entry.Name} and the links your DAW scans? [y/N] ");
-
-        if (!Yes())
+        if (!Confirmed(entry.Data is { } data
+                ? $"Remove {entry.Name}, the links your DAW scans, and ~/{data} with the presets "
+                  + "in it? [y/N] "
+                : $"Remove {entry.Name} and the links your DAW scans? [y/N] "))
         {
-            Console.WriteLine("Left alone.");
-            return 1;
+            return LeftAlone();
         }
 
         library.Remove(removal, onOutput: Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
     private static int LaunchFromLibrary(Layout layout, IProcessRunner runner, string id)
     {
         var library = new Library(layout, runner);
-        var entry = library.Find(id);
-
-        if (entry.Launch is null)
-        {
-            Console.Error.WriteLine(
-                $"cabinet: {entry.Name} is a plugin — your DAW opens it, not Cabinet");
-            return 1;
-        }
+        var entry = Manager(library, id);
 
         library.Launch(entry, Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
     private static int StopFromLibrary(Layout layout, IProcessRunner runner, string id)
     {
         var library = new Library(layout, runner);
+        var outcome = library.Stop(Manager(library, id), onOutput: Console.WriteLine);
+
+        return outcome.Result == StopResult.LeftRunning ? Exit.Failed : Exit.Ok;
+    }
+
+    private static LibraryEntry Manager(Library library, string id)
+    {
         var entry = library.Find(id);
 
-        if (entry.Launch is null)
-        {
-            Console.Error.WriteLine(
-                $"cabinet: {entry.Name} is a plugin — your DAW opens it, not Cabinet");
-            return 1;
-        }
-
-        var outcome = library.Stop(entry, onOutput: Console.WriteLine);
-
-        return outcome.Result == StopResult.LeftRunning ? 1 : 0;
+        return entry.Launch is not null
+            ? entry
+            : throw new InvalidOperationException($"{entry.Name} is a plugin — your DAW opens it, not Cabinet");
     }
 
     private static int OpenFromLibrary(Layout layout, IProcessRunner runner, string link)
     {
         new Library(layout, runner).Open(link, Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
     private static int LogFromLibrary(Layout layout, IProcessRunner runner, string id)
@@ -778,45 +789,36 @@ internal static class Program
 
         if (!library.Installed().ContainsKey(id))
         {
-            Console.Error.WriteLine($"cabinet: {entry.Name} is not installed");
-            return 1;
+            throw new KeyNotFoundException($"{entry.Name} is not installed");
         }
 
-        if (library.LaunchLog(entry) is not { } written)
-        {
-            Console.Error.WriteLine($"cabinet: no logs exist for {entry.Name}");
-            return 1;
-        }
-
-        Console.Write(written);
-        return 0;
+        Console.Write(library.LaunchLog(entry)
+                      ?? throw new FileNotFoundException($"no logs exist for {entry.Name}"));
+        return Exit.Ok;
     }
 
     private static int RemoveManager(Library library, Removal removal)
     {
         var (entry, prefix) = (removal.Entry, removal.Prefix);
 
-        Console.WriteLine(
+        Console.Error.WriteLine(
             $"{entry.Name}'s own uninstaller leaves everything it downloaded in prefix "
             + $"'{prefix}', so it is the prefix or nothing.");
 
         if (removal.Sharing.Count > 0)
         {
-            Console.WriteLine(
+            Console.Error.WriteLine(
                 $"Prefix '{prefix}' also holds {string.Join(" and ", removal.Sharing)}, "
                 + "which go with it.");
         }
 
-        Console.Write($"Delete '{prefix}' and every library {entry.Name} put in it? [y/N] ");
-
-        if (!Yes())
+        if (!Confirmed($"Delete '{prefix}' and every library {entry.Name} put in it? [y/N] "))
         {
-            Console.WriteLine("Left alone.");
-            return 1;
+            return LeftAlone();
         }
 
         library.Remove(removal, takePrefix: true, onOutput: Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
     private static int RemoveWindows(Library library, Removal removal)
@@ -825,29 +827,25 @@ internal static class Program
 
         if (removal.Kind == RemovalKind.PluginOrPrefix)
         {
-            Console.WriteLine(
+            Console.Error.WriteLine(
                 $"{entry.Name} is the only plugin Cabinet installed in prefix '{prefix}'.");
-            Console.Write("Delete the prefix and everything in it? [y/N] ");
 
-            if (Yes())
+            if (Confirmed("Delete the prefix and everything in it? [y/N] "))
             {
                 library.Remove(removal, takePrefix: true, onOutput: Console.WriteLine);
-                return 0;
+                return Exit.Ok;
             }
         }
         else
         {
-            Console.WriteLine(
+            Console.Error.WriteLine(
                 $"Prefix '{prefix}' also holds {string.Join(" and ", removal.Sharing)}, "
                 + "so it stays.");
         }
 
-        Console.Write($"Run {entry.Name}'s own uninstaller? It may open a window. [y/N] ");
-
-        if (!Yes())
+        if (!Confirmed($"Run {entry.Name}'s own uninstaller? It may open a window. [y/N] "))
         {
-            Console.WriteLine("Left alone.");
-            return 1;
+            return LeftAlone();
         }
 
         var possible = library.PossibleUninstallers(removal);
@@ -855,24 +853,23 @@ internal static class Program
 
         if (possible.Count > 1 && chosen is null)
         {
-            Console.WriteLine("Left alone.");
-            return 1;
+            return LeftAlone();
         }
 
         library.Remove(removal, uninstaller: chosen, onOutput: Console.WriteLine);
-        return 0;
+        return Exit.Ok;
     }
 
     private static UninstallEntry? Which(LibraryEntry entry, IReadOnlyList<UninstallEntry> possible)
     {
-        Console.WriteLine($"Any of these could be {entry.Name}'s uninstaller:");
+        Console.Error.WriteLine($"Any of these could be {entry.Name}'s uninstaller:");
 
         for (var index = 0; index < possible.Count; index++)
         {
-            Console.WriteLine($"  {index + 1}  {possible[index].Name}");
+            Console.Error.WriteLine($"  {index + 1}  {possible[index].Name}");
         }
 
-        Console.Write($"Which one runs? [1-{possible.Count}, or Enter to leave it alone] ");
+        Console.Error.Write($"Which one runs? [1-{possible.Count}, or Enter to leave it alone] ");
 
         return int.TryParse(Console.ReadLine()?.Trim(), out var number)
                && number >= 1
@@ -881,8 +878,17 @@ internal static class Program
             : null;
     }
 
-    private static bool Yes() =>
-        string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase);
+    private static bool Confirmed(string question)
+    {
+        Console.Error.Write(question);
+        return string.Equals(Console.ReadLine()?.Trim(), "y", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int LeftAlone()
+    {
+        Console.Error.WriteLine("Left alone.");
+        return Exit.Declined;
+    }
 
     private static int Sync(Layout layout, IProcessRunner runner)
     {
@@ -898,16 +904,22 @@ internal static class Program
                 $"{dawId} needs updated permissions to load Windows plugins — run `cabinet enrol {dawId}`");
         }
 
-        return result.ExitCode;
+        return Exited("yabridgectl", result);
     }
 
-    private static int Run(
-        Layout layout, IProcessRunner runner, string name, string command, string[] arguments)
+    private static Func<int> Run(CommandLine line, Layout layout, IProcessRunner runner)
     {
-        var prefixes = new Prefixes(layout, runner);
-        var result = prefixes.Run(name, command, arguments, Console.WriteLine, inheritStdin: true);
-        prefixes.Bridge(Console.Error.WriteLine);
-        return result.ExitCode;
+        var name = line.Word("a prefix name");
+        var command = line.PassedThrough.FirstOrDefault() ?? throw new UsageException("expected a command");
+        var arguments = line.PassedThrough.Skip(1).ToArray();
+
+        return line.Then(() =>
+        {
+            var prefixes = new Prefixes(layout, runner);
+            var result = prefixes.Run(name, command, arguments, interactive: true);
+            prefixes.Bridge(Console.Error.WriteLine);
+            return result.ExitCode;
+        });
     }
 
     private static int RunDoctor(Layout layout, IProcessRunner runner, bool json)
@@ -933,7 +945,7 @@ internal static class Program
             }
         }
 
-        return checks.Any(check => check.Status == Status.Fail) ? 1 : 0;
+        return checks.Any(check => check.Status == Status.Fail) ? Exit.Failed : Exit.Ok;
     }
 
     private static int ShowAbout(Layout layout, IProcessRunner runner, bool json)
@@ -943,7 +955,7 @@ internal static class Program
         if (json)
         {
             Console.WriteLine(Json.Build(build));
-            return 0;
+            return Exit.Ok;
         }
 
         Console.WriteLine($"{"version",-16}  {build.Version}");
@@ -967,7 +979,7 @@ internal static class Program
             Console.WriteLine($"{"issues",-16}  {tracker}");
         }
 
-        return 0;
+        return Exit.Ok;
     }
 
     private static string Describe(Build build) => build.Origin switch
@@ -977,23 +989,14 @@ internal static class Program
         _ => $"{build.Remote} — cannot tell whether it is published",
     };
 
-    private static string Require(string[] args, int index, string what)
+    private static int Exited(string what, ProcessResult result)
     {
-        if (args.Length <= index)
+        if (result.Ok)
         {
-            throw new ArgumentException($"expected {what}");
+            return Exit.Ok;
         }
 
-        return args[index];
-    }
-
-    private static string? Optional(string[] args, int index) =>
-        args.Length > index ? args[index] : null;
-
-    private static int Unknown(string command)
-    {
-        Console.Error.WriteLine($"cabinet: unknown command '{command}'");
-        Console.Error.WriteLine(Usage);
-        return 2;
+        Console.Error.WriteLine($"cabinet: {what} exited with {result.ExitCode}");
+        return Exit.Failed;
     }
 }

@@ -70,6 +70,22 @@ public sealed class OwnershipTests : IDisposable
         Assert.Contains("runner ", recorded);
     }
 
+    [Fact]
+    public void ARunThatJoinsADawsSessionKeepsItsCommandsStreamsApartAndReturnsItsStatus()
+    {
+        Make();
+        using var plugin = StartPlugin();
+        Assert.True(Started(), "the plugin's Wine session never started");
+
+        var ran = Cabinet(["run", Name, "cmd", "/c", "echo", "wp009-out&", "echo", "wp009-err", "1>&2&", "exit", "3"]);
+
+        Assert.Equal(3, ran.ExitCode);
+        Assert.Contains("wp009-out", ran.Output);
+        Assert.DoesNotContain("wp009-err", ran.Output);
+        Assert.Contains("wp009-err", ran.Error);
+        Assert.False(plugin.HasExited, "the plugin lost its Wine while Cabinet's job ran beside it");
+    }
+
     private static string Prefix() =>
         Path.Combine(
             RuntimeTestEnvironment.Home, ".var", "app", Host.App, "data", "prefixes", Name);

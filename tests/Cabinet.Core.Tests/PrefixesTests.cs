@@ -335,14 +335,14 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
-    public void ARunThatJoinsADawSessionKeepsItsStdinPolicy()
+    public void ARunThatJoinsADawSessionStaysInteractive()
     {
         Directory.CreateDirectory(Layout.PrefixPath("gadget"));
         var recorder = new RecordingRunner(dawSession: true);
 
-        new Prefixes(Layout, recorder).Run("gadget", "wine", ["cmd"], inheritStdin: true);
+        new Prefixes(Layout, recorder).Run("gadget", "wine", ["cmd"], interactive: true);
 
-        Assert.True(Assert.Single(recorder.Ran).InheritStdin);
+        Assert.True(Assert.Single(recorder.Ran).Interactive);
     }
 
     [Fact]

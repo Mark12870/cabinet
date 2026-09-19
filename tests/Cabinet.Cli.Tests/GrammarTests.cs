@@ -21,13 +21,21 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
-    public void AnUnknownCommandPrintsTheUsageToStderrAndExitsWithTwo()
+    public void HelpAfterASubcommandPrintsTheUsageToo()
+    {
+        var outcome = cli.Run("library", "--help");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.Contains("Usage:", outcome.Out);
+    }
+
+    [Fact]
+    public void AnUnknownCommandIsAUsageError()
     {
         var outcome = cli.Run("frobnicate");
 
         Assert.Equal(2, outcome.Exit);
-        Assert.StartsWith("cabinet: unknown command 'frobnicate'", outcome.Error);
-        Assert.Contains("Usage:", outcome.Error);
+        Assert.Equal("cabinet: unknown command 'frobnicate' — `cabinet --help` lists them\n", outcome.Error);
         Assert.Empty(outcome.Out);
     }
 
@@ -40,16 +48,34 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
-    public void AMissingArgumentFailsWithExitCodeOne()
+    public void AMissingArgumentIsAUsageError()
     {
         var outcome = cli.Run("show");
 
-        Assert.Equal(1, outcome.Exit);
-        Assert.Equal("cabinet: expected a prefix name" + Environment.NewLine, outcome.Error);
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: expected a prefix name\n", outcome.Error);
     }
 
     [Fact]
-    public void JsonIsStrippedWhereverItAppears()
+    public void AnUnknownOptionIsAUsageError()
+    {
+        var outcome = cli.Run("list", "--frob");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: unknown option '--frob'\n", outcome.Error);
+    }
+
+    [Fact]
+    public void OptionsWithoutACommandDoNotOpenTheWindow()
+    {
+        var outcome = cli.Run("--json");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: expected a command — `cabinet --help` lists them\n", outcome.Error);
+    }
+
+    [Fact]
+    public void JsonIsHonouredBeforeOrAfterTheCommand()
     {
         cli.Prefix("gadget");
 
@@ -62,41 +88,132 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
-    public void JsonIsStrippedEvenFromWhatRunPassesToTheCommand()
+    public void JsonOnACommandWithoutAJsonFormIsAUsageError()
     {
         cli.Prefix("gadget");
 
-        cli.Run("run", "gadget", "cmd", "/c", "--json", "echo");
+        var outcome = cli.Run("show", "gadget", "--json");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: --json does not apply to `cabinet show`\n", outcome.Error);
+        Assert.Empty(outcome.Out);
+    }
+
+    [Fact]
+    public void WhatFollowsThePrefixOfRunIsPassedToTheCommandAsItIs()
+    {
+        cli.Prefix("gadget");
+
+        cli.Run("run", "gadget", "cmd", "/c", "--json", "--", "echo");
 
         var ran = Assert.Single(cli.Runner.Ran, call => call.File == "cmd");
-        Assert.Equal(["/c", "echo"], ran.Arguments);
-        Assert.True(ran.InheritStdin);
+        Assert.Equal(["/c", "--json", "--", "echo"], ran.Arguments);
+        Assert.True(ran.Interactive);
     }
 
     [Fact]
-    public void ArgumentsBeyondWhatACommandTakesAreIgnored()
+    public void ADelimiterAfterThePrefixOfRunLetsTheCommandStartWithADash()
     {
         cli.Prefix("gadget");
 
-        var plain = cli.Run("show", "gadget");
-        var extra = cli.Run("show", "gadget", "sync", "fsync");
+        cli.Run("run", "gadget", "--", "--dash", "argument");
 
-        Assert.Equal(0, extra.Exit);
-        Assert.Equal(plain.Out, extra.Out);
+        Assert.Equal(["argument"], Assert.Single(cli.Runner.Ran, call => call.File == "--dash").Arguments);
     }
 
     [Fact]
-    public void AWindowsInstallTakesItsSecondWordAsThePrefixNotTheInstaller()
+    public void WinetricksVerbsAfterADelimiterArePassedOnAsTheyAre()
+    {
+        cli.Prefix("gadget");
+        Directory.CreateDirectory(Path.Combine(cli.Layout.PrefixPath("gadget"), "dosdevices"));
+
+        var outcome = cli.Run("winetricks", "gadget", "--", "--force", "vcrun2019");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.Equal(
+            ["--unattended", "--force", "vcrun2019"],
+            Assert.Single(cli.Runner.Ran, call => call.File == Layout.Winetricks).Arguments);
+    }
+
+    [Fact]
+    public void ArgumentsBeyondWhatACommandTakesAreAUsageErrorAndNothingRuns()
+    {
+        cli.Prefix("gadget");
+
+        var outcome = cli.Run("use", "gadget", Layout.BundledRunner, "extra");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: unexpected 'extra' after `cabinet use`\n", outcome.Error);
+        Assert.Empty(cli.Runner.Ran);
+    }
+
+    [Fact]
+    public void NarrowingFlagsApplyOnlyToTheLibraryListing()
+    {
+        cli.Catalogue("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+
+        var outcome = cli.Run("library", "show", "thing", "--installed");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: --installed does not apply to `cabinet library show`\n", outcome.Error);
+    }
+
+    [Fact]
+    public void AnOptionGivenTwiceIsAUsageError()
+    {
+        var outcome = cli.Run("library", "--search", "a", "--search", "b");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: --search is given twice\n", outcome.Error);
+    }
+
+    [Fact]
+    public void AWordAfterAWindowsIdIsTheInstallerNeverThePrefix()
     {
         cli.Catalogue("thing", "Name: Thing\nKind: windows\nSource: byo\n");
 
         var outcome = cli.Run("library", "install", "thing", "Setup.exe");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(4, outcome.Exit);
+        Assert.Equal("cabinet: no such file: Setup.exe\n", outcome.Error);
+        Assert.False(Directory.Exists(cli.Layout.PrefixPath("Setup.exe")));
+    }
+
+    [Fact]
+    public void APrefixForAWindowsInstallIsGivenByOption()
+    {
+        cli.Catalogue("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+
+        var outcome = cli.Run("library", "install", "thing", "--prefix", "gadget");
+
+        Assert.Equal(2, outcome.Exit);
         Assert.Equal(
             "cabinet: Thing cannot be downloaded — pass the installer you already have: "
-            + "`cabinet library install thing Setup.exe <installer.exe>`" + Environment.NewLine,
+            + "`cabinet library install thing --prefix gadget <installer.exe>`\n",
             outcome.Error);
+        Assert.Empty(cli.Runner.Calls);
+    }
+
+    [Fact]
+    public void ALinuxPluginTakesNoPrefix()
+    {
+        cli.Catalogue("synth", "Name: Synth\nKind: native\nSource: byo\n");
+
+        var outcome = cli.Run("library", "install", "synth", "--prefix", "gadget", "synth.tar.gz");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: Synth is a Linux plugin, so it takes no --prefix\n", outcome.Error);
+    }
+
+    [Fact]
+    public void WhatIsNotThereExitsWithFour()
+    {
+        cli.Catalogue("thing", "Name: Thing\nKind: windows\nSource: byo\n");
+
+        Assert.Equal(4, cli.Run("show", "gadget").Exit);
+        Assert.Equal(4, cli.Run("library", "show", "nothing").Exit);
+        Assert.Equal(4, cli.Run("library", "log", "thing").Exit);
+        Assert.Equal(4, cli.Run("runners", "rm", "wine-0").Exit);
     }
 
     [Fact]
@@ -115,7 +232,7 @@ public sealed partial class GrammarTests : IDisposable
     {
         var outcome = cli.Run("library", "--search");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(2, outcome.Exit);
         Assert.Equal("cabinet: --search needs something after it" + Environment.NewLine, outcome.Error);
     }
 
@@ -124,7 +241,7 @@ public sealed partial class GrammarTests : IDisposable
     {
         var outcome = cli.Run("library", "--kind", "mac");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(2, outcome.Exit);
         Assert.Equal("cabinet: --kind takes windows or linux, not mac" + Environment.NewLine, outcome.Error);
     }
 
@@ -160,7 +277,7 @@ public sealed partial class GrammarTests : IDisposable
 
         var outcome = cli.Run("set", "gadget", "env", "=value");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(2, outcome.Exit);
         Assert.Equal("cabinet: expected <name>=<value>, got '=value'" + Environment.NewLine, outcome.Error);
     }
 
@@ -185,10 +302,10 @@ public sealed partial class GrammarTests : IDisposable
 
         var outcome = cli.Run("library", "install", "gadget");
 
-        Assert.Equal(1, outcome.Exit);
+        Assert.Equal(2, outcome.Exit);
         Assert.Equal(
             "cabinet: Gadget cannot be downloaded — pass the installer you already have: "
-            + "`cabinet library install gadget <prefix> <installer.exe>`\n",
+            + "`cabinet library install gadget <installer.exe>`\n",
             outcome.Error);
         Assert.Empty(cli.Runner.Calls);
     }
@@ -210,6 +327,33 @@ public sealed partial class GrammarTests : IDisposable
         var source = Repo.Read("src/Cabinet.Cli/Program.cs");
 
         Assert.Equal(string.Join(Environment.NewLine, Listed(source)), string.Join(Environment.NewLine, Dispatched(source)));
+    }
+
+    [Fact]
+    public void EveryReadmeExampleIsAListedCommandOnAnEntryThatShips()
+    {
+        var listed = Listed(Repo.Read("src/Cabinet.Cli/Program.cs"));
+        var examples = ReadmeExample().Matches(Repo.Read("README.md"))
+            .Select(example => example.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .Where(words => words.Length > 0)
+            .ToList();
+        var shipped = Directory.EnumerateDirectories(Repo.Path("data/library"))
+            .Where(vendor => !Directory.EnumerateFiles(vendor, "*.md").Any())
+            .SelectMany(vendor => Directory.EnumerateFiles(vendor, "*.yml"))
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .ToHashSet(StringComparer.Ordinal);
+
+        var known = listed.Concat(listed.Select(command => command.Split(' ')[0])).ToHashSet(StringComparer.Ordinal);
+
+        Assert.Subset(known, examples
+            .Select(words => words is ["library" or "runners", var sub, ..] && !sub.StartsWith('-')
+                ? $"{words[0]} {sub}"
+                : words[0])
+            .ToHashSet(StringComparer.Ordinal));
+        Assert.Subset(shipped, examples
+            .Where(words => words is ["library", "show" or "install" or "remove" or "launch" or "stop" or "log", _, ..])
+            .Select(words => words[2])
+            .ToHashSet(StringComparer.Ordinal));
     }
 
     private static SortedSet<string> Listed(string source)
@@ -235,11 +379,11 @@ public sealed partial class GrammarTests : IDisposable
 
         foreach (var (method, prefix) in new[]
                  {
-                     ("Dispatch(", ""), ("Library(Layout", "library "), ("Runners(Layout", "runners "),
-                     ("Set(Layout", "set "),
+                     ("Parse(CommandLine", ""), ("Library(CommandLine", "library "),
+                     ("Runners(CommandLine", "runners "), ("Set(CommandLine", "set "),
                  })
         {
-            var start = source.IndexOf("private static int " + method, StringComparison.Ordinal);
+            var start = source.IndexOf("private static Func<int> " + method, StringComparison.Ordinal);
             var body = source[start..source.IndexOf("};", start, StringComparison.Ordinal)];
 
             foreach (Match arm in SwitchArm().Matches(body))
@@ -256,6 +400,9 @@ public sealed partial class GrammarTests : IDisposable
         commands.Remove("set");
         return commands;
     }
+
+    [GeneratedRegex(@"^flatpak run \$cabinet +(.*?) *#", RegexOptions.Multiline)]
+    private static partial Regex ReadmeExample();
 
     [GeneratedRegex(@"^\s+cabinet ?([A-Za-z<>\[\]|.= -]*?)\s{2,}", RegexOptions.Multiline)]
     private static partial Regex UsageLine();

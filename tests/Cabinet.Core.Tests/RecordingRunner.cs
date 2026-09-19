@@ -20,7 +20,7 @@ internal sealed class RecordingRunner(
         string? WorkingDirectory,
         string? LogTo,
         IReadOnlySet<string> BlankEnvironment,
-        bool InheritStdin);
+        bool Interactive);
 
     public IReadOnlyList<Call> Calls => calls;
 
@@ -56,13 +56,13 @@ internal sealed class RecordingRunner(
         string? workingDirectory = null,
         string? logTo = null,
         IReadOnlySet<string>? blankEnvironment = null,
-        bool inheritStdin = false,
+        bool interactive = false,
         CancellationToken cancellationToken = default)
     {
         Environment = env ?? new Dictionary<string, string>();
         calls.Add(new Call(
             file, args, Environment, workingDirectory, logTo,
-            blankEnvironment ?? new HashSet<string>(), inheritStdin));
+            blankEnvironment ?? new HashSet<string>(), interactive));
         LastFile = file;
         LastArguments = args;
 

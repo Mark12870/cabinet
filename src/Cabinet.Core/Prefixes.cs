@@ -207,8 +207,8 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public ProcessResult Run(
         string name, string command, IReadOnlyList<string> arguments,
-        Action<string>? onOutput = null, string? logTo = null, bool inheritStdin = false) =>
-        Wine(name, command, arguments, onOutput, logTo: logTo, inheritStdin: inheritStdin);
+        Action<string>? onOutput = null, string? logTo = null, bool interactive = false) =>
+        Wine(name, command, arguments, onOutput, logTo: logTo, interactive: interactive);
 
     public bool SessionLive(string name) =>
         Ask(name, SessionMode).Stdout.Contains(SessionLiveWord, StringComparison.Ordinal);
@@ -300,12 +300,12 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
 
     public ProcessResult RunJoined(
         string name, IReadOnlyList<string> arguments,
-        Action<string>? onOutput = null, string? logTo = null, bool inheritStdin = false) =>
-        Shim(name, [JoinMode, .. arguments], onOutput, logTo, inheritStdin);
+        Action<string>? onOutput = null, string? logTo = null, bool interactive = false) =>
+        Shim(name, [JoinMode, .. arguments], onOutput, logTo, interactive);
 
     private ProcessResult Shim(
         string name, IReadOnlyList<string> arguments, Action<string>? onOutput, string? logTo,
-        bool inheritStdin = false) =>
+        bool interactive = false) =>
         runner.Run(
             layout.ShimPath,
             arguments,
@@ -313,7 +313,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             onOutput,
             logTo: logTo,
             blankEnvironment: Blanked,
-            inheritStdin: inheritStdin);
+            interactive: interactive);
 
     public IReadOnlyDictionary<string, string> Variables(string name)
     {
@@ -334,13 +334,13 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
         Action<string>? onOutput,
         string? dllOverrides = null,
         string? logTo = null,
-        bool inheritStdin = false)
+        bool interactive = false)
     {
         if (dllOverrides is null && command != "wineserver" && SessionLive(prefix))
         {
             return RunJoined(
                 prefix, command == "wine" ? arguments : [command, .. arguments], onOutput, logTo,
-                inheritStdin);
+                interactive);
         }
 
         var selected = runners.Resolve(RunnerOf(prefix));
@@ -352,7 +352,7 @@ public sealed class Prefixes(Layout layout, IProcessRunner runner)
             onOutput,
             logTo: logTo,
             blankEnvironment: Blanked,
-            inheritStdin: inheritStdin);
+            interactive: interactive);
     }
 
     private Dictionary<string, string> WineVariables(

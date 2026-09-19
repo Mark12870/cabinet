@@ -697,7 +697,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
     public LibraryEntry Find(string id) =>
         Entries().FirstOrDefault(entry => entry.Id == id)
-        ?? throw new InvalidOperationException($"no plugin '{id}' in the library");
+        ?? throw new KeyNotFoundException($"no plugin '{id}' in the library");
 
     public IReadOnlyDictionary<string, string?> Installed()
     {
@@ -742,7 +742,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
 
     public LibraryEntry Removable(string id) =>
         Entries().Concat(Retired()).FirstOrDefault(entry => entry.Id == id)
-        ?? throw new InvalidOperationException($"no plugin '{id}' in the library");
+        ?? throw new KeyNotFoundException($"no plugin '{id}' in the library");
 
     public IReadOnlyList<(string Id, string? Prefix)> Unfinished()
     {
@@ -801,7 +801,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
             ? where
             : throw NotInstalled(entry);
 
-    private static InvalidOperationException NotInstalled(LibraryEntry entry) =>
+    private static KeyNotFoundException NotInstalled(LibraryEntry entry) =>
         new($"{entry.Name} is not installed");
 
     public void Install(
