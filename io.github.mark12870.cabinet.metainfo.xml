@@ -46,6 +46,21 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.17.0" date="2026-09-19">
+      <description>
+        <p>Cabinet installs everything it needs, so 32-bit Wine starts on a fresh system</p>
+        <ul>
+          <li>Installing Cabinet also brings Wine's 32-bit libraries, Gecko and Mono, which fixes plugins such as SINEplayer failing with "required file not found"</li>
+          <li>Doctor says when 32-bit libraries or 32-bit graphics are missing, and how to install them</li>
+          <li>Windows and native plugins get their own folders, cabinet/windows and cabinet/native, in your DAW's plugin paths</li>
+          <li>Install explains when a Flatpak DAW needs enrolling, and says whose licence terms an install accepts</li>
+          <li>Runner downloads can be cancelled, and the outcome of bridging, linking and stopping is always shown</li>
+          <li>Interrupted installs and runner changes can no longer leave a prefix half-done, and plugins that left the catalogue are listed</li>
+          <li>A prefix has one Wine owner at a time, so a change in Cabinet never ends a DAW's work</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.16.1" date="2026-09-17">
       <description>
         <p>Closing a DAW no longer closes the apps Cabinet has open</p>
