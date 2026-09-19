@@ -160,6 +160,17 @@ jobs:
             done
           } | tee -a "${GITHUB_STEP_SUMMARY}"
 
+      # Keyed on what the modules before `cabinet` are built from, so yabridge's serial
+      # compile is reused until its version or a patch changes. An exact hit is not written
+      # back, which also keeps the entry from being evicted for disuse.
+      - uses: actions/cache@v4
+        with:
+          path: .flatpak-builder
+          key: >-
+            flatpak-builder-${{ hashFiles('io.github.mark12870.cabinet.yml', 'patches/**',
+            'nuget-sources.json', 'shim/Cargo.lock') }}
+          restore-keys: flatpak-builder-
+
       - name: Build
         run: |
           flatpak-builder \
