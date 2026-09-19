@@ -26,7 +26,7 @@ public sealed class DragAndDropTests : IDisposable
                 said.Contains("revoke crashed", StringComparison.Ordinal),
                 $"{RunnerOf(prefix)} no longer crashes when one process revokes drag-and-drop on another "
                 + "process's window. Move the catalogue entries onto it; once no case here crashes, "
-                + $"patches/yabridge-foreign-drag-drop.patch is no longer needed (see PATCHES.MD). The probe said: {said}");
+                + $"patches/yabridge-foreign-drag-drop.patch is no longer needed (see PATCHES.md). The probe said: {said}");
         }
         finally
         {

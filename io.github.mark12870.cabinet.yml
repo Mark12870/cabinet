@@ -79,9 +79,6 @@ finish-args:
   # A Library entry's `Data:` directory. u-he's plugins read their presets and resources
   # from this path by name, so `home:ro` above is not enough -- one grant per vendor.
   - --filesystem=~/.u-he:create
-  # Masked under `home`, but honoured explicitly. `enrol` links yabridge into a DAW's
-  # XDG_DATA_HOME here, the only place that DAW's chainloader looks.
-  - --filesystem=~/.var/app
   # The same, for a DAW outside Flatpak, whose XDG_DATA_HOME is the real one. Only `sync`
   # writes here now, to take out the links older Cabinet releases left in it.
   - --filesystem=~/.local/share/yabridge:create

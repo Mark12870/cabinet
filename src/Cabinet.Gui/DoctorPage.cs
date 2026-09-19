@@ -83,7 +83,7 @@ internal sealed class DoctorPage
 
         group.Add(Ui.ActionRow(
             "Enrol a DAW",
-            "Link a DAW to Cabinet's yabridge and print the override it needs",
+            "Print the override a Flatpak DAW needs to load Cabinet's plugins",
             Icons.Enrol,
             AskForDaw));
 
@@ -119,19 +119,13 @@ internal sealed class DoctorPage
 
     private void EnrolDaw(string dawId)
     {
-        string link;
-
-        try
+        if (!Enrolment.IsAppId(dawId))
         {
-            link = Enrolment.Link(dawId, layout);
-        }
-        catch (Exception exception)
-        {
-            Ui.Report(window, "Could not enrol", exception.Message);
+            Ui.Report(window, "Could not enrol", Enrolment.NotAnAppId(dawId));
             return;
         }
 
-        new EnrolmentDialog(window, layout, dawId, link).Present();
+        new EnrolmentDialog(window, layout, dawId).Present();
 
         repaired();
     }

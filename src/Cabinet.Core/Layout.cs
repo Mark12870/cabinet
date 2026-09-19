@@ -267,15 +267,9 @@ public sealed class Layout
     private const string ProgramFiles64 = "Program Files";
     private const string ProgramFiles32 = "Program Files (x86)";
 
-    public string AppsDir => Path.Combine(Home, ".var", "app");
+    public string FlatpakOverridesDir => Path.Combine(Home, ".local", "share", "flatpak", "overrides");
 
-    public string DawDataHome(string flatpakId) => Path.Combine(AppsDir, flatpakId, "data");
-
-    public string FlatpakOverride(string flatpakId) =>
-        Path.Combine(Home, ".local", "share", "flatpak", "overrides", flatpakId);
-
-    public string DawYabridgeLink(string flatpakId) =>
-        Path.Combine(DawDataHome(flatpakId), "yabridge");
+    public string FlatpakOverride(string flatpakId) => Path.Combine(FlatpakOverridesDir, flatpakId);
 
     private string? InstallRoot
     {

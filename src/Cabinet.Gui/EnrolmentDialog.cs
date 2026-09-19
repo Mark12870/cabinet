@@ -2,24 +2,21 @@ using Cabinet.Core;
 
 namespace Cabinet.Gui;
 
-internal sealed class EnrolmentDialog(
-    Gtk.Window window, Layout layout, string dawId, string link)
+internal sealed class EnrolmentDialog(Gtk.Window window, Layout layout, string dawId)
 {
     private readonly Adw.Dialog dialog = Adw.Dialog.New();
 
     public void Present()
     {
-        dialog.SetTitle($"Enrolled {dawId}");
+        dialog.SetTitle($"Enrol {dawId}");
         dialog.SetContentWidth(680);
         dialog.SetContentHeight(600);
 
         var steps = Gtk.Box.New(Gtk.Orientation.Vertical, 24);
-        steps.Append(Linked());
         steps.Append(Step(
             "Grant the permissions",
-            "Cabinet does not run this for you: --talk-name=org.freedesktop.Flatpak lets "
-            + $"{dawId} run any command on your host. That is a real weakening of its sandbox, "
-            + "so the decision stays yours.",
+            "Cabinet does not run this for you, because the decision is yours. "
+            + Enrolment.TrustBoundary(dawId),
             Enrolment.OverrideCommand(dawId, layout)));
         steps.Append(Step(
             "Then check the shim loads",
@@ -34,16 +31,6 @@ internal sealed class EnrolmentDialog(
         view.SetContent(body);
         dialog.SetChild(view);
         dialog.Present(window);
-    }
-
-    private Gtk.Label Linked()
-    {
-        var label = Gtk.Label.New($"Linked {link}");
-        label.SetXalign(0);
-        label.SetWrap(true);
-        label.SetSelectable(true);
-        label.AddCssClass("dim-label");
-        return label;
     }
 
     private Gtk.Box Step(string title, string why, string command)

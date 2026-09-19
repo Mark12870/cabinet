@@ -48,6 +48,27 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
+    public void EnrolRefusesAnythingButAFlatpakIdBeforeTouchingTheDisk()
+    {
+        var outcome = cli.Run("enrol", "../../.ssh");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: ../../.ssh is not a Flatpak application id\n", outcome.Error);
+        Assert.False(Directory.Exists(cli.Layout.PrefixesDir));
+    }
+
+    [Fact]
+    public void EnrolPrintsTheOverrideAndWritesNothingOutsideCabinet()
+    {
+        var outcome = cli.Run("enrol", "fm.reaper.Reaper");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.Contains(Enrolment.OverrideCommand("fm.reaper.Reaper", cli.Layout), outcome.Out);
+        Assert.Contains(Enrolment.TrustBoundary("fm.reaper.Reaper"), outcome.Out);
+        Assert.False(Directory.Exists(Path.Combine(cli.Layout.Home, ".var", "app", "fm.reaper.Reaper")));
+    }
+
+    [Fact]
     public void AMissingArgumentIsAUsageError()
     {
         var outcome = cli.Run("show");
@@ -401,7 +422,7 @@ public sealed partial class GrammarTests : IDisposable
         return commands;
     }
 
-    [GeneratedRegex(@"^flatpak run \$cabinet +(.*?) *#", RegexOptions.Multiline)]
+    [GeneratedRegex(@"^flatpak run io\.github\.mark12870\.cabinet +(.*?) *$", RegexOptions.Multiline)]
     private static partial Regex ReadmeExample();
 
     [GeneratedRegex(@"^\s+cabinet ?([A-Za-z<>\[\]|.= -]*?)\s{2,}", RegexOptions.Multiline)]

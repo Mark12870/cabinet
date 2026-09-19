@@ -10,7 +10,7 @@ own, one per vendor or product family, and bridges them with patched upstream ya
   otherwise it is forbidden.
 - Every feature must be available over GUI and over CLI
 - README.md must be under 100 lines
-- CLAUDE.md must be under 500 lines
+- AGENTS.md must be under 500 lines
 - Never commit personal, account or machine-specific data, including usernames, home paths, credentials or local tool
   state, in source, tests, fixtures, documentation, generated files or commit messages; use neutral synthetic values
   instead.
@@ -56,9 +56,10 @@ the name or the structure instead. Anything that genuinely will not fit there is
 - `Bootstrap.Ensure` runs from both entry points, creates Cabinet's prefixes directory plus the yabridgectl link,
   and clears `Staging` directories whose owner's lock is free.
 - Only Wine runs inside the Cabinet sandbox for the yabridge bridge. The DAW reads yabridge's host-side halves from the
-  installed Flatpak's `current/active/files`; `enrol` creates the DAW's
-  `data/yabridge` link and prints the required `flatpak override` for the user to apply, because it grants
-  `org.freedesktop.Flatpak` and lets the DAW run commands on the host.
+  installed Flatpak's `current/active/files`; `enrol` writes nothing and prints the required `flatpak override` for the
+  user to apply, because it grants `org.freedesktop.Flatpak` and lets the DAW run commands on the host. The chainloader
+  patch finds Cabinet's yabridge by its installed path, so a DAW needs no `data/yabridge` link and the manifest grants
+  nothing under `~/.var/app`.
 - The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which hands the plugin to a Wine
   session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host. The
   manifest rewrites that wrapper's fallback from bare `wine` to the shim beside it, so every DAW reaches the shim,
@@ -108,10 +109,8 @@ the name or the structure instead. Anything that genuinely will not fit there is
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`~/.vst3`, `~/.vst`,
-  `~/.clap`, `~/.lv2` with their `cabinet` links, and each DAW's `~/.var/app/<daw>/data/yabridge`), the per-file links
-  older releases left in `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared `Data:`
-  directory. Do not add arbitrary writes in
-  `$HOME`.
+  `~/.clap`, `~/.lv2` with their `cabinet` links), the per-file links older releases left in `~/.local/share/yabridge`,
+  which bridging removes, and a Library entry's declared `Data:` directory. Do not add arbitrary writes in `$HOME`.
 - The manifest keeps `$HOME` read-only. A new Library `Data:` root also needs a matching
   `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`.
 

@@ -21,7 +21,7 @@ public sealed class EditorTests : IDisposable
             $"{plugin}'s editor is at {seen.Wine}, not at {seen.Wrapper} where the window hosting "
             + $"it is. It is drawn {seen.Wine.X - seen.Wrapper.X} across and "
             + $"{seen.Wine.Y - seen.Wrapper.Y} down from the frame the DAW shows, so that frame is "
-            + "blank. See the yabridge source note in PATCHES.MD.");
+            + "blank. See the yabridge source note in PATCHES.md.");
     }
 
     [Theory]
@@ -37,7 +37,7 @@ public sealed class EditorTests : IDisposable
             $"Wine places {plugin}'s editor at {seen.Wine} but has been told it is at {seen.Told}. "
             + $"It turns a screen coordinate into a client one with what it was told, so every "
             + $"click lands {seen.Wine.X - seen.Told.X} across and {seen.Wine.Y - seen.Told.Y} "
-            + "down from the pointer. See the yabridge source note in PATCHES.MD.");
+            + "down from the pointer. See the yabridge source note in PATCHES.md.");
     }
 
     private static Seen Measure(string format, string root, string plugin)

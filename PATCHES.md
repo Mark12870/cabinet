@@ -145,5 +145,5 @@ This is the same embedding problem the branch set out to fix, not a separate one
 something Cabinet owns: the coordinate is still wrong, it now misplaces the window rather than
 the clicks, and VST3 hides it. Aalto's editor drew on `5.1.1` on 2026-08-17, so what changed is
 which symptom shows. Fixing it belongs upstream in #409; before bumping this pin, re-run the
-editor coverage in `TESTS.MD` and expect those cases to go green when it is fixed. Neither patch
+editor coverage in `TESTS.md` and expect those cases to go green when it is fixed. Neither patch
 above applies to the `5.1.1` tree.

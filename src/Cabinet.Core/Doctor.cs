@@ -370,16 +370,30 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
     private IEnumerable<string> EnrolledDawIds()
     {
-        if (!Directory.Exists(layout.AppsDir))
+        if (!Directory.Exists(layout.FlatpakOverridesDir))
         {
             return [];
         }
 
-        return Directory.EnumerateDirectories(layout.AppsDir)
-            .OrderBy(d => d, StringComparer.Ordinal)
+        return Directory.EnumerateFiles(layout.FlatpakOverridesDir)
+            .Order(StringComparer.Ordinal)
             .Select(Path.GetFileName)
             .OfType<string>()
-            .Where(dawId => dawId != Layout.AppId && Path.Exists(layout.DawYabridgeLink(dawId)));
+            .Where(dawId => dawId != Layout.AppId && Enrolment.IsAppId(dawId))
+            .Where(dawId => ReadOverride(dawId)?.Get("Environment", "WINELOADER") is { } loader
+                            && loader.Contains(Layout.AppId, StringComparison.Ordinal));
+    }
+
+    private IniFile? ReadOverride(string dawId)
+    {
+        try
+        {
+            return IniFile.Parse(File.ReadAllLines(layout.FlatpakOverride(dawId)));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private IEnumerable<Check> NativeDaw()
@@ -426,15 +440,11 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
 
     private Check EnrolledDaw(string dawId)
     {
-        var overrides = layout.FlatpakOverride(dawId);
-
-        if (!File.Exists(overrides))
+        if (ReadOverride(dawId) is not { } ini)
         {
-            return new Check($"DAW {dawId}", Status.Fail,
-                $"linked but not overridden — enrol {dawId} again");
+            return new Check($"DAW {dawId}", Status.Fail, $"cannot read {layout.FlatpakOverride(dawId)}");
         }
 
-        var ini = IniFile.Parse(File.ReadAllLines(overrides));
         var missing = new List<string>();
 
         foreach (var argument in Enrolment.OverrideArguments(dawId, layout))
@@ -474,7 +484,7 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
         }
 
         return missing.Count == 0
-            ? new Check($"DAW {dawId}", Status.Ok, "enrolled")
+            ? new Check($"DAW {dawId}", Status.Ok, "enrolled — " + Enrolment.TrustBoundary(dawId))
             : new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));
     }
 

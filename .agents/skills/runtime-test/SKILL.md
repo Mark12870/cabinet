@@ -57,4 +57,4 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
 7. Remove only temporary prefixes in the isolated runtime after testing. Never
    mutate or clean a host prefix during runtime diagnosis.
 
-8. Read the plugin matrix and the unsupported Windows LV2 combination in `TESTS.MD`.
+8. Read the plugin matrix and the unsupported Windows LV2 combination in `TESTS.md`.

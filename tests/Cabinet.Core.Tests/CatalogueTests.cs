@@ -19,6 +19,16 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryRunnerAnEntryNamesIsPinnedByCabinet()
+    {
+        var unpinned = Shipped
+            .Where(entry => entry.Runner is { } spec && !RunnerIndex.IsPinned(spec))
+            .Select(entry => $"{entry.Id} -> {entry.Runner}");
+
+        Assert.Empty(unpinned);
+    }
+
+    [Fact]
     public void EveryScriptAnEntryNamesIsShippedBesideIt()
     {
         var layout = Catalogue.Layout();

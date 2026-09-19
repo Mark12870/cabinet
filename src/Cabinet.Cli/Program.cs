@@ -110,7 +110,7 @@ internal static class Program
     private static Func<int> Parse(CommandLine line, Layout layout, IProcessRunner runner) =>
         line.Verb() switch
         {
-            "enrol" or "enroll" => One(line, "a DAW flatpak id", id => Enrol(layout, id)),
+            "enrol" or "enroll" => Enrol(line, layout),
             "new" => New(line, layout, runner),
             "library" => Library(line, layout, runner),
             "runners" => Runners(line, layout, runner),
@@ -135,18 +135,26 @@ internal static class Program
         return line.Then(() => act(word));
     }
 
+    private static Func<int> Enrol(CommandLine line, Layout layout)
+    {
+        var dawId = line.Word("a DAW flatpak id");
+
+        if (!Enrolment.IsAppId(dawId))
+        {
+            throw new UsageException(Enrolment.NotAnAppId(dawId));
+        }
+
+        return line.Then(() => Enrol(layout, dawId));
+    }
+
     private static int Enrol(Layout layout, string dawId)
     {
-        var link = Enrolment.Link(dawId, layout);
-
-        Console.WriteLine($"Linked {link} -> {layout.HostYabridgeDir}");
-        Console.WriteLine();
-        Console.WriteLine("Now run this yourself:");
+        Console.WriteLine("Run this yourself:");
         Console.WriteLine();
         Console.WriteLine("  " + Enrolment.OverrideCommand(dawId, layout));
         Console.WriteLine();
-        Console.WriteLine("It is not applied automatically: --talk-name=org.freedesktop.Flatpak");
-        Console.WriteLine($"lets {dawId} run commands on the host, which is yours to decide.");
+        Console.WriteLine("It is not applied automatically, because it is yours to decide:");
+        Console.WriteLine(Enrolment.TrustBoundary(dawId));
         Console.WriteLine();
         Console.WriteLine("Then check the shim loads inside that DAW's runtime, which is older");
         Console.WriteLine("than the one it was built against on some DAWs:");
@@ -206,12 +214,14 @@ internal static class Program
 
             foreach (var release in family)
             {
-                Console.WriteLine($"  {release.Version,-10}  {release.Name}");
+                var pinned = RunnerIndex.IsPinned(release) ? "  pinned" : "";
+                Console.WriteLine($"  {release.Version,-10}  {release.Name}{pinned}");
             }
 
             Console.WriteLine();
         }
 
+        Console.WriteLine(RunnerIndex.Provenance);
         return Exit.Ok;
     }
 

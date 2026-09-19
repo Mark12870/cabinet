@@ -51,11 +51,11 @@ public class LayoutTests
     }
 
     [Fact]
-    public void AFlatpakDawLooksForYabridgeInItsOwnDataDirectory()
+    public void AFlatpakDawIsEnrolledThroughItsUserOverride()
     {
         Assert.Equal(
-            "/home/u/.var/app/fm.reaper.Reaper/data/yabridge",
-            Layout.DawYabridgeLink("fm.reaper.Reaper"));
+            "/home/u/.local/share/flatpak/overrides/fm.reaper.Reaper",
+            Layout.FlatpakOverride("fm.reaper.Reaper"));
     }
 
     [Fact]

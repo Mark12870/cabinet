@@ -84,7 +84,6 @@ public class ManifestTests
             "--filesystem=~/.vst:create",
             "--filesystem=~/.clap:create",
             "--filesystem=~/.lv2:create",
-            "--filesystem=~/.var/app",
             "--filesystem=~/.local/share/yabridge:create",
             "--filesystem=~/.local/share/flatpak/overrides:ro",
             "--filesystem=~/.local/share/flatpak/repo/config:ro",
@@ -94,6 +93,16 @@ public class ManifestTests
         var ungranted = required.Where(grant => !FinishArgs.Contains(grant)).ToList();
 
         Assert.Empty(ungranted);
+    }
+
+    [Fact]
+    public void NoGrantReachesAnotherAppsData()
+    {
+        var reaching = FinishArgs
+            .Where(grant => grant.StartsWith("--filesystem=~/.var/app", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Empty(reaching);
     }
 
     [Fact]
@@ -230,7 +239,7 @@ public class ManifestTests
     [Fact]
     public void TheYabridgeItBuildsIsPinnedAndExplained()
     {
-        var documented = File.ReadAllText(Repo.Path("PATCHES.MD"));
+        var documented = File.ReadAllText(Repo.Path("PATCHES.md"));
         var source = Lines.Single(line =>
             line.Contains("robbert-vdh/yabridge/archive/", StringComparison.Ordinal));
         var reference = source
@@ -244,7 +253,7 @@ public class ManifestTests
     [Fact]
     public void EveryYabridgePatchIsAppliedAndDocumented()
     {
-        var documented = File.ReadAllText(Repo.Path("PATCHES.MD"));
+        var documented = File.ReadAllText(Repo.Path("PATCHES.md"));
         var patches = Directory.GetFiles(Repo.Path("patches"), "*.patch")
             .Select(Path.GetFileName)
             .ToList();

@@ -1,10 +1,10 @@
 # Cabinet
 
-Windows VST plugins on Linux as a Flatpak, aiming to work out of the box: install a plugin and it shows up in your
-DAW, with no Wine or yabridge to set up. Plugins get **Wine prefixes of their own**, one per vendor or product family,
-instead of a single prefix every installer fights over. Built for immutable systems like Fedora Silverblue. The
-bridging is [yabridge](https://github.com/robbert-vdh/yabridge), carrying a few Cabinet patches, and the compatibility
-layer is [Wine](https://www.winehq.org); Cabinet bundles both and wires the result to your DAW.
+Windows VST plugins on Linux as a Flatpak, aiming to work out of the box: install a plugin and it shows up in your DAW,
+with no Wine or yabridge to set up. Plugins get **Wine prefixes of their own**, one per vendor or product family,
+instead of a single prefix every installer fights over. Built for immutable systems like Fedora Silverblue. The bridging
+is [yabridge](https://github.com/robbert-vdh/yabridge), with a few Cabinet patches, and the compatibility layer is
+[Wine](https://www.winehq.org); Cabinet bundles both and wires the result to your DAW.
 
 ![Cabinet application preview](site/screenshots/cabinet.png)
 
@@ -20,82 +20,26 @@ flatpak install cabinet io.github.mark12870.cabinet
 `~/.clap/cabinet` and `~/.vst/cabinet`, which such a DAW already scans.
 
 **A Flatpak DAW has to be enrolled first, once.** Its sandbox hides Cabinet's yabridge, your prefixes and the Wine that
-runs them, so without this it sees no Windows plugins at all. Start the DAW once so its data directory exists, look up
-its id with `flatpak list --app`, then:
+runs them, so without this it sees no Windows plugins at all. Look up its id with `flatpak list --app`, then:
 
 ```sh
 flatpak run io.github.mark12870.cabinet enrol fm.reaper.Reaper
 ```
 
-or, in the window, *Doctor → Enrol a DAW*. Enrolling links Cabinet's yabridge into the DAW's data directory and then
-**prints** two commands for you to run: a `flatpak override` that grants the DAW what it needs (Cabinet leaves this to
-you, see [Permissions](#permissions)), and a self-test that checks the bridge starts inside that DAW's runtime. Restart
-the DAW afterwards. If a Cabinet update needs more permissions, `sync` and the window tell you, and `doctor` names what
-is missing. Run `enrol` again to get the new command.
+or, in the window, *Doctor → Enrol a DAW*. It changes nothing: it **prints** a `flatpak override` for you to run (see
+[Permissions](#permissions)) and a self-test for the DAW's runtime. Restart the DAW afterwards; if an update needs more
+permissions, `sync`, the window and `doctor` say so, and `enrol` prints the new command.
 
-## Use
-
-```sh
-cabinet=io.github.mark12870.cabinet
-
-flatpak run $cabinet                                        # the window, also in your launcher
-
-flatpak run $cabinet library                                # plugins it can install for you
-flatpak run $cabinet library show podolski                  # what one is, and what it costs
-flatpak run $cabinet library install surge-xt               # a Linux build, so no Wine at all
-flatpak run $cabinet library install fabfilter-total-bundle # downloaded for you, prefix and all
-flatpak run $cabinet library install vital ~/Downloads/VitalInstaller.zip  # yours to download
-flatpak run $cabinet library remove valhalla-supermassive   # its own uninstaller, then unbridged
-flatpak run $cabinet library launch native-access           # a manager; what it installs, bridged
-flatpak run $cabinet library stop native-access             # close it, and the Wine it left
-flatpak run $cabinet library --search reverb --installed    # narrow by words, category or kind
-
-flatpak run $cabinet new serum                              # a prefix of its own
-flatpak run $cabinet install serum ~/Downloads/Serum.exe    # run the installer, bridge what it installed
-flatpak run $cabinet dxvk serum                             # Direct3D, which some editors want
-flatpak run $cabinet sync                                   # bridge again what changed outside Cabinet
-flatpak run $cabinet doctor                                 # check both sides
-
-flatpak run $cabinet run serum winecfg                      # winecfg, regedit, anything
-flatpak run $cabinet delete serum                           # prefix and plugins, gone
-flatpak run $cabinet runners install 9.21                   # fetch a Wine build
-flatpak run $cabinet use serum wine-9.21-staging-tkg        # move a prefix onto one
-
-flatpak run $cabinet show serum                             # everything this prefix is set to
-flatpak run $cabinet set serum sync fsync                   # system, esync, fsync or ntsync
-flatpak run $cabinet set serum dxvk off                     # put Wine's own Direct3D back
-flatpak run $cabinet set serum desktop on                   # confine its windows to a virtual desktop
-flatpak run $cabinet set serum env WINEDEBUG=-all           # WINEDEBUG= removes it
-```
-
-`library` is the short way in: it knows which Wine a plugin's editor needs, whether that editor wants DXVK, and it
-bridges the result. A plugin you had to buy, or one behind a logged-in account, asks for the file you fetched yourself
-and points you at the page to fetch it from — unless the vendor serves a trial anyone can fetch, as FabFilter does. One
-with a working Linux build is listed only as that and needs no prefix: its files live in Cabinet's own directory, linked
-into `~/.vst3`, `~/.clap`, `~/.lv2` and `~/.vst`, so `library remove` takes them out cleanly, and `enrol` is what lets a
-Flatpak DAW follow those links. A few read a directory of their own by name, as the u-he ones do `~/.u-he/<Product>`; Cabinet fills that and says before deleting it.
-
-`library remove` works on a Windows plugin too: if nothing else Cabinet installed is left in its prefix it offers to
-delete the prefix outright, Wine tree and registry with it, and otherwise runs the plugin's own uninstaller and leaves
-the prefix for the plugins sharing it. Where nothing looks like it, it says so. A manager is the exception:
-`library launch` opens it and bridges what it installs as it lands, `library log` shows Cabinet and shared yabridge output, and removing one takes its prefix.
-
-`new`, `install`, `dxvk` and the rest do the same by hand, for a plugin the library has never heard of. Installing,
-running something in a prefix and opening the window bridge on their own; `sync` covers changes made outside Cabinet.
-`set` is per prefix and reaches the bridged plugin too: a sync mode or a variable set here is handed to the Wine your
-DAW starts, not just to `winecfg`. `sync system` is the default and means *leave it to whatever launched the DAW*.
-`run` covers what `set` does not; `delete` asks first, and unbridges what it held.
+Everything is in the window. For the command line, `flatpak run io.github.mark12870.cabinet --help` lists every command.
 
 ## Permissions
 
 `enrol` prints the `flatpak override` rather than applying it, because one of the permissions it asks for is
 `--talk-name=org.freedesktop.Flatpak`. That lets the shim start Cabinet's Wine from inside the DAW's sandbox — **and it
-lets that DAW run any command on your host.** It is a real weakening of that DAW's sandbox, so the decision stays
-yours; undo it with `flatpak override --user --reset <daw-id>`. A DAW installed outside Flatpak needs no `enrol` and no
-permissions: bridging links Cabinet's plugins into `~/.vst*/cabinet`, and they load Cabinet's own yabridge, so another
-yabridge install keeps working beside it. Your prefixes live in `~/.var/app/io.github.mark12870.cabinet/`, so
-`flatpak uninstall --delete-data` **will** delete your plugin library — a plain `flatpak uninstall` leaves it alone.
-Either way, remove `~/.vst3/cabinet`, `~/.vst/cabinet` and `~/.clap/cabinet` afterwards; Flatpak cannot do it for you.
+lets that DAW run any command on your host.** It also loads native plugins from `~/.vst*`, `~/.clap` and `~/.lv2`, which
+the Windows code Cabinet runs can write to, unlike any other Flatpak app's data;
+`flatpak override --user --reset <daw-id>` undoes it. `flatpak uninstall --delete-data` **will** delete your prefixes;
+after any uninstall, remove `~/.vst*/cabinet` and `~/.clap/cabinet` yourself.
 
 ## Building
 
@@ -107,6 +51,5 @@ flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet
 
 ## License
 
-GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE). The app icon combines the *dresser*
-and *piano-keys* icons from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see
-[data/LICENSE.phosphor](data/LICENSE.phosphor).
+GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE). The app icon combines the *dresser* and *piano-keys* icons
+from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see [data/LICENSE.phosphor](data/LICENSE.phosphor).

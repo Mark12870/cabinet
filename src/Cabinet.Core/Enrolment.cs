@@ -26,25 +26,25 @@ public static class Enrolment
     public static string SelfTestCommand(string dawId, Layout layout) =>
         $"flatpak run --command={Quote(layout.ShimPath)} {dawId} --cabinet-self-test";
 
-    public static string Link(string dawId, Layout layout)
+    public static string TrustBoundary(string dawId) =>
+        $"--talk-name=org.freedesktop.Flatpak lets {dawId} run any command on your host. {dawId} also "
+        + "loads, natively, whatever is in ~/.vst3, ~/.vst, ~/.clap and ~/.lv2, and the Windows installers "
+        + "and plugins Cabinet runs can write there, so enrolling it trusts them as much as it trusts "
+        + $"{dawId}. They cannot write into any other Flatpak app's data, {dawId}'s included.";
+
+    public static string NotAnAppId(string id) => $"{id} is not a Flatpak application id";
+
+    public static bool IsAppId(string id)
     {
-        var dataHome = layout.DawDataHome(dawId);
+        var parts = id.Split('.');
 
-        if (!Directory.Exists(dataHome))
-        {
-            throw new DirectoryNotFoundException(
-                $"{dataHome} does not exist — is {dawId} installed?");
-        }
-
-        var link = layout.DawYabridgeLink(dawId);
-
-        if (Path.Exists(link))
-        {
-            File.Delete(link);
-        }
-
-        File.CreateSymbolicLink(link, layout.HostYabridgeDir);
-        return link;
+        return parts.Length >= 3
+               && parts.Select((part, index) => (part, last: index == parts.Length - 1))
+                   .All(segment => segment.part.Length > 0
+                                   && !char.IsAsciiDigit(segment.part[0])
+                                   && segment.part.All(c => char.IsAsciiLetterOrDigit(c)
+                                                            || c == '_'
+                                                            || c == '-' && segment.last));
     }
 
     public static IReadOnlyList<string> EnsureNativeScanLinks(Layout layout)

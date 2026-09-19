@@ -89,7 +89,7 @@ does not bridge LV2, so there is no supported Windows LV2 test for Cabinet.
 ## Patch probes
 
 `DragAndDropTests` tells you when `patches/yabridge-foreign-drag-drop.patch` is no longer needed
-(see `PATCHES.MD`). The Toolbox's `mingw64-gcc` compiles a small Windows probe from
+(see `PATCHES.md`). The Toolbox's `mingw64-gcc` compiles a small Windows probe from
 `Probes/revoke-drag-drop.c`. Each case runs it through the shim in a probe prefix on the newest
 release of a runner family:
 

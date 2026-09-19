@@ -155,38 +155,39 @@ public class EnrolmentTests
         Assert.Equal("upstream", File.ReadAllText(Path.Combine(upstream, "yabridgectl")));
     }
 
-    [Fact]
-    public void LinkingPointsTheDawAtTheYabridgeItMustRead()
+    [Theory]
+    [InlineData("fm.reaper.Reaper")]
+    [InlineData("org.ardour.Ardour")]
+    [InlineData("com.bitwig.BitwigStudio")]
+    [InlineData("io.github.some_one.my-daw")]
+    public void AFlatpakApplicationIdIsADaw(string id)
     {
-        using var home = new TempHome();
-        Directory.CreateDirectory(home.Layout.DawDataHome("fm.reaper.Reaper"));
+        Assert.True(Enrolment.IsAppId(id));
+    }
 
-        var link = Enrolment.Link("fm.reaper.Reaper", home.Layout);
-
-        Assert.Equal(home.Layout.DawYabridgeLink("fm.reaper.Reaper"), link);
-        Assert.Equal(home.Layout.HostYabridgeDir, new DirectoryInfo(link).LinkTarget);
+    [Theory]
+    [InlineData("")]
+    [InlineData("global")]
+    [InlineData("org.ardour")]
+    [InlineData("org..Ardour")]
+    [InlineData("org.ardour.8Ardour")]
+    [InlineData("../../.ssh")]
+    [InlineData("org.ardour.Ardour --reset")]
+    [InlineData("org.my-co.Daw")]
+    public void AnythingElseIsRefused(string id)
+    {
+        Assert.False(Enrolment.IsAppId(id));
     }
 
     [Fact]
-    public void LinkingAgainReplacesAStaleLink()
+    public void TheTrustBoundaryNamesTheHostAccessAndTheScanDirectories()
     {
-        using var home = new TempHome();
-        Directory.CreateDirectory(home.Layout.DawDataHome("fm.reaper.Reaper"));
-        File.CreateSymbolicLink(
-            home.Layout.DawYabridgeLink("fm.reaper.Reaper"), "/somewhere/else");
+        var boundary = Enrolment.TrustBoundary("fm.reaper.Reaper");
 
-        var link = Enrolment.Link("fm.reaper.Reaper", home.Layout);
-
-        Assert.Equal(home.Layout.HostYabridgeDir, new DirectoryInfo(link).LinkTarget);
-    }
-
-    [Fact]
-    public void ADawThatIsNotInstalledIsRefused()
-    {
-        using var home = new TempHome();
-
-        Assert.Throws<DirectoryNotFoundException>(
-            () => Enrolment.Link("fm.reaper.Reaper", home.Layout));
+        Assert.Contains("run any command on your host", boundary);
+        Assert.All(
+            Layout.BridgedScanDirectories.Append(".lv2"),
+            directory => Assert.Contains("~/" + directory, boundary));
     }
 
     private sealed class TempHome : IDisposable

@@ -327,8 +327,6 @@ public sealed class RunnersTests : IDisposable
     {
         var daw = "fm.reaper.Reaper";
         Directory.CreateDirectory(Layout.HostYabridgeDir);
-        Directory.CreateDirectory(Path.GetDirectoryName(Layout.DawYabridgeLink(daw))!);
-        File.CreateSymbolicLink(Layout.DawYabridgeLink(daw), Layout.HostYabridgeDir);
         Directory.CreateDirectory(Path.GetDirectoryName(Layout.SandboxYabridgeLink)!);
         File.CreateSymbolicLink(Layout.SandboxYabridgeLink, Layout.HostYabridgeDir);
 
@@ -358,12 +356,29 @@ public sealed class RunnersTests : IDisposable
     }
 
     [Fact]
+    public void DoctorTakesADawAsEnrolledOnlyByAnOverrideThatLoadsWineThroughCabinet()
+    {
+        var overrides = Path.Combine(root, ".local", "share", "flatpak", "overrides");
+        Directory.CreateDirectory(overrides);
+        File.WriteAllLines(Path.Combine(overrides, "org.example.Editor"), ["[Context]", "shared=network;"]);
+        File.WriteAllLines(
+            Path.Combine(overrides, "org.example.Backup"), ["[Context]", $"filesystems={Layout.PrefixesDir}:ro;"]);
+        File.CreateSymbolicLink(Path.Combine(overrides, "org.example.Gone"), Path.Combine(root, "nowhere"));
+        File.WriteAllLines(Path.Combine(overrides, "global"), ["[Environment]", $"WINELOADER={Layout.ShimPath}"]);
+        File.WriteAllLines(Path.Combine(overrides, Layout.AppId), ["[Environment]", $"WINELOADER={Layout.ShimPath}"]);
+        File.WriteAllLines(
+            Path.Combine(overrides, "fm.reaper.Reaper"), ["[Environment]", $"WINELOADER={Layout.ShimPath}"]);
+
+        Assert.Equal(
+            ["DAW fm.reaper.Reaper"],
+            Checks().Select(check => check.Name).Where(name => name.StartsWith("DAW ", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public void DoctorDoesNotAcceptAFilesystemPathThatOnlyContainsTheExpectedPath()
     {
         var daw = "fm.reaper.Reaper";
         Directory.CreateDirectory(Layout.HostYabridgeDir);
-        Directory.CreateDirectory(Path.GetDirectoryName(Layout.DawYabridgeLink(daw))!);
-        File.CreateSymbolicLink(Layout.DawYabridgeLink(daw), Layout.HostYabridgeDir);
         Directory.CreateDirectory(Path.GetDirectoryName(Layout.SandboxYabridgeLink)!);
         File.CreateSymbolicLink(Layout.SandboxYabridgeLink, Layout.HostYabridgeDir);
 

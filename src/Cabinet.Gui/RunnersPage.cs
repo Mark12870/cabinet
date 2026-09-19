@@ -199,7 +199,7 @@ internal sealed class RunnersPage
                         return;
                     }
 
-                    group.SetDescription(null);
+                    group.SetDescription(RunnerIndex.Provenance);
 
                     foreach (var family in families)
                     {
@@ -243,7 +243,7 @@ internal sealed class RunnersPage
     {
         var row = Adw.ActionRow.New();
         row.SetTitle(release.Version);
-        row.SetSubtitle(release.Name);
+        row.SetSubtitle(RunnerIndex.IsPinned(release) ? $"{release.Name} · pinned" : release.Name);
 
         var install = Ui.IconButton(Icons.Download, $"Install {release.Name}");
         install.SetValign(Gtk.Align.Center);

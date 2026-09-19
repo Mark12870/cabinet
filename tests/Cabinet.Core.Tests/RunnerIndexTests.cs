@@ -2,8 +2,10 @@ using Cabinet.Core;
 
 namespace Cabinet.Core.Tests;
 
-public class RunnerIndexTests
+public sealed class RunnerIndexTests : IDisposable
 {
+    private readonly string root = TestRoot.Create("runner-index");
+
     private const string Index = """
         # -----------------------
         # THIS FILE HAS BEEN GENERATED AUTOMATICALLY
@@ -165,6 +167,45 @@ public class RunnerIndexTests
     }
 
     [Theory]
+    [InlineData("9.21", "wine-9.21-staging-tkg")]
+    [InlineData("soda-11.0-5", "soda-11.0-5")]
+    [InlineData("d2d1-11.0", "wine-d2d1-11.0")]
+    public void ARunnerTheCatalogueNamesIsFoundWithoutReadingTheIndex(string spec, string name)
+    {
+        var release = new RunnerIndex(new UnusedRunner()).Find(spec);
+
+        Assert.Equal(name, release.Name);
+        Assert.True(RunnerIndex.IsPinned(release));
+    }
+
+    [Fact]
+    public void ThePinnedBuildStandsInForTheIndexListingOfIt()
+    {
+        var available = Answering("200", Index).Available();
+
+        Assert.Equal(5, available.Count);
+        Assert.Equal(
+            ["soda-11.0-5", "wine-9.21-staging-tkg", "wine-d2d1-11.0"],
+            available.Where(RunnerIndex.IsPinned).Select(release => release.Name).Order(StringComparer.Ordinal));
+        Assert.All(available.Where(RunnerIndex.IsPinned), release => Assert.Empty(release.ManifestUrl));
+    }
+
+    [Fact]
+    public void APinnedBuildIsFetchedFromItsOwnReleaseAndCheckedAgainstCabinetsHash()
+    {
+        var runner = new RecordingRunner(acts: args => File.WriteAllText(args[^2], "not wine"));
+        var release = new RunnerIndex(runner).Find("9.21");
+
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => new RunnerIndex(runner).Download(release, root));
+
+        Assert.Equal(
+            "https://github.com/Kron4ek/Wine-Builds/releases/download/9.21/wine-9.21-staging-tkg-amd64.tar.xz",
+            Assert.Single(runner.Calls).Arguments[^1]);
+        Assert.Contains("a9aaf78cc4453269e130edb299679d5fbf4756ebb5f0e75136e8e69e51a6bc11", refused.Message);
+    }
+
+    [Theory]
     [InlineData("/tmp/wine-9.21-staging-tkg-amd64.tar.xz", "wine-9.21-staging-tkg")]
     [InlineData("/tmp/soda-9.0-1-x86_64.tar.xz", "soda-9.0-1")]
     [InlineData("/tmp/vaniglia-10.19-x86_64.tar.gz", "vaniglia-10.19")]
@@ -172,4 +213,6 @@ public class RunnerIndexTests
     {
         Assert.Equal(expected, Runners.DeriveName(path));
     }
+
+    public void Dispose() => Directory.Delete(root, recursive: true);
 }

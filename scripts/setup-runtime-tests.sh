@@ -121,6 +121,7 @@ for command in curl flatpak git make sha256sum unzip; do
 done
 
 mkdir -p "$home/.local/share" "$home/.config" "$home/.cache" "$runtime" "$root/tmp" "$flatpak_user_dir"
+: > "$root/.cabinet-runtime-root"
 chmod 700 "$root" "$home" "$runtime"
 
 flatpak remote-delete --user --force cabinet-local >/dev/null 2>&1 || true
@@ -171,7 +172,7 @@ rm -f "$yabridge"
 ln -s "$cabinet_files/lib/yabridge" "$yabridge"
 
 daw=${daw_ref%%/*}
-mkdir -p "$home/.var/app/$daw/data" "$data/native" "$data/prefixes"
+mkdir -p "$data/native" "$data/prefixes"
 cabinet enrol "$daw" >/dev/null
 flatpak override --user --reset "$daw"
 flatpak override --user "$daw" \

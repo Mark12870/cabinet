@@ -70,6 +70,14 @@ public sealed class RunnerIndex(IProcessRunner runner)
 
     private static readonly IReadOnlyList<FixedRunner> Fixed =
     [
+        Pinned(
+            RunnerFamily.Kron4ek, "9.21",
+            "https://github.com/Kron4ek/Wine-Builds/releases/download/9.21/",
+            "a9aaf78cc4453269e130edb299679d5fbf4756ebb5f0e75136e8e69e51a6bc11"),
+        Pinned(
+            RunnerFamily.Soda, "11.0-5",
+            "https://github.com/bottlesdevs/wine/releases/download/soda-11.0-5/",
+            "63dfa05aee8be3a95bab4875a5dd69f432670ecb828491453bfc5e238e6f1595"),
         new(
             new RunnerRelease(
                 RunnerFamily.D2D1Dcomp, "d2d1-11.0", RunnerFamily.D2D1Dcomp.AssetFor("11.0"), ""),
@@ -78,19 +86,47 @@ public sealed class RunnerIndex(IProcessRunner runner)
             "909e283e1e087a93e196defffd2a67120ab2df6ea4edd7f6f45b97528bf8646b"),
     ];
 
+    private static FixedRunner Pinned(RunnerFamily family, string version, string directory, string sha256)
+    {
+        var asset = family.AssetFor(version);
+        return new(new RunnerRelease(family, version, asset, ""), directory + asset, sha256);
+    }
+
+    public const string Provenance =
+        "A pinned build is checked against a SHA-256 that Cabinet ships. Any other build is "
+        + "checked only against Bottles' component index, which also says where to fetch it.";
+
+    public static bool IsPinned(RunnerRelease release) =>
+        Fixed.Any(known => known.Release.Name == release.Name);
+
+    public static bool IsPinned(string spec) => PinnedFor(spec) is not null;
+
+    private static RunnerRelease? PinnedFor(string spec) =>
+        Fixed.Select(known => known.Release)
+            .FirstOrDefault(release => release.Version == spec || release.Name == spec);
+
     public IReadOnlyList<RunnerRelease> Available(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var entries = Components.Entries(http.Text(Components.IndexUrl, cancellationToken));
         cancellationToken.ThrowIfCancellationRequested();
 
-        return Families.SelectMany(family => ReleasesFrom(family, entries))
-            .Concat(Fixed.Select(known => known.Release))
+        var listed = Families.SelectMany(family => ReleasesFrom(family, entries))
+            .Select(release => PinnedFor(release.Name) ?? release)
+            .ToList();
+
+        return listed
+            .Concat(Fixed.Select(known => known.Release).Where(release => !listed.Contains(release)))
             .ToList();
     }
 
     public RunnerRelease Find(string spec)
     {
+        if (PinnedFor(spec) is { } pinned)
+        {
+            return pinned;
+        }
+
         var matches = Available()
             .Where(release => release.Version == spec || release.Name == spec)
             .ToList();
@@ -120,7 +156,7 @@ public sealed class RunnerIndex(IProcessRunner runner)
         Directory.CreateDirectory(directory);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (Fixed.FirstOrDefault(known => known.Release == release) is { } found)
+        if (Fixed.FirstOrDefault(known => known.Release.Name == release.Name) is { } found)
         {
             var downloaded = Path.Combine(directory, release.Asset);
             http.ToFile(found.Url, downloaded, onOutput, onProgress, cancellationToken);

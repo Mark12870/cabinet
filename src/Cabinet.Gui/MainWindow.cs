@@ -175,7 +175,7 @@ internal sealed class MainWindow
         toast.SetButtonLabel("Show");
         toast.SetTimeout(0);
         toast.OnButtonClicked += (_, _) => Ui.Guard(() =>
-            new EnrolmentDialog(window, layout, dawId, layout.DawYabridgeLink(dawId)).Present());
+            new EnrolmentDialog(window, layout, dawId).Present());
         toasts.AddToast(toast);
     }
 

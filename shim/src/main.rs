@@ -3,7 +3,7 @@ use std::ffi::{OsStr, OsString};
 use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::process::CommandExt;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
 mod session;
@@ -38,8 +38,13 @@ const FORWARD: &[&str] = &[
 
 const SPAWN_ENV: &[&str] = &["XDG_RUNTIME_DIR", "FLATPAK_USER_DIR", "FLATPAK_SYSTEM_DIRS"];
 
+const APP: &str = "CABINET_APP";
+const SHIM_LOG: &str = "CABINET_SHIM_LOG";
 const RUNTIME_ROOT: &str = "CABINET_RUNTIME_ROOT";
 const RUNTIME_RUN_ID: &str = "CABINET_RUNTIME_RUN_ID";
+
+const TEST_CONTROLS: &[&str] = &[APP, SHIM_LOG, RUNTIME_ROOT, RUNTIME_RUN_ID];
+const RUNTIME_ROOT_MARKER: &str = ".cabinet-runtime-root";
 
 const CANON_VARS: &[&str] = &[
     "WINEPREFIX",
@@ -248,7 +253,7 @@ where
         argv.push(flag);
     }
 
-    if let Some(root) = getenv(RUNTIME_ROOT) {
+    if let Some(root) = control(&getenv, &canon, &read, RUNTIME_ROOT) {
         let mut flag = OsString::from("--filesystem=");
         flag.push(&root);
         flag.push(":create");
@@ -261,7 +266,7 @@ where
         argv.push(environment);
     }
 
-    if let Some(run_id) = getenv(RUNTIME_RUN_ID) {
+    if let Some(run_id) = control(&getenv, &canon, &read, RUNTIME_RUN_ID) {
         let mut environment = OsString::from("--env=");
         environment.push(RUNTIME_RUN_ID);
         environment.push("=");
@@ -296,6 +301,63 @@ fn inner_argv(socket: &OsStr, wine: OsString) -> Vec<OsString> {
     .into()
 }
 
+fn control<E, C, R>(getenv: &E, canon: &C, read: &R, name: &str) -> Option<OsString>
+where
+    E: Fn(&str) -> Option<OsString>,
+    C: Fn(&Path) -> Option<PathBuf>,
+    R: Fn(&Path) -> Option<String>,
+{
+    let value = getenv(name)?;
+
+    if name != RUNTIME_ROOT {
+        return accepted(name, &value).then_some(value);
+    }
+
+    let resolve = |path: &Path| canon(path).unwrap_or_else(|| path.to_path_buf());
+    let root = Path::new(&value);
+    let home = getenv("HOME").map(|home| resolve(Path::new(&home)));
+
+    (is_plain_absolute(root)
+        && home.is_some_and(|home| home != resolve(root))
+        && read(&root.join(RUNTIME_ROOT_MARKER)).is_some())
+    .then_some(value)
+}
+
+fn accepted(name: &str, value: &OsStr) -> bool {
+    match name {
+        APP => value.to_str().is_some_and(is_app_id),
+        SHIM_LOG => Path::new(value).is_absolute(),
+        RUNTIME_RUN_ID => value.len() <= 64 && is_word(value.as_bytes()),
+        _ => false,
+    }
+}
+
+fn is_app_id(id: &str) -> bool {
+    let parts: Vec<&str> = id.split('.').collect();
+
+    parts.len() >= 3
+        && parts.iter().enumerate().all(|(index, part)| {
+            is_word(part.as_bytes())
+                && !part.as_bytes()[0].is_ascii_digit()
+                && (index == parts.len() - 1 || !part.contains('-'))
+        })
+}
+
+fn is_word(text: &[u8]) -> bool {
+    !text.is_empty()
+        && text
+            .iter()
+            .all(|byte| byte.is_ascii_alphanumeric() || *byte == b'_' || *byte == b'-')
+}
+
+fn is_plain_absolute(path: &Path) -> bool {
+    path.is_absolute()
+        && path.components().count() > 1
+        && path
+            .components()
+            .all(|part| matches!(part, Component::RootDir | Component::Normal(_)))
+}
+
 fn session_dir<E, C>(getenv: &E, canon: &C) -> PathBuf
 where
     E: Fn(&str) -> Option<OsString>,
@@ -315,7 +377,10 @@ where
 }
 
 fn main() {
-    let app = env::var("CABINET_APP").unwrap_or_else(|_| DEFAULT_APP.to_string());
+    let getenv = |key: &str| env::var_os(key);
+    let canon = |path: &Path| std::fs::canonicalize(path).ok();
+    let read = |path: &Path| std::fs::read_to_string(path).ok();
+
     let args: Vec<OsString> = env::args_os().skip(1).collect();
 
     if args.first().is_some_and(|arg| arg == "--cabinet-self-test") {
@@ -327,9 +392,15 @@ fn main() {
         std::process::exit(session::run_broker(&args[1..]));
     }
 
-    let getenv = |key: &str| env::var_os(key);
-    let canon = |path: &Path| std::fs::canonicalize(path).ok();
-    let read = |path: &Path| std::fs::read_to_string(path).ok();
+    for name in TEST_CONTROLS {
+        if getenv(name).is_some() && control(&getenv, &canon, &read, name).is_none() {
+            eprintln!("cabinet-wine: ignoring {name}, whose value it does not accept");
+        }
+    }
+
+    let app = control(&getenv, &canon, &read, APP)
+        .and_then(|app| app.into_string().ok())
+        .unwrap_or_else(|| DEFAULT_APP.to_string());
 
     let mode = args
         .first()
@@ -412,7 +483,7 @@ fn main() {
         )
     };
 
-    if let Some(path) = env::var_os("CABINET_SHIM_LOG") {
+    if let Some(path) = control(&getenv, &canon, &read, SHIM_LOG) {
         use std::io::Write;
         if let Ok(mut log) = std::fs::OpenOptions::new()
             .create(true)
@@ -879,5 +950,93 @@ mod tests {
             &[(SYNC_MARKER, Some("ntsyncc"))],
         );
         assert!(!argv.iter().any(|a| a.starts_with("--env=WINEESYNC")));
+    }
+
+    fn accepts(name: &str, value: &str) -> bool {
+        accepted(name, OsStr::new(value))
+    }
+
+    fn with_root(home: &str, root: &str, marked: bool) -> Vec<String> {
+        build_with_markers(
+            &[("HOME", home), (RUNTIME_ROOT, root)],
+            false,
+            &[(RUNTIME_ROOT_MARKER, marked.then_some(""))],
+        )
+    }
+
+    fn grants(argv: &[String], root: &str) -> bool {
+        argv.iter()
+            .any(|a| *a == format!("--filesystem={root}:create"))
+            && argv
+                .iter()
+                .any(|a| *a == format!("--env=CABINET_RUNTIME_ROOT={root}"))
+    }
+
+    #[test]
+    fn a_test_control_is_never_forwarded_as_it_stands() {
+        for name in TEST_CONTROLS {
+            assert!(!FORWARD.contains(name));
+            assert!(!SPAWN_ENV.contains(name));
+        }
+    }
+
+    #[test]
+    fn a_marked_runtime_root_is_granted_to_the_session_and_named_to_it() {
+        let argv = with_root("/home/u/.cache/rt/home", "/home/u/.cache/rt", true);
+        assert!(grants(&argv, "/home/u/.cache/rt"));
+    }
+
+    #[test]
+    fn an_unmarked_runtime_root_is_neither_granted_nor_named() {
+        let argv = with_root("/home/u/.cache/rt/home", "/home/u/.cache/rt", false);
+        assert!(!argv.iter().any(|a| a.contains(RUNTIME_ROOT)));
+        assert!(!argv
+            .iter()
+            .any(|a| a.starts_with("--filesystem=/home/u/.cache/rt")));
+    }
+
+    #[test]
+    fn the_home_itself_is_never_a_runtime_root() {
+        assert!(!grants(&with_root("/home/u", "/home/u", true), "/home/u"));
+        assert!(!grants(&with_root("/home/u/", "/home/u", true), "/home/u"));
+    }
+
+    #[test]
+    fn a_runtime_root_must_be_a_plain_absolute_path() {
+        assert!(is_plain_absolute(Path::new("/home/u/.cache/rt")));
+        assert!(!is_plain_absolute(Path::new("/")));
+        assert!(!is_plain_absolute(Path::new("rt")));
+        assert!(!is_plain_absolute(Path::new("/home/u/rt/../..")));
+        assert!(!grants(&with_root("/home/u", "/", true), "/"));
+    }
+
+    #[test]
+    fn a_run_id_is_passed_on_only_as_a_short_word() {
+        let argv = build(&[(RUNTIME_RUN_ID, "wsi-01")], false);
+        assert!(argv
+            .iter()
+            .any(|a| a == "--env=CABINET_RUNTIME_RUN_ID=wsi-01"));
+        assert!(!accepts(RUNTIME_RUN_ID, ""));
+        assert!(!accepts(RUNTIME_RUN_ID, "a b"));
+        assert!(!accepts(RUNTIME_RUN_ID, "../x"));
+        assert!(!accepts(RUNTIME_RUN_ID, &"a".repeat(65)));
+    }
+
+    #[test]
+    fn another_app_must_be_named_by_a_flatpak_id() {
+        assert!(accepts(APP, "invalid.cabinet.teardown.probe"));
+        assert!(accepts(APP, "org.example.my-daw"));
+        assert!(!accepts(APP, "org.my-co.Daw"));
+        assert!(!accepts(APP, "cabinet"));
+        assert!(!accepts(APP, "org.example"));
+        assert!(!accepts(APP, "org..example"));
+        assert!(!accepts(APP, "org.example.1app"));
+        assert!(!accepts(APP, "--filesystem=/.x.y"));
+    }
+
+    #[test]
+    fn the_argv_log_must_be_an_absolute_path() {
+        assert!(accepts(SHIM_LOG, "/home/u/argv.log"));
+        assert!(!accepts(SHIM_LOG, "argv.log"));
     }
 }
