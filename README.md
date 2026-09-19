@@ -14,11 +14,24 @@ layer is [Wine](https://www.winehq.org); Cabinet bundles both and wires the resu
 flatpak remote-add --if-not-exists cabinet \
   https://mark12870.github.io/cabinet/io.github.mark12870.cabinet.flatpakrepo
 flatpak install cabinet io.github.mark12870.cabinet
+```
+
+**A DAW installed outside Flatpak needs nothing more.** Whatever Cabinet bridges lands in `~/.vst3/cabinet`,
+`~/.clap/cabinet` and `~/.vst/cabinet`, which such a DAW already scans.
+
+**A Flatpak DAW has to be enrolled first, once.** Its sandbox hides Cabinet's yabridge, your prefixes and the Wine that
+runs them, so without this it sees no Windows plugins at all. Start the DAW once so its data directory exists, look up
+its id with `flatpak list --app`, then:
+
+```sh
 flatpak run io.github.mark12870.cabinet enrol fm.reaper.Reaper
 ```
 
-There is no setup step. A DAW installed outside Flatpak needs nothing more; for a Flatpak DAW, `enrol` prepares it and
-**prints** a `flatpak override` command for you to run — see [Permissions](#permissions).
+or, in the window, *Doctor → Enrol a DAW*. Enrolling links Cabinet's yabridge into the DAW's data directory and then
+**prints** two commands for you to run: a `flatpak override` that grants the DAW what it needs (Cabinet leaves this to
+you, see [Permissions](#permissions)), and a self-test that checks the bridge starts inside that DAW's runtime. Restart
+the DAW afterwards. If a Cabinet update needs more permissions, `sync` and the window tell you, and `doctor` names what
+is missing. Run `enrol` again to get the new command.
 
 ## Use
 
