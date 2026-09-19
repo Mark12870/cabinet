@@ -207,6 +207,23 @@ public class EnrolmentTests
     }
 
     [Fact]
+    public void MovingLegacyLinksLeavesPluginsThatAreNotLinksAlone()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+        var bundle = Path.Combine(layout.ScanDir(".vst3"), "Installed.vst3");
+        var library = Path.Combine(layout.ScanDir(".so"), "libInstalled.so");
+        Directory.CreateDirectory(bundle);
+        Directory.CreateDirectory(layout.ScanDir(".so"));
+        File.WriteAllText(library, "");
+
+        Enrolment.MoveLegacyScanLinks(layout);
+
+        Assert.Equal([bundle], Directory.EnumerateFileSystemEntries(layout.ScanDir(".vst3")));
+        Assert.Equal([library], Directory.EnumerateFileSystemEntries(layout.ScanDir(".so")));
+    }
+
+    [Fact]
     public void LegacyNativeLinksMoveIntoTheNativeFolderAndOthersStay()
     {
         using var home = new TempHome();
