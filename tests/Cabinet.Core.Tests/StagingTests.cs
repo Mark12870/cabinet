@@ -74,7 +74,7 @@ public sealed class StagingTests : IDisposable
         Assert.Null(Underway.Begin(marker)!.Left);
     }
 
-    [Fact]
+    [UnprivilegedFact]
     public void StagingThatCannotBeClearedIsLeftForLaterRatherThanStoppingCabinet()
     {
         var stuck = Path.Combine(Layout.TempDir, ".cabinet-staging-library-0123456789ab");
