@@ -137,6 +137,11 @@ public sealed class Layout
 
     public string CabinetScanDir(string directory) => Path.Combine(ScanDir(directory), "cabinet");
 
+    public string WindowsScanDir(string directory) => Path.Combine(CabinetScanDir(directory), "windows");
+
+    public string NativeScanDir(string extension) =>
+        extension == ".lv2" ? ScanDir(extension) : Path.Combine(CabinetScanDir(extension), "native");
+
     public string PrefixesDir => Path.Combine(SandboxDataHome, "prefixes");
 
     public string SocketDir => Path.Combine(RuntimeDir, "yabridge");

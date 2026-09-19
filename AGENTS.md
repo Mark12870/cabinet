@@ -108,9 +108,10 @@ the name or the structure instead. Anything that genuinely will not fit there is
   yabridge's plugin side then aborts the DAW at teardown, so this turns a hang into a crash.
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
-  `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`~/.vst3`, `~/.vst`,
-  `~/.clap`, `~/.lv2` with their `cabinet` links), the per-file links older releases left in `~/.local/share/yabridge`,
-  which bridging removes, and a Library entry's declared `Data:` directory. Do not add arbitrary writes in `$HOME`.
+  `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`cabinet/windows` and
+  `cabinet/native` in `~/.vst3`, `~/.vst`, `~/.clap`; `~/.lv2` flat, as hosts scan it one level deep), the per-file
+  links older releases left in `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared
+  `Data:` directory. Do not add arbitrary writes in `$HOME`.
 - The manifest keeps `$HOME` read-only. A new Library `Data:` root also needs a matching
   `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`.
 
@@ -211,10 +212,10 @@ dependency changes.
   kept, under `timeout`. A stall in `engine_close` is the DAW freeze.
 - yabridge puts its sockets in `$XDG_RUNTIME_DIR` when `YABRIDGE_TEMP_DIR` is unset, and a manifest grants only
   `xdg-run` subdirectories. The shim grants that path by value on every `flatpak run`, so every DAW reaches its sockets.
-- Every successful bridge sets up native DAWs: it links `~/.vst3/cabinet`, `~/.clap/cabinet` and `~/.vst/cabinet`
-  to Cabinet's own yabridgectl output, reports a path something else owns and leaves it in place, and takes out the
-  per-file links older releases left in `~/.local/share/yabridge`. yabridge's chainloader searches `$PATH` and
-  `~/.local/share/yabridge`, where every yabridge puts the same names, so
+- Every successful bridge sets up native DAWs: it links `cabinet/windows` in `~/.vst3`, `~/.clap` and `~/.vst` to
+  Cabinet's own yabridgectl output (never native links inside it: `sync` prunes them), reports a path something else
+  owns and leaves it in place, and takes out the per-file links older releases left in `~/.local/share/yabridge`.
+  yabridge's chainloader searches `$PATH` and `~/.local/share/yabridge`, where every yabridge puts the same names, so
   `patches/yabridge-chainloader-cabinet-first.patch` makes Cabinet's copies load Cabinet's installed library and host
   first; both stay in Cabinet's installed files, because `yabridgectl sync` prunes every `.so` beside the plugins that
   lacks its own `.dll`. A findable bridge with an unreachable loader aborts the DAW from yabridge's launch thread; the

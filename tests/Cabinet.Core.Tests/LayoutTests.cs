@@ -48,6 +48,10 @@ public class LayoutTests
         Assert.Equal("/home/u/.vst3/cabinet", Layout.CabinetScanDir(".vst3"));
         Assert.Equal("/home/u/.clap/cabinet", Layout.CabinetScanDir(".clap"));
         Assert.Equal("/home/u/.vst/cabinet", Layout.CabinetScanDir(".vst"));
+        Assert.Equal("/home/u/.vst3/cabinet/windows", Layout.WindowsScanDir(".vst3"));
+        Assert.Equal("/home/u/.vst/cabinet/native", Layout.NativeScanDir(".so"));
+        Assert.Equal("/home/u/.clap/cabinet/native", Layout.NativeScanDir(".clap"));
+        Assert.Equal("/home/u/.lv2", Layout.NativeScanDir(".lv2"));
     }
 
     [Fact]

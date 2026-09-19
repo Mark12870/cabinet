@@ -49,27 +49,18 @@ public static class Enrolment
 
     public static IReadOnlyList<string> EnsureNativeScanLinks(Layout layout)
     {
-        var links = Layout.BridgedScanDirectories
-            .Select(directory => (Link: layout.CabinetScanDir(directory),
-                Target: layout.BridgeOutputDir(directory)))
-            .ToList();
-        var conflicts = links
-            .Where(entry =>
-            {
-                var target = LinkTarget(entry.Link);
-                return target is not null && target != entry.Target
-                       || target is null && Exists(entry.Link);
-            })
-            .Select(entry => entry.Link)
-            .ToList();
+        var conflicts = ScanLinkConflicts(layout);
 
         if (conflicts.Count > 0)
         {
             return conflicts;
         }
 
-        foreach (var (link, target) in links)
+        foreach (var directory in Layout.BridgedScanDirectories)
         {
+            var link = layout.WindowsScanDir(directory);
+            var target = layout.BridgeOutputDir(directory);
+
             Directory.CreateDirectory(target);
             Directory.CreateDirectory(Path.GetDirectoryName(link)!);
 
@@ -80,6 +71,73 @@ public static class Enrolment
         }
 
         return [];
+    }
+
+    public static IReadOnlyList<string> ScanLinkConflicts(Layout layout) =>
+        Layout.BridgedScanDirectories
+            .Select(directory => ScanLinkConflict(layout, directory))
+            .OfType<string>()
+            .ToList();
+
+    private static string? ScanLinkConflict(Layout layout, string directory)
+    {
+        var parent = layout.CabinetScanDir(directory);
+
+        if (LinkTarget(parent) is not null || File.Exists(parent))
+        {
+            return parent;
+        }
+
+        var link = layout.WindowsScanDir(directory);
+        var target = LinkTarget(link);
+
+        return target is not null && target != layout.BridgeOutputDir(directory)
+               || target is null && Exists(link)
+            ? link
+            : null;
+    }
+
+    public static void MoveLegacyScanLinks(Layout layout)
+    {
+        foreach (var directory in Layout.BridgedScanDirectories)
+        {
+            var parent = layout.CabinetScanDir(directory);
+
+            if (LinkTarget(parent) == layout.BridgeOutputDir(directory))
+            {
+                File.Delete(parent);
+                Directory.CreateDirectory(parent);
+                File.CreateSymbolicLink(layout.WindowsScanDir(directory), layout.BridgeOutputDir(directory));
+            }
+        }
+
+        foreach (var extension in Layout.PluginExtensions)
+        {
+            var scan = layout.ScanDir(extension);
+            var native = layout.NativeScanDir(extension);
+
+            if (scan == native || !Directory.Exists(scan))
+            {
+                continue;
+            }
+
+            foreach (var link in Directory.EnumerateFileSystemEntries(scan).ToList())
+            {
+                var moved = Path.Combine(native, Path.GetFileName(link));
+
+                if (LinkTarget(link) is not { } target
+                    || !Path.GetFullPath(target, scan).StartsWith(
+                        layout.NativeDir + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    || Exists(moved))
+                {
+                    continue;
+                }
+
+                Directory.CreateDirectory(native);
+                File.CreateSymbolicLink(moved, Path.GetFullPath(target, scan));
+                File.Delete(link);
+            }
+        }
     }
 
     public static void RemoveLegacyNativeLinks(Layout layout)

@@ -16,8 +16,8 @@ flatpak remote-add --if-not-exists cabinet \
 flatpak install cabinet io.github.mark12870.cabinet
 ```
 
-**A DAW installed outside Flatpak needs nothing more.** Whatever Cabinet bridges lands in `~/.vst3/cabinet`,
-`~/.clap/cabinet` and `~/.vst/cabinet`, which such a DAW already scans.
+**A DAW installed outside Flatpak needs nothing more.** Windows plugins land in `~/.vst3/cabinet/windows`, native
+ones in `cabinet/native` (LV2 straight in `~/.lv2`), and the same under `~/.clap` and `~/.vst`, which such a DAW scans.
 
 **A Flatpak DAW has to be enrolled first, once.** Its sandbox hides Cabinet's yabridge, your prefixes and the Wine that
 runs them, so without this it sees no Windows plugins at all. Look up its id with `flatpak list --app`, then:

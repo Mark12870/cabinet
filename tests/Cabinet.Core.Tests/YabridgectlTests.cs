@@ -192,20 +192,20 @@ public sealed class YabridgectlTests : IDisposable
         Assert.True(result.Ok);
         Assert.Equal(
             layout.BridgeOutputDir(".vst3"),
-            new DirectoryInfo(layout.CabinetScanDir(".vst3")).LinkTarget);
+            new DirectoryInfo(layout.WindowsScanDir(".vst3")).LinkTarget);
     }
 
     [Fact]
     public void ASuccessfulSyncDoesNotFailOnAnOccupiedNativeScanPath()
     {
         var layout = TestLayout();
-        Directory.CreateDirectory(layout.CabinetScanDir(".vst3"));
+        Directory.CreateDirectory(layout.WindowsScanDir(".vst3"));
 
         var result = new Yabridgectl(layout, new RecordingRunner()).SyncAndPublish([]);
 
         Assert.True(result.Ok);
-        Assert.True(Directory.Exists(layout.CabinetScanDir(".vst3")));
-        Assert.Contains(layout.CabinetScanDir(".vst3"), result.Stderr);
+        Assert.True(Directory.Exists(layout.WindowsScanDir(".vst3")));
+        Assert.Contains(layout.WindowsScanDir(".vst3"), result.Stderr);
     }
 
     [Fact]

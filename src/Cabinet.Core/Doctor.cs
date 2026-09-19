@@ -399,15 +399,13 @@ public sealed class Doctor(Layout layout, IProcessRunner runner)
     private IEnumerable<Check> NativeDaw()
     {
         var entries = Layout.BridgedScanDirectories
-            .Select(directory => (Link: layout.CabinetScanDir(directory),
+            .Select(directory => (Link: layout.WindowsScanDir(directory),
                 Target: layout.BridgeOutputDir(directory)))
             .ToList();
+        var owned = Enrolment.ScanLinkConflicts(layout);
         var unlinked = entries
             .Where(entry => new DirectoryInfo(entry.Link).LinkTarget != entry.Target)
             .Select(entry => entry.Link)
-            .ToList();
-        var owned = unlinked
-            .Where(link => Path.Exists(link) || new FileInfo(link).LinkTarget is not null)
             .ToList();
 
         if (owned.Count > 0)

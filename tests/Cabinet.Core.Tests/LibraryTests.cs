@@ -1741,7 +1741,7 @@ public class LibraryTests : IDisposable
 
         library.Install(library.Find("vital"), installer: archive, onOutput: said.Add);
 
-        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Vital.vst3")));
+        Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Vital.vst3")));
         Assert.True(File.Exists(archive));
         Assert.DoesNotContain(said, line => line.Contains("Checking sha256"));
         Assert.Contains("Unpacking VitalInstaller.tar.gz", File.ReadAllText(layout.InstallLogPath("vital")));
@@ -2436,7 +2436,7 @@ public class LibraryTests : IDisposable
         var elsewhere = Path.Combine(root, "Someone.clap");
         File.WriteAllText(elsewhere, "");
 
-        var scan = layout.ScanDir(".clap");
+        var scan = layout.NativeScanDir(".clap");
         Directory.CreateDirectory(scan);
         File.CreateSymbolicLink(Path.Combine(scan, "Dexed.clap"), ours);
         File.CreateSymbolicLink(Path.Combine(scan, "Someone.clap"), elsewhere);
@@ -2474,14 +2474,14 @@ public class LibraryTests : IDisposable
         var library = new Library(layout, real);
         library.Install(library.Find("thing"));
 
-        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".lv2"), "Thing.lv2")));
-        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
-        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".clap"), "Thing.clap")));
-        Assert.False(Directory.Exists(layout.ScanDir(".so")));
+        Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".lv2"), "Thing.lv2")));
+        Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
+        Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".clap"), "Thing.clap")));
+        Assert.False(Directory.Exists(layout.NativeScanDir(".so")));
 
         library.Remove(library.RemovalOf(library.Find("thing")));
 
-        Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".lv2"), "Thing.lv2")));
+        Assert.False(Path.Exists(Path.Combine(layout.NativeScanDir(".lv2"), "Thing.lv2")));
         Assert.Empty(library.Installed());
     }
 
@@ -2506,7 +2506,7 @@ public class LibraryTests : IDisposable
 
         library.Install(library.Find("thing"), onOutput: said.Add);
 
-        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
+        Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
         Assert.Contains(said, line => line.Contains("nothing here can verify what arrives"));
         Assert.DoesNotContain(said, line => line.Contains("Checking sha256"));
     }
@@ -2643,8 +2643,8 @@ public class LibraryTests : IDisposable
         var layout = Layout();
         var theirs = Path.Combine(root, "elsewhere", "Thing.vst3");
         Directory.CreateDirectory(theirs);
-        var link = Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3");
-        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        var link = Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3");
+        Directory.CreateDirectory(layout.NativeScanDir(".vst3"));
         File.CreateSymbolicLink(link, theirs);
         var library = new Library(layout, new ProcessRunner());
 
@@ -2665,8 +2665,8 @@ public class LibraryTests : IDisposable
         var layout = Layout();
         var other = Path.Combine(layout.NativePath("other"), "Thing.vst3");
         Directory.CreateDirectory(other);
-        var link = Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3");
-        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        var link = Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3");
+        Directory.CreateDirectory(layout.NativeScanDir(".vst3"));
         File.CreateSymbolicLink(link, other);
         var library = new Library(layout, new ProcessRunner());
 
@@ -2682,7 +2682,7 @@ public class LibraryTests : IDisposable
         var archive = Bundles("A.vst3", "B.vst3");
         Catalogue(("thing", "Name: Thing\nKind: native\nSource: byo\n"));
         var layout = Layout();
-        var scan = layout.ScanDir(".vst3");
+        var scan = layout.NativeScanDir(".vst3");
         Directory.CreateDirectory(Path.Combine(scan, "B.vst3"));
         var library = new Library(layout, new ProcessRunner());
 
@@ -2703,9 +2703,9 @@ public class LibraryTests : IDisposable
         Directory.CreateDirectory(Path.Combine(layout.NativePath("thing"), "Stale.vst3"));
         Directory.CreateDirectory(data);
         File.WriteAllText(Path.Combine(data, "stale.preset"), "");
-        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        Directory.CreateDirectory(layout.NativeScanDir(".vst3"));
         File.CreateSymbolicLink(
-            Path.Combine(layout.ScanDir(".vst3"), "Stale.vst3"),
+            Path.Combine(layout.NativeScanDir(".vst3"), "Stale.vst3"),
             Path.Combine(layout.NativePath("thing"), "Stale.vst3"));
         File.WriteAllText(layout.NativeInstalling("thing"), $"thing\n{data}");
         var library = new Library(layout, new ProcessRunner());
@@ -2719,8 +2719,25 @@ public class LibraryTests : IDisposable
         Assert.Empty(library.Unfinished());
         Assert.Empty(Directory.EnumerateFileSystemEntries(data));
         Assert.Equal(
-            [Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")],
-            Directory.EnumerateFileSystemEntries(layout.ScanDir(".vst3")));
+            [Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")],
+            Directory.EnumerateFileSystemEntries(layout.NativeScanDir(".vst3")));
+    }
+
+    [Fact]
+    public void ANativeInstallMovedFromTheLegacyPlaceIsRemovedWithItsLinks()
+    {
+        var layout = Layout();
+        var bundle = Path.Combine(layout.NativePath("gone"), "Gone.vst3");
+        Directory.CreateDirectory(bundle);
+        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".vst3"), "Gone.vst3"), bundle);
+        Enrolment.MoveLegacyScanLinks(layout);
+        var library = new Library(layout, new RecordingRunner());
+
+        library.Remove(library.RemovalOf(library.Removable("gone")));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(layout.NativeScanDir(".vst3")));
+        Assert.Empty(Directory.EnumerateDirectories(layout.NativeDir));
     }
 
     [Fact]
@@ -2730,8 +2747,8 @@ public class LibraryTests : IDisposable
         var bundle = Path.Combine(layout.NativePath("gone"), "Gone.clap");
         Directory.CreateDirectory(layout.NativePath("gone"));
         File.WriteAllText(bundle, "");
-        Directory.CreateDirectory(layout.ScanDir(".clap"));
-        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".clap"), "Gone.clap"), bundle);
+        Directory.CreateDirectory(layout.NativeScanDir(".clap"));
+        File.CreateSymbolicLink(Path.Combine(layout.NativeScanDir(".clap"), "Gone.clap"), bundle);
         var library = new Library(layout, new RecordingRunner());
 
         var retired = Assert.Single(library.Retired());
@@ -2740,7 +2757,7 @@ public class LibraryTests : IDisposable
         library.Remove(library.RemovalOf(library.Removable("gone")));
 
         Assert.Empty(library.Retired());
-        Assert.Empty(Directory.EnumerateFileSystemEntries(layout.ScanDir(".clap")));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(layout.NativeScanDir(".clap")));
         Assert.Empty(Directory.EnumerateDirectories(layout.NativeDir));
     }
 
@@ -2864,13 +2881,13 @@ public class LibraryTests : IDisposable
 
         var data = Path.Combine(root, ".thing", "Thing");
 
-        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
+        Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
         Assert.True(File.Exists(Path.Combine(data, "presets.txt")));
         Assert.Equal("thing", Assert.Single(library.Installed()).Key);
 
         library.Remove(library.RemovalOf(library.Find("thing")));
 
-        Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
+        Assert.False(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
         Assert.False(Directory.Exists(data));
         Assert.False(Directory.Exists(layout.NativePath("thing")));
     }

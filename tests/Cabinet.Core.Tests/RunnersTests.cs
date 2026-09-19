@@ -446,7 +446,7 @@ public sealed class RunnersTests : IDisposable
     [Fact]
     public void DoctorFailsOnANativeScanPathPointingSomewhereElse()
     {
-        Directory.CreateDirectory(Layout.CabinetScanDir(".vst3"));
+        Directory.CreateDirectory(Layout.WindowsScanDir(".vst3"));
 
         var check = Checks().Single(found => found.Name == "native DAWs");
 

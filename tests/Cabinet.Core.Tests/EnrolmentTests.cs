@@ -78,7 +78,7 @@ public class EnrolmentTests
         Assert.Equal(
             home.Layout.BridgeOutputDir(".vst3"),
             File.ResolveLinkTarget(
-                home.Layout.CabinetScanDir(".vst3"), false)!.FullName);
+                home.Layout.WindowsScanDir(".vst3"), false)!.FullName);
     }
 
     [Fact]
@@ -92,19 +92,144 @@ public class EnrolmentTests
         Assert.Empty(conflicts);
         Assert.Equal(
             home.Layout.BridgeOutputDir(".clap"),
-            new DirectoryInfo(home.Layout.CabinetScanDir(".clap")).LinkTarget);
+            new DirectoryInfo(home.Layout.WindowsScanDir(".clap")).LinkTarget);
     }
 
     [Fact]
     public void AForeignNativeScanPathIsNeverReplaced()
     {
         using var home = new TempHome();
-        Directory.CreateDirectory(home.Layout.CabinetScanDir(".vst3"));
+        Directory.CreateDirectory(home.Layout.WindowsScanDir(".vst3"));
+
+        var conflicts = Enrolment.PublishNative(home.Layout);
+
+        Assert.Equal([home.Layout.WindowsScanDir(".vst3")], conflicts);
+        Assert.Null(new DirectoryInfo(home.Layout.WindowsScanDir(".vst3")).LinkTarget);
+    }
+
+    [Fact]
+    public void AForeignCabinetLinkIsNeverReplaced()
+    {
+        using var home = new TempHome();
+        var elsewhere = Path.Combine(home.Root, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        Directory.CreateDirectory(home.Layout.ScanDir(".vst3"));
+        File.CreateSymbolicLink(home.Layout.CabinetScanDir(".vst3"), elsewhere);
 
         var conflicts = Enrolment.PublishNative(home.Layout);
 
         Assert.Equal([home.Layout.CabinetScanDir(".vst3")], conflicts);
+        Assert.Equal(elsewhere, new DirectoryInfo(home.Layout.CabinetScanDir(".vst3")).LinkTarget);
+    }
+
+    [Fact]
+    public void TheLegacyCabinetLinkBecomesAFolderWithAWindowsLink()
+    {
+        using var home = new TempHome();
+        Directory.CreateDirectory(home.Layout.BridgeOutputDir(".vst3"));
+        Directory.CreateDirectory(home.Layout.ScanDir(".vst3"));
+        File.CreateSymbolicLink(home.Layout.CabinetScanDir(".vst3"), home.Layout.BridgeOutputDir(".vst3"));
+
+        Enrolment.MoveLegacyScanLinks(home.Layout);
+
         Assert.Null(new DirectoryInfo(home.Layout.CabinetScanDir(".vst3")).LinkTarget);
+        Assert.Equal(
+            home.Layout.BridgeOutputDir(".vst3"),
+            new DirectoryInfo(home.Layout.WindowsScanDir(".vst3")).LinkTarget);
+        Assert.Empty(Enrolment.PublishNative(home.Layout));
+    }
+
+    [Fact]
+    public void MovingLegacyLinksLeavesAForeignCabinetLinkAlone()
+    {
+        using var home = new TempHome();
+        var elsewhere = Path.Combine(home.Root, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        Directory.CreateDirectory(home.Layout.ScanDir(".clap"));
+        File.CreateSymbolicLink(home.Layout.CabinetScanDir(".clap"), elsewhere);
+
+        Enrolment.MoveLegacyScanLinks(home.Layout);
+
+        Assert.Equal(elsewhere, new DirectoryInfo(home.Layout.CabinetScanDir(".clap")).LinkTarget);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(elsewhere));
+    }
+
+    [Fact]
+    public void MovingLegacyLinksTwiceChangesNothingMore()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+        var ours = Path.Combine(layout.NativePath("thing"), "libThing.so");
+        Directory.CreateDirectory(layout.NativePath("thing"));
+        File.WriteAllText(ours, "");
+        Directory.CreateDirectory(layout.BridgeOutputDir(".vst"));
+        Directory.CreateDirectory(layout.ScanDir(".so"));
+        File.CreateSymbolicLink(layout.CabinetScanDir(".vst"), layout.BridgeOutputDir(".vst"));
+        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".so"), "libThing.so"), ours);
+
+        Enrolment.MoveLegacyScanLinks(layout);
+        Enrolment.MoveLegacyScanLinks(layout);
+
+        Assert.Equal([layout.CabinetScanDir(".vst")], Directory.EnumerateFileSystemEntries(layout.ScanDir(".so")));
+        Assert.Equal(
+            [layout.NativeScanDir(".so"), layout.WindowsScanDir(".vst")],
+            Directory.EnumerateFileSystemEntries(layout.CabinetScanDir(".vst")).Order());
+        Assert.Equal(ours, new FileInfo(Path.Combine(layout.NativeScanDir(".so"), "libThing.so")).LinkTarget);
+    }
+
+    [Fact]
+    public void ALegacyNativeLinkStaysWhenItsNewPlaceIsTaken()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+        var ours = Path.Combine(layout.NativePath("thing"), "Thing.clap");
+        var taken = Path.Combine(layout.NativeScanDir(".clap"), "Thing.clap");
+        Directory.CreateDirectory(layout.NativePath("thing"));
+        File.WriteAllText(ours, "");
+        Directory.CreateDirectory(taken);
+        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".clap"), "Thing.clap"), ours);
+
+        Enrolment.MoveLegacyScanLinks(layout);
+
+        Assert.Equal(ours, new FileInfo(Path.Combine(layout.ScanDir(".clap"), "Thing.clap")).LinkTarget);
+        Assert.Null(new DirectoryInfo(taken).LinkTarget);
+    }
+
+    [Fact]
+    public void MovingLegacyLinksOnAFreshHomeCreatesNothing()
+    {
+        using var home = new TempHome();
+
+        Enrolment.MoveLegacyScanLinks(home.Layout);
+
+        Assert.All(Layout.ScanDirectories, directory =>
+            Assert.False(Path.Exists(home.Layout.ScanDir(directory))));
+    }
+
+    [Fact]
+    public void LegacyNativeLinksMoveIntoTheNativeFolderAndOthersStay()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+        var ours = Path.Combine(layout.NativePath("thing"), "Thing.vst3");
+        var lv2 = Path.Combine(layout.NativePath("thing"), "Thing.lv2");
+        var theirs = Path.Combine(home.Root, "elsewhere", "Theirs.vst3");
+        Directory.CreateDirectory(ours);
+        Directory.CreateDirectory(lv2);
+        Directory.CreateDirectory(theirs);
+        Directory.CreateDirectory(layout.ScanDir(".vst3"));
+        Directory.CreateDirectory(layout.ScanDir(".lv2"));
+        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3"), ours);
+        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".vst3"), "Theirs.vst3"), theirs);
+        File.CreateSymbolicLink(Path.Combine(layout.ScanDir(".lv2"), "Thing.lv2"), lv2);
+
+        Enrolment.MoveLegacyScanLinks(layout);
+
+        Assert.Equal(
+            ours, new DirectoryInfo(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")).LinkTarget);
+        Assert.False(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Thing.vst3")));
+        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".vst3"), "Theirs.vst3")));
+        Assert.True(Path.Exists(Path.Combine(layout.ScanDir(".lv2"), "Thing.lv2")));
     }
 
     [Fact]

@@ -8,6 +8,7 @@ public static class Bootstrap
         Directory.CreateDirectory(layout.SocketDir);
         LogFile.Rotate(layout.RuntimeLogPath);
         LinkYabridgeForYabridgectl(layout);
+        Enrolment.MoveLegacyScanLinks(layout);
 
         foreach (var parent in new[]
                  {

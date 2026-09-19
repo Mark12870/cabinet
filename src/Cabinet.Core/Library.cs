@@ -1944,7 +1944,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     {
         foreach (var bundle in Bundles(root).OrderBy(path => path, StringComparer.Ordinal))
         {
-            var directory = layout.ScanDir(Path.GetExtension(bundle));
+            var directory = layout.NativeScanDir(Path.GetExtension(bundle));
             Directory.CreateDirectory(directory);
 
             var link = Path.Combine(directory, Path.GetFileName(bundle));
@@ -1999,7 +1999,7 @@ public sealed class Library(Layout layout, IProcessRunner runner)
     {
         foreach (var extension in Layout.PluginExtensions)
         {
-            var directory = layout.ScanDir(extension);
+            var directory = layout.NativeScanDir(extension);
 
             if (!Directory.Exists(directory))
             {
