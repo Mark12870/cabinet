@@ -49,6 +49,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # checks.sh re-execs into org.gnome.Sdk but keeps this HOME, so restore lands here.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: >-
+            nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Build.props',
+            'nuget-sources.json') }}
+          restore-keys: nuget-
+
       - name: Install the SDK and the toolchains checks.sh enters
         run: |
           flatpak install -y --noninteractive flathub \
@@ -113,8 +122,8 @@ jobs:
 
   # Runs on every push and pull request, not only for a release, so a green run means the
   # artifact builds. Only a new version ships this very build; a refresh republishes what is out.
+  # It does not wait for checks: publish does, so a build nothing gates is only spent minutes.
   build:
-    needs: checks
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     container:
