@@ -390,7 +390,7 @@ internal static class CarlaProcess
             --env=XDG_RUNTIME_DIR="$runtime_dir" \
             --env=CABINET_RUNTIME_RUN_ID="$CABINET_RUNTIME_RUN_ID" \
             --env=FLATPAK_USER_DIR="$flatpak_user_dir" \
-            --env=DISPLAY= \
+            --env=DISPLAY="$DISPLAY" \
             --env=XAUTHORITY= \
             --env=WAYLAND_DISPLAY= \
             "${filtered[@]}"
@@ -462,6 +462,7 @@ internal static class CarlaProcess
 
     public static async Task<CarlaResult> Run(RuntimeConfiguration configuration, PluginCase plugin)
     {
+        using var display = Display.Start();
         var runId = plugin.RunId;
         var info = new ProcessStartInfo(configuration.Backend == "toolbox" ? "toolbox" : "bash")
         {
@@ -471,7 +472,7 @@ internal static class CarlaProcess
             UseShellExecute = false,
         };
 
-        info.Environment.Remove("DISPLAY");
+        info.Environment["DISPLAY"] = display.Name;
         info.Environment.Remove("WAYLAND_DISPLAY");
         info.Environment.Remove("XAUTHORITY");
 
@@ -482,6 +483,7 @@ internal static class CarlaProcess
             info.ArgumentList.Add(configuration.Toolbox);
             info.ArgumentList.Add("env");
             RuntimeTestEnvironment.AddEnvironmentArguments(info.ArgumentList);
+            info.ArgumentList.Add($"DISPLAY={display.Name}");
             info.ArgumentList.Add("bash");
         }
         else

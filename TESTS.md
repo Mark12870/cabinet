@@ -4,7 +4,7 @@ Cabinet's normal checks run on a clean Linux runner and cannot load a real Windo
 plugin. The runtime tests therefore use a dedicated Toolbox named `cabinet-runtime`.
 The setup creates a persistent test root with a synthetic `HOME`, private Flatpak
 user installation, XDG runtime directory and temporary directory. Each case runs
-Carla's no-GUI frontend without a display.
+Carla's no-GUI frontend on a headless `weston` of its own.
 
 ## Setup
 
@@ -93,6 +93,13 @@ machine's, not its.
 full frontend with `--no-gui` through an in-Toolbox supervisor, checks the load log, and cleans
 up each owned process, Flatpak instance and socket. Carla uses its dummy audio engine, so the
 Toolbox needs no JACK server.
+
+Each case takes a display of its own, as the editor cases do, and `--no-gui` keeps every editor
+shut. It used to run with none, which held on this machine and not on a runner: with no display
+Wine loads no display driver, so winevulkan offers no surface extension, `vkCreateInstance` fails
+with `-7`, and DXVK's failure goes through Wine's unwinder — `unknown CFA opcode`, repeatedly —
+into a stack overflow that takes the host with it. SINE Player died that way on every CI run. A
+DAW has a display; the matrix now says so, at two seconds across the nine cases.
 
 | Host side | Plugin | Format | Purpose |
 | --- | --- | --- | --- |
