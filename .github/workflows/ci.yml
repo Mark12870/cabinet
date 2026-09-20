@@ -227,7 +227,9 @@ jobs:
       contents: read
       packages: write
     env:
-      BASE: registry.fedoraproject.org/fedora-toolbox:44
+      # The plain image, not fedora-toolbox: the toolbox one is 2.1 GB before a single package,
+      # and `prepare` names everything the suite needs anyway.
+      BASE: registry.fedoraproject.org/fedora:44
       CONTAINER: cabinet-runtime
     steps:
       - uses: actions/checkout@v7

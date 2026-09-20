@@ -24,7 +24,8 @@
 # when a yabridge patch can go, which is a question for a refresh rather than for every push.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
-# stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user.
+# stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user with
+# runuser, which is why the container needs util-linux beyond what the suite itself uses.
 set -euo pipefail
 
 APP=io.github.mark12870.cabinet
@@ -119,7 +120,7 @@ prepare() {
     mapfile -t packages < "$SOURCE/scripts/runtime-packages.txt"
 
     step 'dnf install'
-    dnf install -y "${packages[@]}" dbus-daemon
+    dnf install -y "${packages[@]}" dbus-daemon util-linux
 
     id -u "$OWNER" >/dev/null 2>&1 || useradd --uid "$OWNER_ID" --create-home "$OWNER"
     install -d -o "$OWNER" -g "$OWNER" -m 700 "/run/user/$OWNER_ID" "$ROOT"
