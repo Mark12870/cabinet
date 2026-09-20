@@ -203,11 +203,151 @@ jobs:
           path: repo.tar
           retention-days: 1
 
+  # TESTS.md's suite, against the artifact `build` just made: it loads real plugins, opens their
+  # editors and drives a pointer over them, which nothing in checks.sh can do. The fixtures --
+  # prefixes, runners, Carla and the vendor installs, about 16 GB of them -- ride in a container
+  # image rather than a cache, which holds 10 GB for a whole repository, and a run commits back
+  # whatever it had to add. scripts/runtime-ci.sh drives every step inside the container.
+  runtime:
+    needs: build
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    # A run that finds no image installs everything itself, vendor installers and all.
+    timeout-minutes: 350
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/cabinet-runtime:latest
+      BASE: registry.fedoraproject.org/fedora-toolbox:44
+      CONTAINER: cabinet-runtime
+    steps:
+      - uses: actions/checkout@v7
+
+      # The image and the root inside it are tens of gigabytes; nothing here needs the runner's
+      # preinstalled toolchains.
+      - name: Make room for the image
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
+            /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
+          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repo
+
+      # The tar is dropped because the container takes a copy of this directory.
+      - name: Unpack the built repo
+        run: |
+          tar -xf repo.tar
+          rm repo.tar
+
+      # No image yet, or it was taken away: this run bakes one from the base instead of failing,
+      # which is also how the first push ever seeds the tag.
+      - name: Take the fixture image
+        id: image
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+          if docker pull "${IMAGE}"; then
+            echo "from=${IMAGE}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::${IMAGE} is not published yet; this run installs the fixtures itself"
+            echo "from=${BASE}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # bwrap needs its own namespaces for every flatpak run inside, and flatpak install of an
+      # extra-data ref needs the fuse device.
+      - name: Start the container
+        run: |
+          docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
+            --volume "${PWD}:/src:ro" "${{ steps.image.outputs.from }}" sleep infinity
+
+      - name: Install anything the image predates
+        run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
+
+      # The stamp moves only when the image is baked, so a normal push hits the entry the bake
+      # wrote and a catalogue change makes its own.
+      - name: Work out the fixture key
+        id: stamp
+        run: |
+          hash='${{ hashFiles('data/library/**', 'scripts/setup-runtime-tests.sh') }}'
+          value="$(docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh stamp)"
+          echo "key=runtime-fixtures-${value}-${hash}" >> "$GITHUB_OUTPUT"
+
+      # The vendors' halves of the fixtures. They may not be published, so they live here rather
+      # than in the image: a cache is readable only by this repository's own workflows.
+      - uses: actions/cache/restore@v4
+        id: fixtures
+        with:
+          path: fixtures.tar
+          key: ${{ steps.stamp.outputs.key }}
+          restore-keys: runtime-fixtures-
+
+      - name: Put the built Cabinet and the cached fixtures in place
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
+          if [ -f fixtures.tar ]; then
+            docker cp fixtures.tar "${CONTAINER}:/tmp/fixtures.tar"
+            docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restore /tmp/fixtures.tar
+          fi
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh setup
+
+      - name: Runtime tests
+        run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh test
+
+      - name: Collect the captures and the logs
+        if: always()
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh collect /tmp/runtime
+          docker cp "${CONTAINER}:/tmp/runtime" runtime
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime
+          path: runtime
+          retention-days: 7
+
+      # A vendor install this run had to do is worth keeping, but only where it may be kept.
+      - name: Pack the private fixtures
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh save /tmp/fixtures.tar
+          docker cp "${CONTAINER}:/tmp/fixtures.tar" fixtures.tar
+
+      - uses: actions/cache/save@v4
+        if: steps.fixtures.outputs.cache-hit != 'true'
+        with:
+          path: fixtures.tar
+          key: ${{ steps.stamp.outputs.key }}
+
+      # Everything else -- a runner that moved on, a rebuilt bridge -- stays in the image for the
+      # next push. `clean` runs first: it is what keeps a vendor's binaries out of the layer.
+      - name: Keep the free fixtures
+        if: github.event_name == 'push'
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
+          docker commit "${CONTAINER}" "${IMAGE}"
+          docker push "${IMAGE}"
+          {
+            echo '### Fixture image'
+            echo
+            echo '```'
+            docker history --human "${IMAGE}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
   publish:
-    needs: [checks, build]
+    needs: [checks, build, runtime]
     if: >-
       always() && needs.checks.outputs.publish == 'true'
       && (needs.build.result == 'success' || needs.checks.outputs.release != 'true')
+      && (needs.runtime.result == 'success' || needs.checks.outputs.release != 'true')
     runs-on: ubuntu-latest
     permissions:
       contents: read

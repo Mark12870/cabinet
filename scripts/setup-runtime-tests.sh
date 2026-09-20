@@ -42,36 +42,8 @@ case "$BACKEND" in
         fi
 
         podman update --memory=8G --memory-swap=8G "$BOX" >/dev/null
-        toolbox run --container "$BOX" sudo dnf install -y \
-            alsa-lib-devel \
-            curl \
-            dotnet-sdk-10.0 \
-            file-devel \
-            flatpak \
-            fontconfig \
-            gcc-c++ \
-            git \
-            ImageMagick \
-            libX11-devel \
-            libXcursor-devel \
-            libXext-devel \
-            libXrandr-devel \
-            liblo-devel \
-            libsamplerate-devel \
-            libsndfile-devel \
-            make \
-            mesa-dri-drivers \
-            mingw64-gcc \
-            pkgconf-pkg-config \
-            pulseaudio-libs-devel \
-            python3-qt5-devel \
-            python3-rdflib \
-            unzip \
-            weston \
-            xdotool \
-            xorg-x11-server-Xwayland \
-            xprop \
-            xwd
+        mapfile -t packages < "$REPOSITORY/scripts/runtime-packages.txt"
+        toolbox run --container "$BOX" sudo dnf install -y "${packages[@]}"
         runner=(toolbox run --container "$BOX")
         ;;
     direct)

@@ -1,0 +1,128 @@
+name: Runtime image
+
+# Bakes the fixture image ci.yml's runtime job runs in: the tools, a private Flatpak
+# installation, the Carla build, the Wine runners and the prefixes with the catalogue entries
+# installed in them. That is where the vendor downloads, the serial Carla build and a fresh
+# FabFilter trial happen, and it starts from the base image every time, so it also squashes the
+# layers the per-push runs add.
+
+on:
+  workflow_dispatch:
+  # Wednesdays, so it neither collides with ci.yml's Monday extension refresh nor lands on the
+  # day a release usually goes out.
+  schedule:
+    - cron: '41 3 * * 3'
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: runtime-image
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    # The first bake installs seven vendor plugins and builds Carla with one job.
+    timeout-minutes: 350
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/cabinet-runtime:latest
+      BASE: registry.fedoraproject.org/fedora-toolbox:44
+      CONTAINER: cabinet-runtime
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Make room for the fixtures
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
+            /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
+          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - name: Log in to the registry
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+      # Two commits rather than one: GHCR takes at most 10 GB in a layer and 10 minutes to
+      # upload one, and the fixtures alone are most of that budget.
+      - name: Install the tools
+        run: |
+          docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
+            --volume "${PWD}:/src:ro" "${BASE}" sleep infinity
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
+          docker commit "${CONTAINER}" "${IMAGE}"
+          docker rm --force "${CONTAINER}"
+
+      - name: Install the fixtures
+        id: fixtures
+        run: |
+          docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
+            --volume "${PWD}:/src:ro" "${IMAGE}" sleep infinity
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
+          owner="${GITHUB_REPOSITORY%%/*}"
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh mirror \
+            "https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh setup
+
+      # A smoke run, so the bake says whether the fixtures it just made are usable rather than
+      # leaving that to the next push.
+      - name: Runtime tests
+        run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh test
+
+      # A new stamp retires the cached vendor fixtures: this run installed them from scratch, so
+      # its FabFilter trial is a fresh one, and every later push restores these rather than the
+      # month-old set.
+      - name: Stamp the fixtures
+        id: stamp
+        if: always() && steps.fixtures.outcome == 'success'
+        run: |
+          hash='${{ hashFiles('data/library/**', 'scripts/setup-runtime-tests.sh') }}'
+          value="$(docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restamp)"
+          echo "key=runtime-fixtures-${value}-${hash}" >> "$GITHUB_OUTPUT"
+
+      # Kept on the fixtures rather than on the tests, like the image below: three hours of
+      # vendor installs are not thrown away over one red plugin.
+      - name: Pack the private fixtures
+        if: always() && steps.fixtures.outcome == 'success'
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh save /tmp/fixtures.tar
+          docker cp "${CONTAINER}:/tmp/fixtures.tar" fixtures.tar
+
+      - uses: actions/cache/save@v4
+        if: always() && steps.fixtures.outcome == 'success'
+        with:
+          path: fixtures.tar
+          key: ${{ steps.stamp.outputs.key }}
+
+      - name: Collect the captures and the logs
+        if: always()
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh collect /tmp/runtime
+          docker cp "${CONTAINER}:/tmp/runtime" runtime
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime
+          path: runtime
+          retention-days: 14
+
+      # Pushed on the fixtures, not on the tests: the image is a set of fixtures rather than a
+      # verdict, and a red plugin is not a reason to throw hours of installs away. `clean` runs
+      # first, and it is what keeps a vendor's binaries out of a public image.
+      - name: Publish the image
+        if: always() && steps.fixtures.outcome == 'success'
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
+          docker commit "${CONTAINER}" "${IMAGE}"
+          docker push "${IMAGE}"
+          {
+            echo '### Fixture image'
+            echo
+            echo '```'
+            docker history --human "${IMAGE}"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

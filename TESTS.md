@@ -35,6 +35,55 @@ release, and its plugins run on a 30-day trial that opens an evaluation dialog o
 Delete the `fabfilter` prefix from the test root and run the setup again to start that trial
 over.
 
+## In CI
+
+`.github/workflows/ci.yml`'s `runtime` job runs this whole suite on every push to `main`, and on
+demand, against the Flatpak the same run built. `publish` waits for it, so a release needs a green
+runtime run.
+
+The fixtures cannot be made per run — about 13 GB on a clean runner, out of seven vendor
+installers, five Wine runners and a serial Carla build — and `actions/cache` holds 10 GB for a
+whole repository. So they are cached in two halves, split by what may be handed out again:
+
+- **A public image, `ghcr.io/<owner>/cabinet-runtime`.** Free software only: the Fedora tools, the
+  Carla build, the Wine runners, the drag-and-drop probe prefixes, the Flatpak runtimes, and Surge
+  XT, which is GPL-3.0. A public package costs nothing to store or to pull, and pulls from Actions
+  are free of transfer charges either way.
+- **This repository's own Actions cache**, which only its workflows can read. Every other fixture
+  is marked `Freeware` or `Commercial` in the catalogue, and REAPER's Flathub manifest fetches it
+  as extra data rather than shipping it: Cabinet may install those on a machine, but nothing here
+  may republish a vendor's binaries. The five plugin prefixes and Decent Sampler's native files
+  ride there, about 4 GB, and `runtime-ci.sh clean` takes them and REAPER out of the container
+  before the image is committed. `WorkflowTests` derives that list from the catalogue, so a new
+  fixture that no licence allows to be published fails the build rather than reaching the image.
+
+`scripts/runtime-ci.sh` drives every step inside the container: the `direct` backend rather than a
+Toolbox, an unprivileged user because Wine refuses to run as root, and a headless `weston` for the
+vendor installers, which need a display. A push restores the cache, runs the setup — where all
+that is left is the new Cabinet commit and a sync — and commits the free half back, so the next
+push starts from it.
+
+The cache key carries a stamp the image holds. A normal push therefore restores exactly what the
+bake installed, a catalogue change makes an entry of its own, and a new bake stamps again, which
+retires the old entry and is what starts FabFilter's 30-day trial over.
+
+`.github/workflows/runtime-image.yml` bakes the image from `fedora-toolbox:44`, weekly and on
+demand. That is where the vendor downloads, a Carla rebuild and that fresh trial happen, and
+starting from the base image also squashes the layers the per-push runs added. It publishes the
+image and saves the cache whenever the fixtures were installed, even if a test then failed: three
+hours of installs are not thrown away over one red plugin.
+
+Nothing has to be baked by hand first. A `runtime` job that finds no image installs the fixtures
+itself and pushes the result, which is how the tag is seeded and how it comes back if it is ever
+deleted; that run takes hours rather than minutes, and it is the only one that does. Set the
+package's visibility to public once it exists — a package starts private, and a private one of
+this size bills against the account's quota.
+
+Every run uploads a `runtime` artifact — the interaction captures with their `result.txt`, the
+Carla supervisor logs, Cabinet's own logs and the `.trx`. Read them before believing a failure. A
+hosted runner has no GPU, so DXVK draws through lavapipe there and the numbers below are this
+machine's, not its.
+
 ## Test matrix
 
 `Cabinet.Runtime.Tests` requires every fixture and fails if one is missing. It starts Carla's
