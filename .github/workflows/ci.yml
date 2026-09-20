@@ -296,6 +296,7 @@ jobs:
           restore-keys: runtime-fixtures-
 
       - name: Put the built Cabinet and the cached fixtures in place
+        id: setup
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
           if [ -f fixtures.tar ]; then
@@ -320,15 +321,21 @@ jobs:
           path: runtime
           retention-days: 7
 
-      # A vendor install this run had to do is worth keeping, but only where it may be kept.
+      # Kept on the setup, not on the tests. A plugin that fails the first time its editor opens --
+      # Decent Sampler does, with no config of its own yet -- would otherwise keep the fixtures
+      # from ever being kept, and every push would reinstall them and fail again.
       - name: Pack the private fixtures
-        if: steps.fixtures.outputs.cache-hit != 'true'
+        if: >-
+          !cancelled() && steps.setup.outcome == 'success'
+          && steps.fixtures.outputs.cache-hit != 'true'
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh save /tmp/fixtures.tar
           docker cp "${CONTAINER}:/tmp/fixtures.tar" fixtures.tar
 
       - uses: actions/cache/save@v4
-        if: steps.fixtures.outputs.cache-hit != 'true'
+        if: >-
+          !cancelled() && steps.setup.outcome == 'success'
+          && steps.fixtures.outputs.cache-hit != 'true'
         with:
           path: fixtures.tar
           key: ${{ steps.stamp.outputs.key }}
@@ -336,7 +343,9 @@ jobs:
       # Everything else -- a runner that moved on, a rebuilt bridge -- stays in the image for the
       # next push. `clean` runs first: it is what keeps a vendor's binaries out of the layer.
       - name: Keep the free fixtures
-        if: github.event_name == 'push'
+        if: >-
+          !cancelled() && steps.setup.outcome == 'success'
+          && github.event_name == 'push'
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
           docker commit "${CONTAINER}" "${IMAGE}"

@@ -83,7 +83,7 @@ jobs:
       # month-old set.
       - name: Stamp the fixtures
         id: stamp
-        if: always() && steps.fixtures.outcome == 'success'
+        if: "!cancelled() && steps.fixtures.outcome == 'success'"
         run: |
           hash='${{ hashFiles('data/library/**', 'scripts/setup-runtime-tests.sh') }}'
           value="$(docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restamp)"
@@ -92,13 +92,13 @@ jobs:
       # Kept on the fixtures rather than on the tests, like the image below: three hours of
       # vendor installs are not thrown away over one red plugin.
       - name: Pack the private fixtures
-        if: always() && steps.fixtures.outcome == 'success'
+        if: "!cancelled() && steps.fixtures.outcome == 'success'"
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh save /tmp/fixtures.tar
           docker cp "${CONTAINER}:/tmp/fixtures.tar" fixtures.tar
 
       - uses: actions/cache/save@v4
-        if: always() && steps.fixtures.outcome == 'success'
+        if: "!cancelled() && steps.fixtures.outcome == 'success'"
         with:
           path: fixtures.tar
           key: ${{ steps.stamp.outputs.key }}
@@ -120,7 +120,7 @@ jobs:
       # verdict, and a red plugin is not a reason to throw hours of installs away. `clean` runs
       # first, and it is what keeps a vendor's binaries out of a public image.
       - name: Publish the image
-        if: always() && steps.fixtures.outcome == 'success'
+        if: "!cancelled() && steps.fixtures.outcome == 'success'"
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
           docker commit "${CONTAINER}" "${IMAGE}"

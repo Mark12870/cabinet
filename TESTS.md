@@ -61,7 +61,10 @@ whole repository. So they are cached in two halves, split by what may be handed 
 Toolbox, an unprivileged user because Wine refuses to run as root, and a headless `weston` for the
 vendor installers, which need a display. A push restores the cache, runs the setup — where all
 that is left is the new Cabinet commit and a sync — and commits the free half back, so the next
-push starts from it.
+push starts from it. Both halves are kept whenever the setup succeeded rather than when the tests
+passed: Decent Sampler fails the first time its editor opens on a root that has no config of its
+own yet, and gating on green would let one such plugin keep the fixtures from ever being kept, so
+every push would reinstall them and fail again.
 
 The cache key carries a stamp the image holds. A normal push therefore restores exactly what the
 bake installed, a catalogue change makes an entry of its own, and a new bake stamps again, which
