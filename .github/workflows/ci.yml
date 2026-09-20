@@ -333,6 +333,23 @@ jobs:
           path: runtime
           retention-days: 7
 
+      # What the probes measured belongs on the run page. A failure here is a number, and reading
+      # it should not need an artifact download and a token.
+      - name: Report what the editors measured
+        if: always()
+        run: |
+          {
+            echo '### Editors'
+            echo
+            echo '```'
+            for result in runtime/interaction/*/result.txt; do
+              [ -f "${result}" ] || continue
+              printf '%s\n' "$(basename "$(dirname "${result}")")"
+              sed 's/^/  /' "${result}"
+            done
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       # Kept on the setup, not on the tests. A plugin that fails the first time its editor opens --
       # Decent Sampler does, with no config of its own yet -- would otherwise keep the fixtures
       # from ever being kept, and every push would reinstall them and fail again.

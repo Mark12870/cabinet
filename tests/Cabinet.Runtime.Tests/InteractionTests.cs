@@ -74,7 +74,8 @@ public sealed class InteractionTests : IDisposable
             $"{plugin.Name}'s editor draws but does not react: sweeping, clicking and dragging "
             + $"across it changed the frame by {seen.Reaction:F6}, against {seen.Noise:F6} measured "
             + "with the pointer held still. The editor is receiving no input, which is a plugin a "
-            + $"user cannot operate. The captures are in {seen.Shots}.");
+            + $"user cannot operate. It is {seen.Size} and holds {seen.Colours} colours, and "
+            + $"{seen.Blind} of its captures were blind. The captures are in {seen.Shots}.");
     }
 
     [Theory]
