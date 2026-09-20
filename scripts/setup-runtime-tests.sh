@@ -160,9 +160,6 @@ cabinet() {
 data=$home/.var/app/$app/data
 carla_source=$data/carla-tests/source
 carla_prefix=$data/carla-tests/prefix
-surge_prefix=carla-surge-windows
-surge_url=https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-win64-1.3.4-pluginsonly.zip
-surge_sha256=564e162c560af07ad4ed47fe1bfcd827cf97a575de30d06c48249aad2e7c35e6
 
 cabinet_files=$flatpak_user_dir/app/$app/current/active/files
 [ -f "$cabinet_files/lib/yabridge/libyabridge-chainloader-vst2.so" ] || {
@@ -340,35 +337,8 @@ install_entry valhalla-supermassive
 install_entry decent-sampler
 install_entry surge-xt
 install_entry sine-player
+install_entry fabfilter-total-bundle
 install_entry ik-product-manager
-
-surge_root=$data/prefixes/$surge_prefix
-if [ ! -d "$surge_root/dosdevices" ]; then
-    cabinet new "$surge_prefix"
-fi
-
-archive=$(mktemp "$root/tmp/cabinet-surge-windows.XXXXXX.zip")
-trap 'rm -f "$archive"' EXIT
-curl --fail --location --retry 3 --retry-all-errors --output "$archive" "$surge_url"
-printf '%s  %s\n' "$surge_sha256" "$archive" |
-    sha256sum --check --status || {
-        printf 'setup-runtime-tests: Surge XT Windows archive checksum does not match\n' >&2
-        exit 1
-    }
-
-common="$surge_root/drive_c/Program Files/Common Files"
-mkdir -p "$common/VST3" "$common/CLAP"
-unzip -q -o "$archive" 'Surge XT.vst3/*' -d "$common/VST3"
-unzip -q -o -j "$archive" 'Surge XT.clap' -d "$common/CLAP"
-
-[ -f "$common/VST3/Surge XT.vst3/Contents/x86_64-win/Surge XT.vst3" ] || {
-    printf 'setup-runtime-tests: Surge XT Windows VST3 was not installed in the test prefix\n' >&2
-    exit 1
-}
-[ -f "$common/CLAP/Surge XT.clap" ] || {
-    printf 'setup-runtime-tests: Surge XT Windows CLAP was not installed in the test prefix\n' >&2
-    exit 1
-}
 
 cabinet sync
 

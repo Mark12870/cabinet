@@ -26,8 +26,8 @@ public sealed class CarlaTests : IDisposable
                 Fixtures.Windows(".vst3", "ValhallaSupermassive.vst3"), false, "Finished initializing")],
             [new PluginCase("windows-vst3-sine", "wsine", "vst3",
                 Fixtures.Windows(".vst3", "SINE Player.vst3"), false, "Finished initializing")],
-            [new PluginCase("windows-clap-surge", "wsc", "clap", Fixtures.Windows(".clap", "Surge XT.clap"), true,
-                "Finished initializing")],
+            [new PluginCase("windows-clap-fabfilter", "wfc", "clap",
+                Fixtures.Windows(".clap", "FabFilter Micro.clap"), true, "Finished initializing")],
         ];
 
         return cases;

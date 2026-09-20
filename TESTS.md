@@ -25,10 +25,15 @@ does not expose the required CLAP support. The build is installed in the Toolbox
 root's `~/.var/app/io.github.mark12870.cabinet/data/carla-tests/prefix` and the source
 is kept in its `source` sibling.
 
-The setup installs the pinned free catalogue entries, a pinned Windows Surge XT archive
-for Windows CLAP coverage, and IK Product Manager. It does not log
-in to or install a product through IK Product Manager. The manager test only checks
-that the manager itself installs correctly.
+The setup installs the pinned free catalogue entries, FabFilter Total Bundle for Windows CLAP
+coverage, and IK Product Manager. It does not log in to or install a product through IK Product
+Manager. The manager test only checks that the manager itself installs correctly.
+
+FabFilter is the one fixture that is neither free nor pinned: it is the only Windows catalogue
+entry offering CLAP, its entry is a `rolling` source whose URL the vendor changes with every
+release, and its plugins run on a 30-day trial that opens an evaluation dialog over the editor.
+Delete the `fabfilter` prefix from the test root and run the setup again to start that trial
+over.
 
 ## Test matrix
 
@@ -47,9 +52,11 @@ Toolbox needs no JACK server.
 | Windows | Valhalla Supermassive | VST2 | Windows yabridge VST2 and ZIP installer |
 | Windows | Valhalla Supermassive | VST3 | Windows yabridge VST3 |
 | Windows | SINEplayer | VST3 | Windows yabridge VST3 |
-| Windows | Surge XT | CLAP | Windows yabridge CLAP |
+| Windows | FabFilter Micro | CLAP | Windows yabridge CLAP |
 
-Surge XT VST3 covers native Linux VST3 alongside its CLAP and LV2 formats.
+Surge XT VST3 covers native Linux VST3 alongside its CLAP and LV2 formats. FabFilter Micro is
+the CLAP case because it is the only Windows catalogue entry that ships one, and `Micro` because
+its name carries no version for a vendor update to change.
 
 ## Wine sessions
 
@@ -130,7 +137,7 @@ so a run never puts a plugin window on the user's screen.
 Geometry says where a window is, not whether the user can use what is in it. `InteractionTests`
 answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
 sweeps the pointer over a grid inside it, then clicks and drags at four points, comparing every
-capture against the first. Four things are asserted per plugin.
+capture against the first. Five things are asserted per plugin.
 
 - **It draws.** The capture must hold more than a handful of distinct colours. One flat colour is
   the blank frame a DAW shows when the plugin renders somewhere else, and nothing in a log says
@@ -143,47 +150,60 @@ capture against the first. Four things are asserted per plugin.
   going unresponsive under the user's hands.
 - **It survives.** The editor is closed and opened again, and the host output must not report a
   plugin crashing while being torn down.
+- **Every frame was measured.** A capture that comes back empty while its window is still mapped
+  is a probe that went blind, not a frame that did not change, and it fails the run.
 
-Format is not an axis. A plugin's interface is the plugin's, not the format's, so each plugin is
-exercised once, and Surge XT twice because native and bridged are different binaries down
-different paths and the native run is the control: a check that fails natively too is the
-harness's fault, not the bridge's.
+A plugin's interface is the plugin's rather than the format's, so each plugin is exercised once.
+Valhalla Supermassive is the exception, in VST2 and VST3, because it is one plugin whose two
+bridged formats are the only same-binary comparison the catalogue offers; Surge XT runs natively
+as the control, since a check that fails natively too is the harness's fault and not the bridge's.
 
 Measured over the whole set on 2026-09-20, which is where the floors come from:
 
 | Plugin | Path | Colours | Reaction | Noise | Worst idle |
 | --- | --- | --- | --- | --- | --- |
+| Decent Sampler | native VST2 | 1597 | 0.9986 | 0 | **1688 ms** |
+| FabFilter Micro | bridged CLAP | 10290 | 0.3514 | 0 | 0 ms |
 | Valhalla Supermassive | bridged VST2 | 2352 | 0.0083 | 0 | 0 ms |
-| Sitala | bridged VST2 | 2178 | 0.0026 | 0 | 0 ms |
+| Valhalla Supermassive | bridged VST3 | 2352 | 0.0083 | 0 | 0 ms |
 | Surge XT | native CLAP | 5075 | 0.0048 | 0 | 29 ms |
-| Surge XT | bridged CLAP | 5054 | **0.0000** | 0 | 9 ms |
-| SINE Player | bridged VST3 | 256 | **0.0000** | 0 | 0 ms |
-| Decent Sampler | native VST2 | 1597 | **0.0000** | 0 | **1571 ms** |
+| Sitala | bridged VST2 | 2178 | 0.0026 | 0 | 0 ms |
+| SINE Player | bridged VST3 | 256 | 0.0008 | 0 | 0 ms |
+
+Every path Cabinet bridges answers the pointer: VST2, VST3 and CLAP, against native VST2 and
+native CLAP.
 
 A drawn editor holds hundreds to thousands of colours and a blank one holds one, so the colour
-floor is 16. A reacting editor moved at least 0.0026 of its pixels and an unreacting one moved
-none, so the reaction floor is 0.0005, five times under the weakest real reaction. Reaction is
-the fraction of pixels that changed, so it does not shrink as the window grows — an earlier RMSE
-metric did, and reported a WebView2 login screen answering a click with a text caret as zero.
+floor is 16. The reaction floor is 0.0005. Reaction is the fraction of pixels that changed, so it
+does not shrink as the window grows — an earlier RMSE metric did, and reported a WebView2 login
+screen answering a click with a text caret as zero. SINE Player is that login screen and answers
+at 0.0008, the narrowest margin in the set, so the floor cannot rise without losing it.
 
 ### Known defects
 
-Three plugins fail a check today. Their cases carry a `Known` flag and assert that the defect is
-still there, the way `DragAndDropTests` does, so the suite stays green and tells you when one is
+One plugin fails a check today. Its case carries a `Known` flag and asserts that the defect is
+still there, the way `DragAndDropTests` does, so the suite stays green and tells you when it is
 fixed rather than going red every run.
 
-- **Surge XT through the bridge takes no pointer input** (`Known.NoInput`). It draws identically
-  to the native build, 5054 colours against 5075, and the geometry cases pass, but no hover,
-  click or drag over twenty points moves a single pixel. Native Surge XT on the same compositor
-  answers at 0.0048, and bridged VST2 and VST3 both answer, so the bridge's CLAP editor input
-  path is the one thing left.
-- **SINE Player takes no pointer input** (`Known.NoInput`). Its WebView2 editor renders the
-  Orchestral Tools login screen and nothing answers the pointer. Unverified whether this shares a
-  cause with the above.
-- **Decent Sampler stalls the host for 1.5 s and takes no pointer input** (`Known.Stalls |
-  Known.NoInput`). Its editor opens behind a vendor "a new version is available" dialog, so the
-  sweep lands on a dimmed backdrop; the stall is consistent with its update check running on the
-  GUI thread. This one follows the pinned build and will change when the fixture is refreshed.
+- **Decent Sampler stalls the host for 1.7 s** (`Known.Stalls`). Its editor opens behind a vendor
+  "a new version is available" dialog and the stall is consistent with that update check running
+  on the GUI thread. It answers the pointer at 0.9986, which is that dialog being dismissed. This
+  one follows the pinned build and will change when the fixture is refreshed.
+
+### What the probe must never do again
+
+Three plugins were recorded here as taking no pointer input at all. None of them did. `settle()`
+sent `Escape` to the editor before each click, and an editor that has just been given focus by
+`xdotool windowactivate` closes on `Escape`; every capture after that read a window that was
+gone. `xwd` writes an empty file for a dead drawable rather than failing, so each of those frames
+scored as no change, and the sweep reported a plugin no user could operate. Removing that one key
+press took Decent Sampler from 0.0000 to 0.9986.
+
+Two guards now stand where that went wrong. A capture that comes back empty while its window is
+still mapped counts as `BLIND`, and `EveryFrameOfAnEditorIsMeasured` requires `BLIND=0`, so a
+probe that goes blind fails instead of reporting zeros it never measured. A capture that fails
+because the window is gone sets `CLOSED`, which counts as the editor answering: a plugin that
+closes its own editor under the pointer received the pointer.
 
 Native Surge XT loses the X server partway through a full sweep — `XIO: fatal IO error` during a
 drag, reproducibly, at the same gesture. It does not show up now because the sweep stops as soon

@@ -105,7 +105,10 @@ def capture(window, name):
     target = ["-root"] if window == "root" else ["-id", str(window)]
     run(["xwd", "-silent", *target, "-out", raw])
 
-    if not os.path.exists(raw):
+    if not os.path.exists(raw) or os.path.getsize(raw) == 0:
+        if os.path.exists(raw):
+            os.remove(raw)
+
         return None
 
     run(["magick", raw, "png:" + path])
@@ -130,6 +133,8 @@ class Loop:
     def __init__(self, host):
         self.host = host
         self.worst = 0.0
+        self.blind = 0
+        self.closed = False
 
     def turn(self, times=1):
         for _ in range(times):
@@ -142,6 +147,25 @@ class Loop:
         started = time.monotonic()
         call()
         return time.monotonic() - started
+
+
+def alive(window):
+    return str(window) in visible() and area(window) > 1
+
+
+def look(window, name, loop):
+    shot = capture(window, name)
+
+    if shot is None:
+        if not alive(window):
+            loop.closed = True
+            note(f"{window} is gone at {name}: the editor answered by closing")
+            return None
+
+        loop.blind += 1
+        note(f"blind at {name}: {window} is still mapped but gave no capture")
+
+    return shot
 
 
 def managed(window):
@@ -176,7 +200,6 @@ def points(window):
 
 def settle():
     run(["xdotool", "mouseup", "1"])
-    run(["xdotool", "key", "--clearmodifiers", "Escape"])
 
 
 def drag(window, baseline, loop, at, name):
@@ -188,7 +211,10 @@ def drag(window, baseline, loop, at, name):
     for step in range(1, 5):
         run(["xdotool", "mousemove", str(x), str(y - step * 10)])
         loop.turn(3)
-        shot = capture(window, f"drag-{name}-{step}")
+        shot = look(window, f"drag-{name}-{step}", loop)
+
+        if loop.closed:
+            break
 
         if shot:
             seen = max(seen, difference(baseline, shot))
@@ -205,7 +231,11 @@ def sweep(window, baseline, loop):
     for x, y, name in points(window):
         run(["xdotool", "mousemove", str(x), str(y)])
         loop.turn(4)
-        shot = capture(window, f"hover-{name}")
+        shot = look(window, f"hover-{name}", loop)
+
+        if loop.closed:
+            return reaction
+
         seen = difference(baseline, shot) if shot else 0.0
         reaction = max(reaction, seen)
         ranked.append((seen, x, y, name))
@@ -224,7 +254,10 @@ def sweep(window, baseline, loop):
         settle()
         run(["xdotool", "mousemove", str(x), str(y), "click", "1"])
         loop.turn(10)
-        shot = capture(window, f"click-{name}")
+        shot = look(window, f"click-{name}", loop)
+
+        if loop.closed:
+            return reaction
 
         if shot:
             reaction = max(reaction, difference(baseline, shot))
@@ -234,6 +267,10 @@ def sweep(window, baseline, loop):
             return reaction
 
         reaction = max(reaction, drag(window, baseline, loop, (x, y), name))
+
+        if loop.closed:
+            return reaction
+
         note(f"drag {name} {reaction:.6f}")
         settle()
         loop.turn(4)
@@ -305,7 +342,6 @@ def main():
         loop.timed(lambda: host.show_custom_ui(0, False))
         loop.turn(SETTLE)
 
-        capture("root", "screen")
         removing = loop.timed(lambda: host.remove_plugin(0))
         note("removed")
     finally:
@@ -318,6 +354,7 @@ def main():
         f"REACTION={reaction:.6f} NOISE={noise:.6f} IDLE_MS={loop.worst * 1000:.0f} "
         f"OPEN_MS={opening * 1000:.0f} CLOSE_MS={closing * 1000:.0f} "
         f"REMOVE_MS={removing * 1000:.0f} SHUTDOWN_MS={shutdown * 1000:.0f} "
+        f"BLIND={loop.blind} CLOSED={'yes' if loop.closed else 'no'} "
         f"REOPEN={'yes' if again else 'no'}")
 
     with open(os.path.join(SHOTS, "result.txt"), "w") as handle:

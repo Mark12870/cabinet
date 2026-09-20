@@ -17,29 +17,38 @@ public sealed class InteractionTests : IDisposable
 
     private static readonly EditorCase[] Catalogue =
     [
-        new("decent-sampler", "vst2", Fixtures.Native(".vst", "DecentSampler.so"),
-            Known.NoInput | Known.Stalls),
+        new("decent-sampler", "vst2", Fixtures.Native(".vst", "DecentSampler.so"), Known.Stalls),
         new("surge-xt", "clap", Fixtures.Native(".clap", "Surge XT.clap"), Known.None),
         new("sitala", "vst2", Fixtures.Windows(".vst", "Sitala.so"), Known.None),
         new("valhalla-supermassive", "vst2",
             Fixtures.Windows(".vst", "ValhallaSupermassive_x64.so"), Known.None),
-        new("surge-xt-bridged", "clap", Fixtures.Windows(".clap", "Surge XT.clap"), Known.NoInput),
-        new("sine-player", "vst3", Fixtures.Windows(".vst3", "SINE Player.vst3"), Known.NoInput),
+        new("valhalla-supermassive-vst3", "vst3",
+            Fixtures.Windows(".vst3", "ValhallaSupermassive.vst3"), Known.None),
+        new("fabfilter-micro", "clap", Fixtures.Windows(".clap", "FabFilter Micro.clap"),
+            Known.None),
+        new("sine-player", "vst3", Fixtures.Windows(".vst3", "SINE Player.vst3"), Known.None),
     ];
 
     public static IEnumerable<object[]> EveryCase() => Group(_ => true);
-
-    public static IEnumerable<object[]> RespondingCases() =>
-        Group(plugin => !plugin.Known.HasFlag(Known.NoInput));
-
-    public static IEnumerable<object[]> UnresponsiveCases() =>
-        Group(plugin => plugin.Known.HasFlag(Known.NoInput));
 
     public static IEnumerable<object[]> SteadyCases() =>
         Group(plugin => !plugin.Known.HasFlag(Known.Stalls));
 
     public static IEnumerable<object[]> StallingCases() =>
         Group(plugin => plugin.Known.HasFlag(Known.Stalls));
+
+    [Theory]
+    [MemberData(nameof(EveryCase))]
+    public void EveryFrameOfAnEditorIsMeasured(EditorCase plugin)
+    {
+        var seen = Measure(plugin);
+
+        Assert.True(
+            seen.Blind == 0,
+            $"{seen.Blind} captures of {plugin.Name}'s editor came back empty, so the probe was "
+            + "blind for part of the sweep and every number it reports for those frames is a "
+            + $"zero it never measured. The captures are in {seen.Shots}.");
+    }
 
     [Theory]
     [MemberData(nameof(EveryCase))]
@@ -55,10 +64,15 @@ public sealed class InteractionTests : IDisposable
     }
 
     [Theory]
-    [MemberData(nameof(RespondingCases))]
+    [MemberData(nameof(EveryCase))]
     public void AnEditorRespondsToThePointer(EditorCase plugin)
     {
         var seen = Measure(plugin);
+
+        if (seen.Closed)
+        {
+            return;
+        }
 
         Assert.True(
             seen.Reaction > seen.Noise && seen.Reaction >= Reaction,
@@ -66,19 +80,6 @@ public sealed class InteractionTests : IDisposable
             + $"across it changed the frame by {seen.Reaction:F6}, against {seen.Noise:F6} measured "
             + "with the pointer held still. The editor is receiving no input, which is a plugin a "
             + $"user cannot operate. The captures are in {seen.Shots}.");
-    }
-
-    [Theory]
-    [MemberData(nameof(UnresponsiveCases))]
-    public void AnEditorKnownNotToRespondStillDoesNot(EditorCase plugin)
-    {
-        var seen = Measure(plugin);
-
-        Assert.True(
-            seen.Reaction < Reaction,
-            $"{plugin.Name} now reacts to the pointer ({seen.Reaction:F6}). That defect is fixed: "
-            + "take Known.NoInput off its case so the reaction is enforced from now on, and take "
-            + "it out of the known defects in TESTS.md.");
     }
 
     [Theory]
@@ -142,7 +143,7 @@ public sealed class InteractionTests : IDisposable
             said,
             @"EDITOR=(\S+) SIZE=(\S+) COLOURS=(\d+) REACTION=([0-9.]+) NOISE=([0-9.]+) "
             + @"IDLE_MS=(\d+) OPEN_MS=(\d+) CLOSE_MS=(\d+) REMOVE_MS=(\d+) SHUTDOWN_MS=(\d+) "
-            + @"REOPEN=(yes|no)");
+            + @"BLIND=(\d+) CLOSED=(yes|no) REOPEN=(yes|no)");
 
         Assert.True(
             seen.Success,
@@ -162,7 +163,9 @@ public sealed class InteractionTests : IDisposable
             Count(8),
             Count(9),
             Count(10),
-            seen.Groups[11].Value == "yes",
+            Count(11),
+            seen.Groups[12].Value == "yes",
+            seen.Groups[13].Value == "yes",
             shots,
             said);
     }
@@ -174,8 +177,7 @@ public sealed class InteractionTests : IDisposable
 public enum Known
 {
     None = 0,
-    NoInput = 1,
-    Stalls = 2,
+    Stalls = 1,
 }
 
 public sealed record EditorCase(string Name, string Format, string Plugin, Known Known)
@@ -193,6 +195,8 @@ internal sealed record Measured(
     int Close,
     int Remove,
     int Shutdown,
+    int Blind,
+    bool Closed,
     bool Reopened,
     string Shots,
     string Said)
