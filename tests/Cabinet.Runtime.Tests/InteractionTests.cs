@@ -120,6 +120,8 @@ public sealed class InteractionTests : IDisposable
         var said = EditorProbe.Run(
             "editor-interaction.py", plugin.Name, plugin.Plugin, plugin.Format, shots).Said;
 
+        File.WriteAllText(Path.Combine(shots, "probe.log"), said);
+
         var seen = Regex.Match(
             said,
             @"EDITOR=(\S+) SIZE=(\S+) COLOURS=(\d+) REACTION=([0-9.]+) NOISE=([0-9.]+) "

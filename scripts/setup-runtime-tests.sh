@@ -312,6 +312,22 @@ install_entry sine-player
 install_entry fabfilter-total-bundle
 install_entry ik-product-manager
 
+# Decent Sampler opens a modal welcome screen over its interface until it has shown it once, and a
+# sweep across that screen measures a window that takes no input. The plugin writes this flag
+# itself on first open; the fixtures own it instead, so a root that has never run it is not a
+# special case.
+welcome=$home/.config/DecentSampler/DecentSampler.xml
+if [ ! -f "$welcome" ]; then
+    mkdir -p "$(dirname "$welcome")"
+    cat > "$welcome" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PROPERTIES>
+  <VALUE name="welcomeScreenAlreadyShown" val="1"/>
+</PROPERTIES>
+XML
+fi
+
 cabinet sync
 
 manager="$data/prefixes/ik-multimedia/drive_c/Program Files/IK Multimedia/IK Product Manager/IK Product Manager.exe"

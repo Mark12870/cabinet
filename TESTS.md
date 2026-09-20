@@ -241,12 +241,12 @@ there* and so went red on the run that measured 22 ms — the suite failing beca
 behaved. It also took Decent Sampler out of the bound altogether, so a stall grown to 30 s would
 have passed. A per-case ceiling is green either way and still catches that.
 
-Decent Sampler has one defect left that nothing asserts. Its behaviour depends on
-`~/.config/DecentSampler`, which nothing here owns: with no config at all it opens a modal
-welcome screen over its interface, and the sweep that follows measures 1418 colours and a
-reaction of exactly 0.000000, which fails `AnEditorRespondsToThePointer`. The screen is dismissed
-for good on the next run, so the suite is green only for a fixture whose first open has already
-happened.
+Decent Sampler's behaviour depends on `~/.config/DecentSampler`. With no config at all it opens a
+modal welcome screen over its interface, and a sweep across that screen measures 1418 colours and
+a reaction of exactly 0.000000, which fails `AnEditorRespondsToThePointer`; CI's first cold root
+measured exactly that. The setup now writes the `welcomeScreenAlreadyShown` flag the plugin writes
+itself on first open, so the fixtures own that state instead of the suite being green only on a
+root that has opened the plugin before.
 
 ### What the probe must never do again
 

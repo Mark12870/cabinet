@@ -239,6 +239,7 @@ def sweep(window, baseline, loop):
         seen = difference(baseline, shot) if shot else 0.0
         reaction = max(reaction, seen)
         ranked.append((seen, x, y, name))
+        note(f"hover {name} at {x},{y} moved {seen:.6f}")
 
         if reaction >= ENOUGH:
             note(f"hover {name} answered {reaction:.6f}")
@@ -252,6 +253,7 @@ def sweep(window, baseline, loop):
 
     for x, y, name in targets:
         settle()
+        note(f"click {name} at {x},{y}")
         run(["xdotool", "mousemove", str(x), str(y), "click", "1"])
         loop.turn(10)
         shot = look(window, f"click-{name}", loop)
@@ -315,6 +317,7 @@ def main():
             return 1
 
         found = geometry(window)
+        note(f"geometry {found}")
         run(["xdotool", "mousemove", "0", "0"])
         loop.turn(10)
         baseline = capture(window, "baseline")
