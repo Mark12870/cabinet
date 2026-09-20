@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      rebuild_fixtures:
+        description: >-
+          Install the runtime fixtures from scratch: a squashed image and a new
+          FabFilter trial, at the cost of a run of hours
+        type: boolean
+        default: false
   # Weekly, so the Flathub extensions mirrored beside Cabinet pick up their security updates
   # without waiting for a release.
   schedule:
@@ -214,7 +221,7 @@ jobs:
       github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
-    # A run that finds no image installs everything itself, vendor installers and all.
+    # A run with nothing to reuse installs everything itself, vendor installers and all.
     timeout-minutes: 350
     permissions:
       contents: read
@@ -251,8 +258,27 @@ jobs:
           rm repo.tar
           chmod -R a+rX repo
 
-      # No image yet, or it was taken away: this run bakes one from the base instead of failing,
-      # which is also how the first push ever seeds the tag.
+      # The month is in the key and there is no fallback key on purpose: the vendors' fixtures are
+      # reinstalled at the turn of each month, which is what starts FabFilter's 30-day trial over,
+      # and a catalogue change installs against the entries it changed rather than around them.
+      - name: Work out the fixture key
+        id: fixtures
+        run: |
+          hash='${{ hashFiles('data/library/**', 'scripts/setup-runtime-tests.sh') }}'
+          echo "key=runtime-fixtures-$(date -u +%Y%m)-${hash}" >> "$GITHUB_OUTPUT"
+
+      # The vendors' half of the fixtures. It may not be published, so it lives here rather than
+      # in the image: a cache is readable only by this repository's own workflows.
+      - uses: actions/cache/restore@v4
+        id: cached
+        if: ${{ !inputs.rebuild_fixtures }}
+        with:
+          path: fixtures.tar
+          key: ${{ steps.fixtures.outputs.key }}
+
+      # Nothing published at the tag yet, or a rebuild was asked for: start from the base image
+      # and let the setup make everything. That is how the tag is seeded, how it returns if it is
+      # deleted, and how the layers a run adds are squashed back to one.
       - name: Take the fixture image
         id: image
         env:
@@ -260,7 +286,10 @@ jobs:
           ACTOR: ${{ github.actor }}
         run: |
           printf '%s' "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
-          if docker pull "${IMAGE}"; then
+          if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
+            echo '::notice::rebuilding the fixtures from scratch'
+            echo "from=${BASE}" >> "$GITHUB_OUTPUT"
+          elif docker pull "${IMAGE}"; then
             echo "from=${IMAGE}" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::${IMAGE} is not published yet; this run installs the fixtures itself"
@@ -274,26 +303,9 @@ jobs:
           docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
             --volume "${PWD}:/src:ro" "${{ steps.image.outputs.from }}" sleep infinity
 
-      - name: Install anything the image predates
+      - name: Install the tools
+        if: steps.image.outputs.from == env.BASE
         run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
-
-      # The stamp moves only when the image is baked, so a normal push hits the entry the bake
-      # wrote and a catalogue change makes its own.
-      - name: Work out the fixture key
-        id: stamp
-        run: |
-          hash='${{ hashFiles('data/library/**', 'scripts/setup-runtime-tests.sh') }}'
-          value="$(docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh stamp)"
-          echo "key=runtime-fixtures-${value}-${hash}" >> "$GITHUB_OUTPUT"
-
-      # The vendors' halves of the fixtures. They may not be published, so they live here rather
-      # than in the image: a cache is readable only by this repository's own workflows.
-      - uses: actions/cache/restore@v4
-        id: fixtures
-        with:
-          path: fixtures.tar
-          key: ${{ steps.stamp.outputs.key }}
-          restore-keys: runtime-fixtures-
 
       - name: Put the built Cabinet and the cached fixtures in place
         id: setup
@@ -327,7 +339,7 @@ jobs:
       - name: Pack the private fixtures
         if: >-
           !cancelled() && steps.setup.outcome == 'success'
-          && steps.fixtures.outputs.cache-hit != 'true'
+          && steps.cached.outputs.cache-hit != 'true'
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh save /tmp/fixtures.tar
           docker cp "${CONTAINER}:/tmp/fixtures.tar" fixtures.tar
@@ -335,10 +347,10 @@ jobs:
       - uses: actions/cache/save@v4
         if: >-
           !cancelled() && steps.setup.outcome == 'success'
-          && steps.fixtures.outputs.cache-hit != 'true'
+          && steps.cached.outputs.cache-hit != 'true'
         with:
           path: fixtures.tar
-          key: ${{ steps.stamp.outputs.key }}
+          key: ${{ steps.fixtures.outputs.key }}
 
       # Everything else -- a runner that moved on, a rebuilt bridge -- stays in the image for the
       # next push. `clean` runs first: it is what keeps a vendor's binaries out of the layer.

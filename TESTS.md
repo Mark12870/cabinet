@@ -66,21 +66,17 @@ passed: Decent Sampler fails the first time its editor opens on a root that has 
 own yet, and gating on green would let one such plugin keep the fixtures from ever being kept, so
 every push would reinstall them and fail again.
 
-The cache key carries a stamp the image holds. A normal push therefore restores exactly what the
-bake installed, a catalogue change makes an entry of its own, and a new bake stamps again, which
-retires the old entry and is what starts FabFilter's 30-day trial over.
+Nothing has to be baked by hand. A run with nothing to pull installs the fixtures itself and
+pushes the result, which is how the tag is seeded and how it returns if it is deleted. The vendors'
+half is reinstalled at the turn of each month, because the month is in the cache key and there is
+no fallback key, and that is what starts FabFilter's 30-day trial over. `Run workflow` with
+`rebuild_fixtures` does both from scratch on demand: a squashed image, since the layers a push adds
+are only squashed by starting from the base again, and a new trial. Those runs take hours; an
+ordinary push takes minutes.
 
-`.github/workflows/runtime-image.yml` bakes the image from `fedora-toolbox:44`, weekly and on
-demand. That is where the vendor downloads, a Carla rebuild and that fresh trial happen, and
-starting from the base image also squashes the layers the per-push runs added. It publishes the
-image and saves the cache whenever the fixtures were installed, even if a test then failed: three
-hours of installs are not thrown away over one red plugin.
-
-Nothing has to be baked by hand first. A `runtime` job that finds no image installs the fixtures
-itself and pushes the result, which is how the tag is seeded and how it comes back if it is ever
-deleted; that run takes hours rather than minutes, and it is the only one that does. Set the
-package's visibility to public once it exists — a package starts private, and a private one of
-this size bills against the account's quota.
+Set the package's visibility to public once it exists — a package starts private, and a private one
+of this size bills against the account's quota. A layer has to stay under 10 GB and upload inside
+ten minutes, which is the ceiling to watch if the free half ever grows.
 
 Every run uploads a `runtime` artifact — the interaction captures with their `result.txt`, the
 Carla supervisor logs, Cabinet's own logs and the `.trx`. Read them before believing a failure. A

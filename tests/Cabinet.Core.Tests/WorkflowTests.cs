@@ -27,12 +27,10 @@ public class WorkflowTests
         Assert.Contains(runtime, line => line.Contains("name: repo"));
     }
 
-    [Theory]
-    [InlineData(".github/workflows/ci.yml")]
-    [InlineData(".github/workflows/runtime-image.yml")]
-    public void AWorkflowReachesTheRuntimeSuiteOnlyThroughItsOwnScript(string workflow)
+    [Fact]
+    public void TheWorkflowReachesTheRuntimeSuiteOnlyThroughItsOwnScript()
     {
-        var lines = Repo.Lines(workflow);
+        var lines = Ci;
 
         Assert.Contains(lines, line => line.Contains("runtime-ci.sh test"));
         Assert.DoesNotContain(lines, line => line.Contains("dotnet test"));
@@ -41,28 +39,21 @@ public class WorkflowTests
             line => line.Contains("setup-runtime-tests.sh") && !line.Contains("hashFiles("));
     }
 
-    [Theory]
-    [InlineData(".github/workflows/ci.yml")]
-    [InlineData(".github/workflows/runtime-image.yml")]
-    public void TheImageIsStrippedBeforeItIsPublished(string workflow)
+    [Fact]
+    public void TheImageIsStrippedBeforeItIsPublished()
     {
-        var lines = Repo.Lines(workflow);
-        var stripped = Array.FindIndex(lines, line => line.Contains("runtime-ci.sh clean"));
-        var published = Array.FindIndex(lines, line => line.Contains("docker push"));
+        var stripped = Array.FindIndex(Ci, line => line.Contains("runtime-ci.sh clean"));
+        var published = Array.FindIndex(Ci, line => line.Contains("docker push"));
 
-        Assert.True(stripped >= 0, $"{workflow} publishes an image it never strips");
-        Assert.True(published > stripped, $"{workflow} pushes the image before stripping it");
+        Assert.True(stripped >= 0, "the workflow publishes an image it never strips");
+        Assert.True(published > stripped, "the workflow pushes the image before stripping it");
     }
 
-    [Theory]
-    [InlineData(".github/workflows/ci.yml")]
-    [InlineData(".github/workflows/runtime-image.yml")]
-    public void TheImageNameIsLowercasedRatherThanInterpolated(string workflow)
+    [Fact]
+    public void TheImageNameIsLowercasedRatherThanInterpolated()
     {
-        var lines = Repo.Lines(workflow);
-
-        Assert.DoesNotContain(lines, line => line.Contains("ghcr.io/${{"));
-        Assert.Contains(lines, line => line.Contains("IMAGE=ghcr.io/${owner,,}"));
+        Assert.DoesNotContain(Ci, line => line.Contains("ghcr.io/${{"));
+        Assert.Contains(Ci, line => line.Contains("IMAGE=ghcr.io/${owner,,}"));
     }
 
     [Fact]

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs TESTS.md's runtime suite inside a container, for .github/workflows/ci.yml and
-# runtime-image.yml. The workflow only starts the container and carries artifacts out; every
-# step below runs inside it.
+# Runs TESTS.md's runtime suite inside a container, for the runtime job in
+# .github/workflows/ci.yml. The workflow only starts the container and carries artifacts out;
+# every step below runs inside it.
 #
 # The fixtures are cached in two halves, because they cannot be made per run and they cannot all
 # be published. What is free software -- the tools, Carla, the Wine runners, the probe prefixes,
@@ -13,14 +13,11 @@
 #
 #   scripts/runtime-ci.sh prepare        the tools and the unprivileged user, as root
 #   scripts/runtime-ci.sh sync           a writable copy of the read-only checkout
-#   scripts/runtime-ci.sh mirror url     pull the published Cabinet into that copy's repo/
 #   scripts/runtime-ci.sh restore tar    put the cached private fixtures back
 #   scripts/runtime-ci.sh setup          scripts/setup-runtime-tests.sh on its own display
 #   scripts/runtime-ci.sh test           the whole Cabinet.Runtime.Tests matrix
 #   scripts/runtime-ci.sh collect dir    the captures, logs and results a failure needs
 #   scripts/runtime-ci.sh save tar       pack the private fixtures for the cache
-#   scripts/runtime-ci.sh stamp          print the fixture stamp the cache key is keyed on
-#   scripts/runtime-ci.sh restamp        write a new one, which retires the cached fixtures
 #   scripts/runtime-ci.sh clean          leave only what the image may carry
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
@@ -34,7 +31,6 @@ OWNER_ID=1000
 ROOT=${CABINET_RUNTIME_ROOT:-/var/cabinet-rt}
 SOURCE=${CABINET_RUNTIME_SOURCE:-/src}
 WORK=${CABINET_RUNTIME_WORK:-/home/$OWNER/cabinet}
-STAMP=$ROOT/.fixtures-stamp
 
 die() {
     printf 'runtime-ci: %s\n' "$*" >&2
@@ -119,7 +115,7 @@ prepare() {
     mapfile -t packages < "$SOURCE/scripts/runtime-packages.txt"
 
     step 'dnf install'
-    dnf install -y "${packages[@]}" dbus-daemon ostree
+    dnf install -y "${packages[@]}" dbus-daemon
 
     id -u "$OWNER" >/dev/null 2>&1 || useradd --uid "$OWNER_ID" --create-home "$OWNER"
     install -d -o "$OWNER" -g "$OWNER" -m 700 "/run/user/$OWNER_ID" "$ROOT"
@@ -135,20 +131,6 @@ sync_source() {
     rm -rf "$WORK"
     mkdir -p "$WORK"
     cp -r "$SOURCE/." "$WORK/"
-}
-
-mirror_published() {
-    as_owner mirror "$@"
-
-    local url=$1 repo="$WORK/repo"
-
-    step 'pull the published Cabinet'
-    rm -rf "$repo"
-    ostree --repo="$repo" init --mode=archive-z2
-    ostree --repo="$repo" remote add --no-gpg-verify published "$url"
-    ostree --repo="$repo" pull --mirror --depth=0 published "app/$APP/x86_64/stable"
-    ostree --repo="$repo" remote delete published
-    flatpak build-update-repo "$repo" >/dev/null
 }
 
 restore() {
@@ -183,19 +165,6 @@ save() {
     step 'pack the private fixtures'
     tar --create --file "$archive" --directory "$ROOT" "${present[@]}"
     du -sh "$archive" >&2
-}
-
-read_stamp() {
-    as_owner stamp
-
-    cat "$STAMP" 2>/dev/null || echo none
-}
-
-write_stamp() {
-    as_owner restamp
-
-    date -u +%Y%m%d%H%M > "$STAMP"
-    cat "$STAMP"
 }
 
 run_setup() {
@@ -268,14 +237,11 @@ clean() {
 case ${1:-} in
     prepare) prepare ;;
     sync) sync_source ;;
-    mirror) [ $# -eq 2 ] || die 'mirror needs the published repository url'; mirror_published "$2" ;;
     restore) [ $# -eq 2 ] || die 'restore needs the archive to unpack'; restore "$2" ;;
     setup) run_setup ;;
     test) run_test ;;
     collect) [ $# -eq 2 ] || die 'collect needs a destination directory'; collect "$2" ;;
     save) [ $# -eq 2 ] || die 'save needs the archive to write'; save "$2" ;;
-    stamp) read_stamp ;;
-    restamp) write_stamp ;;
     clean) clean ;;
-    *) die "usage: $(basename "$0") prepare|sync|mirror|restore|setup|test|collect|save|stamp|restamp|clean" ;;
+    *) die "usage: $(basename "$0") prepare|sync|restore|setup|test|collect|save|clean" ;;
 esac
