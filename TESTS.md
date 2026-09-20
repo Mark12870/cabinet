@@ -162,7 +162,7 @@ Measured over the whole set on 2026-09-20, which is where the floors come from:
 
 | Plugin | Path | Colours | Reaction | Noise | Worst idle |
 | --- | --- | --- | --- | --- | --- |
-| Decent Sampler | native VST2 | 1597 | 0.9986 | 0 | **1688 ms** |
+| Decent Sampler | native VST2 | 4324 | 0.0028 | 0 | **1793 ms** |
 | FabFilter Micro | bridged CLAP | 10290 | 0.3514 | 0 | 0 ms |
 | Valhalla Supermassive | bridged VST2 | 2352 | 0.0083 | 0 | 0 ms |
 | Valhalla Supermassive | bridged VST3 | 2352 | 0.0083 | 0 | 0 ms |
@@ -179,16 +179,26 @@ does not shrink as the window grows — an earlier RMSE metric did, and reported
 screen answering a click with a text caret as zero. SINE Player is that login screen and answers
 at 0.0008, the narrowest margin in the set, so the floor cannot rise without losing it.
 
-### Known defects
+### How long a host may be held
 
-One plugin fails a check today. Its case carries a `Known` flag and asserts that the defect is
-still there, the way `DragAndDropTests` does, so the suite stays green and tells you when it is
-fixed rather than going red every run.
+Every case carries its own idle ceiling. Seven of them get `Steady`, 250 ms, which is the bound
+the whole check exists for. Decent Sampler gets `Stalling`, 2500 ms, because it freezes the host
+once while its editor opens: four runs measured 1735, 22, 1863 and 1793 ms. 1.25.0 opened that
+editor behind a vendor "a new version is available" dialog, which was the whole of its 0.9986
+reaction and the assumed cause; 1.32.0 is current, the dialog is gone, the editor answers at
+0.0028 over 4324 colours, and the stall stayed. So it was never the dialog.
 
-- **Decent Sampler stalls the host for 1.7 s** (`Known.Stalls`). Its editor opens behind a vendor
-  "a new version is available" dialog and the stall is consistent with that update check running
-  on the GUI thread. It answers the pointer at 0.9986, which is that dialog being dismissed. This
-  one follows the pinned build and will change when the fixture is refreshed.
+A ceiling rather than a flag, because the flag this replaced asserted the *defect was still
+there* and so went red on the run that measured 22 ms — the suite failing because the plugin
+behaved. It also took Decent Sampler out of the bound altogether, so a stall grown to 30 s would
+have passed. A per-case ceiling is green either way and still catches that.
+
+Decent Sampler has one defect left that nothing asserts. Its behaviour depends on
+`~/.config/DecentSampler`, which nothing here owns: with no config at all it opens a modal
+welcome screen over its interface, and the sweep that follows measures 1418 colours and a
+reaction of exactly 0.000000, which fails `AnEditorRespondsToThePointer`. The screen is dismissed
+for good on the next run, so the suite is green only for a fixture whose first open has already
+happened.
 
 ### What the probe must never do again
 

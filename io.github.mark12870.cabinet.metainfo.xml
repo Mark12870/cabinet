@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.17.1" date="2026-09-20">
+      <description>
+        <p>Decent Sampler is up to date</p>
+        <ul>
+          <li>Decent Sampler installs at 1.32.0, which fixes crashes on Linux and the plug-in hanging a DAW when it is removed</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.17.0" date="2026-09-19">
       <description>
         <p>Cabinet installs everything it needs, so 32-bit Wine starts on a fresh system</p>

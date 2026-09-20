@@ -3,13 +3,13 @@ Kind: native
 Category: Sampler
 Summary: Sample player for the DecentSampler format.
 Developer: Decent Samples
-Version: 1.25.0
+Version: 1.32.0
 Licence: Freeware
 Formats: VST3, VST2
 Homepage: https://www.decentsamples.com/product/decent-sampler-plugin/
 Source: download
-Url: https://cdn.decentsamples.com/production/builds/ds/1.25.0/Decent_Sampler-1.25.0-Linux-Static-x86_64.tar.gz
-Sha256: dbb47cafe7ece09fcd7160e8df97364c8a67a4a44320022b4fcef5125cdcc05b
+Url: https://cdn.decentsamples.com/production/builds/ds/1.32.0/Decent_Sampler-1.32.0-Linux-Static-x86_64.tar.gz
+Sha256: dd54fa09386d2407c40c6183f547ae130b567abcc658cd488151ebd86b2a59c0
 Description:
   Loads .dspreset and .dslibrary instruments — the format a large part of the
   free sample-library scene publishes in — with browsing, per-instrument

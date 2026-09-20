@@ -10,32 +10,27 @@ public sealed class InteractionTests : IDisposable
 
     private const int Colours = 16;
     private const double Reaction = 0.0005;
-    private const int IdleMilliseconds = 250;
+    private const int Steady = 250;
+    private const int Stalling = 2500;
     private const int CallMilliseconds = 10000;
 
     private static readonly ConcurrentDictionary<string, Lazy<Measured>> Seen = new();
 
     private static readonly EditorCase[] Catalogue =
     [
-        new("decent-sampler", "vst2", Fixtures.Native(".vst", "DecentSampler.so"), Known.Stalls),
-        new("surge-xt", "clap", Fixtures.Native(".clap", "Surge XT.clap"), Known.None),
-        new("sitala", "vst2", Fixtures.Windows(".vst", "Sitala.so"), Known.None),
+        new("decent-sampler", "vst2", Fixtures.Native(".vst", "DecentSampler.so"), Stalling),
+        new("surge-xt", "clap", Fixtures.Native(".clap", "Surge XT.clap"), Steady),
+        new("sitala", "vst2", Fixtures.Windows(".vst", "Sitala.so"), Steady),
         new("valhalla-supermassive", "vst2",
-            Fixtures.Windows(".vst", "ValhallaSupermassive_x64.so"), Known.None),
+            Fixtures.Windows(".vst", "ValhallaSupermassive_x64.so"), Steady),
         new("valhalla-supermassive-vst3", "vst3",
-            Fixtures.Windows(".vst3", "ValhallaSupermassive.vst3"), Known.None),
-        new("fabfilter-micro", "clap", Fixtures.Windows(".clap", "FabFilter Micro.clap"),
-            Known.None),
-        new("sine-player", "vst3", Fixtures.Windows(".vst3", "SINE Player.vst3"), Known.None),
+            Fixtures.Windows(".vst3", "ValhallaSupermassive.vst3"), Steady),
+        new("fabfilter-micro", "clap", Fixtures.Windows(".clap", "FabFilter Micro.clap"), Steady),
+        new("sine-player", "vst3", Fixtures.Windows(".vst3", "SINE Player.vst3"), Steady),
     ];
 
-    public static IEnumerable<object[]> EveryCase() => Group(_ => true);
-
-    public static IEnumerable<object[]> SteadyCases() =>
-        Group(plugin => !plugin.Known.HasFlag(Known.Stalls));
-
-    public static IEnumerable<object[]> StallingCases() =>
-        Group(plugin => plugin.Known.HasFlag(Known.Stalls));
+    public static IEnumerable<object[]> EveryCase() =>
+        Catalogue.Select(plugin => new object[] { plugin });
 
     [Theory]
     [MemberData(nameof(EveryCase))]
@@ -83,34 +78,22 @@ public sealed class InteractionTests : IDisposable
     }
 
     [Theory]
-    [MemberData(nameof(SteadyCases))]
+    [MemberData(nameof(EveryCase))]
     public void AHostKeepsRespondingWhileAnEditorIsOpen(EditorCase plugin)
     {
         var seen = Measure(plugin);
 
         Assert.True(
-            seen.Idle <= IdleMilliseconds,
+            seen.Idle <= plugin.Idle,
             $"the host stopped servicing its loop for {seen.Idle} ms while {plugin.Name}'s editor "
-            + "was open. That is the DAW going unresponsive under the user's hands.");
+            + $"was open, against the {plugin.Idle} ms this one is allowed. That is the DAW going "
+            + "unresponsive under the user's hands.");
 
         Assert.True(
             seen.Slowest <= CallMilliseconds,
             $"{plugin.Name} held the host for {seen.Slowest} ms in one call (open {seen.Open} ms, "
             + $"close {seen.Close} ms, remove {seen.Remove} ms, shutdown {seen.Shutdown} ms). "
             + "A stall in shutdown is the DAW freeze described in AGENTS.md.");
-    }
-
-    [Theory]
-    [MemberData(nameof(StallingCases))]
-    public void APluginKnownToStallTheHostStillDoes(EditorCase plugin)
-    {
-        var seen = Measure(plugin);
-
-        Assert.True(
-            seen.Idle > IdleMilliseconds,
-            $"{plugin.Name} no longer stalls the host ({seen.Idle} ms). That defect is fixed: take "
-            + "Known.Stalls off its case so the bound is enforced from now on, and take it out of "
-            + "the known defects in TESTS.md.");
     }
 
     [Theory]
@@ -126,9 +109,6 @@ public sealed class InteractionTests : IDisposable
 
         Assert.DoesNotContain("crashed while being torn down", seen.Said, StringComparison.Ordinal);
     }
-
-    private static IEnumerable<object[]> Group(Func<EditorCase, bool> wanted) =>
-        Catalogue.Where(wanted).Select(plugin => new object[] { plugin });
 
     private static Measured Measure(EditorCase plugin) =>
         Seen.GetOrAdd(plugin.Name, _ => new Lazy<Measured>(() => Probe(plugin))).Value;
@@ -173,14 +153,7 @@ public sealed class InteractionTests : IDisposable
     public void Dispose() => runtimeLock.Dispose();
 }
 
-[Flags]
-public enum Known
-{
-    None = 0,
-    Stalls = 1,
-}
-
-public sealed record EditorCase(string Name, string Format, string Plugin, Known Known)
+public sealed record EditorCase(string Name, string Format, string Plugin, int Idle)
 {
     public override string ToString() => Name;
 }
