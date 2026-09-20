@@ -4,8 +4,8 @@
 # every step below runs inside it.
 #
 # The fixtures are cached in two halves, because they cannot be made per run and they cannot all
-# be published. What is free software -- the tools, Carla, the Wine runners, the probe prefixes,
-# the Flatpak runtimes -- lives in a public image on ghcr.io. The catalogue's Freeware and
+# be published. What is free software -- the tools, Carla, the runners a catalogue entry pins, the
+# Flatpak runtimes -- lives in a public image on ghcr.io. The catalogue's Freeware and
 # Commercial entries, and the DAW, are vendors' binaries: Cabinet may install them on a user's
 # machine, but nothing here may republish them, so they ride in the repository's own Actions
 # cache, which only this repository's workflows can read, and `clean` takes them out of the
@@ -19,6 +19,9 @@
 #   scripts/runtime-ci.sh collect dir    the captures, logs and results a failure needs
 #   scripts/runtime-ci.sh save tar       pack the private fixtures for the cache
 #   scripts/runtime-ci.sh clean          leave only what the image may carry
+#
+# CABINET_RUNTIME_PROBES=0 leaves the drag-and-drop probes out, fixtures and cases both: they say
+# when a yabridge patch can go, which is a question for a refresh rather than for every push.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
 # stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user.
@@ -65,6 +68,7 @@ as_owner() {
         CABINET_RUNTIME_WORK="$WORK" \
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$WORK/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
+        CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-1}" \
         bash "$0" "$@"
 }
 
@@ -184,11 +188,17 @@ run_test() {
 
     session_bus
 
+    local -a scope=()
+
+    if [ "${CABINET_RUNTIME_PROBES:-1}" != 1 ]; then
+        scope=(--filter 'FullyQualifiedName!~DragAndDropTests')
+    fi
+
     step 'dotnet test'
     cd "$WORK"
     dotnet test tests/Cabinet.Runtime.Tests --nologo \
         -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true \
-        --logger 'trx;LogFileName=runtime.trx'
+        --logger 'trx;LogFileName=runtime.trx' "${scope[@]}"
 }
 
 collect() {
@@ -219,10 +229,25 @@ collect() {
 clean() {
     as_owner clean
 
-    local path
+    local data="$ROOT/home/.var/app/$APP/data"
+    local path marker runner name
+    local -a wanted=()
 
     step 'drop the run'
-    rm -rf "$WORK" "$ROOT/tmp" "$ROOT/q"
+    rm -rf "$WORK" "$ROOT/tmp" "$ROOT/q" "$data/bridge"
+
+    step 'drop the probe fixtures'
+    rm -rf "$data"/prefixes/drag-drop-*
+
+    while IFS= read -r marker; do
+        wanted+=("$(<"$marker")")
+    done < <(find "$data/prefixes" -maxdepth 2 -name .cabinet-runner 2>/dev/null)
+
+    for runner in "$data"/runners/*/; do
+        [ -d "$runner" ] || continue
+        name=$(basename "$runner")
+        printf '%s\n' "${wanted[@]+"${wanted[@]}"}" | grep -qxF "$name" || rm -rf "$runner"
+    done
 
     step 'take out what may not be republished'
     while IFS= read -r path; do

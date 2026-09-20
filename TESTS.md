@@ -37,18 +37,22 @@ over.
 
 ## In CI
 
-`.github/workflows/ci.yml`'s `runtime` job runs this whole suite on every push to `main`, and on
-demand, against the Flatpak the same run built. `publish` waits for it, so a release needs a green
-runtime run.
+`.github/workflows/ci.yml`'s `runtime` job runs this suite on every push to `main`, and on demand,
+against the Flatpak the same run built. `publish` waits for it, so a release needs a green runtime
+run. The drag-and-drop probes are the exception: they say when a yabridge patch can go rather than
+whether this commit works, and their four prefixes and three runner families are five gigabytes
+every push would otherwise pull, so they run when the fixtures are made — a rebuild, or the turn
+of the month — and `clean` keeps them out of the image.
 
-The fixtures cannot be made per run — about 13 GB on a clean runner, out of seven vendor
-installers, five Wine runners and a serial Carla build — and `actions/cache` holds 10 GB for a
-whole repository. So they are cached in two halves, split by what may be handed out again:
+The fixtures cannot be made per run — about 13 GB on a runner that installs all of them, out of
+seven vendor installers, five Wine runners and a serial Carla build — and `actions/cache` holds
+10 GB for a whole repository. So they are cached in two halves, split by what may be handed out again:
 
 - **A public image, `ghcr.io/<owner>/cabinet-runtime`.** Free software only: the Fedora tools, the
-  Carla build, the Wine runners, the drag-and-drop probe prefixes, the Flatpak runtimes, and Surge
-  XT, which is GPL-3.0. A public package costs nothing to store or to pull, and pulls from Actions
-  are free of transfer charges either way.
+  Carla build, the runners a catalogue entry pins, the Flatpak runtimes, and Surge XT, which is
+  GPL-3.0. A public package costs nothing to store or to pull, and pulls from Actions are free of
+  transfer charges either way. Every push pulls it, so what rides in it is what every push pays
+  for: about 8 GB unpacked, and four minutes.
 - **This repository's own Actions cache**, which only its workflows can read. Every other fixture
   is marked `Freeware` or `Commercial` in the catalogue, and REAPER's Flathub manifest fetches it
   as extra data rather than shipping it: Cabinet may install those on a machine, but nothing here

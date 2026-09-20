@@ -10,6 +10,7 @@ APP=io.github.mark12870.cabinet
 DAW_REF=fm.reaper.Reaper/x86_64/stable/34f34782be7d44a660a05de78ff29176ba36dad656300d50f27dd2f89b46a871
 REPOSITORY=$(git rev-parse --show-toplevel)
 BACKEND=${CABINET_RUNTIME_BACKEND:-toolbox}
+PROBES=${CABINET_RUNTIME_PROBES:-1}
 ROOT=${CABINET_RUNTIME_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/cabinet-rt}
 BOX=${CABINET_RUNTIME_TOOLBOX:-cabinet-runtime}
 IMAGE=${CABINET_RUNTIME_TOOLBOX_IMAGE:-registry.fedoraproject.org/fedora-toolbox:44}
@@ -71,6 +72,7 @@ mkdir -p "$ROOT"
     DBUS_SESSION_BUS_ADDRESS="$HOST_BUS" \
     CABINET_RUNTIME_ROOT="$ROOT" \
     CABINET_RUNTIME_BACKEND="$BACKEND" \
+    CABINET_RUNTIME_PROBES="$PROBES" \
     CABINET_RUNTIME_TOOLBOX="$BOX" \
     bash -s -- "$ROOT" "$HOST_FLATPAK_REPO" "$CABINET_REF" "$DAW_REF" "$APP" "$COMMIT" <<'EOF'
 set -euo pipefail
@@ -106,6 +108,7 @@ chmod 700 "$root" "$home" "$runtime"
 flatpak remote-delete --user --force cabinet-local >/dev/null 2>&1 || true
 flatpak remote-add --user --no-gpg-verify cabinet-local "file://$host_flatpak_repo"
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak config --user --set languages en
 flatpak install --user --noninteractive --or-update cabinet-local "$cabinet_ref"
 flatpak install --user --noninteractive --or-update flathub "$daw_ref"
 
@@ -295,14 +298,19 @@ drag_drop_prefix() {
     cabinet new "$prefix" ${runner:+"$runner"}
 }
 
-newest_d2d1=$(install_newest_d2d1)
-newest_kron4ek=$(install_newest Kron4ek)
-newest_soda=$(install_newest Soda)
+# The drag-and-drop probes say when a yabridge patch can go, which is a question for a refresh
+# rather than for every run: their four prefixes and the three runner families they pin are five
+# gigabytes that nothing else here needs.
+if [ "${CABINET_RUNTIME_PROBES:-1}" = 1 ]; then
+    newest_d2d1=$(install_newest_d2d1)
+    newest_kron4ek=$(install_newest Kron4ek)
+    newest_soda=$(install_newest Soda)
 
-drag_drop_prefix drag-drop-bundled ""
-drag_drop_prefix drag-drop-d2d1 "$newest_d2d1"
-drag_drop_prefix drag-drop-kron4ek "$newest_kron4ek"
-drag_drop_prefix drag-drop-soda "$newest_soda"
+    drag_drop_prefix drag-drop-bundled ""
+    drag_drop_prefix drag-drop-d2d1 "$newest_d2d1"
+    drag_drop_prefix drag-drop-kron4ek "$newest_kron4ek"
+    drag_drop_prefix drag-drop-soda "$newest_soda"
+fi
 
 install_entry sitala-1
 install_entry valhalla-supermassive

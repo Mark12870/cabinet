@@ -307,18 +307,39 @@ jobs:
         if: steps.image.outputs.from == env.BASE
         run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
 
+      # The drag-and-drop probes ask whether a yabridge patch can go, not whether this commit
+      # works, and their prefixes and runners are five gigabytes. They run when the fixtures are
+      # being made -- a rebuild, or the month turning over -- and `clean` keeps them out of the
+      # image either way.
+      - name: Decide whether the probes run
+        id: probes
+        run: |
+          if [ '${{ inputs.rebuild_fixtures }}' = true ] ||
+             [ '${{ steps.cached.outputs.cache-hit }}' != true ]; then
+            echo 'value=1' >> "$GITHUB_OUTPUT"
+          else
+            echo 'value=0' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Put the built Cabinet and the cached fixtures in place
         id: setup
+        env:
+          PROBES: ${{ steps.probes.outputs.value }}
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
           if [ -f fixtures.tar ]; then
             docker cp fixtures.tar "${CONTAINER}:/tmp/fixtures.tar"
             docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restore /tmp/fixtures.tar
           fi
-          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh setup
+          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" \
+            "${CONTAINER}" /src/scripts/runtime-ci.sh setup
 
       - name: Runtime tests
-        run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh test
+        env:
+          PROBES: ${{ steps.probes.outputs.value }}
+        run: |
+          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" \
+            "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs
         if: always()
