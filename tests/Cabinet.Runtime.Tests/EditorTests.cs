@@ -44,8 +44,7 @@ public sealed class EditorTests : IDisposable
             "editor-geometry.py",
             Path.GetFileNameWithoutExtension(plugin),
             Fixtures.Windows(root, plugin),
-            format,
-            isolated: false).Said;
+            format).Said;
 
         var seen = Regex.Match(
             said,

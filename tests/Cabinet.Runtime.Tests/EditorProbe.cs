@@ -17,14 +17,13 @@ internal static class EditorProbe
         string name,
         string plugin,
         string format,
-        bool isolated,
         params string[] extra)
     {
         var session = RuntimeTestEnvironment.SocketDirectory;
 
         try
         {
-            using var display = isolated ? Display.Start() : Display.Session();
+            using var display = Display.Start();
             return Drive(display, script, name, plugin, format, extra, session);
         }
         finally

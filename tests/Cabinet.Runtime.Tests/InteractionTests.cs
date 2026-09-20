@@ -136,8 +136,7 @@ public sealed class InteractionTests : IDisposable
     {
         var shots = EditorProbe.Artefacts(plugin.Name);
         var said = EditorProbe.Run(
-            "editor-interaction.py", plugin.Name, plugin.Plugin, plugin.Format,
-            isolated: true, shots).Said;
+            "editor-interaction.py", plugin.Name, plugin.Plugin, plugin.Format, shots).Said;
 
         var seen = Regex.Match(
             said,

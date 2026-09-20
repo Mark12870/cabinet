@@ -122,8 +122,8 @@ The window ids come from yabridge's own `+editor` trace, so the cases need no DA
 Both formats are covered because both drifted; only VST2 showed it, since VST3 is pulled back by
 the size-mismatch poll in `vst3.cpp`. Both suites pass as of 2026-09-16 with
 `patches/yabridge-editor-window-origin.patch` applied; without it each reports the offset it
-measured. These cases send no input and read no pixels, so they stay on the session display
-(`Display.Session`).
+measured. Like every other editor case they run on their own headless `weston` (`Display.Start`),
+so a run never puts a plugin window on the user's screen.
 
 ## Editor rendering and interaction
 

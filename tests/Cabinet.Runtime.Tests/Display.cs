@@ -8,10 +8,10 @@ internal sealed class Display : IDisposable
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan Grace = TimeSpan.FromSeconds(10);
 
-    private readonly Process? compositor;
-    private readonly Process? anchor;
+    private readonly Process compositor;
+    private readonly Process anchor;
 
-    private Display(string name, Process? compositor, Process? anchor)
+    private Display(string name, Process compositor, Process anchor)
     {
         Name = name;
         this.compositor = compositor;
@@ -19,9 +19,6 @@ internal sealed class Display : IDisposable
     }
 
     public string Name { get; }
-
-    public static Display Session() =>
-        new(Environment.GetEnvironmentVariable("DISPLAY") ?? ":0", null, null);
 
     public static Display Start()
     {
@@ -76,12 +73,6 @@ internal sealed class Display : IDisposable
     public void Dispose()
     {
         End(anchor);
-
-        if (compositor is null)
-        {
-            return;
-        }
-
         End(compositor);
         Released();
     }
@@ -104,13 +95,8 @@ internal sealed class Display : IDisposable
             ?? throw new InvalidOperationException("could not hold the display open");
     }
 
-    private static void End(Process? process)
+    private static void End(Process process)
     {
-        if (process is null)
-        {
-            return;
-        }
-
         try
         {
             if (!process.HasExited)
