@@ -220,11 +220,17 @@ jobs:
       contents: read
       packages: write
     env:
-      IMAGE: ghcr.io/${{ github.repository_owner }}/cabinet-runtime:latest
       BASE: registry.fedoraproject.org/fedora-toolbox:44
       CONTAINER: cabinet-runtime
     steps:
       - uses: actions/checkout@v7
+
+      # A registry name has to be lowercase and GitHub has no expression for that, so the shell
+      # does it, the same way the publish job builds the Pages url.
+      - name: Name the fixture image
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          echo "IMAGE=ghcr.io/${owner,,}/cabinet-runtime:latest" >> "$GITHUB_ENV"
 
       # The image and the root inside it are tens of gigabytes; nothing here needs the runner's
       # preinstalled toolchains.
@@ -243,6 +249,7 @@ jobs:
         run: |
           tar -xf repo.tar
           rm repo.tar
+          chmod -R a+rX repo
 
       # No image yet, or it was taken away: this run bakes one from the base instead of failing,
       # which is also how the first push ever seeds the tag.

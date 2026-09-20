@@ -54,6 +54,17 @@ public class WorkflowTests
         Assert.True(published > stripped, $"{workflow} pushes the image before stripping it");
     }
 
+    [Theory]
+    [InlineData(".github/workflows/ci.yml")]
+    [InlineData(".github/workflows/runtime-image.yml")]
+    public void TheImageNameIsLowercasedRatherThanInterpolated(string workflow)
+    {
+        var lines = Repo.Lines(workflow);
+
+        Assert.DoesNotContain(lines, line => line.Contains("ghcr.io/${{"));
+        Assert.Contains(lines, line => line.Contains("IMAGE=ghcr.io/${owner,,}"));
+    }
+
     [Fact]
     public void NoFixtureAVendorOwnsRidesInThePublishedImage()
     {
