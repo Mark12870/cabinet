@@ -5,29 +5,28 @@ namespace Cabinet.Runtime.Tests;
 public sealed class CarlaTests : IDisposable
 {
     private readonly RuntimeTestLock runtimeLock = RuntimeTestLock.Acquire();
-    private static readonly string Home = RuntimeTestEnvironment.Home;
 
     public static IEnumerable<object[]> PluginCases()
     {
         object[][] cases =
         [
-            [new PluginCase("linux-vst2", "nv2", "vst2", HomePath(".vst", "DecentSampler.so"), true,
+            [new PluginCase("linux-vst2", "nv2", "vst2", Fixtures.Native(".vst", "DecentSampler.so"), true,
                 "CARLA_PLUGIN_LOADED=ok")],
-            [new PluginCase("linux-vst3", "nv3", "vst3", HomePath(".vst3", "Surge XT.vst3"), true,
+            [new PluginCase("linux-vst3", "nv3", "vst3", Fixtures.Native(".vst3", "Surge XT.vst3"), true,
                 "CARLA_PLUGIN_LOADED=ok")],
-            [new PluginCase("linux-clap", "ncp", "clap", HomePath(".clap", "Surge XT.clap"), true,
+            [new PluginCase("linux-clap", "ncp", "clap", Fixtures.Native(".clap", "Surge XT.clap"), true,
                 "CARLA_PLUGIN_LOADED=ok")],
             [new PluginCase("linux-lv2", "nl2", "lv2", "https://surge-synthesizer.github.io/lv2/surge-xt", true,
-                "CARLA_PLUGIN_LOADED=ok", HomePath(".lv2", "Surge XT.lv2"))],
-            [new PluginCase("windows-vst2-sitala", "wsi", "vst2", HomePath(".vst", "cabinet", "Sitala.so"), false,
+                "CARLA_PLUGIN_LOADED=ok", Fixtures.Native(".lv2", "Surge XT.lv2"))],
+            [new PluginCase("windows-vst2-sitala", "wsi", "vst2", Fixtures.Windows(".vst", "Sitala.so"), false,
                 "Finished initializing")],
             [new PluginCase("windows-vst2-valhalla", "wv2", "vst2",
-                HomePath(".vst", "cabinet", "ValhallaSupermassive_x64.so"), false, "Finished initializing")],
+                Fixtures.Windows(".vst", "ValhallaSupermassive_x64.so"), false, "Finished initializing")],
             [new PluginCase("windows-vst3-valhalla", "wv3", "vst3",
-                HomePath(".vst3", "cabinet", "ValhallaSupermassive.vst3"), false, "Finished initializing")],
+                Fixtures.Windows(".vst3", "ValhallaSupermassive.vst3"), false, "Finished initializing")],
             [new PluginCase("windows-vst3-sine", "wsine", "vst3",
-                HomePath(".vst3", "cabinet", "SINE Player.vst3"), false, "Finished initializing")],
-            [new PluginCase("windows-clap-surge", "wsc", "clap", HomePath(".clap", "cabinet", "Surge XT.clap"), true,
+                Fixtures.Windows(".vst3", "SINE Player.vst3"), false, "Finished initializing")],
+            [new PluginCase("windows-clap-surge", "wsc", "clap", Fixtures.Windows(".clap", "Surge XT.clap"), true,
                 "Finished initializing")],
         ];
 
@@ -51,8 +50,6 @@ public sealed class CarlaTests : IDisposable
 
         Assert.Contains(plugin.Success, result.Output);
     }
-
-    private static string HomePath(params string[] parts) => Path.Combine([Home, .. parts]);
 
     public void Dispose() => runtimeLock.Dispose();
 }

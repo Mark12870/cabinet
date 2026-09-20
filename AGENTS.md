@@ -210,6 +210,15 @@ dependency changes.
 - An editor can be exercised without a DAW: drive Carla's `carla_backend` from Python in the isolated runtime
   (`engine_init("Dummy")`, `add_plugin`, `show_custom_ui`, a timed `engine_idle` loop, `engine_close`) with `DISPLAY`
   kept, under `timeout`. A stall in `engine_close` is the DAW freeze.
+- An editor that exists is not an editor that works. Judge one by pixels and input: capture the window and require
+  more than one colour in it, then move, click and drag the pointer inside it and require the frame to change by more
+  than it changes with the pointer held still. A blank frame and a dead frame are both invisible in every log.
+- Give anything that sends synthetic input its own display, never the session one, and make it a headless `weston`
+  with `--xwayland --refresh-rate=60000`. A display with no refresh rate has no vblank, and a plugin that presents
+  through DXGI dies in Wine's unwinder on one. Capture with `xwd`: ImageMagick's `import` grabs the X server, so a
+  plugin holding a menu wedges it. End the compositor with `SIGTERM`; killed, it cannot unlink its own socket. Take
+  the client window, the one with `WM_STATE`, not the frame the compositor wraps it in, or every coordinate is off by
+  the title bar.
 - yabridge puts its sockets in `$XDG_RUNTIME_DIR` when `YABRIDGE_TEMP_DIR` is unset, and a manifest grants only
   `xdg-run` subdirectories. The shim grants that path by value on every `flatpak run`, so every DAW reaches its sockets.
 - Every successful bridge sets up native DAWs: it links `cabinet/windows` in `~/.vst3`, `~/.clap` and `~/.vst` to

@@ -51,6 +51,7 @@ case "$BACKEND" in
             fontconfig \
             gcc-c++ \
             git \
+            ImageMagick \
             libX11-devel \
             libXcursor-devel \
             libXext-devel \
@@ -65,11 +66,17 @@ case "$BACKEND" in
             pulseaudio-libs-devel \
             python3-qt5-devel \
             python3-rdflib \
-            unzip
+            unzip \
+            weston \
+            xdotool \
+            xorg-x11-server-Xwayland \
+            xprop \
+            xwd
         runner=(toolbox run --container "$BOX")
         ;;
     direct)
-        for command in curl flatpak git make python3 sha256sum unzip x86_64-w64-mingw32-gcc; do
+        for command in curl flatpak git magick make python3 sha256sum unzip weston \
+            x86_64-w64-mingw32-gcc xdotool xprop xwd Xwayland; do
             command -v "$command" >/dev/null || die "$command is not installed"
         done
         runner=()

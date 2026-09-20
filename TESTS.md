@@ -122,4 +122,95 @@ The window ids come from yabridge's own `+editor` trace, so the cases need no DA
 Both formats are covered because both drifted; only VST2 showed it, since VST3 is pulled back by
 the size-mismatch poll in `vst3.cpp`. Both suites pass as of 2026-09-16 with
 `patches/yabridge-editor-window-origin.patch` applied; without it each reports the offset it
-measured.
+measured. These cases send no input and read no pixels, so they stay on the session display
+(`Display.Session`).
+
+## Editor rendering and interaction
+
+Geometry says where a window is, not whether the user can use what is in it. `InteractionTests`
+answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
+sweeps the pointer over a grid inside it, then clicks and drags at four points, comparing every
+capture against the first. Four things are asserted per plugin.
+
+- **It draws.** The capture must hold more than a handful of distinct colours. One flat colour is
+  the blank frame a DAW shows when the plugin renders somewhere else, and nothing in a log says
+  so.
+- **It reacts.** The change the pointer causes must beat the change measured with the pointer held
+  still. That second number is the point: an editor that animates on its own would otherwise pass
+  without ever receiving an event.
+- **The host keeps responding.** Every `engine_idle` is timed, as are opening and closing the
+  editor, removing the plugin and `engine_close`. A host that stops servicing its loop is the DAW
+  going unresponsive under the user's hands.
+- **It survives.** The editor is closed and opened again, and the host output must not report a
+  plugin crashing while being torn down.
+
+Format is not an axis. A plugin's interface is the plugin's, not the format's, so each plugin is
+exercised once, and Surge XT twice because native and bridged are different binaries down
+different paths and the native run is the control: a check that fails natively too is the
+harness's fault, not the bridge's.
+
+Measured over the whole set on 2026-09-20, which is where the floors come from:
+
+| Plugin | Path | Colours | Reaction | Noise | Worst idle |
+| --- | --- | --- | --- | --- | --- |
+| Valhalla Supermassive | bridged VST2 | 2352 | 0.0083 | 0 | 0 ms |
+| Sitala | bridged VST2 | 2178 | 0.0026 | 0 | 0 ms |
+| Surge XT | native CLAP | 5075 | 0.0048 | 0 | 29 ms |
+| Surge XT | bridged CLAP | 5054 | **0.0000** | 0 | 9 ms |
+| SINE Player | bridged VST3 | 256 | **0.0000** | 0 | 0 ms |
+| Decent Sampler | native VST2 | 1597 | **0.0000** | 0 | **1571 ms** |
+
+A drawn editor holds hundreds to thousands of colours and a blank one holds one, so the colour
+floor is 16. A reacting editor moved at least 0.0026 of its pixels and an unreacting one moved
+none, so the reaction floor is 0.0005, five times under the weakest real reaction. Reaction is
+the fraction of pixels that changed, so it does not shrink as the window grows — an earlier RMSE
+metric did, and reported a WebView2 login screen answering a click with a text caret as zero.
+
+### Known defects
+
+Three plugins fail a check today. Their cases carry a `Known` flag and assert that the defect is
+still there, the way `DragAndDropTests` does, so the suite stays green and tells you when one is
+fixed rather than going red every run.
+
+- **Surge XT through the bridge takes no pointer input** (`Known.NoInput`). It draws identically
+  to the native build, 5054 colours against 5075, and the geometry cases pass, but no hover,
+  click or drag over twenty points moves a single pixel. Native Surge XT on the same compositor
+  answers at 0.0048, and bridged VST2 and VST3 both answer, so the bridge's CLAP editor input
+  path is the one thing left.
+- **SINE Player takes no pointer input** (`Known.NoInput`). Its WebView2 editor renders the
+  Orchestral Tools login screen and nothing answers the pointer. Unverified whether this shares a
+  cause with the above.
+- **Decent Sampler stalls the host for 1.5 s and takes no pointer input** (`Known.Stalls |
+  Known.NoInput`). Its editor opens behind a vendor "a new version is available" dialog, so the
+  sweep lands on a dimmed backdrop; the stall is consistent with its update check running on the
+  GUI thread. This one follows the pinned build and will change when the fixture is refreshed.
+
+Native Surge XT loses the X server partway through a full sweep — `XIO: fatal IO error` during a
+drag, reproducibly, at the same gesture. It does not show up now because the sweep stops as soon
+as a plugin has answered, and Surge XT answers early. It is unexplained and is not a Cabinet
+defect as far as anything here shows.
+
+### Running it
+
+Each probe gets its own headless `weston` with `--xwayland` and `--refresh-rate=60000`
+(`Display.Start`). Synthetic input must not land on the session display, and a capture needs an
+unobscured screen. Weston also brings its own window management, so no separate window manager is
+needed.
+
+It must be `weston`, not `Xvfb`. A virtual display with no refresh rate has no vblank, DXVK
+throws inside `DxgiOutput::WaitForVBlank`, and Wine's unwinder turns that into a stack overflow:
+on `Xvfb`, SINE Player died four seconds into `add_plugin`, its main thread gone and its process
+alive at no CPU, which is the hang AGENTS.md describes — the host waits on it forever. Under
+`weston` the same plugin loads and draws.
+
+Cabinet's sandbox reaches the compositor's X server through `--filesystem=/tmp/.X11-unix`; the
+toolbox shares the host's `/tmp`, so the socket is visible from both sides.
+
+Two things the probe must keep doing. Capture with `xwd`, never ImageMagick's `import`: `import`
+grabs the X server, so a plugin whose menu holds a grab wedges the probe until its timeout. And
+end the compositor with `SIGTERM`, never `SIGKILL`: a killed `weston` cannot unlink its own socket
+in `/tmp/.X11-unix`, and waiting for that socket to go cost a minute per plugin, five of the
+eight that a full run once took. A run is about two minutes.
+
+Every capture is kept under `$CABINET_RUNTIME_ROOT/tmp/interaction/<plugin>/`, with the
+measurement in `result.txt` beside them. Read them before believing a failure.
