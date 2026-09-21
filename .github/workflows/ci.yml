@@ -281,6 +281,24 @@ jobs:
             /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
           df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
 
+      # Started here and waited for below: the artifact, the untar and the cache restore are a
+      # couple of minutes that the image can spend downloading instead of waiting its turn.
+      - name: Start pulling the fixture image
+        id: pull
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+          if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
+            echo '::notice::rebuilding the fixtures from scratch'
+            exit 0
+          fi
+
+          ( docker pull "${IMAGE}" > pull.log 2>&1; echo "$?" > pull.status ) &
+          echo "$!" > pull.pid
+
       - uses: actions/download-artifact@v8
         with:
           name: repo
@@ -315,15 +333,16 @@ jobs:
       # deleted, and how the layers a run adds are squashed back to one.
       - name: Take the fixture image
         id: image
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTOR: ${{ github.actor }}
         run: |
-          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
-          if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
-            echo '::notice::rebuilding the fixtures from scratch'
+          if [ ! -f pull.pid ]; then
             echo "from=${BASE}" >> "$GITHUB_OUTPUT"
-          elif docker pull "${IMAGE}"; then
+            exit 0
+          fi
+
+          tail --pid="$(cat pull.pid)" -f /dev/null
+          cat pull.log
+
+          if [ "$(cat pull.status)" = 0 ]; then
             echo "from=${IMAGE}" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::${IMAGE} is not published yet; this run installs the fixtures itself"
