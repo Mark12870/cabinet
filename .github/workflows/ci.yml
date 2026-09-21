@@ -215,11 +215,43 @@ jobs:
   # prefixes, runners, Carla and the vendor installs, about 16 GB of them -- ride in a container
   # image rather than a cache, which holds 10 GB for a whole repository, and a run commits back
   # whatever it had to add. scripts/runtime-ci.sh drives every step inside the container.
+  # A push that only rewrites prose cannot change what a plugin does, and the runtime job is the
+  # long one. Anything else, and anything that is not a push, runs it.
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.decide.outputs.runtime }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Decide whether the runtime suite has anything to prove
+        id: decide
+        run: |
+          prose='^(README|TESTS|AGENTS|CLAUDE|SOURCES|PATCHES|TODO)\.md$|^site/|^\.claude/'
+          before='${{ github.event.before }}'
+
+          if [ '${{ github.event_name }}' != push ] ||
+             ! git rev-parse --quiet --verify "${before}^{commit}" >/dev/null; then
+            echo 'runtime=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          changed="$(git diff --name-only "${before}" "${GITHUB_SHA}")"
+          if [ -z "${changed}" ] || printf '%s\n' "${changed}" | grep -qvE "${prose}"; then
+            echo 'runtime=true' >> "$GITHUB_OUTPUT"
+          else
+            echo '::notice::only prose changed; the runtime suite has nothing to prove'
+            echo 'runtime=false' >> "$GITHUB_OUTPUT"
+          fi
+
   runtime:
-    needs: build
+    needs: [build, scope]
     if: >-
-      github.event_name == 'workflow_dispatch'
-      || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      needs.scope.outputs.runtime == 'true'
+      && (github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     runs-on: ubuntu-latest
     # A run with nothing to reuse installs everything itself, vendor installers and all.
     timeout-minutes: 350
@@ -392,12 +424,15 @@ jobs:
           path: fixtures.tar
           key: ${{ steps.fixtures.outputs.key }}
 
-      # Everything else -- a runner that moved on, a rebuilt bridge -- stays in the image for the
-      # next push. `clean` runs first: it is what keeps a vendor's binaries out of the layer.
+      # Only when this run made fixtures: otherwise the image it pulled is already what the next
+      # push wants, and pushing it back costs minutes and a layer for nothing. `clean` runs first,
+      # and it is what keeps a vendor's binaries out of the layer.
       - name: Keep the free fixtures
         if: >-
           !cancelled() && steps.setup.outcome == 'success'
           && github.event_name == 'push'
+          && (steps.image.outputs.from == env.BASE
+          || steps.cached.outputs.cache-hit != 'true')
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
           docker commit "${CONTAINER}" "${IMAGE}"

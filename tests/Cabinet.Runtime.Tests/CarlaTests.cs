@@ -40,6 +40,10 @@ public sealed class CarlaTests : IDisposable
         var configuration = RuntimeConfiguration.Create(plugin);
         var result = await CarlaProcess.Run(configuration, plugin);
 
+        File.WriteAllText(
+            Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, $"carla-{plugin.Name}.log"),
+            result.Output);
+
         Assert.True(result.ExitCode == 0, result.Output);
         Assert.Contains("CARLA_CLEANUP=ok", result.Output);
 
@@ -228,10 +232,12 @@ internal static class CarlaProcess
 
             exec 9>&-
             retirement_deadline=$((SECONDS + 20))
+            retirement_started=$SECONDS
             while [ "$SECONDS" -lt "$retirement_deadline" ] &&
                 { session_alive || instance_from_file_alive; }; do
-                sleep 0.25
+                sleep 1
             done
+            printf 'CARLA_RETIREMENT=%ss\n' "$((SECONDS - retirement_started))"
 
             while IFS= read -r instance || [ -n "$instance" ]; do
                 [ -n "$instance" ] || continue
@@ -240,7 +246,7 @@ internal static class CarlaProcess
                 fi
                 instance_deadline=$((SECONDS + 10))
                 while [ "$SECONDS" -lt "$instance_deadline" ] && instance_alive "$instance"; do
-                    sleep 0.25
+                    sleep 1
                 done
                 if instance_alive "$instance"; then
                     cleanup_failed=1
