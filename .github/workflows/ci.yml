@@ -273,14 +273,6 @@ jobs:
           owner="${GITHUB_REPOSITORY%%/*}"
           echo "IMAGE=ghcr.io/${owner,,}/cabinet-runtime:latest" >> "$GITHUB_ENV"
 
-      # The image and the root inside it are tens of gigabytes; nothing here needs the runner's
-      # preinstalled toolchains.
-      - name: Make room for the image
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
-            /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
-          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
-
       # Started here and waited for below: the artifact, the untar and the cache restore are a
       # couple of minutes that the image can spend downloading instead of waiting its turn.
       - name: Start pulling the fixture image
@@ -298,6 +290,14 @@ jobs:
 
           ( docker pull "${IMAGE}" > pull.log 2>&1; echo "$?" > pull.status ) &
           echo "$!" > pull.pid
+
+      # Two minutes of deleting the runner's preinstalled toolchains, which nothing here needs,
+      # spent while the image downloads rather than before it starts.
+      - name: Make room for the image
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
+            /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
+          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
 
       - uses: actions/download-artifact@v8
         with:
