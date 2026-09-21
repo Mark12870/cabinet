@@ -204,11 +204,14 @@ jobs:
       - name: Pack the repo
         run: tar -cf repo.tar repo
 
+      # An OSTree repo is compressed objects already, so the default deflate pass spends a minute
+      # of two runners' time to save nothing.
       - uses: actions/upload-artifact@v7
         with:
           name: repo
           path: repo.tar
           retention-days: 1
+          compression-level: 0
 
   # TESTS.md's suite, against the artifact `build` just made: it loads real plugins, opens their
   # editors and drives a pointer over them, which nothing in checks.sh can do. The fixtures --
@@ -291,13 +294,14 @@ jobs:
           ( docker pull "${IMAGE}" > pull.log 2>&1; echo "$?" > pull.status ) &
           echo "$!" > pull.pid
 
-      # Two minutes of deleting the runner's preinstalled toolchains, which nothing here needs,
-      # spent while the image downloads rather than before it starts.
+      # Two minutes of deleting the runner's preinstalled toolchains, which nothing here needs.
+      # Backgrounded like the pull, so the two happen at once and the container start waits for
+      # whichever finishes last.
       - name: Make room for the image
         run: |
-          sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
-            /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
-          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
+          ( sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
+              /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache ) >/dev/null 2>&1 &
+          echo "$!" > room.pid
 
       - uses: actions/download-artifact@v8
         with:
@@ -353,6 +357,8 @@ jobs:
       # extra-data ref needs the fuse device.
       - name: Start the container
         run: |
+          tail --pid="$(cat room.pid)" -f /dev/null
+          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
           docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
             --volume "${PWD}:/src:ro" "${{ steps.image.outputs.from }}" sleep infinity
 
