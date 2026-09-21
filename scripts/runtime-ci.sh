@@ -197,7 +197,8 @@ run_test() {
     cd "$WORK"
     dotnet test tests/Cabinet.Runtime.Tests --nologo \
         -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true \
-        --logger 'trx;LogFileName=runtime.trx' "${scope[@]}"
+        --logger 'trx;LogFileName=runtime.trx' \
+        --logger 'console;verbosity=normal' "${scope[@]}"
 }
 
 collect() {

@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="5897a40d-4f9e-4732-959d-3cc3c322e746" name="@toolbx 2026-09-21 21:46:28" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-21T21:46:28.1641928+02:00" queuing="2026-09-21T21:46:28.1641928+02:00" start="2026-09-21T21:46:13.3221032+02:00" finish="2026-09-21T21:46:40.8045650+02:00" />
+  <TestSettings name="default" id="801122c3-9d51-4686-9ef5-b38ba9283162">
+    <Deployment runDeploymentRoot="_toolbx_2026-09-21_21_46_28" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="1bf28240-a1d0-42f8-aa21-dbe6ee70e8ac" testId="1e8db2a8-7fd0-c080-9d50-8f18890fed9d" testName="Cabinet.Runtime.Tests.WinelibHostTests.AWinelibHostLoadsUnderTheBundledWineAndReachesItsOwnCode(host: &quot;yabridge-host.exe.so&quot;, banner: &quot;yabridge host version &quot;)" computerName="toolbx" duration="00:00:14.2014102" startTime="2026-09-21T21:46:28.1218888+02:00" endTime="2026-09-21T21:46:28.1219121+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="1bf28240-a1d0-42f8-aa21-dbe6ee70e8ac" />
+    <UnitTestResult executionId="c3711b13-ba30-46a2-8d94-7c45c539a808" testId="43b51d70-5ca2-b209-234d-14191c71066e" testName="Cabinet.Runtime.Tests.WinelibHostTests.AWinelibHostLoadsUnderTheBundledWineAndReachesItsOwnCode(host: &quot;yabridge-host-32.exe.so&quot;, banner: &quot;(32-bit compatibility mode)&quot;)" computerName="toolbx" duration="00:00:12.6169293" startTime="2026-09-21T21:46:40.7384283+02:00" endTime="2026-09-21T21:46:40.7384284+02:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="c3711b13-ba30-46a2-8d94-7c45c539a808" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Cabinet.Runtime.Tests.WinelibHostTests.AWinelibHostLoadsUnderTheBundledWineAndReachesItsOwnCode(host: &quot;yabridge-host.exe.so&quot;, banner: &quot;yabridge host version &quot;)" storage="/var/home/marek/projects/cabinet/tests/cabinet.runtime.tests/bin/debug/net10.0/cabinet.runtime.tests.dll" id="1e8db2a8-7fd0-c080-9d50-8f18890fed9d">
+      <Execution id="1bf28240-a1d0-42f8-aa21-dbe6ee70e8ac" />
+      <TestMethod codeBase="/var/home/marek/Projects/cabinet/tests/Cabinet.Runtime.Tests/bin/Debug/net10.0/Cabinet.Runtime.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Cabinet.Runtime.Tests.WinelibHostTests" name="AWinelibHostLoadsUnderTheBundledWineAndReachesItsOwnCode" />
+    </UnitTest>
+    <UnitTest name="Cabinet.Runtime.Tests.WinelibHostTests.AWinelibHostLoadsUnderTheBundledWineAndReachesItsOwnCode(host: &quot;yabridge-host-32.exe.so&quot;, banner: &quot;(32-bit compatibility mode)&quot;)" storage="/var/home/marek/projects/cabinet/tests/cabinet.runtime.tests/bin/debug/net10.0/cabinet.runtime.tests.dll" id="43b51d70-5ca2-b209-234d-14191c71066e">
+      <Execution id="c3711b13-ba30-46a2-8d94-7c45c539a808" />
+      <TestMethod codeBase="/var/home/marek/Projects/cabinet/tests/Cabinet.Runtime.Tests/bin/Debug/net10.0/Cabinet.Runtime.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner2/netcoreapp" className="Cabinet.Runtime.Tests.WinelibHostTests" name="AWinelibHostLoadsUnderTheBundledWineAndReachesItsOwnCode" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="1e8db2a8-7fd0-c080-9d50-8f18890fed9d" executionId="1bf28240-a1d0-42f8-aa21-dbe6ee70e8ac" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="43b51d70-5ca2-b209-234d-14191c71066e" executionId="c3711b13-ba30-46a2-8d94-7c45c539a808" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="2" executed="2" passed="2" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.8.2+699d445a1a (64-bit .NET 10.0.11)
+[xUnit.net 00:00:00.07]   Discovering: Cabinet.Runtime.Tests
+[xUnit.net 00:00:00.12]   Discovered:  Cabinet.Runtime.Tests
+[xUnit.net 00:00:00.13]   Starting:    Cabinet.Runtime.Tests
+[xUnit.net 00:00:26.99]   Finished:    Cabinet.Runtime.Tests
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>
