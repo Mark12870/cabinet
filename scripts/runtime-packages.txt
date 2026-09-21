@@ -25,6 +25,7 @@ python3-rdflib
 qt5-qtbase-devel
 unzip
 weston
+which
 xdotool
 xorg-x11-server-Xwayland
 xprop

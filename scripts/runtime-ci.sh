@@ -115,17 +115,26 @@ end_display() {
 }
 
 prepare() {
+    local hostbins tool
     mapfile -t packages < "$SOURCE/scripts/runtime-packages.txt"
 
     step 'dnf install'
     dnf install -y "${packages[@]}" dbus-daemon util-linux
 
-    # Carla builds its frontend only where both halves of its test are satisfied, and installs a
-    # no-gui build without a word otherwise; the suite then fails twenty minutes later for want of
-    # bin/carla. A base image that carries one half and not the other is exactly how that happens.
-    command -v pyuic5 >/dev/null || die 'Carla needs pyuic5; python3-qt5-base is missing'
+    # Carla builds its frontend only when all of its own tests pass, installs a no-gui build
+    # without a word when one does not, and the suite then fails twenty minutes later for want of
+    # bin/carla. These are those tests, asked the way Carla asks them -- including the `which` it
+    # resolves its tools with, which a minimal base does not ship and a toolbox image does.
+    command -v which >/dev/null || die 'Carla resolves its tools with which, and it is missing'
+    which pyuic5 >/dev/null 2>&1 || die 'Carla needs pyuic5; python3-qt5-base is missing'
     pkg-config --exists Qt5Core Qt5Gui Qt5Widgets ||
         die "Carla's frontend needs the Qt5 development files; qt5-qtbase-devel is missing"
+
+    hostbins=$(pkg-config --variable=host_bins Qt5Core)
+    for tool in moc rcc uic; do
+        [ -x "$hostbins/$tool" ] ||
+            die "Carla's frontend needs $tool; qt5-qtbase-devel is missing"
+    done
 
     id -u "$OWNER" >/dev/null 2>&1 || useradd --uid "$OWNER_ID" --create-home "$OWNER"
     install -d -o "$OWNER" -g "$OWNER" -m 700 "/run/user/$OWNER_ID" "$ROOT"

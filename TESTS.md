@@ -70,6 +70,18 @@ passed: Decent Sampler fails the first time its editor opens on a root that has 
 own yet, and gating on green would let one such plugin keep the fixtures from ever being kept, so
 every push would reinstall them and fail again.
 
+What the image must carry can be checked without a run, in the time a `dnf install` takes:
+
+```sh
+podman run --rm --security-opt label=disable -v "$PWD":/src:ro \
+  registry.fedoraproject.org/fedora:44 bash /src/scripts/runtime-ci.sh prepare
+```
+
+`prepare` asks Carla's own questions — `which pyuic5`, the Qt5 pkg-config pair, `moc`, `rcc` and
+`uic` — because Carla installs a no-gui build without a word when one of them fails, and the setup
+then stops twenty minutes later for want of `bin/carla`. A minimal base image and a toolbox one
+differ in exactly that sort of package.
+
 Nothing has to be baked by hand. A run with nothing to pull installs the fixtures itself and
 pushes the result, which is how the tag is seeded and how it returns if it is deleted. The vendors'
 half is reinstalled at the turn of each month, because the month is in the cache key and there is
