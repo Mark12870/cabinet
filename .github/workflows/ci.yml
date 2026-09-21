@@ -402,13 +402,6 @@ jobs:
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
           docker commit "${CONTAINER}" "${IMAGE}"
           docker push "${IMAGE}"
-          {
-            echo '### Fixture image'
-            echo
-            echo '```'
-            docker history --human "${IMAGE}"
-            echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
 
   publish:
     needs: [checks, build, runtime]

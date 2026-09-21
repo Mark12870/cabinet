@@ -33,8 +33,8 @@ DAW=fm.reaper.Reaper
 OWNER=cabinet
 OWNER_ID=1000
 ROOT=${CABINET_RUNTIME_ROOT:-/var/cabinet-rt}
-SOURCE=${CABINET_RUNTIME_SOURCE:-/src}
-WORK=${CABINET_RUNTIME_WORK:-/home/$OWNER/cabinet}
+SOURCE=/src
+WORK=/home/$OWNER/cabinet
 
 die() {
     printf 'runtime-ci: %s\n' "$*" >&2
@@ -65,8 +65,6 @@ as_owner() {
         HOME="/home/$OWNER" \
         XDG_RUNTIME_DIR="/run/user/$OWNER_ID" \
         CABINET_RUNTIME_ROOT="$ROOT" \
-        CABINET_RUNTIME_SOURCE="$SOURCE" \
-        CABINET_RUNTIME_WORK="$WORK" \
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$WORK/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
         CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-1}" \
