@@ -350,7 +350,7 @@ jobs:
           tail --pid="$(cat room.pid)" -f /dev/null
           df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
           docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
-            --volume "${PWD}:/src:ro" "${{ steps.image.outputs.from }}" sleep infinity
+            --volume "${PWD}:/src" "${{ steps.image.outputs.from }}" sleep infinity
 
       - name: Install the tools
         if: steps.image.outputs.from == env.BASE
@@ -412,7 +412,9 @@ jobs:
         run: |
           tar -xf repo.tar
           rm repo.tar
-          chmod -R a+rX repo
+          # The container reads this directly as an unprivileged user, and ostree locks a repo it
+          # reads, so it has to be writable to someone other than the runner.
+          chmod -R a+rwX repo
 
       - name: Put the built Cabinet and the cached fixtures in place
         id: setup
@@ -492,10 +494,25 @@ jobs:
           && github.event_name == 'push'
           && (steps.image.outputs.from == env.BASE
           || steps.cached.outputs.cache-hit != 'true')
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
           docker commit "${CONTAINER}" "${IMAGE}"
-          docker push "${IMAGE}"
+
+          # Pushed as zstd rather than the gzip `docker push` writes: every run pulls this image,
+          # and two cores spend as long decompressing it as downloading it. A tag that cannot be
+          # pulled is not a trap either -- `Take the fixture image` falls back to the base and the
+          # run rebuilds the tag.
+          command -v skopeo >/dev/null || {
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
+            sudo apt-get install -y --no-install-recommends skopeo
+          }
+
+          sudo skopeo copy --dest-compress-format zstd \
+            --dest-creds "${ACTOR}:${TOKEN}" \
+            "docker-daemon:${IMAGE}" "docker://${IMAGE}"
 
   publish:
     needs: [checks, build, runtime]

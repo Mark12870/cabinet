@@ -12,7 +12,7 @@
 # container before the image is committed.
 #
 #   scripts/runtime-ci.sh prepare        the tools and the unprivileged user, as root
-#   scripts/runtime-ci.sh sync           a writable copy of the read-only checkout
+#   scripts/runtime-ci.sh sync           a writable copy of the checkout, without the repo
 #   scripts/runtime-ci.sh restore tar    put the cached private fixtures back
 #   scripts/runtime-ci.sh setup          scripts/setup-runtime-tests.sh on its own display
 #   scripts/runtime-ci.sh test           the whole Cabinet.Runtime.Tests matrix
@@ -65,7 +65,7 @@ as_owner() {
         HOME="/home/$OWNER" \
         XDG_RUNTIME_DIR="/run/user/$OWNER_ID" \
         CABINET_RUNTIME_ROOT="$ROOT" \
-        CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$WORK/repo}" \
+        CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$SOURCE/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
         CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-1}" \
         bash "$0" "$@"
@@ -133,7 +133,9 @@ sync_source() {
     step 'copy the checkout'
     rm -rf "$WORK"
     mkdir -p "$WORK"
-    cp -r "$SOURCE/." "$WORK/"
+    # Without the repo: it is half a gigabyte of OSTree objects that only flatpak reads, and it is
+    # mounted at $SOURCE already.
+    tar --create --directory "$SOURCE" --exclude ./repo . | tar --extract --directory "$WORK"
 }
 
 restore() {
