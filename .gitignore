@@ -11,6 +11,7 @@
 # dotnet
 [Bb]in/
 [Oo]bj/
+TestResults/
 
 # jetbrains
 /.idea/
