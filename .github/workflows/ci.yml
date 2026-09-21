@@ -121,8 +121,17 @@ jobs:
           fi
           echo "release=${release}" >> "$GITHUB_OUTPUT"
 
+          # A dispatch means "republish what is out" -- that is what the weekly extension refresh
+          # is -- except when it was asked for the test fixtures, which have nothing to do with
+          # the published repo.
           case "${{ github.event_name }}" in
-            schedule|workflow_dispatch) publish=true ;;
+            schedule) publish=true ;;
+            workflow_dispatch)
+              if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
+                publish=false
+              else
+                publish=true
+              fi ;;
             *) publish="${release}" ;;
           esac
           echo "publish=${publish}" >> "$GITHUB_OUTPUT"
