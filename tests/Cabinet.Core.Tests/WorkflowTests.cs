@@ -22,9 +22,9 @@ public class WorkflowTests
     {
         var runtime = Job("runtime");
 
-        Assert.Contains(runtime, line => Names(line, "needs") && line.Contains("build"));
         Assert.Contains(runtime, line => line.Contains("github.ref == 'refs/heads/main'"));
         Assert.Contains(runtime, line => line.Contains("name: repo"));
+        Assert.Contains(runtime, line => line.Contains("Wait for the built Cabinet"));
     }
 
     [Fact]

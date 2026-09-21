@@ -250,7 +250,7 @@ jobs:
           fi
 
   runtime:
-    needs: [build, scope]
+    needs: scope
     if: >-
       needs.scope.outputs.runtime == 'true'
       && (github.event_name == 'workflow_dispatch'
@@ -259,6 +259,7 @@ jobs:
     # A run with nothing to reuse installs everything itself, vendor installers and all.
     timeout-minutes: 350
     permissions:
+      actions: read
       contents: read
       packages: write
     env:
@@ -302,17 +303,6 @@ jobs:
           ( sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
               /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache ) >/dev/null 2>&1 &
           echo "$!" > room.pid
-
-      - uses: actions/download-artifact@v8
-        with:
-          name: repo
-
-      # The tar is dropped because the container takes a copy of this directory.
-      - name: Unpack the built repo
-        run: |
-          tar -xf repo.tar
-          rm repo.tar
-          chmod -R a+rX repo
 
       # The month is in the key and there is no fallback key on purpose: the vendors' fixtures are
       # reinstalled at the turn of each month, which is what starts FabFilter's 30-day trial over,
@@ -379,6 +369,50 @@ jobs:
           else
             echo 'value=0' >> "$GITHUB_OUTPUT"
           fi
+
+      # The one thing here that the build gates. Everything above it -- the pull, the disk, the
+      # cache, the container -- needs nothing from the build, so this job no longer waits on it
+      # to start; it waits here, where the artifact is actually wanted.
+      - name: Wait for the built Cabinet
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          ask() { curl -sS -H "Authorization: Bearer ${TOKEN}" "$1"; }
+
+          for _ in $(seq 1 120); do
+            if ask "${run}/artifacts?name=repo" |
+                 python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["total_count"] else 1)'
+            then
+              exit 0
+            fi
+
+            reading='[j["conclusion"] or "running" for j in json.load(sys.stdin)["jobs"]'
+            reading="${reading}"' if j["name"] == "build"]'
+            verdict="$(ask "${run}/jobs" |
+              python3 -c "import json,sys; print((${reading} or ['missing'])[0])")"
+
+            case "${verdict}" in
+              running|success) ;;
+              *) echo "::error::the build job ${verdict}; there is no artifact to test"; exit 1 ;;
+            esac
+
+            sleep 10
+          done
+
+          echo '::error::the built Cabinet never arrived'
+          exit 1
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repo
+
+      # The tar is dropped because the container takes a copy of this directory.
+      - name: Unpack the built repo
+        run: |
+          tar -xf repo.tar
+          rm repo.tar
+          chmod -R a+rX repo
 
       - name: Put the built Cabinet and the cached fixtures in place
         id: setup
