@@ -419,7 +419,7 @@ internal static class CarlaProcess
         setsid --wait bash -c 'group_id=$(ps -o pgid= -p "$$"); group_id=${group_id//[[:space:]]/}; printf "%s\\n" "$group_id" > "$1"; shift; exec stdbuf -oL -eL "$@"' carla "$process_group" "$carla" --no-gui "$project" >"$log" 2>&1 &
         carla_pid=$!
         deadline=$state/deadline
-        ( sleep "$timeout_duration"; : > "$deadline" ) &
+        ( sleep "$timeout_duration"; : > "$deadline" ) >/dev/null 2>&1 &
         deadline_pid=$!
 
         while process_alive "$carla_pid"; do
