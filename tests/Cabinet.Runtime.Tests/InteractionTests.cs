@@ -11,7 +11,7 @@ public sealed class InteractionTests : IDisposable
     private const int Colours = 16;
     private const double Reaction = 0.0005;
     private const int Steady = 250;
-    private const int Stalling = 2500;
+    private const int Stalling = 5000;
     private const int CallMilliseconds = 10000;
 
     private static readonly ConcurrentDictionary<string, Lazy<Measured>> Seen = new();

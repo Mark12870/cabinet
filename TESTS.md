@@ -264,6 +264,11 @@ there* and so went red on the run that measured 22 ms — the suite failing beca
 behaved. It also took Decent Sampler out of the bound altogether, so a stall grown to 30 s would
 have passed. A per-case ceiling is green either way and still catches that.
 
+The ceiling has to fit the slowest machine the suite runs on, not this one. The same stall
+measures 3138 ms on a hosted runner — two cores and software rendering — where it measures under
+1.9 s here, so `Stalling` is 5000 ms. That is still an order of magnitude under the freeze the
+bound exists to catch, and a number measured on a desktop is not a bound a runner can meet.
+
 Decent Sampler's behaviour depends on `~/.config/DecentSampler`. With no config at all it opens a
 modal welcome screen over its interface, and a sweep across that screen measures 1418 colours and
 a reaction of exactly 0.000000, which fails `AnEditorRespondsToThePointer`; CI's first cold root
