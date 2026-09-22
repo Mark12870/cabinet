@@ -30,6 +30,8 @@ env:
   # somewhere to go. Lower than beeper-flatpak's 100 on purpose: Cabinet bundles
   # Wine, so a retained commit is tens of megabytes rather than a few kilobytes.
   HISTORY_DEPTH: 10
+  # Only for recording which image a build ran in: a job's `container:` cannot read `env`, so the
+  # two blocks below name the same image literally and these two have to be changed with them.
   CONTAINER_IMAGE: flathub-infra/flatpak-github-actions
   CONTAINER_TAG: gnome-50
   # Everything the Flatpak is built against. Installed and recorded from this one list, so the
@@ -80,8 +82,7 @@ jobs:
         id: gate
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
-          owner="${GITHUB_REPOSITORY%%/*}"
-          url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
+          url="$(scripts/pages-url.sh)"
           release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
           echo "release=${release}" >> "$GITHUB_OUTPUT"
 
@@ -119,8 +120,7 @@ jobs:
       # since nothing ever reads its artifact. Deleting this step is how you re-root deliberately.
       - name: Seed the repo from the published history
         run: |
-          owner="${GITHUB_REPOSITORY%%/*}"
-          url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
+          url="$(scripts/pages-url.sh)"
 
           if [ '${{ github.event_name }}' = pull_request ] ||
              [ "$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")" != true ]
@@ -195,11 +195,6 @@ jobs:
           retention-days: 1
           compression-level: 0
 
-  # TESTS.md's suite, against the artifact `build` just made: it loads real plugins, opens their
-  # editors and drives a pointer over them, which nothing in checks.sh can do. The fixtures --
-  # prefixes, runners, Carla and the vendor installs, about 16 GB of them -- ride in a container
-  # image rather than a cache, which holds 10 GB for a whole repository, and a run commits back
-  # whatever it had to add. scripts/runtime-ci.sh drives every step inside the container.
   # A push that only rewrites prose cannot change what a plugin does, and the runtime job is the
   # long one. Anything else, and anything that is not a push, runs it.
   scope:
@@ -231,6 +226,12 @@ jobs:
             echo 'runtime=false' >> "$GITHUB_OUTPUT"
           fi
 
+  # TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
+  # which nothing in checks.sh can do. It starts beside the build rather than after it, because
+  # the only thing it wants from the build is an artifact it does not touch until it installs
+  # Cabinet. The fixtures come in two halves -- a public image of what may be republished, the
+  # repository's own cache for what may not -- and scripts/runtime-ci.sh drives every step inside
+  # the container.
   runtime:
     needs: scope
     if: >-
@@ -545,10 +546,8 @@ jobs:
       - name: Take the published repo
         if: needs.checks.outputs.release != 'true'
         run: |
-          owner="${GITHUB_REPOSITORY%%/*}"
           mkdir -p _site
-          scripts/seed-repo.sh \
-            "https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/" _site/repo
+          scripts/seed-repo.sh "$(scripts/pages-url.sh)" _site/repo
 
       # Flatpak looks for an app's extensions only in the remote the app came from, so
       # Cabinet's remote has to carry the Flathub ones it downloads with the app.

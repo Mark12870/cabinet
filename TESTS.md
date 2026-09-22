@@ -52,7 +52,8 @@ seven vendor installers, five Wine runners and a serial Carla build — and `act
   Carla build, the runners a catalogue entry pins, the Flatpak runtimes, and Surge XT, which is
   GPL-3.0. A public package costs nothing to store or to pull, and pulls from Actions are free of
   transfer charges either way. Every push pulls it, so what rides in it is what every push pays
-  for: about 8 GB unpacked, and four minutes.
+  for — about two minutes, measured, once it carries only English locales, the runners a
+  catalogue entry pins, and a plain Fedora base rather than a toolbox one.
 - **This repository's own Actions cache**, which only its workflows can read. Every other fixture
   is marked `Freeware` or `Commercial` in the catalogue, and REAPER's Flathub manifest fetches it
   as extra data rather than shipping it: Cabinet may install those on a machine, but nothing here
