@@ -30,9 +30,10 @@ case "${code}" in
   200)
     ref="app/${app}/x86_64/stable"
     metainfo="/files/share/metainfo/${app}.metainfo.xml"
-    ostree --repo="${work}" init --mode=archive-z2
-    ostree --repo="${work}" remote add --if-not-exists --no-gpg-verify published "${url}"
-    ostree --repo="${work}" pull --subpath="$(dirname "${metainfo}")" published "${ref}"
+    # ostree reports its progress on stdout, and stdout here is the verdict alone.
+    ostree --repo="${work}" init --mode=archive-z2 >&2
+    ostree --repo="${work}" remote add --if-not-exists --no-gpg-verify published "${url}" >&2
+    ostree --repo="${work}" pull --subpath="$(dirname "${metainfo}")" published "${ref}" >&2
     published="$(ostree --repo="${work}" cat "published:${ref}" "${metainfo}" | newest)" ;;
   404|410)
     echo "::notice::nothing published at ${url} yet" >&2 ;;
