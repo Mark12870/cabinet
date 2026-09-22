@@ -202,7 +202,7 @@ def settle():
     run(["xdotool", "mouseup", "1"])
 
 
-def drag(window, baseline, loop, at, name):
+def drag(window, before, loop, at, name):
     x, y = at
     run(["xdotool", "mousemove", str(x), str(y), "mousedown", "1"])
     loop.turn(4)
@@ -217,26 +217,33 @@ def drag(window, baseline, loop, at, name):
             break
 
         if shot:
-            seen = max(seen, difference(baseline, shot))
+            seen = max(seen, difference(before, shot))
+            before = shot
 
     run(["xdotool", "mouseup", "1"])
     loop.turn(6)
-    return seen
+    return seen, before
 
 
-def sweep(window, baseline, loop):
+def sweep(window, before, loop):
     reaction = 0.0
     ranked = []
 
     for x, y, name in points(window):
         run(["xdotool", "mousemove", str(x), str(y)])
         loop.turn(4)
+
+        if not ranked:
+            under = run(["xdotool", "getmouselocation", "--shell"]).stdout
+            note("pointer over " + re.sub(r"\s+", " ", under).strip())
+
         shot = look(window, f"hover-{name}", loop)
 
         if loop.closed:
             return reaction
 
-        seen = difference(baseline, shot) if shot else 0.0
+        seen = difference(before, shot) if shot else 0.0
+        before = shot or before
         reaction = max(reaction, seen)
         ranked.append((seen, x, y, name))
         note(f"hover {name} at {x},{y} moved {seen:.6f}")
@@ -262,13 +269,15 @@ def sweep(window, baseline, loop):
             return reaction
 
         if shot:
-            reaction = max(reaction, difference(baseline, shot))
+            reaction = max(reaction, difference(before, shot))
+            before = shot
 
         if reaction >= ENOUGH:
             note(f"click {name} answered {reaction:.6f}")
             return reaction
 
-        reaction = max(reaction, drag(window, baseline, loop, (x, y), name))
+        dragged, before = drag(window, before, loop, (x, y), name)
+        reaction = max(reaction, dragged)
 
         if loop.closed:
             return reaction
@@ -326,14 +335,32 @@ def main():
             print(f"EDITOR={window} CAPTURE=failed")
             return 1
 
+        # Raised as well as activated: a capture comes from the window's own pixmap and looks
+        # right even when something else is on top of it, while the pointer goes to whatever is
+        # topmost, and the sweep then measures a window nothing is touching.
         run(["xdotool", "windowactivate", str(window)])
+        run(["xdotool", "windowraise", str(window)])
         loop.turn(30)
         resting = capture(window, "resting")
-        noise = difference(baseline, resting) if resting else 0.0
+        loop.turn(30)
+        again = capture(window, "resting-again")
+        noise = difference(resting, again) if resting and again else 0.0
+        note(f"noise {noise:.6f}")
 
         note("sweeping")
-        reaction = sweep(window, baseline, loop)
+        reaction = sweep(window, again or resting or baseline, loop)
         note(f"reaction {reaction:.6f}")
+
+        # The same measurement with nothing touching it: an editor that changes on its own does it
+        # here too, and then it is not the pointer's doing.
+        run(["xdotool", "mousemove", "0", "0"])
+        loop.turn(30)
+        settled = capture(window, "settled")
+        loop.turn(30)
+        rested = capture(window, "settled-again")
+        drift = difference(settled, rested) if settled and rested else 0.0
+        noise = max(noise, drift)
+        note(f"drift {drift:.6f}")
         closing = loop.timed(lambda: host.show_custom_ui(0, False))
         note("closed")
         loop.turn(SETTLE)

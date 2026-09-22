@@ -237,9 +237,9 @@ Measured over the whole set on 2026-09-20, which is where the floors come from:
 | FabFilter Micro | bridged CLAP | 10290 | 0.3514 | 0 | 0 ms |
 | Valhalla Supermassive | bridged VST2 | 2352 | 0.0083 | 0 | 0 ms |
 | Valhalla Supermassive | bridged VST3 | 2352 | 0.0083 | 0 | 0 ms |
-| Surge XT | native CLAP | 5075 | 0.0048 | 0 | 29 ms |
+| Surge XT | native CLAP | 5075 | 0.0043 | 0 | 29 ms |
 | Sitala | bridged VST2 | 2178 | 0.0026 | 0 | 0 ms |
-| SINE Player | bridged VST3 | 256 | 0.0008 | 0 | 0 ms |
+| SINE Player | bridged VST3 | 256 | 0.0007 | 0 | 0 ms |
 
 Every path Cabinet bridges answers the pointer: VST2, VST3 and CLAP, against native VST2 and
 native CLAP.
@@ -248,7 +248,14 @@ A drawn editor holds hundreds to thousands of colours and a blank one holds one,
 floor is 16. The reaction floor is 0.0005. Reaction is the fraction of pixels that changed, so it
 does not shrink as the window grows — an earlier RMSE metric did, and reported a WebView2 login
 screen answering a click with a text caret as zero. SINE Player is that login screen and answers
-at 0.0008, the narrowest margin in the set, so the floor cannot rise without losing it.
+at 0.0007, the narrowest margin in the set, so the floor cannot rise without losing it.
+
+Each frame is compared with the one before it rather than with the first one, and the control is
+the same measurement with the pointer parked outside the window, taken before the sweep and again
+after it. Measured against the first frame instead, a change an editor makes once — settling after
+it opens, a dialog closing — differs from the baseline in every later frame, and the sweep reports
+the first of them as a reaction. Three of these plugins passed that way until the control was
+measured the same way as the reaction.
 
 ### How long a host may be held
 
