@@ -326,6 +326,29 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryRuntimeScenarioBelongsToAShippedEntry()
+    {
+        var entries = Shipped.ToDictionary(entry => entry.Id, StringComparer.Ordinal);
+        var scenarios = Directory.EnumerateFiles(
+            Repo.Path("data/library"), "*Scenario.cs", SearchOption.AllDirectories).ToList();
+
+        Assert.NotEmpty(scenarios);
+
+        foreach (var scenario in scenarios)
+        {
+            var id = Path.GetFileNameWithoutExtension(scenario)[..^"Scenario".Length];
+            id = string.Concat(id.Select((character, index) =>
+                index > 0 && char.IsUpper(character) ? $"-{char.ToLowerInvariant(character)}" :
+                char.ToLowerInvariant(character).ToString()));
+            Assert.True(entries.ContainsKey(id), $"{scenario} has no shipped catalogue entry named {id}");
+            Assert.Equal(
+                entries[id].Vendor,
+                new DirectoryInfo(scenario).Parent?.Parent?.Name);
+            Assert.Contains($"new(\"{id}\")", File.ReadAllText(scenario), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void AVersionIsPinnedInTheUrlThatFetchesIt()
     {
         var drifting = Shipped

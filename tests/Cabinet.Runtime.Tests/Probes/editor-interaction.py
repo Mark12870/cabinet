@@ -372,7 +372,12 @@ def main():
         loop.timed(lambda: host.show_custom_ui(0, False))
         loop.turn(SETTLE)
 
-        removing = loop.timed(lambda: host.remove_plugin(0))
+        started = time.monotonic()
+        removed = host.remove_plugin(0)
+        removing = time.monotonic() - started
+        if not removed:
+            print("REMOVE=failed " + host.get_last_error())
+            return 1
         note("removed")
     finally:
         started = time.monotonic()

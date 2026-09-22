@@ -231,6 +231,17 @@ collect() {
         find "$destination/interaction" -name '*.xwd' -delete
     fi
 
+    if [ -d "$ROOT/tmp/scenarios" ]; then
+        mkdir -p "$destination/scenarios"
+        for scenario in "$ROOT/tmp/scenarios"/*; do
+            [ -d "$scenario/artefacts" ] || continue
+            name=$(basename "$scenario")
+            mkdir -p "$destination/scenarios/$name"
+            cp -r "$scenario/artefacts" "$destination/scenarios/$name/artefacts"
+        done
+        find "$destination/scenarios" -name '*.xwd' -delete
+    fi
+
     for kept in \
         "$ROOT/q" \
         "$ROOT/home/.var/app/$APP/data/logs" \

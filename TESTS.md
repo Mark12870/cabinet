@@ -165,6 +165,25 @@ Windows plugins are tested through Cabinet's yabridge wrappers and
 loaded from Cabinet's native links. Windows LV2 is intentionally absent: yabridge
 does not bridge LV2, so there is no supported Windows LV2 test for Cabinet.
 
+## Plugin scenarios
+
+Plugin-specific end-to-end instructions live in `tests/` beside their catalogue entry and are
+compiled into `Cabinet.Runtime.Tests`. Shared code owns isolation, process supervision, Carla and
+artefact collection; each scenario owns its ordered operations and assertions. Run one with:
+
+```sh
+toolbox run --container cabinet-runtime \
+  dotnet test tests/Cabinet.Runtime.Tests --nologo -m:1 \
+  --filter 'FullyQualifiedName~ValhallaSupermassiveScenario'
+```
+
+`ValhallaSupermassiveScenario` starts from an empty synthetic Cabinet home, downloads the pinned
+archive through `library install`, verifies the bridged editor, then processes explicit stereo
+buffers through Carla's native rack. Its input, output, parameters, captures and logs remain under
+`$CABINET_RUNTIME_ROOT/tmp/scenarios/valhalla-supermassive/artefacts/`. Tools and the prepared
+Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and plugin into the new
+home before it creates the prefix and bridge. Carla only observes the resulting bridge as a DAW.
+
 ## Patch probes
 
 `DragAndDropTests` tells you when `patches/yabridge-foreign-drag-drop.patch` is no longer needed

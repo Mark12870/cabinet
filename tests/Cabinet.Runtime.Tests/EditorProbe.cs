@@ -21,10 +21,23 @@ internal static class EditorProbe
     {
         var session = RuntimeTestEnvironment.SocketDirectory;
 
+        return RunIn(RuntimeTestEnvironment.Home, session, script, name, plugin, format, extra);
+    }
+
+    public static ProbeResult RunIn(
+        string home,
+        string session,
+        string script,
+        string name,
+        string plugin,
+        string format,
+        params string[] extra)
+    {
+
         try
         {
             using var display = Display.Start();
-            return Drive(display, script, name, plugin, format, extra, session);
+            return Drive(display, home, script, name, plugin, format, extra, session);
         }
         finally
         {
@@ -46,6 +59,7 @@ internal static class EditorProbe
 
     private static ProbeResult Drive(
         Display display,
+        string home,
         string script,
         string name,
         string plugin,
@@ -66,9 +80,13 @@ internal static class EditorProbe
         };
 
         display.Configure(info);
+        info.Environment["HOME"] = home;
+        info.Environment["XDG_DATA_HOME"] = Path.Combine(home, ".local", "share");
+        info.Environment["XDG_CONFIG_HOME"] = Path.Combine(home, ".config");
+        info.Environment["XDG_CACHE_HOME"] = Path.Combine(home, ".cache");
 
         info.Environment["WINELOADER"] = Path.Combine(yabridge, "cabinet-wine");
-        info.Environment["PATH"] = $"{Wrapper(display, session)}:{yabridge}:/usr/bin:/bin";
+        info.Environment["PATH"] = $"{Wrapper(display, home, session)}:{yabridge}:/usr/bin:/bin";
         info.Environment["YABRIDGE_TEMP_DIR"] = session;
         info.Environment["YABRIDGE_NO_WATCHDOG"] = "1";
         info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Probes", script));
@@ -102,23 +120,26 @@ internal static class EditorProbe
             File.Exists(log) ? File.ReadAllText(log) : "(no yabridge trace)");
     }
 
-    private static string Wrapper(Display display, string session)
+    private static string Wrapper(Display display, string home, string session)
     {
         var directory = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "editor-bin");
         Directory.CreateDirectory(directory);
         var wrapper = Path.Combine(directory, "flatpak");
 
-        File.WriteAllText(wrapper, $"""
+        var installedApp = Path.Combine(
+            RuntimeTestEnvironment.FlatpakUserDirectory, "app", Host.App);
+        File.WriteAllText(wrapper, $$"""
             #!/usr/bin/env bash
             if [ "$1" = run ]; then
               shift
               exec /usr/bin/flatpak run --nofilesystem=home \
-                --filesystem={RuntimeTestEnvironment.Root}:create \
-                --filesystem={session}:create \
+                --filesystem="{{home}}":create \
+                --filesystem="{{installedApp}}":ro \
+                --filesystem="{{session}}":create \
                 --filesystem=/tmp/.X11-unix \
-                --env=HOME={RuntimeTestEnvironment.Home} \
-                --env=DISPLAY={display.Name} \
-                --env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory} "$@"
+                --env=HOME="{{home}}" \
+                --env=DISPLAY="{{display.Name}}" \
+                --env=FLATPAK_USER_DIR="{{RuntimeTestEnvironment.FlatpakUserDirectory}}" "$@"
             fi
             exec /usr/bin/flatpak "$@"
             """);

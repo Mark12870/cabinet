@@ -48,7 +48,7 @@ case "$BACKEND" in
         runner=(toolbox run --container "$BOX")
         ;;
     direct)
-        for command in curl flatpak git magick make python3 sha256sum unzip weston \
+        for command in c++ curl flatpak git magick make python3 sha256sum unzip weston \
             x86_64-w64-mingw32-gcc xdotool xprop xwd Xwayland; do
             command -v "$command" >/dev/null || die "$command is not installed"
         done
@@ -94,7 +94,7 @@ case "$flatpak_user_dir/" in "$root/"*) ;; *) exit 1 ;; esac
     exit 1
 }
 
-for command in curl flatpak git make sha256sum unzip; do
+for command in c++ curl flatpak git make sha256sum unzip; do
     command -v "$command" >/dev/null || {
         printf 'setup-runtime-tests: %s is not installed\n' "$command" >&2
         exit 1

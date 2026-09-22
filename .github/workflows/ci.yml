@@ -449,6 +449,18 @@ jobs:
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
 
+          {
+            echo '### Plugin scenarios'
+            echo
+            echo '```'
+            for result in runtime/scenarios/*/artefacts/audio/render.log; do
+              [ -f "${result}" ] || continue
+              printf '%s\n' "$(basename "$(dirname "$(dirname "$(dirname "${result}")")")")"
+              grep 'AUDIO_RENDER=' "${result}" | sed 's/^/  /'
+            done
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       # Kept on the setup, not on the tests. A plugin that fails the first time its editor opens --
       # Decent Sampler does, with no config of its own yet -- would otherwise keep the fixtures
       # from ever being kept, and every push would reinstall them and fail again.

@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <None Include="Probes/**" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../data/library/*/tests/**/*.cs" Link="Scenarios/%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
   <ItemGroup>
