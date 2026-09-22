@@ -360,7 +360,7 @@ public sealed partial class GrammarTests : IDisposable
     [Fact]
     public void EveryCommandTheUsageListsIsDispatchedAndEveryDispatchedCommandIsListed()
     {
-        var source = Repo.Read("src/Cabinet.Cli/Program.cs");
+        var source = Source();
 
         Assert.Equal(string.Join(Environment.NewLine, Listed(source)), string.Join(Environment.NewLine, Dispatched(source)));
     }
@@ -368,7 +368,7 @@ public sealed partial class GrammarTests : IDisposable
     [Fact]
     public void EveryReadmeExampleIsAListedCommandOnAnEntryThatShips()
     {
-        var listed = Listed(Repo.Read("src/Cabinet.Cli/Program.cs"));
+        var listed = Listed(Source());
         var examples = ReadmeExample().Matches(Repo.Read("README.md"))
             .Select(example => example.Groups[1].Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             .Where(words => words.Length > 0)
@@ -391,6 +391,17 @@ public sealed partial class GrammarTests : IDisposable
             .Select(words => words[2])
             .ToHashSet(StringComparer.Ordinal));
     }
+
+    private static string Source() => string.Join(
+        Environment.NewLine,
+        new[]
+        {
+            "Program.cs",
+            "Program.Prefixes.cs",
+            "Program.Library.cs",
+            "Program.Runners.cs",
+            "Program.Diagnostics.cs",
+        }.Select(file => Repo.Read($"src/Cabinet.Cli/{file}")));
 
     private static SortedSet<string> Listed(string source)
     {
