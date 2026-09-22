@@ -80,45 +80,9 @@ jobs:
         id: gate
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
-          newest() { grep -oE '<release[[:space:]]+version="[^"]+"' | head -1 | cut -d'"' -f2; }
-
-          version="$(newest < "${APP_ID}.metainfo.xml")"
-          [ -n "${version}" ] || {
-            echo "::error::no <release> version in ${APP_ID}.metainfo.xml"; exit 1; }
-
           owner="${GITHUB_REPOSITORY%%/*}"
           url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
-
-          # Branch on the status itself, not on curl's exit: -f collapses every 4xx
-          # and 5xx into exit 22, so a 403 or a down Pages would read as "nothing
-          # published yet" and publish over it.
-          code="$(curl -sSI -o /dev/null -w '%{http_code}' \
-                  --retry 3 --retry-all-errors "${url}summary")" || code=000
-          published=""
-          case "${code}" in
-            200)
-              ref="app/${APP_ID}/x86_64/stable"
-              metainfo="/files/share/metainfo/${APP_ID}.metainfo.xml"
-              ostree --repo="${RUNNER_TEMP}/published" init --mode=archive-z2
-              ostree --repo="${RUNNER_TEMP}/published" remote add --no-gpg-verify published "${url}"
-              ostree --repo="${RUNNER_TEMP}/published" pull \
-                --subpath="$(dirname "${metainfo}")" published "${ref}"
-              published="$(ostree --repo="${RUNNER_TEMP}/published" cat \
-                "published:${ref}" "${metainfo}" | newest)" ;;
-            404|410)
-              echo "::notice::nothing published at ${url} yet" ;;
-            *)
-              echo "::error::cannot reach ${url} (HTTP ${code})"
-              exit 1 ;;
-          esac
-
-          if [ "${version}" = "${published}" ]; then
-            echo "::notice::${version} is already published; nothing to release"
-            release=false
-          else
-            echo "::notice::releasing ${version}${published:+ over ${published}}"
-            release=true
-          fi
+          release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
           echo "release=${release}" >> "$GITHUB_OUTPUT"
 
           # A dispatch means "republish what is out" -- that is what the weekly extension refresh
@@ -149,14 +113,23 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Without this the repo starts empty every run and each export is a parentless
-      # root: nothing to roll back to. Seeding it first makes the new commit a child
-      # of the published one. Deleting this step is how you re-root deliberately.
+      # Without this the repo starts empty and each export is a parentless root: nothing to roll
+      # back to. Seeding makes the new commit a child of the published one, which matters only for
+      # a build that can publish -- and costs two minutes of the critical path for one that cannot,
+      # since nothing ever reads its artifact. Deleting this step is how you re-root deliberately.
       - name: Seed the repo from the published history
         run: |
           owner="${GITHUB_REPOSITORY%%/*}"
-          scripts/seed-repo.sh \
-            "https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/" repo
+          url="https://${owner,,}.github.io/${GITHUB_REPOSITORY#*/}/repo/"
+
+          if [ '${{ github.event_name }}' = pull_request ] ||
+             [ "$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")" != true ]
+          then
+            echo '::notice::this build cannot release, so it has no history to parent'
+            exit 0
+          fi
+
+          scripts/seed-repo.sh "${url}" repo
 
       - name: Install the runtime, SDK, Wine and the build toolchains
         run: flatpak install -y --noninteractive flathub ${BUILD_REFS}
