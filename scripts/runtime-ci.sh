@@ -11,6 +11,7 @@
 # cache, which only this repository's workflows can read, and `clean` takes them out of the
 # container before the image is committed.
 #
+#   scripts/runtime-ci.sh key            the fixture cache key's hash, on the runner itself
 #   scripts/runtime-ci.sh prepare        the tools and the unprivileged user, as root
 #   scripts/runtime-ci.sh sync           a writable copy of the checkout, without the repo
 #   scripts/runtime-ci.sh restore tar    put the cached private fixtures back
@@ -304,7 +305,27 @@ clean() {
         flatpak uninstall --user --noninteractive "$DAW" >/dev/null 2>&1 || true
 }
 
+# Only the vendors whose entries the setup installs: an entry only a plugin scenario uses is
+# installed by that scenario, and changing it rebuilds nothing.
+fixture_key() {
+    cd "$(dirname "$0")/.."
+
+    local ids vendors id entry
+    ids=$(sed -n 's/^ *install_entry \([a-z0-9-]*\)$/\1/p' scripts/setup-runtime-tests.sh)
+    [ -n "$ids" ] || die 'the setup installs no entries'
+
+    vendors=$(for id in $ids; do
+        entry=$(find data/library -name "$id.yml")
+        [ -n "$entry" ] || die "no catalogue entry for $id"
+        dirname "$entry"
+    done | sort -u)
+
+    find $vendors scripts/setup-runtime-tests.sh -type f -print0 | sort -z |
+        xargs -0 sha256sum | sha256sum | cut -d' ' -f1
+}
+
 case ${1:-} in
+    key) fixture_key ;;
     prepare) prepare ;;
     sync) sync_source ;;
     restore) [ $# -eq 2 ] || die 'restore needs the archive to unpack'; restore "$2" ;;
@@ -313,5 +334,5 @@ case ${1:-} in
     collect) [ $# -eq 2 ] || die 'collect needs a destination directory'; collect "$2" ;;
     save) [ $# -eq 2 ] || die 'save needs the archive to write'; save "$2" ;;
     clean) clean ;;
-    *) die "usage: $(basename "$0") prepare|sync|restore|setup|test|collect|save|clean" ;;
+    *) die "usage: $(basename "$0") key|prepare|sync|restore|setup|test|collect|save|clean" ;;
 esac

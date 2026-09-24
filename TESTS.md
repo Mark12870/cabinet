@@ -178,8 +178,8 @@ and a format the entry gains fails until the scenario says which bridged file it
 `CatalogueTests` checks that every scenario names a shipped entry and that no two name the same one.
 Scenarios never run on a push: CI's runtime job runs the general suite, everything else in
 `Cabinet.Runtime.Tests`. The `Plugins` workflow runs only the scenarios, daily on a schedule or by
-hand, against a Cabinet built from main through the same `.github/actions/build` and
-`.github/actions/runtime` that CI runs. On its run page `scripts/scenario-report.py` puts one row per entry and format, with a
+hand, against a Cabinet built from main through the same `build.yml` and `runtime.yml` that CI
+calls. On its run page `scripts/scenario-report.py` puts one row per entry and format, with a
 failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario

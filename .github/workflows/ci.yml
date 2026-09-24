@@ -92,14 +92,7 @@ jobs:
   # It does not wait for checks: publish does, so a build nothing gates is only spent minutes.
   build:
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
-      # bwrap needs to set up its own namespaces to build inside a container.
-      options: --privileged
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/build
+    uses: ./.github/workflows/build.yml
 
   # A push that only rewrites prose cannot change what a plugin does, and the runtime job is the
   # long one. Anything else, and anything that is not a push, runs it.
@@ -144,18 +137,13 @@ jobs:
       needs.scope.outputs.runtime == 'true'
       && (github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
-    runs-on: ubuntu-latest
-    # A run with nothing to reuse installs everything itself, vendor installers and all.
-    timeout-minutes: 350
+    uses: ./.github/workflows/runtime.yml
     permissions:
       actions: read
       contents: read
       packages: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/runtime
-        with:
-          rebuild_fixtures: ${{ inputs.rebuild_fixtures || false }}
+    with:
+      rebuild_fixtures: ${{ inputs.rebuild_fixtures || false }}
 
   publish:
     needs: [checks, build, runtime]
