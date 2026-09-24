@@ -5,7 +5,7 @@ public sealed class ValhallaSpaceModulatorScenario(ValhallaSpaceModulatorScenari
 {
     private const string Id = "valhalla-space-modulator";
 
-    private const string Mix = "Mix";
+    private const string Mix = "wetDry";
 
     private static readonly Dictionary<string, string> Bridges = new()
     {
@@ -30,8 +30,8 @@ public sealed class ValhallaSpaceModulatorScenario(ValhallaSpaceModulatorScenari
         Assert.True(audio.Parameters > 0, $"{installed.Entry.Name} exposed no parameters");
         Assert.True(audio.MixChanged, $"{installed.Entry.Name}'s {Mix} did not hold fully wet");
         Assert.InRange(audio.Before, 0, 0.00001);
-        Assert.InRange(audio.Tail, 0, 1);
-        Assert.InRange(audio.Peak, 0, 1);
+        Assert.InRange(audio.Tail, 0.0000002, 1);
+        Assert.InRange(audio.Peak, 0.028, 1);
     }
 
     public sealed class Installed() : InstalledEntry(Id);
