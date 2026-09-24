@@ -5,7 +5,7 @@ name: Plugins
 # A vendor that moves a download or changes an installer shows up here without anyone pushing.
 on:
   schedule:
-    - cron: '23 2 * * *'
+    - cron: '23 7 * * *'
   workflow_dispatch:
 
 permissions:
