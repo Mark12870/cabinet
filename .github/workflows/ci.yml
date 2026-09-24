@@ -453,9 +453,10 @@ jobs:
             echo '### Plugin scenarios'
             echo
             echo '```'
-            for result in runtime/scenarios/*/artefacts/audio/render.log; do
+            for result in runtime/scenarios/*/artefacts/audio/*/render.log; do
               [ -f "${result}" ] || continue
-              printf '%s\n' "$(basename "$(dirname "$(dirname "$(dirname "${result}")")")")"
+              format=$(dirname "${result}")
+              printf '%s %s\n' "$(basename "$(dirname "$(dirname "$(dirname "${format}")")")")" "$(basename "${format}")"
               grep 'AUDIO_RENDER=' "${result}" | sed 's/^/  /'
             done
             echo '```'

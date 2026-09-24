@@ -178,11 +178,15 @@ toolbox run --container cabinet-runtime \
 ```
 
 `ValhallaSupermassiveScenario` starts from an empty synthetic Cabinet home, downloads the pinned
-archive through `library install`, verifies the bridged editor, then processes explicit stereo
-buffers through Carla's native rack. Its input, output, parameters, captures and logs remain under
-`$CABINET_RUNTIME_ROOT/tmp/scenarios/valhalla-supermassive/artefacts/`. Tools and the prepared
-Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and plugin into the new
-home before it creates the prefix and bridge. Carla only observes the resulting bridge as a DAW.
+archive through `library install`, then for the VST2 and the VST3 in turn verifies the bridged
+editor and processes explicit stereo buffers through Carla's native rack with Mix fully wet, so
+only the plugin's own output can fill the tail. Input, output, parameters, captures and logs remain
+under `$CABINET_RUNTIME_ROOT/tmp/scenarios/valhalla-supermassive/artefacts/{editor,audio}/<format>/`.
+Tools and the prepared Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and
+plugin into the new home before it creates the prefix and bridge. Carla only observes the resulting
+bridge as a DAW. The render probe is a library that `audio-render.py` loads through `ctypes`, the way
+the editor probes load Carla: linked into an executable, Carla's bundled asio takes the place of
+yabridge's own and the VST3 bridge crashes while it loads.
 
 ## Patch probes
 

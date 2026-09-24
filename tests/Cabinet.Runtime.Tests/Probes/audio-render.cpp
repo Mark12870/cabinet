@@ -221,8 +221,10 @@ bool write_parameters(const std::filesystem::path& path,
             && lower_ascii(parameters.back().name.c_str()) == "mix"
             && parameters.back().ranges.min <= parameters.back().ranges.max)
         {
-            carla_set_parameter_value(host, plugin, index, parameters.back().ranges.max);
-            mix_changed = true;
+            const float wanted = parameters.back().ranges.max;
+            carla_set_parameter_value(host, plugin, index, wanted);
+            mix_changed = std::abs(carla_get_current_parameter_value(host, plugin, index) - wanted)
+                <= std::max(parameters.back().ranges.stepSmall, 0.0001f);
         }
     }
 
@@ -329,7 +331,7 @@ int render(const char* plugin_path, const char* format, const char* artefact_dir
 
     if (carla_get_current_plugin_count(host.handle) != 1
         || carla_get_plugin_info(host.handle, 0) == nullptr)
-        return error("load", "Carla did not retain the VST3 plugin");
+        return error("load", "Carla did not retain the plugin");
 
     uint32_t parameter_count = 0;
     bool mix_changed = false;
@@ -359,7 +361,6 @@ int render(const char* plugin_path, const char* format, const char* artefact_dir
     rack.active = true;
     reached("rack active");
 
-    uint32_t blocks = 0;
     try
     {
         for (uint32_t offset = 0; offset < rendered_frames; offset += block_size)
@@ -374,7 +375,6 @@ int render(const char* plugin_path, const char* format, const char* artefact_dir
             descriptor->process(rack.handle, input, output, block_size, nullptr, 0);
             if (offset == 0)
                 reached("process leave");
-            ++blocks;
         }
     }
     catch (...)
@@ -420,35 +420,26 @@ int render(const char* plugin_path, const char* format, const char* artefact_dir
 
     const uint32_t tail_begin = silence_before + signal_frames + sample_rate / 5;
     const uint32_t tail_end = silence_before + signal_frames + sample_rate * 2;
-    std::printf("AUDIO_RENDER=ok status=ok finite=1 peak=%.9g pre_rms=%.9g signal_rms=%.9g tail_rms=%.9g "
-                "frames=%u blocks=%u params=%u mix_changed=%u nonfinite=%zu inputs=2 outputs=2\n",
+    std::printf("AUDIO_RENDER=ok peak=%.9g pre_rms=%.9g signal_rms=%.9g tail_rms=%.9g "
+                "frames=%u params=%u mix_changed=%u\n",
                 peak,
                 rms(output_left, output_right, 0, silence_before),
                 rms(output_left, output_right, silence_before, silence_before + signal_frames),
                 rms(output_left, output_right, tail_begin, tail_end),
                 total_frames,
-                blocks,
                 parameter_count,
-                mix_changed ? 1 : 0,
-                nonfinite);
+                mix_changed ? 1 : 0);
     std::fflush(stdout);
     std::_Exit(0);
 }
 
 }
 
-int main(int argc, char** argv)
+extern "C" int audio_render(const char* plugin, const char* format, const char* artefacts, const char* binaries)
 {
-    if (argc != 5)
-    {
-        std::fprintf(stderr, "usage: audio-render <plugin-path> <format> <artefact-dir> <carla-binaries-dir>\n");
-        std::printf("AUDIO_RENDER=error phase=setup\n");
-        return 2;
-    }
-
     try
     {
-        return render(argv[1], argv[2], argv[3], argv[4]);
+        return render(plugin, format, artefacts, binaries);
     }
     catch (...)
     {

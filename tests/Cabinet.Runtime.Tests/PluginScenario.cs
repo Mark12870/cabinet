@@ -10,6 +10,7 @@ internal sealed class PluginScenario(string id) : IDisposable
     private static readonly TimeSpan ProbePatience = TimeSpan.FromMinutes(10);
     private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", id);
     private readonly string socket = RuntimeTestEnvironment.SocketDirectory;
+    private Task<string>? audioProbe;
 
     public string Artefacts => Path.Combine(root, "artefacts");
     public string Home => Path.Combine(root, "home");
@@ -27,7 +28,7 @@ internal sealed class PluginScenario(string id) : IDisposable
         Directory.CreateDirectory(socket);
     }
 
-    public async Task Install(string entry, string download, Display display)
+    public async Task Install(string download, Display display)
     {
         var result = await Run(
             "flatpak",
@@ -42,7 +43,7 @@ internal sealed class PluginScenario(string id) : IDisposable
                 Host.App,
                 "library",
                 "install",
-                entry,
+                id,
             ],
             display,
             InstallPatience);
@@ -58,22 +59,22 @@ internal sealed class PluginScenario(string id) : IDisposable
     public async Task<AudioMeasurement> Render(string plugin, string format, Display display)
     {
         Require(plugin, "bridged plugin");
-        var executable = await CompileAudioProbe();
-        var carla = CarlaPrefix();
-        var binaries = Path.Combine(carla, "lib", "carla");
-        var audio = Path.Combine(Artefacts, "audio");
+        var library = await (audioProbe ??= CompileAudioProbe());
+        var binaries = Path.Combine(EditorProbe.CarlaPrefix(), "lib", "carla");
+        var audio = Path.Combine(Artefacts, "audio", format);
         Directory.CreateDirectory(audio);
-        WriteFlatpakWrapper(display);
+        var wrapper = EditorProbe.Wrapper(Path.Combine(root, "bin"), display, Home, socket);
 
+        var launcher = Path.Combine(AppContext.BaseDirectory, "Probes", "audio-render.py");
         var result = await Run(
-            executable,
-            [plugin, format, audio, binaries],
+            "python3",
+            [launcher, library, plugin, format, audio, binaries],
             display,
             ProbePatience,
             info =>
             {
                 var yabridge = Path.Combine(Host.Location(), "files", "lib", "yabridge");
-                info.Environment["PATH"] = $"{Path.Combine(root, "bin")}:{yabridge}:/usr/bin:/bin";
+                info.Environment["PATH"] = $"{wrapper}:{yabridge}:/usr/bin:/bin";
                 info.Environment["WINELOADER"] = Path.Combine(yabridge, "cabinet-wine");
                 info.Environment["YABRIDGE_TEMP_DIR"] = socket;
                 info.Environment["YABRIDGE_NO_WATCHDOG"] = "1";
@@ -84,27 +85,24 @@ internal sealed class PluginScenario(string id) : IDisposable
 
         var found = Regex.Match(
             result.Output,
-            @"AUDIO_RENDER=ok status=ok finite=1 peak=([0-9.eE+-]+) pre_rms=([0-9.eE+-]+) "
-            + @"signal_rms=([0-9.eE+-]+) tail_rms=([0-9.eE+-]+) frames=(\d+) blocks=(\d+) "
-            + @"params=(\d+) mix_changed=(\d+) nonfinite=0 inputs=2 outputs=2");
+            @"AUDIO_RENDER=ok peak=([0-9.eE+-]+) pre_rms=([0-9.eE+-]+) signal_rms=[0-9.eE+-]+ "
+            + @"tail_rms=([0-9.eE+-]+) frames=\d+ params=(\d+) mix_changed=([01])");
         Assert.True(found.Success, result.Said);
 
         return new AudioMeasurement(
             Number(found, 1),
             Number(found, 2),
             Number(found, 3),
-            Number(found, 4),
-            int.Parse(found.Groups[5].Value, CultureInfo.InvariantCulture),
-            int.Parse(found.Groups[7].Value, CultureInfo.InvariantCulture),
-            found.Groups[8].Value == "1");
+            int.Parse(found.Groups[4].Value, CultureInfo.InvariantCulture),
+            found.Groups[5].Value == "1");
     }
 
-    public void VerifyEditor(string name, string plugin, string format)
+    public void VerifyEditor(string plugin, string format)
     {
-        var shots = Path.Combine(Artefacts, "editor");
+        var shots = Path.Combine(Artefacts, "editor", format);
         Directory.CreateDirectory(shots);
         var result = EditorProbe.RunIn(
-            Home, socket, "editor-interaction.py", name, plugin, format, shots);
+            Home, socket, Path.Combine(shots, "yabridge.log"), "editor-interaction.py", plugin, format, shots);
         File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
 
@@ -135,9 +133,9 @@ internal sealed class PluginScenario(string id) : IDisposable
 
     private async Task<string> CompileAudioProbe()
     {
-        var output = Path.Combine(root, "audio-render");
+        var output = Path.Combine(root, "audio-render.so");
         var source = Path.Combine(AppContext.BaseDirectory, "Probes", "audio-render.cpp");
-        var carla = CarlaPrefix();
+        var carla = EditorProbe.CarlaPrefix();
         var carlaSource = Path.Combine(
             RuntimeTestEnvironment.Home, ".var", "app", Host.App, "data", "carla-tests", "source");
         var library = Path.Combine(carla, "lib", "carla");
@@ -151,6 +149,8 @@ internal sealed class PluginScenario(string id) : IDisposable
             [
                 "-std=c++17",
                 "-O2",
+                "-shared",
+                "-fPIC",
                 $"-I{Path.Combine(carlaSource, "source", "includes")}",
                 $"-I{Path.Combine(carlaSource, "source", "backend")}",
                 source,
@@ -166,31 +166,6 @@ internal sealed class PluginScenario(string id) : IDisposable
         File.WriteAllText(Path.Combine(Artefacts, "compile.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
         return output;
-    }
-
-    private void WriteFlatpakWrapper(Display display)
-    {
-        var directory = Path.Combine(root, "bin");
-        Directory.CreateDirectory(directory);
-        var wrapper = Path.Combine(directory, "flatpak");
-        File.WriteAllText(wrapper, $$"""
-            #!/usr/bin/env bash
-            if [ "${1:-}" = run ]; then
-              shift
-              exec /usr/bin/flatpak run --nofilesystem=home \
-                --filesystem="{{Home}}":create \
-                --filesystem="{{InstalledApp}}":ro \
-                --filesystem="{{socket}}":create \
-                --filesystem=/tmp/.X11-unix \
-                --env=HOME="{{Home}}" \
-                --env=DISPLAY="{{display.Name}}" \
-                --env=FLATPAK_USER_DIR="{{RuntimeTestEnvironment.FlatpakUserDirectory}}" "$@"
-            fi
-            exec /usr/bin/flatpak "$@"
-            """);
-        File.SetUnixFileMode(
-            wrapper,
-            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
     private async Task<ScenarioProcessResult> Run(
@@ -242,9 +217,6 @@ internal sealed class PluginScenario(string id) : IDisposable
         return new ScenarioProcessResult(process.ExitCode, await output, await error);
     }
 
-    private static string CarlaPrefix() => Path.Combine(
-        RuntimeTestEnvironment.Home, ".var", "app", Host.App, "data", "carla-tests", "prefix");
-
     private static string InstalledApp =>
         Path.Combine(RuntimeTestEnvironment.FlatpakUserDirectory, "app", Host.App);
 
@@ -268,8 +240,6 @@ internal sealed record ScenarioProcessResult(int ExitCode, string Output, string
 internal sealed record AudioMeasurement(
     double Peak,
     double Before,
-    double Signal,
     double Tail,
-    int Frames,
     int Parameters,
     bool MixChanged);

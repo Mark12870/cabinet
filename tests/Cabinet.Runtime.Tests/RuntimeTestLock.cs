@@ -10,9 +10,9 @@ internal sealed class RuntimeTestLock : IDisposable
 
     private RuntimeTestLock()
     {
-        Directory.CreateDirectory(RuntimeTestEnvironment.SocketDirectory);
+        Directory.CreateDirectory(RuntimeTestEnvironment.Root);
         file = new(
-            Path.Combine(RuntimeTestEnvironment.SocketDirectory, "runtime-tests.lock"),
+            Path.Combine(RuntimeTestEnvironment.Root, "runtime-tests.lock"),
             FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
 
         if (flock(file.SafeFileHandle.DangerousGetHandle().ToInt32(), LockExclusive) != 0)

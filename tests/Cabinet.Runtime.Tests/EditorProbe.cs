@@ -20,24 +20,24 @@ internal static class EditorProbe
         params string[] extra)
     {
         var session = RuntimeTestEnvironment.SocketDirectory;
+        var trace = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, $"{name}-editor.log");
 
-        return RunIn(RuntimeTestEnvironment.Home, session, script, name, plugin, format, extra);
+        return RunIn(RuntimeTestEnvironment.Home, session, trace, script, plugin, format, extra);
     }
 
     public static ProbeResult RunIn(
         string home,
         string session,
+        string trace,
         string script,
-        string name,
         string plugin,
         string format,
         params string[] extra)
     {
-
         try
         {
             using var display = Display.Start();
-            return Drive(display, home, script, name, plugin, format, extra, session);
+            return Drive(display, home, script, trace, plugin, format, extra, session);
         }
         finally
         {
@@ -61,14 +61,13 @@ internal static class EditorProbe
         Display display,
         string home,
         string script,
-        string name,
+        string log,
         string plugin,
         string format,
         IReadOnlyList<string> extra,
         string session)
     {
         var yabridge = Path.Combine(Host.Location(), "files", "lib", "yabridge");
-        var log = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, $"{name}-editor.log");
         File.Delete(log);
         Directory.CreateDirectory(session);
 
@@ -86,7 +85,8 @@ internal static class EditorProbe
         info.Environment["XDG_CACHE_HOME"] = Path.Combine(home, ".cache");
 
         info.Environment["WINELOADER"] = Path.Combine(yabridge, "cabinet-wine");
-        info.Environment["PATH"] = $"{Wrapper(display, home, session)}:{yabridge}:/usr/bin:/bin";
+        var wrapper = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "editor-bin");
+        info.Environment["PATH"] = $"{Wrapper(wrapper, display, home, session)}:{yabridge}:/usr/bin:/bin";
         info.Environment["YABRIDGE_TEMP_DIR"] = session;
         info.Environment["YABRIDGE_NO_WATCHDOG"] = "1";
         info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Probes", script));
@@ -120,9 +120,8 @@ internal static class EditorProbe
             File.Exists(log) ? File.ReadAllText(log) : "(no yabridge trace)");
     }
 
-    private static string Wrapper(Display display, string home, string session)
+    public static string Wrapper(string directory, Display display, string home, string session)
     {
-        var directory = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "editor-bin");
         Directory.CreateDirectory(directory);
         var wrapper = Path.Combine(directory, "flatpak");
 
