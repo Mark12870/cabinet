@@ -22,8 +22,8 @@
 #
 # CABINET_RUNTIME_PROBES=0 leaves the drag-and-drop probes out, fixtures and cases both: they say
 # when a yabridge patch can go, which is a question for a refresh rather than for every push.
-# CABINET_RUNTIME_FILTER, when set, is the dotnet test filter instead; the daily plugin run keeps
-# only the plugin scenarios with it.
+# CABINET_RUNTIME_SUITE=general, the default, is everything but the plugin scenarios; a push runs
+# it. CABINET_RUNTIME_SUITE=scenarios is only the plugin scenarios, which run daily on a schedule.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
 # stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user with
@@ -70,7 +70,7 @@ as_owner() {
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$SOURCE/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
         CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-1}" \
-        CABINET_RUNTIME_FILTER="${CABINET_RUNTIME_FILTER:-}" \
+        CABINET_RUNTIME_SUITE="${CABINET_RUNTIME_SUITE:-general}" \
         bash "$0" "$@"
 }
 
@@ -208,12 +208,16 @@ run_test() {
 
     session_bus
 
-    local -a scope=()
+    local filter
 
-    if [ -n "${CABINET_RUNTIME_FILTER:-}" ]; then
-        scope=(--filter "$CABINET_RUNTIME_FILTER")
-    elif [ "${CABINET_RUNTIME_PROBES:-1}" != 1 ]; then
-        scope=(--filter 'FullyQualifiedName!~DragAndDropTests')
+    case "${CABINET_RUNTIME_SUITE:-general}" in
+        general) filter='FullyQualifiedName!~Cabinet.Runtime.Tests.Scenarios.' ;;
+        scenarios) filter='FullyQualifiedName~Cabinet.Runtime.Tests.Scenarios.' ;;
+        *) die "no runtime suite named ${CABINET_RUNTIME_SUITE}" ;;
+    esac
+
+    if [ "${CABINET_RUNTIME_PROBES:-1}" != 1 ]; then
+        filter="$filter&FullyQualifiedName!~DragAndDropTests"
     fi
 
     step 'dotnet test'
@@ -221,7 +225,7 @@ run_test() {
     dotnet test tests/Cabinet.Runtime.Tests --nologo \
         -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true \
         --logger 'trx;LogFileName=runtime.trx' \
-        --logger 'console;verbosity=normal' "${scope[@]}"
+        --logger 'console;verbosity=normal' --filter "$filter"
 }
 
 collect() {

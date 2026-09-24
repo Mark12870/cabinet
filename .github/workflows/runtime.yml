@@ -1,17 +1,17 @@
 name: Runtime
 
-# Called by ci.yml after a push, and by plugins.yml for the daily plugin run with a filter that
-# keeps only the plugin scenarios.
+# Called by ci.yml after a push for the general suite, and by plugins.yml for the daily run of the
+# plugin scenarios. scripts/runtime-ci.sh decides which tests each suite holds.
 on:
   workflow_call:
     inputs:
       rebuild_fixtures:
         type: boolean
         default: false
-      filter:
-        description: The runtime suite's test filter; empty runs all of it
+      suite:
+        description: general, or scenarios
         type: string
-        default: ''
+        default: general
 
 jobs:
   # TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
@@ -124,14 +124,14 @@ jobs:
 
       # The drag-and-drop probes ask whether a yabridge patch can go, not whether this commit
       # works, and their prefixes and runners are five gigabytes. They run when the fixtures are
-      # being made -- a rebuild, or the month turning over -- never in a filtered run, and `clean`
-      # keeps them out of the image either way.
+      # being made -- a rebuild, or the month turning over -- and only in the general suite, and
+      # `clean` keeps them out of the image either way.
       - name: Decide whether the probes run
         id: probes
         env:
-          FILTER: ${{ inputs.filter }}
+          SUITE: ${{ inputs.suite }}
         run: |
-          if [ -z "${FILTER}" ] &&
+          if [ "${SUITE}" = general ] &&
              { [ '${{ inputs.rebuild_fixtures }}' = true ] ||
                [ '${{ steps.cached.outputs.cache-hit }}' != true ]; }; then
             echo 'value=1' >> "$GITHUB_OUTPUT"
@@ -201,9 +201,9 @@ jobs:
       - name: Runtime tests
         env:
           PROBES: ${{ steps.probes.outputs.value }}
-          FILTER: ${{ inputs.filter }}
+          SUITE: ${{ inputs.suite }}
         run: |
-          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_FILTER="${FILTER}" \
+          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
             "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs
@@ -222,7 +222,7 @@ jobs:
       # What the probes measured belongs on the run page. A failure here is a number, and reading
       # it should not need an artifact download and a token.
       - name: Report what the editors measured
-        if: always()
+        if: always() && inputs.suite == 'general'
         run: |
           {
             echo '### Editors'
@@ -236,8 +236,13 @@ jobs:
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: Report each plugin scenario against its entry
+        if: always() && inputs.suite == 'scenarios'
+        run: |
+          scripts/scenario-report.py runtime/TestResults/runtime.trx
+
           {
-            echo '### Plugin scenarios'
+            echo '### What the scenarios measured'
             echo
             echo '```'
             for result in runtime/scenarios/*/artefacts/audio/*/render.log; do
@@ -248,10 +253,6 @@ jobs:
             done
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
-
-      - name: Report each plugin scenario against its entry
-        if: always()
-        run: scripts/scenario-report.py runtime/TestResults/runtime.trx
 
       # Kept on the setup, not on the tests. A plugin that fails the first time its editor opens --
       # Decent Sampler does, with no config of its own yet -- would otherwise keep the fixtures

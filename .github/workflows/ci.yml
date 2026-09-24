@@ -64,9 +64,6 @@ jobs:
       - name: Checks
         run: scripts/checks.sh
 
-      - name: Report plugin scenario coverage
-        run: scripts/scenario-coverage.sh
-
       - name: Decide whether to publish
         id: gate
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

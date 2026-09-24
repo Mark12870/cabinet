@@ -63,11 +63,16 @@ public class WorkflowTests
     }
 
     [Fact]
-    public void TheDailyPluginRunKeepsOnlyTheScenarios()
+    public void PluginScenariosRunOnlyOnTheScheduleAndNeverOnAPush()
     {
         const string scenarios = "Cabinet.Runtime.Tests.Scenarios";
 
-        Assert.Contains(Plugins, line => line.Trim() == $"filter: FullyQualifiedName~{scenarios}.");
+        Assert.Contains(Plugins, line => line.Trim() == "suite: scenarios");
+        Assert.Contains(Plugins, line => line.Trim() == "schedule:");
+        Assert.DoesNotContain(Plugins, line => line.Trim() is "push:" or "pull_request:");
+        Assert.DoesNotContain(Ci, line => Names(line, "suite"));
+        Assert.Contains($"general) filter='FullyQualifiedName!~{scenarios}.'", Driver, StringComparison.Ordinal);
+        Assert.Contains($"scenarios) filter='FullyQualifiedName~{scenarios}.'", Driver, StringComparison.Ordinal);
         Assert.All(
             Directory.EnumerateFiles(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios"), "*.cs"),
             file => Assert.Contains($"namespace {scenarios};", File.ReadAllText(file), StringComparison.Ordinal));

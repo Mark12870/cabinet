@@ -174,12 +174,12 @@ entry's pinned download into an empty synthetic Cabinet home once per class, and
 case per format in `Formats:`. A version or URL bump in the entry is therefore what the next run tests,
 and a format the entry gains fails until the scenario says which bridged file it expects.
 `CatalogueTests` checks that every scenario names a shipped entry and that no two name the same one.
-`scripts/scenario-coverage.sh` warns about every shipped entry that has no scenario yet, as an
-annotation on the entry's `.yml` and a list in the CI `checks` job summary; a scenario naming the
-entry clears it. The `Plugins` workflow runs every scenario daily against a Cabinet built from
-main, through the same `build.yml` and `runtime.yml` that CI calls, and
-`scripts/scenario-report.py` puts one row per entry and format on the run page, with a failing
-format annotated on its entry's `.yml`.
+Scenarios never run on a push: CI's runtime job runs the general suite, everything else in
+`Cabinet.Runtime.Tests`. The `Plugins` workflow runs only the scenarios, daily on a schedule or by
+hand, against a Cabinet built from main through the same `build.yml` and `runtime.yml` that CI
+calls. On its run page `scripts/scenario-report.py` puts one row per entry and format, with a
+failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
+every shipped entry that has no scenario yet; a scenario naming the entry clears it.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
 owns its expectations. Run one with:
 

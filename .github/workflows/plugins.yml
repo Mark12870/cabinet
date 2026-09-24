@@ -34,4 +34,4 @@ jobs:
       contents: read
       packages: write
     with:
-      filter: FullyQualifiedName~Cabinet.Runtime.Tests.Scenarios.
+      suite: scenarios
