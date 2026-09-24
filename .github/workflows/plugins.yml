@@ -25,13 +25,25 @@ jobs:
         run: scripts/scenario-coverage.sh
 
   build:
-    uses: ./.github/workflows/build.yml
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      # bwrap needs to set up its own namespaces to build inside a container.
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/build
 
   runtime:
-    uses: ./.github/workflows/runtime.yml
+    runs-on: ubuntu-latest
+    # A run with nothing to reuse installs everything itself, vendor installers and all.
+    timeout-minutes: 350
     permissions:
       actions: read
       contents: read
       packages: write
-    with:
-      suite: scenarios
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/runtime
+        with:
+          suite: scenarios

@@ -5,7 +5,7 @@ namespace Cabinet.Core.Tests;
 public class WorkflowTests
 {
     private static readonly string[] Ci = Repo.Lines(".github/workflows/ci.yml");
-    private static readonly string[] Runtime = Repo.Lines(".github/workflows/runtime.yml");
+    private static readonly string[] Runtime = Repo.Lines(".github/actions/runtime/action.yml");
     private static readonly string[] Plugins = Repo.Lines(".github/workflows/plugins.yml");
     private static readonly string Driver = Repo.Read("scripts/runtime-ci.sh");
     private static readonly string[] Redistributable = ["GPL-3.0", "LGPL-3.0"];
@@ -23,12 +23,11 @@ public class WorkflowTests
     public void TheRuntimeSuiteRunsOnEveryPushToMainAgainstTheBuiltArtifact()
     {
         var caller = Job(Ci, "runtime");
-        var runtime = Job(Runtime, "runtime");
 
         Assert.Contains(caller, line => line.Contains("github.ref == 'refs/heads/main'"));
-        Assert.Contains(caller, line => line.Contains("uses: ./.github/workflows/runtime.yml"));
-        Assert.Contains(runtime, line => line.Contains("name: repo"));
-        Assert.Contains(runtime, line => line.Contains("Wait for the built Cabinet"));
+        Assert.Contains(caller, line => line.Contains("uses: ./.github/actions/runtime"));
+        Assert.Contains(Runtime, line => line.Contains("name: repo"));
+        Assert.Contains(Runtime, line => line.Contains("Wait for the built Cabinet"));
     }
 
     [Fact]
