@@ -174,6 +174,9 @@ entry's pinned download into an empty synthetic Cabinet home once per class, and
 case per format in `Formats:`. A version or URL bump in the entry is therefore what the next run tests,
 and a format the entry gains fails until the scenario says which bridged file it expects.
 `CatalogueTests` checks that every scenario names a shipped entry and that no two name the same one.
+`scripts/scenario-coverage.sh` warns about every shipped entry that has no scenario yet, as an
+annotation on the entry's `.yml` and a list in the CI `checks` job summary; a scenario naming the
+entry clears it.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
 owns its expectations. Run one with:
 

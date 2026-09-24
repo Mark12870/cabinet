@@ -104,5 +104,11 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    scripts/checks.sh
    ```
 
-8. Confirm no scenario sandbox is still running
+8. Confirm the entry has left the list of entries without a scenario:
+
+   ```sh
+   scripts/scenario-coverage.sh
+   ```
+
+9. Confirm no scenario sandbox is still running
    (`toolbox run --container cabinet-runtime flatpak ps`), then commit on main.
