@@ -4,10 +4,15 @@ using System.Text.RegularExpressions;
 
 namespace Cabinet.Runtime.Tests;
 
-internal sealed class PluginScenario(string id) : IDisposable
+internal sealed class ScenarioHarness(string id) : IDisposable
 {
     private static readonly TimeSpan InstallPatience = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ProbePatience = TimeSpan.FromMinutes(10);
+    private static readonly Dictionary<string, (string Extension, string Carla)> Formats = new()
+    {
+        ["VST3"] = (".vst3", "vst3"),
+        ["VST2"] = (".vst", "vst2"),
+    };
     private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", id);
     private readonly string socket = RuntimeTestEnvironment.SocketDirectory;
     private Task<string>? audioProbe;
@@ -53,11 +58,13 @@ internal sealed class PluginScenario(string id) : IDisposable
         Assert.Contains($"Downloading {download}", result.Said, StringComparison.Ordinal);
     }
 
-    public string WindowsPlugin(string extension, string name) =>
-        Path.Combine(Home, extension, "cabinet", "windows", name);
+    public Bridge Bridged(string format, string file) => new(
+        Path.Combine(Home, Formats[format].Extension, "cabinet", "windows", file),
+        Formats[format].Carla);
 
-    public async Task<AudioMeasurement> Render(string plugin, string format, Display display)
+    public async Task<AudioMeasurement> Render(Bridge bridge, Display display)
     {
+        var (plugin, format) = bridge;
         Require(plugin, "bridged plugin");
         var library = await (audioProbe ??= CompileAudioProbe());
         var binaries = Path.Combine(EditorProbe.CarlaPrefix(), "lib", "carla");
@@ -97,8 +104,9 @@ internal sealed class PluginScenario(string id) : IDisposable
             found.Groups[5].Value == "1");
     }
 
-    public void VerifyEditor(string plugin, string format)
+    public void VerifyEditor(Bridge bridge)
     {
+        var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, "editor", format);
         Directory.CreateDirectory(shots);
         var result = EditorProbe.RunIn(
@@ -236,6 +244,8 @@ internal sealed record ScenarioProcessResult(int ExitCode, string Output, string
 {
     public string Said => $"{Output}\nstderr:\n{Error}\nexit: {ExitCode}";
 }
+
+internal sealed record Bridge(string Plugin, string Format);
 
 internal sealed record AudioMeasurement(
     double Peak,

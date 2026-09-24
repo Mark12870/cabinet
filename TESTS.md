@@ -167,9 +167,15 @@ does not bridge LV2, so there is no supported Windows LV2 test for Cabinet.
 
 ## Plugin scenarios
 
-Plugin-specific end-to-end instructions live in `tests/` beside their catalogue entry and are
-compiled into `Cabinet.Runtime.Tests`. Shared code owns isolation, process supervision, Carla and
-artefact collection; each scenario owns its ordered operations and assertions. Run one with:
+A plugin scenario is an end-to-end test of one catalogue entry, in
+`tests/Cabinet.Runtime.Tests/Scenarios/<Entry>Scenario.cs`. It names its entry once, as
+`const string Id`, and takes everything else from the parsed `.yml`: `InstalledEntry` installs the
+entry's pinned download into an empty synthetic Cabinet home once per class, and the scenario runs one
+case per format in `Formats:`. A version or URL bump in the entry is therefore what the next run tests,
+and a format the entry gains fails until the scenario says which bridged file it expects.
+`CatalogueTests` checks that every scenario names a shipped entry and that no two name the same one.
+`ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
+owns its expectations. Run one with:
 
 ```sh
 toolbox run --container cabinet-runtime \
@@ -177,14 +183,13 @@ toolbox run --container cabinet-runtime \
   --filter 'FullyQualifiedName~ValhallaSupermassiveScenario'
 ```
 
-`ValhallaSupermassiveScenario` starts from an empty synthetic Cabinet home, downloads the pinned
-archive through `library install`, then for the VST2 and the VST3 in turn verifies the bridged
-editor and processes explicit stereo buffers through Carla's native rack with Mix fully wet, so
-only the plugin's own output can fill the tail. Input, output, parameters, captures and logs remain
-under `$CABINET_RUNTIME_ROOT/tmp/scenarios/valhalla-supermassive/artefacts/{editor,audio}/<format>/`.
-Tools and the prepared Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and
-plugin into the new home before it creates the prefix and bridge. Carla only observes the resulting
-bridge as a DAW. The render probe is a library that `audio-render.py` loads through `ctypes`, the way
+For each format, `ValhallaSupermassiveScenario` verifies the bridged editor and processes explicit
+stereo buffers through Carla's native rack with Mix fully wet, so only the plugin's own output can
+fill the tail. Input, output, parameters, captures and logs remain under
+`$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/{editor,audio}/<format>/`. Tools and the
+prepared Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and plugin into the
+new home before it creates the prefix and bridge. Carla only observes the resulting bridge as a DAW.
+The render probe is a library that `audio-render.py` loads through `ctypes`, the way
 the editor probes load Carla: linked into an executable, Carla's bundled asio takes the place of
 yabridge's own and the VST3 bridge crashes while it loads.
 

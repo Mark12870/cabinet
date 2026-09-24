@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 using Cabinet.Core;
 
@@ -326,26 +327,23 @@ public class CatalogueTests
     }
 
     [Fact]
-    public void EveryRuntimeScenarioBelongsToAShippedEntry()
+    public void EveryRuntimeScenarioNamesItsOwnShippedEntry()
     {
-        var entries = Shipped.ToDictionary(entry => entry.Id, StringComparer.Ordinal);
-        var scenarios = Directory.EnumerateFiles(
-            Repo.Path("data/library"), "*Scenario.cs", SearchOption.AllDirectories).ToList();
+        var claimed = Directory
+            .EnumerateFiles(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios"), "*Scenario.cs")
+            .Select(scenario => (
+                Scenario: Path.GetFileName(scenario),
+                Id: Regex.Match(File.ReadAllText(scenario), @"const string Id = ""([^""]+)"";").Groups[1].Value))
+            .ToList();
 
-        Assert.NotEmpty(scenarios);
-
-        foreach (var scenario in scenarios)
-        {
-            var id = Path.GetFileNameWithoutExtension(scenario)[..^"Scenario".Length];
-            id = string.Concat(id.Select((character, index) =>
-                index > 0 && char.IsUpper(character) ? $"-{char.ToLowerInvariant(character)}" :
-                char.ToLowerInvariant(character).ToString()));
-            Assert.True(entries.ContainsKey(id), $"{scenario} has no shipped catalogue entry named {id}");
-            Assert.Equal(
-                entries[id].Vendor,
-                new DirectoryInfo(scenario).Parent?.Parent?.Name);
-            Assert.Contains($"new(\"{id}\")", File.ReadAllText(scenario), StringComparison.Ordinal);
-        }
+        Assert.NotEmpty(claimed);
+        Assert.Empty(claimed
+            .Where(scenario => !Shipped.Any(entry => entry.Id == scenario.Id))
+            .Select(scenario => $"{scenario.Scenario} names '{scenario.Id}', which no shipped entry is"));
+        Assert.Empty(claimed
+            .GroupBy(scenario => scenario.Id, StringComparer.Ordinal)
+            .Where(same => same.Count() > 1)
+            .Select(same => $"{string.Join(" and ", same.Select(scenario => scenario.Scenario))} both claim {same.Key}"));
     }
 
     [Fact]

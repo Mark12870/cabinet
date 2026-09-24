@@ -15,7 +15,13 @@
 
   <ItemGroup>
     <None Include="Probes/**" CopyToOutputDirectory="PreserveNewest" />
-    <Compile Include="../../data/library/*/tests/**/*.cs" Link="Scenarios/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../Cabinet.Core.Tests/Repo.cs" Link="Repo.cs" />
+    <Compile Include="../Cabinet.Core.Tests/UnusedRunner.cs" Link="UnusedRunner.cs" />
+    <Compile Include="../Cabinet.Core.Tests/SessionFiles.cs" Link="SessionFiles.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Cabinet.Core/Cabinet.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
