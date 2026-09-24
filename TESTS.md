@@ -249,6 +249,11 @@ capture against the first. When none of those points lands on a control, the pro
 first parameters from the host and clicks and drags wherever the editor redraws each one. Five
 things are asserted per plugin.
 
+A plugin scenario also aims: it presses and drags where a parameter is drawn, then further left
+and right, until the host stops seeing that parameter move. What the control drew must lie inside
+that span (`MISS=0`). The editor-origin bug took every press as landing elsewhere; shifted by
+32 px, Chorus-LX misses by 19 px and Supermassive by 4, where a correct editor misses by none.
+
 - **It draws.** The capture must hold more than a handful of distinct colours. One flat colour is
   the blank frame a DAW shows when the plugin renders somewhere else, and nothing in a log says
   so.

@@ -119,7 +119,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
             result.Said,
             @"EDITOR=(\S+) SIZE=(\S+) COLOURS=(\d+) REACTION=([0-9.]+) NOISE=([0-9.]+) "
             + @"IDLE_MS=(\d+) OPEN_MS=(\d+) CLOSE_MS=(\d+) REMOVE_MS=(\d+) SHUTDOWN_MS=(\d+) "
-            + @"BLIND=(\d+) CLOSED=(yes|no) REOPEN=(yes|no)");
+            + @"BLIND=(\d+) CLOSED=(yes|no) REOPEN=(yes|no) AIM=(\S+) MISS=(\d+)");
         Assert.True(found.Success, result.Said);
 
         var colours = int.Parse(found.Groups[3].Value, CultureInfo.InvariantCulture);
@@ -129,6 +129,8 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         Assert.True(reaction >= 0.0005 && reaction > noise, $"the editor did not react: {result.Said}");
         Assert.Equal("0", found.Groups[11].Value);
         Assert.Equal("yes", found.Groups[13].Value);
+        Assert.True(found.Groups[14].Value != "none", $"no control moved under the pointer: {result.Said}");
+        Assert.True(found.Groups[15].Value == "0", $"the pointer landed away from what it aimed at: {result.Said}");
         Assert.DoesNotContain("crashed while being torn down", result.Said, StringComparison.Ordinal);
     }
 

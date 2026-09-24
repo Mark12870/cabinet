@@ -6,6 +6,10 @@ yabridge trace is needed. The window is captured, the pointer is swept over a gr
 inside it, and four of those points are clicked and dragged. When none of them answers, the first
 parameters are moved from the host one at a time, and wherever the editor redraws one is clicked
 and dragged in turn, so an editor whose controls fall between the grid points is still reached.
+The same located controls are then aimed at: the pointer is pressed and dragged where a parameter
+is drawn, then at points further left and right, until the host stops seeing that parameter move.
+What the control drew must lie inside that span. An editor given the wrong origin takes every
+press as if it landed elsewhere, and the span it answers over shifts away from its drawing.
 Every capture is compared against the first, and against one taken with the pointer held still:
 a plugin that animates on its own must not pass for one that answers the pointer.
 
@@ -61,6 +65,9 @@ INSET = 0.15
 SPREAD = (0.25, 0.5, 0.75)
 LIMIT = 10
 LOCATE = 8
+SWING = (-10, -20, -30, -10, 10, 20, 30)
+STRIDE = 6
+REACH = 120
 BLOBS = 4
 SPECK = 50
 FUZZ = "2%"
@@ -245,9 +252,12 @@ def regions(before, after, still, again):
         "-define", "connected-components:verbose=true",
         "-define", f"connected-components:area-threshold={SPECK}",
         "-connected-components", "8", "null:"]).stdout
-    found = re.findall(r"\d+x\d+\+\d+\+\d+ ([0-9.]+),([0-9.]+) (\d+) gray\(255\)", said)
-    ranked = sorted(((int(size), float(x), float(y)) for x, y, size in found), reverse=True)
-    return [(round(x), round(y)) for _, x, y in ranked[:BLOBS]]
+    found = re.findall(r"(\d+)x\d+\+(\d+)\+\d+ ([0-9.]+),([0-9.]+) (\d+) gray\(255\)", said)
+    ranked = sorted(
+        ((int(size), round(float(x)), round(float(y)), int(start), int(start) + int(wide) - 1)
+         for wide, start, x, y, size in found),
+        reverse=True)
+    return [blob[1:] for blob in ranked[:BLOBS]]
 
 
 def controls(host):
@@ -281,8 +291,8 @@ def located(window, loop):
         found = regions(restored, moved, restored, still) if moved and restored and still else []
         note(f"parameter {index} drew {found}")
 
-        for blob, (x, y) in enumerate(found):
-            yield (left + x, top + y, f"parameter-{index}-{blob}", still)
+        for blob, (x, y, start, end) in enumerate(found):
+            yield (left + x, top + y, f"parameter-{index}-{blob}", still, index, left + start, left + end)
 
 
 def sweep(window, before, loop, noise):
@@ -319,7 +329,7 @@ def sweep(window, before, loop, noise):
         (left + int(width * across), top + int(height * 0.5), f"spread-{index}", None)
         for index, across in enumerate(SPREAD)]
 
-    for x, y, name, rested in itertools.chain(targets, located(window, loop)):
+    for x, y, name, rested, *_ in itertools.chain(targets, located(window, loop)):
         before = rested or before
         settle()
         note(f"click {name} at {x},{y}")
@@ -352,6 +362,59 @@ def sweep(window, before, loop, noise):
             return reaction
 
     return reaction
+
+
+def moved(host, index, original):
+    return abs(host.get_current_parameter_value(0, index) - original) > 1e-6
+
+
+def pressed(loop, index, x, y):
+    host = loop.host
+    original = host.get_current_parameter_value(0, index)
+    settle()
+    run(["xdotool", "mousemove", str(x), str(y), "mousedown", "1"])
+    loop.turn(4)
+    hit = False
+
+    for swing in SWING:
+        run(["xdotool", "mousemove", str(x), str(y + swing)])
+        loop.turn(3)
+        hit = hit or moved(host, index, original)
+
+    run(["xdotool", "mouseup", "1"])
+    loop.turn(4)
+    hit = hit or moved(host, index, original)
+    host.set_parameter_value(0, index, original)
+    loop.turn(6)
+    return hit
+
+
+def edge(loop, index, x, y, direction):
+    reached = 0
+
+    while reached < REACH and not loop.closed and pressed(loop, index, x + direction * (reached + STRIDE), y):
+        reached += STRIDE
+
+    return reached
+
+
+def aim(window, loop):
+    for x, y, name, _, index, start, end in located(window, loop):
+        note(f"aim {name} at {x},{y}, drawn from {start} to {end}")
+
+        if loop.closed:
+            break
+
+        if not pressed(loop, index, x, y):
+            continue
+
+        first = x - edge(loop, index, x, y, -1) - STRIDE
+        last = x + edge(loop, index, x, y, 1) + STRIDE
+        miss = max(0, first - start, end - last)
+        note(f"aim {name} moved parameter {index} from {first} to {last}, missing {miss}")
+        return name, miss
+
+    return "none", 0
 
 
 def main():
@@ -412,6 +475,8 @@ def main():
         note("sweeping")
         reaction = sweep(window, again or resting or baseline, loop, noise)
         note(f"reaction {reaction:.6f}")
+        aimed, miss = aim(window, loop)
+        note(f"aimed {aimed} missing {miss}")
 
         # The same measurement with nothing touching it: an editor that changes on its own does it
         # here too, and then it is not the pointer's doing.
@@ -452,7 +517,7 @@ def main():
         f"OPEN_MS={opening * 1000:.0f} CLOSE_MS={closing * 1000:.0f} "
         f"REMOVE_MS={removing * 1000:.0f} SHUTDOWN_MS={shutdown * 1000:.0f} "
         f"BLIND={loop.blind} CLOSED={'yes' if loop.closed else 'no'} "
-        f"REOPEN={'yes' if again else 'no'}")
+        f"REOPEN={'yes' if again else 'no'} AIM={aimed} MISS={miss}")
 
     with open(os.path.join(SHOTS, "result.txt"), "w") as handle:
         handle.write(summary + "\n")
