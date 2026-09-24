@@ -25,6 +25,7 @@ public sealed class ValhallaSupermassiveScenario(ValhallaSupermassiveScenario.In
         var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
         installed.Harness.VerifyEditor(bridge);
+        installed.Harness.VerifyOrigin(bridge);
         var audio = await installed.Harness.Render(bridge, Mix, installed.Display);
 
         Assert.True(audio.Parameters > 0, $"{installed.Entry.Name} exposed no parameters");

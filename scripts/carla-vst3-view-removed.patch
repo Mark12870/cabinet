@@ -1,0 +1,11 @@
+--- a/source/backend/plugin/CarlaPluginVST3.cpp
++++ b/source/backend/plugin/CarlaPluginVST3.cpp
+@@ -1683,6 +1683,8 @@
+                 if (v3_cpp_obj(fV3.view)->attached(fV3.view, fUI.window->getPtr(),
+                                                    V3_VIEW_PLATFORM_TYPE_NATIVE) == V3_OK)
+                 {
++                    fUI.isAttached = true;
++
+                     v3_view_rect rect = {};
+                     if (v3_cpp_obj(fV3.view)->get_size(fV3.view, &rect) == V3_OK)
+                     {

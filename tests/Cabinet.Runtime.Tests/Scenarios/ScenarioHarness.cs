@@ -13,6 +13,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
     {
         ["VST3"] = (".vst3", "vst3"),
         ["VST2"] = (".vst", "vst2"),
+        ["LV2"] = (".lv2", "lv2"),
     };
     private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", id);
     private readonly string socket = RuntimeTestEnvironment.SocketDirectory;
@@ -59,14 +60,13 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         Assert.Contains($"Downloading {download}", result.Said, StringComparison.Ordinal);
     }
 
-    public Bridge Plugin(string format, string file) => new(
-        Path.Combine(ScanDir(Formats[format].Extension), file),
-        Formats[format].Carla);
+    public Bridge Plugin(string format, string file) => format == "LV2"
+        ? new(file, Formats[format].Carla)
+        : new(Installed(Path.Combine(ScanDir(Formats[format].Extension), file)), Formats[format].Carla);
 
     public async Task<AudioMeasurement> Render(Bridge bridge, string mix, Display display)
     {
         var (plugin, format) = bridge;
-        Require(plugin, "bridged plugin");
         var library = await (audioProbe ??= CompileAudioProbe());
         var binaries = Path.Combine(EditorProbe.CarlaPrefix(), "lib", "carla");
         var audio = Path.Combine(Artefacts, "audio", format);
@@ -119,7 +119,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
             result.Said,
             @"EDITOR=(\S+) SIZE=(\S+) COLOURS=(\d+) REACTION=([0-9.]+) NOISE=([0-9.]+) "
             + @"IDLE_MS=(\d+) OPEN_MS=(\d+) CLOSE_MS=(\d+) REMOVE_MS=(\d+) SHUTDOWN_MS=(\d+) "
-            + @"BLIND=(\d+) CLOSED=(yes|no) REOPEN=(yes|no) AIM=(\S+) MISS=(\d+)");
+            + @"BLIND=(\d+) CLOSED=(yes|no) REOPEN=(yes|no) AIM=(\S+)");
         Assert.True(found.Success, result.Said);
 
         var colours = int.Parse(found.Groups[3].Value, CultureInfo.InvariantCulture);
@@ -130,8 +130,24 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         Assert.Equal("0", found.Groups[11].Value);
         Assert.Equal("yes", found.Groups[13].Value);
         Assert.True(found.Groups[14].Value != "none", $"no control moved under the pointer: {result.Said}");
-        Assert.True(found.Groups[15].Value == "0", $"the pointer landed away from what it aimed at: {result.Said}");
         Assert.DoesNotContain("crashed while being torn down", result.Said, StringComparison.Ordinal);
+    }
+
+    public void VerifyOrigin(Bridge bridge)
+    {
+        var (plugin, format) = bridge;
+        var shots = Path.Combine(Artefacts, "origin", format);
+        Directory.CreateDirectory(shots);
+        var result = EditorProbe.RunIn(
+            Home, socket, Path.Combine(shots, "yabridge.log"), "editor-geometry.py", plugin, format);
+        File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
+
+        var found = Regex.Match(result.Said, @"WINE=\((-?\d+), (-?\d+)\) TOLD=\((-?\d+), (-?\d+)\)");
+        Assert.True(found.Success, $"the editor probe did not report a geometry: {result.Said}");
+        Assert.True(
+            found.Groups[1].Value == found.Groups[3].Value && found.Groups[2].Value == found.Groups[4].Value,
+            $"Wine places the editor at ({found.Groups[1]}, {found.Groups[2]}) but has been told it is at "
+            + $"({found.Groups[3]}, {found.Groups[4]}), so every click lands that far from the pointer");
     }
 
     public void Dispose()
@@ -237,11 +253,17 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
     private static string InstalledApp =>
         Path.Combine(RuntimeTestEnvironment.FlatpakUserDirectory, "app", Host.App);
 
+    private static string Installed(string path)
+    {
+        Require(path, "installed plugin");
+        return path;
+    }
+
     private static void Require(string path, string description)
     {
         if (!File.Exists(path) && !Directory.Exists(path))
         {
-            throw new FileNotFoundException($"{description} is missing", path);
+            throw new FileNotFoundException($"{description} is missing: {path}", path);
         }
     }
 

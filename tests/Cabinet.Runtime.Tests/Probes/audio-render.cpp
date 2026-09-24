@@ -266,9 +266,11 @@ int render(const char* plugin_path,
            const char* artefact_dir,
            const char* binaries_dir)
 {
-    const CarlaBackend::PluginType plugin_type = std::string(format) == "vst2"
-        ? CarlaBackend::PLUGIN_VST2
-        : std::string(format) == "vst3" ? CarlaBackend::PLUGIN_VST3 : CarlaBackend::PLUGIN_NONE;
+    const std::string requested(format);
+    const CarlaBackend::PluginType plugin_type = requested == "vst2" ? CarlaBackend::PLUGIN_VST2
+        : requested == "vst3"                                     ? CarlaBackend::PLUGIN_VST3
+        : requested == "lv2"                                      ? CarlaBackend::PLUGIN_LV2
+                                                                  : CarlaBackend::PLUGIN_NONE;
     if (plugin_type == CarlaBackend::PLUGIN_NONE)
         return error("setup", "unsupported plugin format");
 
@@ -278,7 +280,8 @@ int render(const char* plugin_path,
     const std::filesystem::path artefacts(artefact_dir);
     std::filesystem::create_directories(artefacts, filesystem_error);
     if (filesystem_error || !std::filesystem::is_directory(artefacts)
-        || !std::filesystem::exists(plugin) || !std::filesystem::is_directory(binaries))
+        || (plugin_type != CarlaBackend::PLUGIN_LV2 && !std::filesystem::exists(plugin))
+        || !std::filesystem::is_directory(binaries))
         return error("setup", "invalid plugin, artefact, or Carla binaries path");
 
     HostState state;
@@ -316,8 +319,10 @@ int render(const char* plugin_path,
 
     carla_set_engine_option(host.handle, CarlaBackend::ENGINE_OPTION_PATH_BINARIES, 0, binaries.c_str());
     reached("add_plugin enter");
-    const bool added = carla_add_plugin(host.handle, CarlaBackend::BINARY_POSIX64, plugin_type, plugin_path,
-                                        "audio-render", nullptr, 0, nullptr, 0);
+    const bool by_uri = plugin_type == CarlaBackend::PLUGIN_LV2;
+    const bool added = carla_add_plugin(host.handle, CarlaBackend::BINARY_POSIX64, plugin_type,
+                                        by_uri ? "" : plugin_path, "audio-render", by_uri ? plugin_path : nullptr,
+                                        0, nullptr, 0);
     reached("add_plugin leave");
     if (!added)
         return error("load", carla_get_last_error(host.handle));
