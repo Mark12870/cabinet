@@ -62,7 +62,7 @@ internal sealed class ScenarioHarness(string id) : IDisposable
         Path.Combine(Home, Formats[format].Extension, "cabinet", "windows", file),
         Formats[format].Carla);
 
-    public async Task<AudioMeasurement> Render(Bridge bridge, Display display)
+    public async Task<AudioMeasurement> Render(Bridge bridge, string mix, Display display)
     {
         var (plugin, format) = bridge;
         Require(plugin, "bridged plugin");
@@ -75,7 +75,7 @@ internal sealed class ScenarioHarness(string id) : IDisposable
         var launcher = Path.Combine(AppContext.BaseDirectory, "Probes", "audio-render.py");
         var result = await Run(
             "python3",
-            [launcher, library, plugin, format, audio, binaries],
+            [launcher, library, plugin, format, mix, audio, binaries],
             display,
             ProbePatience,
             info =>

@@ -122,18 +122,6 @@ void reached(const char* phase)
     std::fflush(stderr);
 }
 
-std::string lower_ascii(const char* text)
-{
-    std::string result;
-    if (text == nullptr)
-        return result;
-
-    for (const unsigned char character : std::string(text))
-        result.push_back(character >= 'A' && character <= 'Z' ? static_cast<char>(character + 'a' - 'A')
-                                                               : static_cast<char>(character));
-    return result;
-}
-
 std::string one_line(const char* text)
 {
     std::string result = text == nullptr ? "" : text;
@@ -196,6 +184,7 @@ bool write_wav(const std::filesystem::path& path,
 bool write_parameters(const std::filesystem::path& path,
                       CarlaHostHandle host,
                       uint32_t plugin,
+                      const std::string& mix,
                       uint32_t& count,
                       bool& mix_changed)
 {
@@ -218,7 +207,7 @@ bool write_parameters(const std::filesystem::path& path,
         const ParameterData* data = carla_get_parameter_data(host, plugin, index);
         if (data != nullptr && data->type == CarlaBackend::PARAMETER_INPUT
             && (data->hints & CarlaBackend::PARAMETER_IS_READ_ONLY) == 0
-            && lower_ascii(parameters.back().name.c_str()) == "mix"
+            && parameters.back().name == mix
             && parameters.back().ranges.min <= parameters.back().ranges.max)
         {
             const float wanted = parameters.back().ranges.max;
@@ -271,7 +260,11 @@ double rms(const std::vector<float>& left, const std::vector<float>& right, uint
     return std::sqrt(static_cast<double>(sum / (2.0L * (end - begin))));
 }
 
-int render(const char* plugin_path, const char* format, const char* artefact_dir, const char* binaries_dir)
+int render(const char* plugin_path,
+           const char* format,
+           const char* mix,
+           const char* artefact_dir,
+           const char* binaries_dir)
 {
     const CarlaBackend::PluginType plugin_type = std::string(format) == "vst2"
         ? CarlaBackend::PLUGIN_VST2
@@ -336,7 +329,7 @@ int render(const char* plugin_path, const char* format, const char* artefact_dir
     uint32_t parameter_count = 0;
     bool mix_changed = false;
     reached("parameters enter");
-    if (!write_parameters(artefacts / "parameters.txt", host.handle, 0, parameter_count, mix_changed))
+    if (!write_parameters(artefacts / "parameters.txt", host.handle, 0, mix, parameter_count, mix_changed))
         return error("setup", "could not report finite plugin parameters");
     reached("parameters leave");
 
@@ -435,11 +428,12 @@ int render(const char* plugin_path, const char* format, const char* artefact_dir
 
 }
 
-extern "C" int audio_render(const char* plugin, const char* format, const char* artefacts, const char* binaries)
+extern "C" int audio_render(
+    const char* plugin, const char* format, const char* mix, const char* artefacts, const char* binaries)
 {
     try
     {
-        return render(plugin, format, artefacts, binaries);
+        return render(plugin, format, mix, artefacts, binaries);
     }
     catch (...)
     {
