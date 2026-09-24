@@ -176,7 +176,10 @@ and a format the entry gains fails until the scenario says which bridged file it
 `CatalogueTests` checks that every scenario names a shipped entry and that no two name the same one.
 `scripts/scenario-coverage.sh` warns about every shipped entry that has no scenario yet, as an
 annotation on the entry's `.yml` and a list in the CI `checks` job summary; a scenario naming the
-entry clears it.
+entry clears it. The `Plugins` workflow runs every scenario daily against a Cabinet built from
+main, through the same `build.yml` and `runtime.yml` that CI calls, and
+`scripts/scenario-report.py` puts one row per entry and format on the run page, with a failing
+format annotated on its entry's `.yml`.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
 owns its expectations. Run one with:
 

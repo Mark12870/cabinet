@@ -1,0 +1,302 @@
+name: Runtime
+
+# Called by ci.yml after a push, and by plugins.yml for the daily plugin run with a filter that
+# keeps only the plugin scenarios.
+on:
+  workflow_call:
+    inputs:
+      rebuild_fixtures:
+        type: boolean
+        default: false
+      filter:
+        description: The runtime suite's test filter; empty runs all of it
+        type: string
+        default: ''
+
+jobs:
+  # TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
+  # which nothing in checks.sh can do. It starts beside the build rather than after it, because
+  # the only thing it wants from the build is an artifact it does not touch until it installs
+  # Cabinet. The fixtures come in two halves -- a public image of what may be republished, the
+  # repository's own cache for what may not -- and scripts/runtime-ci.sh drives every step inside
+  # the container.
+  runtime:
+    runs-on: ubuntu-latest
+    # A run with nothing to reuse installs everything itself, vendor installers and all.
+    timeout-minutes: 350
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    env:
+      # The plain image, not fedora-toolbox: the toolbox one is 2.1 GB before a single package,
+      # and `prepare` names everything the suite needs anyway.
+      BASE: registry.fedoraproject.org/fedora:44
+      CONTAINER: cabinet-runtime
+    steps:
+      - uses: actions/checkout@v7
+
+      # A registry name has to be lowercase and GitHub has no expression for that, so the shell
+      # does it, the same way the publish job builds the Pages url.
+      - name: Name the fixture image
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          echo "IMAGE=ghcr.io/${owner,,}/cabinet-runtime:latest" >> "$GITHUB_ENV"
+
+      # Started here and waited for below: the artifact, the untar and the cache restore are a
+      # couple of minutes that the image can spend downloading instead of waiting its turn.
+      - name: Start pulling the fixture image
+        id: pull
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+          if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
+            echo '::notice::rebuilding the fixtures from scratch'
+            exit 0
+          fi
+
+          ( docker pull "${IMAGE}" > pull.log 2>&1; echo "$?" > pull.status ) &
+          echo "$!" > pull.pid
+
+      # Two minutes of deleting the runner's preinstalled toolchains, which nothing here needs.
+      # Backgrounded like the pull, so the two happen at once and the container start waits for
+      # whichever finishes last.
+      - name: Make room for the image
+        run: |
+          ( sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
+              /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache ) >/dev/null 2>&1 &
+          echo "$!" > room.pid
+
+      # The month is in the key and there is no fallback key on purpose: the vendors' fixtures are
+      # reinstalled at the turn of each month, which is what starts FabFilter's 30-day trial over,
+      # and a catalogue change installs against the entries it changed rather than around them.
+      - name: Work out the fixture key
+        id: fixtures
+        run: |
+          hash='${{ hashFiles('data/library/**', 'scripts/setup-runtime-tests.sh') }}'
+          echo "key=runtime-fixtures-$(date -u +%Y%m)-${hash}" >> "$GITHUB_OUTPUT"
+
+      # The vendors' half of the fixtures. It may not be published, so it lives here rather than
+      # in the image: a cache is readable only by this repository's own workflows.
+      - uses: actions/cache/restore@v4
+        id: cached
+        if: ${{ !inputs.rebuild_fixtures }}
+        with:
+          path: fixtures.tar
+          key: ${{ steps.fixtures.outputs.key }}
+
+      # Nothing published at the tag yet, or a rebuild was asked for: start from the base image
+      # and let the setup make everything. That is how the tag is seeded, how it returns if it is
+      # deleted, and how the layers a run adds are squashed back to one.
+      - name: Take the fixture image
+        id: image
+        run: |
+          if [ ! -f pull.pid ]; then
+            echo "from=${BASE}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          tail --pid="$(cat pull.pid)" -f /dev/null
+          cat pull.log
+
+          if [ "$(cat pull.status)" = 0 ]; then
+            echo "from=${IMAGE}" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::${IMAGE} is not published yet; this run installs the fixtures itself"
+            echo "from=${BASE}" >> "$GITHUB_OUTPUT"
+          fi
+
+      # bwrap needs its own namespaces for every flatpak run inside, and flatpak install of an
+      # extra-data ref needs the fuse device.
+      - name: Start the container
+        run: |
+          tail --pid="$(cat room.pid)" -f /dev/null
+          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
+          docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
+            --volume "${PWD}:/src" "${{ steps.image.outputs.from }}" sleep infinity
+
+      - name: Install the tools
+        if: steps.image.outputs.from == env.BASE
+        run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
+
+      # The drag-and-drop probes ask whether a yabridge patch can go, not whether this commit
+      # works, and their prefixes and runners are five gigabytes. They run when the fixtures are
+      # being made -- a rebuild, or the month turning over -- never in a filtered run, and `clean`
+      # keeps them out of the image either way.
+      - name: Decide whether the probes run
+        id: probes
+        env:
+          FILTER: ${{ inputs.filter }}
+        run: |
+          if [ -z "${FILTER}" ] &&
+             { [ '${{ inputs.rebuild_fixtures }}' = true ] ||
+               [ '${{ steps.cached.outputs.cache-hit }}' != true ]; }; then
+            echo 'value=1' >> "$GITHUB_OUTPUT"
+          else
+            echo 'value=0' >> "$GITHUB_OUTPUT"
+          fi
+
+      # The one thing here that the build gates. Everything above it -- the pull, the disk, the
+      # cache, the container -- needs nothing from the build, so this job no longer waits on it
+      # to start; it waits here, where the artifact is actually wanted.
+      - name: Wait for the built Cabinet
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          run="${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          ask() { curl -sS -H "Authorization: Bearer ${TOKEN}" "$1"; }
+
+          for _ in $(seq 1 120); do
+            if ask "${run}/artifacts?name=repo" |
+                 python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["total_count"] else 1)'
+            then
+              exit 0
+            fi
+
+            reading='[j["conclusion"] or "running" for j in json.load(sys.stdin)["jobs"]'
+            reading="${reading}"' if j["name"] == "build / build"]'
+            verdict="$(ask "${run}/jobs" |
+              python3 -c "import json,sys; print((${reading} or ['missing'])[0])")"
+
+            case "${verdict}" in
+              running|success) ;;
+              *) echo "::error::the build job ${verdict}; there is no artifact to test"; exit 1 ;;
+            esac
+
+            sleep 10
+          done
+
+          echo '::error::the built Cabinet never arrived'
+          exit 1
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: repo
+
+      # The tar is dropped because the container takes a copy of this directory.
+      - name: Unpack the built repo
+        run: |
+          tar -xf repo.tar
+          rm repo.tar
+          # The container reads this directly as an unprivileged user, and ostree locks a repo it
+          # reads, so it has to be writable to someone other than the runner.
+          chmod -R a+rwX repo
+
+      - name: Put the built Cabinet and the cached fixtures in place
+        id: setup
+        env:
+          PROBES: ${{ steps.probes.outputs.value }}
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
+          if [ -f fixtures.tar ]; then
+            docker cp fixtures.tar "${CONTAINER}:/tmp/fixtures.tar"
+            docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restore /tmp/fixtures.tar
+          fi
+          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" \
+            "${CONTAINER}" /src/scripts/runtime-ci.sh setup
+
+      - name: Runtime tests
+        env:
+          PROBES: ${{ steps.probes.outputs.value }}
+          FILTER: ${{ inputs.filter }}
+        run: |
+          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_FILTER="${FILTER}" \
+            "${CONTAINER}" /src/scripts/runtime-ci.sh test
+
+      - name: Collect the captures and the logs
+        if: always()
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh collect /tmp/runtime
+          docker cp "${CONTAINER}:/tmp/runtime" runtime
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: runtime
+          path: runtime
+          retention-days: 7
+
+      # What the probes measured belongs on the run page. A failure here is a number, and reading
+      # it should not need an artifact download and a token.
+      - name: Report what the editors measured
+        if: always()
+        run: |
+          {
+            echo '### Editors'
+            echo
+            echo '```'
+            for result in runtime/interaction/*/result.txt; do
+              [ -f "${result}" ] || continue
+              printf '%s\n' "$(basename "$(dirname "${result}")")"
+              sed 's/^/  /' "${result}"
+            done
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+          {
+            echo '### Plugin scenarios'
+            echo
+            echo '```'
+            for result in runtime/scenarios/*/artefacts/audio/*/render.log; do
+              [ -f "${result}" ] || continue
+              format=$(dirname "${result}")
+              printf '%s %s\n' "$(basename "$(dirname "$(dirname "$(dirname "${format}")")")")" "$(basename "${format}")"
+              grep 'AUDIO_RENDER=' "${result}" | sed 's/^/  /'
+            done
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Report each plugin scenario against its entry
+        if: always()
+        run: scripts/scenario-report.py runtime/TestResults/runtime.trx
+
+      # Kept on the setup, not on the tests. A plugin that fails the first time its editor opens --
+      # Decent Sampler does, with no config of its own yet -- would otherwise keep the fixtures
+      # from ever being kept, and every push would reinstall them and fail again.
+      - name: Pack the private fixtures
+        if: >-
+          !cancelled() && steps.setup.outcome == 'success'
+          && steps.cached.outputs.cache-hit != 'true'
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh save /tmp/fixtures.tar
+          docker cp "${CONTAINER}:/tmp/fixtures.tar" fixtures.tar
+
+      - uses: actions/cache/save@v4
+        if: >-
+          !cancelled() && steps.setup.outcome == 'success'
+          && steps.cached.outputs.cache-hit != 'true'
+        with:
+          path: fixtures.tar
+          key: ${{ steps.fixtures.outputs.key }}
+
+      # Only when this run made fixtures: otherwise the image it pulled is already what the next
+      # push wants, and pushing it back costs minutes and a layer for nothing. `clean` runs first,
+      # and it is what keeps a vendor's binaries out of the layer.
+      - name: Keep the free fixtures
+        if: >-
+          !cancelled() && steps.setup.outcome == 'success'
+          && (github.event_name == 'push' || inputs.rebuild_fixtures)
+          && (steps.image.outputs.from == env.BASE
+          || steps.cached.outputs.cache-hit != 'true')
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
+          docker commit "${CONTAINER}" "${IMAGE}"
+
+          # Pushed as zstd rather than the gzip `docker push` writes: every run pulls this image,
+          # and two cores spend as long decompressing it as downloading it. A tag that cannot be
+          # pulled is not a trap either -- `Take the fixture image` falls back to the base and the
+          # run rebuilds the tag.
+          command -v skopeo >/dev/null || {
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
+            sudo apt-get install -y --no-install-recommends skopeo
+          }
+
+          sudo skopeo copy --dest-compress-format zstd \
+            --dest-creds "${ACTOR}:${TOKEN}" \
+            "docker-daemon:${IMAGE}" "docker://${IMAGE}"

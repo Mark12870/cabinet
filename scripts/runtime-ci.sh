@@ -22,6 +22,8 @@
 #
 # CABINET_RUNTIME_PROBES=0 leaves the drag-and-drop probes out, fixtures and cases both: they say
 # when a yabridge patch can go, which is a question for a refresh rather than for every push.
+# CABINET_RUNTIME_FILTER, when set, is the dotnet test filter instead; the daily plugin run keeps
+# only the plugin scenarios with it.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
 # stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user with
@@ -68,6 +70,7 @@ as_owner() {
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$SOURCE/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
         CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-1}" \
+        CABINET_RUNTIME_FILTER="${CABINET_RUNTIME_FILTER:-}" \
         bash "$0" "$@"
 }
 
@@ -207,7 +210,9 @@ run_test() {
 
     local -a scope=()
 
-    if [ "${CABINET_RUNTIME_PROBES:-1}" != 1 ]; then
+    if [ -n "${CABINET_RUNTIME_FILTER:-}" ]; then
+        scope=(--filter "$CABINET_RUNTIME_FILTER")
+    elif [ "${CABINET_RUNTIME_PROBES:-1}" != 1 ]; then
         scope=(--filter 'FullyQualifiedName!~DragAndDropTests')
     fi
 

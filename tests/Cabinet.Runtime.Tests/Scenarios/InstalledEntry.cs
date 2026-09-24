@@ -1,7 +1,7 @@
 using Cabinet.Core;
 using Cabinet.Core.Tests;
 
-namespace Cabinet.Runtime.Tests;
+namespace Cabinet.Runtime.Tests.Scenarios;
 
 public abstract class InstalledEntry(string id) : IAsyncLifetime
 {

@@ -13,7 +13,7 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    `InstalledEntry`:
 
    ```csharp
-   namespace Cabinet.Runtime.Tests;
+   namespace Cabinet.Runtime.Tests.Scenarios;
 
    public sealed class ValhallaSupermassiveScenario(ValhallaSupermassiveScenario.Installed installed)
        : IClassFixture<ValhallaSupermassiveScenario.Installed>

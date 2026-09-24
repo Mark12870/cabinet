@@ -151,13 +151,21 @@ flatpak run io.github.mark12870.cabinet library remove <id>
 
 Removal must take its own links and its `Data:` directory and leave every other one alone.
 
-**8. Hand it over for the editor check.** **Load the plugin in a DAW and open its editor** — an
+**8. Write its end-to-end scenario.** Every entry gets one. Load the `plugin-scenario` skill and
+add `tests/Cabinet.Runtime.Tests/Scenarios/<Entry>Scenario.cs`, naming the entry by its id and
+the bridged file each format in `Formats:` leaves. It runs in the isolated runtime, never against
+your own Cabinet data. Until it exists, `scripts/scenario-coverage.sh` lists the entry and every CI
+run warns about it. Where the scenario cannot drive the entry yet — an instrument needs MIDI the
+audio probe does not send, a manager or a bring-your-own entry needs files nobody supplies — say
+so in the commit message and leave the warning standing.
+
+**9. Hand it over for the editor check.** **Load the plugin in a DAW and open its editor** — an
 entry that installs cleanly and whose editor cannot be clicked is a broken entry, and this is
 the only step that catches it. It is what the `Runner` and `Dxvk` choices in step 5 are for, and
 neither is verifiable any other way. This step belongs to whoever is adding the entry;
 verification from here stops at what the disk shows.
 
-**9. Install it.** Install the updated flatpak locally.
+**10. Install it.** Install the updated flatpak locally.
 
 ## For these cases
 

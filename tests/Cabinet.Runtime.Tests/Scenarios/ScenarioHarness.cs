@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace Cabinet.Runtime.Tests;
+namespace Cabinet.Runtime.Tests.Scenarios;
 
 internal sealed class ScenarioHarness(string id) : IDisposable
 {

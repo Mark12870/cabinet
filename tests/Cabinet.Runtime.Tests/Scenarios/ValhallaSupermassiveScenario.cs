@@ -1,4 +1,4 @@
-namespace Cabinet.Runtime.Tests;
+namespace Cabinet.Runtime.Tests.Scenarios;
 
 public sealed class ValhallaSupermassiveScenario(ValhallaSupermassiveScenario.Installed installed)
     : IClassFixture<ValhallaSupermassiveScenario.Installed>
