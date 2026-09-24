@@ -41,7 +41,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-      packages: write
+      packages: read
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/runtime

@@ -11,6 +11,7 @@ DAW_REF=fm.reaper.Reaper/x86_64/stable/34f34782be7d44a660a05de78ff29176ba36dad65
 REPOSITORY=$(git rev-parse --show-toplevel)
 BACKEND=${CABINET_RUNTIME_BACKEND:-toolbox}
 PROBES=${CABINET_RUNTIME_PROBES:-1}
+ENTRIES=${CABINET_RUNTIME_ENTRIES:-1}
 ROOT=${CABINET_RUNTIME_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/cabinet-rt}
 BOX=${CABINET_RUNTIME_TOOLBOX:-cabinet-runtime}
 IMAGE=${CABINET_RUNTIME_TOOLBOX_IMAGE:-registry.fedoraproject.org/fedora-toolbox:44}
@@ -73,6 +74,7 @@ mkdir -p "$ROOT"
     CABINET_RUNTIME_ROOT="$ROOT" \
     CABINET_RUNTIME_BACKEND="$BACKEND" \
     CABINET_RUNTIME_PROBES="$PROBES" \
+    CABINET_RUNTIME_ENTRIES="$ENTRIES" \
     CABINET_RUNTIME_TOOLBOX="$BOX" \
     bash -s -- "$ROOT" "$HOST_FLATPAK_REPO" "$CABINET_REF" "$DAW_REF" "$APP" "$COMMIT" <<'EOF'
 set -euo pipefail
@@ -110,14 +112,9 @@ flatpak remote-add --user --no-gpg-verify cabinet-local "file://$host_flatpak_re
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak config --user --set languages en
 flatpak install --user --noninteractive --or-update cabinet-local "$cabinet_ref"
-flatpak install --user --noninteractive --or-update flathub "$daw_ref"
 
 flatpak info --user "$app" >/dev/null 2>&1 || {
     printf 'setup-runtime-tests: %s is not installed\n' "$app" >&2
-    exit 1
-}
-flatpak info --user "$daw_ref" >/dev/null 2>&1 || {
-    printf 'setup-runtime-tests: %s is not installed\n' "$daw_ref" >&2
     exit 1
 }
 
@@ -150,20 +147,32 @@ fi
 rm -f "$yabridge"
 ln -s "$cabinet_files/lib/yabridge" "$yabridge"
 
-daw=${daw_ref%%/*}
 mkdir -p "$data/native" "$data/prefixes"
-cabinet enrol "$daw" >/dev/null
-flatpak override --user --reset "$daw"
-flatpak override --user "$daw" \
-    --device=shm \
-    --filesystem=xdg-run/yabridge:create \
-    --filesystem="$cabinet_files":ro \
-    --filesystem="$data/prefixes":ro \
-    --filesystem="$data/native":ro \
-    --talk-name=org.freedesktop.Flatpak \
-    --env=WINELOADER="$cabinet_files/lib/yabridge/cabinet-wine" \
-    --env=YABRIDGE_TEMP_DIR="$runtime/yabridge" \
-    --env=YABRIDGE_NO_WATCHDOG=1
+
+# The DAW and the entries below are what the general suite loads. A plugin scenario installs its
+# own entry into a home of its own and plays it through Carla, so CABINET_RUNTIME_ENTRIES=0
+# leaves all of them out.
+if [ "${CABINET_RUNTIME_ENTRIES:-1}" = 1 ]; then
+    flatpak install --user --noninteractive --or-update flathub "$daw_ref"
+    flatpak info --user "$daw_ref" >/dev/null 2>&1 || {
+        printf 'setup-runtime-tests: %s is not installed\n' "$daw_ref" >&2
+        exit 1
+    }
+
+    daw=${daw_ref%%/*}
+    cabinet enrol "$daw" >/dev/null
+    flatpak override --user --reset "$daw"
+    flatpak override --user "$daw" \
+        --device=shm \
+        --filesystem=xdg-run/yabridge:create \
+        --filesystem="$cabinet_files":ro \
+        --filesystem="$data/prefixes":ro \
+        --filesystem="$data/native":ro \
+        --talk-name=org.freedesktop.Flatpak \
+        --env=WINELOADER="$cabinet_files/lib/yabridge/cabinet-wine" \
+        --env=YABRIDGE_TEMP_DIR="$runtime/yabridge" \
+        --env=YABRIDGE_NO_WATCHDOG=1
+fi
 
 if [ -e "$carla_source" ] && [ ! -d "$carla_source/.git" ]; then
     printf 'setup-runtime-tests: source path is not a Git checkout: %s\n' "$carla_source" >&2
@@ -312,37 +321,39 @@ if [ "${CABINET_RUNTIME_PROBES:-1}" = 1 ]; then
     drag_drop_prefix drag-drop-soda "$newest_soda"
 fi
 
-install_entry sitala-1
-install_entry valhalla-supermassive
-install_entry decent-sampler
-install_entry surge-xt
-install_entry sine-player
-install_entry fabfilter-total-bundle
-install_entry ik-product-manager
+if [ "${CABINET_RUNTIME_ENTRIES:-1}" = 1 ]; then
+    install_entry sitala-1
+    install_entry valhalla-supermassive
+    install_entry decent-sampler
+    install_entry surge-xt
+    install_entry sine-player
+    install_entry fabfilter-total-bundle
+    install_entry ik-product-manager
 
-# Decent Sampler opens a modal welcome screen over its interface until it has shown it once, and a
-# sweep across that screen measures a window that takes no input. The plugin writes this flag
-# itself on first open; the fixtures own it instead, so a root that has never run it is not a
-# special case.
-welcome=$home/.config/DecentSampler/DecentSampler.xml
-if [ ! -f "$welcome" ]; then
-    mkdir -p "$(dirname "$welcome")"
-    cat > "$welcome" <<'XML'
+    # Decent Sampler opens a modal welcome screen over its interface until it has shown it once,
+    # and a sweep across that screen measures a window that takes no input. The plugin writes this
+    # flag itself on first open; the fixtures own it instead, so a root that has never run it is
+    # not a special case.
+    welcome=$home/.config/DecentSampler/DecentSampler.xml
+    if [ ! -f "$welcome" ]; then
+        mkdir -p "$(dirname "$welcome")"
+        cat > "$welcome" <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 
 <PROPERTIES>
   <VALUE name="welcomeScreenAlreadyShown" val="1"/>
 </PROPERTIES>
 XML
+    fi
+
+    cabinet sync
+
+    manager="$data/prefixes/ik-multimedia/drive_c/Program Files/IK Multimedia/IK Product Manager/IK Product Manager.exe"
+    [ -f "$manager" ] || {
+        printf 'setup-runtime-tests: IK Product Manager was not installed\n' >&2
+        exit 1
+    }
 fi
-
-cabinet sync
-
-manager="$data/prefixes/ik-multimedia/drive_c/Program Files/IK Multimedia/IK Product Manager/IK Product Manager.exe"
-[ -f "$manager" ] || {
-    printf 'setup-runtime-tests: IK Product Manager was not installed\n' >&2
-    exit 1
-}
 
 printf 'backend=%s\n' "${CABINET_RUNTIME_BACKEND:-direct}" > "$root/config"
 printf 'toolbox=%s\n' "${CABINET_RUNTIME_TOOLBOX:-}" >> "$root/config"

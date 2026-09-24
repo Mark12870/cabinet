@@ -23,7 +23,9 @@
 # CABINET_RUNTIME_PROBES=0 leaves the drag-and-drop probes out, fixtures and cases both: they say
 # when a yabridge patch can go, which is a question for a refresh rather than for every push.
 # CABINET_RUNTIME_SUITE=general, the default, is everything but the plugin scenarios; a push runs
-# it. CABINET_RUNTIME_SUITE=scenarios is only the plugin scenarios, which run daily on a schedule.
+# it. CABINET_RUNTIME_SUITE=scenarios is only the plugin scenarios, which run daily on a schedule;
+# each installs its own entry, so its setup leaves out the DAW and the entries, and it has no use
+# for the private fixtures.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
 # stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user with
@@ -198,9 +200,14 @@ run_setup() {
     start_display
     trap end_display EXIT
 
+    local entries=1
+    if [ "${CABINET_RUNTIME_SUITE:-general}" = scenarios ]; then
+        entries=0
+    fi
+
     step 'setup-runtime-tests.sh'
     cd "$WORK"
-    CABINET_RUNTIME_BACKEND=direct scripts/setup-runtime-tests.sh
+    CABINET_RUNTIME_BACKEND=direct CABINET_RUNTIME_ENTRIES="$entries" scripts/setup-runtime-tests.sh
 }
 
 run_test() {

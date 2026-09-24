@@ -86,7 +86,9 @@ differ in exactly that sort of package.
 Nothing has to be baked by hand. A run with nothing to pull installs the fixtures itself and
 pushes the result, which is how the tag is seeded and how it returns if it is deleted. The vendors'
 half is reinstalled at the turn of each month, because the month is in the cache key and there is
-no fallback key, and that is what starts FabFilter's 30-day trial over. `Run workflow` with
+no fallback key, and that is what starts FabFilter's 30-day trial over. The rest of the key hashes
+`setup-runtime-tests.sh` and the vendor directories of the entries it installs, so an entry that
+only a plugin scenario uses changes nothing here. `Run workflow` with
 `rebuild_fixtures` does both from scratch on demand: a squashed image, since the layers a push adds
 are only squashed by starting from the base again, and a new trial. Those runs take hours; an
 ordinary push takes minutes.

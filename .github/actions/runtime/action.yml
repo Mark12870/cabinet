@@ -58,18 +58,28 @@ runs:
     # The month is in the key and there is no fallback key on purpose: the vendors' fixtures are
     # reinstalled at the turn of each month, which is what starts FabFilter's 30-day trial over,
     # and a catalogue change installs against the entries it changed rather than around them.
+    # Only the vendors whose entries the setup installs are hashed: an entry only a plugin
+    # scenario uses is installed by that scenario, and changing it rebuilds nothing.
     - name: Work out the fixture key
       id: fixtures
       shell: bash -e {0}
       run: |
-        hash='${{ hashFiles('data/library/**', 'scripts/setup-runtime-tests.sh') }}'
+        ids=$(sed -n 's/^ *install_entry \([a-z0-9-]*\)$/\1/p' scripts/setup-runtime-tests.sh)
+        [ -n "${ids}" ] || { echo '::error::the setup installs no entries'; exit 1; }
+        vendors=$(for id in ${ids}; do
+          entry=$(find data/library -name "${id}.yml")
+          [ -n "${entry}" ] || { echo "::error::no catalogue entry for ${id}" >&2; exit 1; }
+          dirname "${entry}"
+        done | sort -u)
+        hash=$(find ${vendors} scripts/setup-runtime-tests.sh -type f -print0 | sort -z \
+          | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
         echo "key=runtime-fixtures-$(date -u +%Y%m)-${hash}" >> "$GITHUB_OUTPUT"
 
     # The vendors' half of the fixtures. It may not be published, so it lives here rather than
     # in the image: a cache is readable only by this repository's own workflows.
     - uses: actions/cache/restore@v4
       id: cached
-      if: inputs.rebuild_fixtures != 'true'
+      if: inputs.rebuild_fixtures != 'true' && inputs.suite == 'general'
       with:
         path: fixtures.tar
         key: ${{ steps.fixtures.outputs.key }}
@@ -181,6 +191,7 @@ runs:
       id: setup
       env:
         PROBES: ${{ steps.probes.outputs.value }}
+        SUITE: ${{ inputs.suite }}
       shell: bash -e {0}
       run: |
         docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
@@ -188,7 +199,7 @@ runs:
           docker cp fixtures.tar "${CONTAINER}:/tmp/fixtures.tar"
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restore /tmp/fixtures.tar
         fi
-        docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" \
+        docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
           "${CONTAINER}" /src/scripts/runtime-ci.sh setup
 
     - name: Runtime tests
@@ -256,7 +267,7 @@ runs:
     # from ever being kept, and every push would reinstall them and fail again.
     - name: Pack the private fixtures
       if: >-
-        !cancelled() && steps.setup.outcome == 'success'
+        !cancelled() && steps.setup.outcome == 'success' && inputs.suite == 'general'
         && steps.cached.outputs.cache-hit != 'true'
       shell: bash -e {0}
       run: |
@@ -265,7 +276,7 @@ runs:
 
     - uses: actions/cache/save@v4
       if: >-
-        !cancelled() && steps.setup.outcome == 'success'
+        !cancelled() && steps.setup.outcome == 'success' && inputs.suite == 'general'
         && steps.cached.outputs.cache-hit != 'true'
       with:
         path: fixtures.tar
@@ -276,7 +287,7 @@ runs:
     # and it is what keeps a vendor's binaries out of the layer.
     - name: Keep the free fixtures
       if: >-
-        !cancelled() && steps.setup.outcome == 'success'
+        !cancelled() && steps.setup.outcome == 'success' && inputs.suite == 'general'
         && (github.event_name == 'push' || inputs.rebuild_fixtures == 'true')
         && (steps.image.outputs.from == env.BASE
         || steps.cached.outputs.cache-hit != 'true')
