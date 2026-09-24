@@ -245,7 +245,9 @@ so a run never puts a plugin window on the user's screen.
 Geometry says where a window is, not whether the user can use what is in it. `InteractionTests`
 answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
 sweeps the pointer over a grid inside it, then clicks and drags at four points, comparing every
-capture against the first. Five things are asserted per plugin.
+capture against the first. When none of those points lands on a control, the probe moves the
+first parameters from the host and clicks and drags wherever the editor redraws each one. Five
+things are asserted per plugin.
 
 - **It draws.** The capture must hold more than a handful of distinct colours. One flat colour is
   the blank frame a DAW shows when the plugin renders somewhere else, and nothing in a log says

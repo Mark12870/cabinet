@@ -22,7 +22,7 @@ public sealed class ValhallaSupermassiveScenario(ValhallaSupermassiveScenario.In
         Assert.True(
             Bridges.ContainsKey(format),
             $"{Id} declares {format}, which this scenario does not say how to find");
-        var bridge = installed.Harness.Bridged(format, Bridges[format]);
+        var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
         installed.Harness.VerifyEditor(bridge);
         var audio = await installed.Harness.Render(bridge, Mix, installed.Display);

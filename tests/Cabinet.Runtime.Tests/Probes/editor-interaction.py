@@ -3,9 +3,11 @@
 Carla loads the plugin and opens its editor. The editor window is whichever top-level window
 appears across that call, so a native plugin is found the same way a bridged one is and no
 yabridge trace is needed. The window is captured, the pointer is swept over a grid of points
-inside it, and four of those points are clicked and dragged. Every capture is compared against
-the first, and against one taken with the pointer held still: a plugin that animates on its own
-must not pass for one that answers the pointer.
+inside it, and four of those points are clicked and dragged. When none of them answers, the first
+parameters are moved from the host one at a time, and wherever the editor redraws one is clicked
+and dragged in turn, so an editor whose controls fall between the grid points is still reached.
+Every capture is compared against the first, and against one taken with the pointer held still:
+a plugin that animates on its own must not pass for one that answers the pointer.
 
 A frame of one flat colour is the blank editor a DAW shows when the plugin draws somewhere else.
 A sweep that never changes a pixel is an editor that is drawn but receives nothing. Both are
@@ -13,6 +15,7 @@ invisible in a log. Every call into the host is timed as well: a host that stops
 loop while an editor is open is the DAW freeze, and a stall in engine_close is where it shows.
 """
 
+import itertools
 import os
 import re
 import subprocess
@@ -37,6 +40,9 @@ from carla_backend import (  # noqa: E402
     ENGINE_OPTION_TRANSPORT_MODE,
     ENGINE_PROCESS_MODE_CONTINUOUS_RACK,
     ENGINE_TRANSPORT_MODE_INTERNAL,
+    PARAMETER_INPUT,
+    PARAMETER_IS_ENABLED,
+    PARAMETER_IS_READ_ONLY,
     PLUGIN_CLAP,
     PLUGIN_LV2,
     PLUGIN_VST2,
@@ -54,6 +60,9 @@ ROWS = 4
 INSET = 0.15
 SPREAD = (0.25, 0.5, 0.75)
 LIMIT = 10
+LOCATE = 8
+BLOBS = 4
+SPECK = 50
 FUZZ = "2%"
 
 
@@ -225,9 +234,61 @@ def drag(window, before, loop, at, name):
     return seen, before
 
 
-def sweep(window, before, loop):
+def regions(before, after, still, again):
+    said = run([
+        "magick",
+        "(", before, after, "-compose", "difference", "-composite",
+        "-colorspace", "Gray", "-threshold", FUZZ, ")",
+        "(", still, again, "-compose", "difference", "-composite",
+        "-colorspace", "Gray", "-threshold", FUZZ, "-negate", ")",
+        "-compose", "multiply", "-composite",
+        "-define", "connected-components:verbose=true",
+        "-define", f"connected-components:area-threshold={SPECK}",
+        "-connected-components", "8", "null:"]).stdout
+    found = re.findall(r"\d+x\d+\+\d+\+\d+ ([0-9.]+),([0-9.]+) (\d+) gray\(255\)", said)
+    ranked = sorted(((int(size), float(x), float(y)) for x, y, size in found), reverse=True)
+    return [(round(x), round(y)) for _, x, y in ranked[:BLOBS]]
+
+
+def controls(host):
+    for index in range(host.get_parameter_count(0)):
+        data = host.get_parameter_data(0, index)
+        if (data["type"] == PARAMETER_INPUT and data["hints"] & PARAMETER_IS_ENABLED
+                and not data["hints"] & PARAMETER_IS_READ_ONLY):
+            yield index
+
+
+def located(window, loop):
+    host = loop.host
+    left, top, _, _ = geometry(window)
+
+    for index in itertools.islice(controls(host), LOCATE):
+        ranges = host.get_parameter_ranges(0, index)
+        current = host.get_current_parameter_value(0, index)
+        far = ranges["min"] if current - ranges["min"] > ranges["max"] - current else ranges["max"]
+        host.set_parameter_value(0, index, far)
+        loop.turn(10)
+        moved = look(window, f"locate-{index}", loop)
+        host.set_parameter_value(0, index, current)
+        loop.turn(10)
+        restored = look(window, f"locate-{index}-restored", loop)
+        loop.turn(10)
+        still = look(window, f"locate-{index}-still", loop)
+
+        if loop.closed:
+            return
+
+        found = regions(restored, moved, restored, still) if moved and restored and still else []
+        note(f"parameter {index} drew {found}")
+
+        for blob, (x, y) in enumerate(found):
+            yield (left + x, top + y, f"parameter-{index}-{blob}", still)
+
+
+def sweep(window, before, loop, noise):
     reaction = 0.0
     ranked = []
+    enough = ENOUGH + noise
 
     for x, y, name in points(window):
         run(["xdotool", "mousemove", str(x), str(y)])
@@ -248,17 +309,18 @@ def sweep(window, before, loop):
         ranked.append((seen, x, y, name))
         note(f"hover {name} at {x},{y} moved {seen:.6f}")
 
-        if reaction >= ENOUGH:
+        if reaction >= enough:
             note(f"hover {name} answered {reaction:.6f}")
             return reaction
 
     ranked.sort(reverse=True)
     left, top, width, height = geometry(window)
-    targets = [(ranked[0][1], ranked[0][2], ranked[0][3])] + [
-        (left + int(width * across), top + int(height * 0.5), f"spread-{index}")
+    targets = [(ranked[0][1], ranked[0][2], ranked[0][3], None)] + [
+        (left + int(width * across), top + int(height * 0.5), f"spread-{index}", None)
         for index, across in enumerate(SPREAD)]
 
-    for x, y, name in targets:
+    for x, y, name, rested in itertools.chain(targets, located(window, loop)):
+        before = rested or before
         settle()
         note(f"click {name} at {x},{y}")
         run(["xdotool", "mousemove", str(x), str(y), "click", "1"])
@@ -272,7 +334,7 @@ def sweep(window, before, loop):
             reaction = max(reaction, difference(before, shot))
             before = shot
 
-        if reaction >= ENOUGH:
+        if reaction >= enough:
             note(f"click {name} answered {reaction:.6f}")
             return reaction
 
@@ -286,7 +348,7 @@ def sweep(window, before, loop):
         settle()
         loop.turn(4)
 
-        if reaction >= ENOUGH:
+        if reaction >= enough:
             return reaction
 
     return reaction
@@ -348,7 +410,7 @@ def main():
         note(f"noise {noise:.6f}")
 
         note("sweeping")
-        reaction = sweep(window, again or resting or baseline, loop)
+        reaction = sweep(window, again or resting or baseline, loop, noise)
         note(f"reaction {reaction:.6f}")
 
         # The same measurement with nothing touching it: an editor that changes on its own does it

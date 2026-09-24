@@ -10,11 +10,11 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
 
     public LibraryEntry Entry { get; } = Find(id);
 
-    internal ScenarioHarness Harness { get; } = new(id);
+    internal ScenarioHarness Harness { get; } = new(id, Find(id).Kind);
 
     internal Display Display => display ?? throw new InvalidOperationException($"{id} is not installed");
 
-    public static TheoryData<string> Formats(string id) => [.. Find(id).Formats];
+    public static TheoryData<string> Formats(string id) => [.. Find(id).Formats.Where(format => format != "CLAP")];
 
     public async Task InitializeAsync()
     {

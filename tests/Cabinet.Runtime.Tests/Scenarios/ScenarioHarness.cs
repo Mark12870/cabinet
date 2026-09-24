@@ -1,10 +1,11 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Cabinet.Core;
 
 namespace Cabinet.Runtime.Tests.Scenarios;
 
-internal sealed class ScenarioHarness(string id) : IDisposable
+internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
 {
     private static readonly TimeSpan InstallPatience = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ProbePatience = TimeSpan.FromMinutes(10);
@@ -58,8 +59,8 @@ internal sealed class ScenarioHarness(string id) : IDisposable
         Assert.Contains($"Downloading {download}", result.Said, StringComparison.Ordinal);
     }
 
-    public Bridge Bridged(string format, string file) => new(
-        Path.Combine(Home, Formats[format].Extension, "cabinet", "windows", file),
+    public Bridge Plugin(string format, string file) => new(
+        Path.Combine(ScanDir(Formats[format].Extension), file),
         Formats[format].Carla);
 
     public async Task<AudioMeasurement> Render(Bridge bridge, string mix, Display display)
@@ -138,6 +139,12 @@ internal sealed class ScenarioHarness(string id) : IDisposable
     }
 
     private string Data => Path.Combine(Home, ".var", "app", Host.App, "data");
+
+    private string ScanDir(string extension)
+    {
+        var layout = new Layout(Home, RuntimeTestEnvironment.RuntimeDirectory);
+        return kind == PluginKind.Windows ? layout.WindowsScanDir(extension) : layout.NativeScanDir(extension);
+    }
 
     private async Task<string> CompileAudioProbe()
     {
