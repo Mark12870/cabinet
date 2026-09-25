@@ -18,13 +18,16 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
      scripts/setup-runtime-tests.sh
    ```
 
-3. For plugin entries, run the complete headless matrix:
+3. Run the general runtime suite, the build check without the plugin scenarios:
 
    ```sh
    toolbox run --container cabinet-runtime \
      dotnet test tests/Cabinet.Runtime.Tests --nologo \
-     -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
+     -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true \
+     --filter 'FullyQualifiedName!~Cabinet.Runtime.Tests.Scenarios.'
    ```
+
+   For one plugin entry, run its scenario alone as the `plugin-scenario` skill describes.
 
 4. For a manager entry, create a fresh prefix in the isolated runtime for each
    configuration attempt. Install the entry into that prefix and launch it with

@@ -165,9 +165,11 @@ flatpak run --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c \
   'export PATH=/usr/lib/sdk/rust-stable/bin:$PATH; cd shim; cargo test native_daw_does_not_hop_through_the_host'
 ```
 
-Never run the whole of `Cabinet.Runtime.Tests`, every scenario or a whole interaction suite locally; each takes tens of
-minutes. Fix and verify one plugin at a time: one scenario class with `--filter`, or that plugin's probe driven
-directly. The full runtime matrix is CI's job.
+`Cabinet.Runtime.Tests` holds two kinds of test. The general suite, everything outside `Scenarios/`, is the quick
+build check the runtime job runs on every push (`FullyQualifiedName!~Cabinet.Runtime.Tests.Scenarios.`). The plugin
+scenarios in `Scenarios/` test the catalogue entries themselves and run independently in the `Plugins` workflow. Never
+run all the scenarios locally: fix and verify one plugin at a time, with its scenario class as the `--filter` or its
+probe driven directly, and leave the rest to that workflow.
 
 For a front-end-only compile, use `dotnet build src/Cabinet.Cli --nologo -v q` or
 `dotnet build src/Cabinet.Gui --nologo -v q -p:UseSharedCompilation=false`.
