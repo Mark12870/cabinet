@@ -244,15 +244,14 @@ so a run never puts a plugin window on the user's screen.
 
 Geometry says where a window is, not whether the user can use what is in it. `InteractionTests`
 answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
-sweeps the pointer over a grid inside it, then clicks and drags at four points, comparing every
-capture against the first. When none of those points lands on a control, the probe moves the
-first parameters from the host and clicks and drags wherever the editor redraws each one. Five
-things are asserted per plugin.
+sweeps the pointer over a grid inside it, then clicks and drags at four points until the editor
+answers. It then moves the first parameters from the host and presses and drags wherever the
+editor redraws one; the host must see that parameter move (`AIM`). Five things are asserted per
+plugin.
 
-A plugin scenario also aims: it presses and drags where a parameter is drawn, and the host must
-see that parameter move (`AIM`). Pixels cannot tell a shifted click from a generous hit area, so a
-bridged plugin's scenario also asserts the origin itself, as `AnEditorIsWhereWineHasBeenToldItIs`
-does: where Wine was told the editor is must be where it is.
+Pixels cannot tell a shifted click from a generous hit area, so a bridged plugin's scenario also
+asserts the origin from the same run's trace, as `AnEditorIsWhereWineHasBeenToldItIs` does: where
+Wine was told the editor is must be where it is.
 
 - **It draws.** The capture must hold more than a handful of distinct colours. One flat colour is
   the blank frame a DAW shows when the plugin renders somewhere else, and nothing in a log says

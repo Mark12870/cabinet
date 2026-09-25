@@ -2,14 +2,12 @@
 
 Carla loads the plugin and opens its editor. The editor window is whichever top-level window
 appears across that call, so a native plugin is found the same way a bridged one is and no
-yabridge trace is needed. The window is captured, the pointer is swept over a grid of points
-inside it, and four of those points are clicked and dragged. When none of them answers, the first
-parameters are moved from the host one at a time, and wherever the editor redraws one is clicked
-and dragged in turn, so an editor whose controls fall between the grid points is still reached.
-The same located controls are then aimed at: the pointer is pressed and dragged where a parameter
-is drawn, and the host must see that parameter move.
-Every capture is compared against the first, and against one taken with the pointer held still:
-a plugin that animates on its own must not pass for one that answers the pointer.
+yabridge trace is needed. The pointer crosses a grid of points inside the window, and until the
+editor answers, four of them are clicked and dragged. The first parameters are then moved from the
+host one at a time, and wherever the editor redraws one, the pointer presses and drags; the host
+must see that parameter move. Every capture is compared against one taken with the pointer held
+still: a plugin that animates on its own must not pass for one that answers the pointer. A
+bridged editor's trace also says where Wine was told the window is, which must be where it is.
 
 A frame of one flat colour is the blank editor a DAW shows when the plugin draws somewhere else.
 A sweep that never changes a pixel is an editor that is drawn but receives nothing. Both are
@@ -63,7 +61,7 @@ INSET = 0.15
 SPREAD = (0.25, 0.5, 0.75)
 LIMIT = 10
 LOCATE = 8
-SWING = (-10, -20, -30, -10, 10, 20, 30)
+SWING = (10, 20, 30, 40)
 BLOBS = 4
 SPECK = 50
 FUZZ = "2%"
@@ -300,6 +298,12 @@ def sweep(window, before, loop, noise):
         if not ranked:
             under = run(["xdotool", "getmouselocation", "--shell"]).stdout
             note("pointer over " + re.sub(r"\s+", " ", under).strip())
+            found = re.search(r"WINDOW=(\d+)", under)
+            if found and found.group(1) != str(window):
+                said = run(["xdotool", "getwindowgeometry", found.group(1)]).stdout
+                said += run(["xprop", "-id", found.group(1), "WM_NAME", "WM_CLASS", "_NET_WM_WINDOW_TYPE",
+                             "WM_TRANSIENT_FOR", "_NET_WM_STATE"]).stdout
+                note("covered by " + re.sub(r"\s+", " ", said).strip())
 
         shot = look(window, f"hover-{name}", loop)
 
@@ -318,12 +322,11 @@ def sweep(window, before, loop, noise):
 
     ranked.sort(reverse=True)
     left, top, width, height = geometry(window)
-    targets = [(ranked[0][1], ranked[0][2], ranked[0][3], None)] + [
-        (left + int(width * across), top + int(height * 0.5), f"spread-{index}", None)
+    targets = [(ranked[0][1], ranked[0][2], ranked[0][3])] + [
+        (left + int(width * across), top + int(height * 0.5), f"spread-{index}")
         for index, across in enumerate(SPREAD)]
 
-    for x, y, name, rested, *_ in itertools.chain(targets, located(window, loop)):
-        before = rested or before
+    for x, y, name in targets:
         settle()
         note(f"click {name} at {x},{y}")
         run(["xdotool", "mousemove", str(x), str(y), "click", "1"])
@@ -361,39 +364,66 @@ def moved(host, index, original):
     return abs(host.get_current_parameter_value(0, index) - original) > 1e-6
 
 
-def pressed(loop, index, x, y):
+def pressed(window, loop, index, x, y, name):
     host = loop.host
     original = host.get_current_parameter_value(0, index)
     settle()
-    run(["xdotool", "mousemove", str(x), str(y), "mousedown", "1"])
+    run(["xdotool", "mousemove", str(x), str(y)])
+    loop.turn(4)
+    run(["xdotool", "mousedown", "1"])
     loop.turn(4)
     hit = False
 
-    for swing in SWING:
-        run(["xdotool", "mousemove", str(x), str(y + swing)])
-        loop.turn(3)
-        hit = hit or moved(host, index, original)
+    for direction in (-1, 1):
+        for swing in SWING:
+            run(["xdotool", "mousemove", str(x), str(y + direction * swing)])
+            loop.turn(3)
+            hit = hit or moved(host, index, original)
+
+        if hit:
+            break
 
     run(["xdotool", "mouseup", "1"])
     loop.turn(4)
     hit = hit or moved(host, index, original)
+    shot = look(window, f"aim-{name}", loop)
     host.set_parameter_value(0, index, original)
     loop.turn(6)
-    return hit
+    return hit, shot
 
 
 def aim(window, loop):
-    for x, y, name, _, index in located(window, loop):
+    for x, y, name, still, index in located(window, loop):
         note(f"aim {name} at {x},{y}")
 
         if loop.closed:
             break
 
-        if pressed(loop, index, x, y):
-            note(f"aim {name} moved parameter {index}")
-            return name
+        hit, shot = pressed(window, loop, index, x, y, name)
 
-    return "none"
+        if hit:
+            reaction = difference(still, shot) if shot else 0.0
+            note(f"aim {name} moved parameter {index}, reaction {reaction:.6f}")
+            return name, reaction
+
+    return "none", 0.0
+
+
+def origin():
+    try:
+        with open(LOG, "r", errors="replace") as handle:
+            trace = handle.read()
+    except FileNotFoundError:
+        return "none", "none"
+
+    wine = re.findall(r"DEBUG: wine_window: (\d+)", trace)
+    told = re.findall(r"DEBUG: Translated coords: \d+ : \d+x\d+\+(-?\d+)\+(-?\d+)", trace)
+    placed = geometry(wine[-1]) if wine else None
+
+    if not told or not placed:
+        return "none", "none"
+
+    return f"({placed[0]},{placed[1]})", f"({told[-1][0]},{told[-1][1]})"
 
 
 def main():
@@ -453,11 +483,15 @@ def main():
         noise = difference(resting, again) if resting and again else 0.0
         note(f"noise {noise:.6f}")
 
+        wine, told = origin()
+        note(f"wine {wine} told {told}")
         note("sweeping")
         reaction = sweep(window, again or resting or baseline, loop, noise)
-        note(f"reaction {reaction:.6f}")
-        aimed = aim(window, loop)
+        aimed, pressed_reaction = aim(window, loop)
+        reaction = max(reaction, pressed_reaction)
         note(f"aimed {aimed}")
+
+        note(f"reaction {reaction:.6f}")
 
         # The same measurement with nothing touching it: an editor that changes on its own does it
         # here too, and then it is not the pointer's doing.
@@ -498,7 +532,7 @@ def main():
         f"OPEN_MS={opening * 1000:.0f} CLOSE_MS={closing * 1000:.0f} "
         f"REMOVE_MS={removing * 1000:.0f} SHUTDOWN_MS={shutdown * 1000:.0f} "
         f"BLIND={loop.blind} CLOSED={'yes' if loop.closed else 'no'} "
-        f"REOPEN={'yes' if again else 'no'} AIM={aimed}")
+        f"REOPEN={'yes' if again else 'no'} AIM={aimed} WINE={wine} TOLD={told}")
 
     with open(os.path.join(SHOTS, "result.txt"), "w") as handle:
         handle.write(summary + "\n")

@@ -353,6 +353,21 @@ if [ "${CABINET_RUNTIME_ENTRIES:-1}" = 1 ]; then
 XML
     fi
 
+    # Sitala opens an Update window over the top left of its editor whenever the time it last
+    # showed one has passed, and every press there lands on that window. The fixtures date it in
+    # 2100, so the editor is never covered.
+    for roaming in "$data"/prefixes/sitala-1/drive_c/users/*/AppData/Roaming; do
+        mkdir -p "$roaming/Sitala"
+        cat > "$roaming/Sitala/Sitala.settings" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PROPERTIES>
+  <VALUE name="viewedMessages" val="7,8"/>
+  <VALUE name="lastUpdateDialog_yabridge-host.exe" val="4102444800000"/>
+</PROPERTIES>
+XML
+    done
+
     cabinet sync
 
     manager="$data/prefixes/ik-multimedia/drive_c/Program Files/IK Multimedia/IK Product Manager/IK Product Manager.exe"

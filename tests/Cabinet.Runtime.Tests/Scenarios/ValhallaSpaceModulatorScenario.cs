@@ -24,8 +24,10 @@ public sealed class ValhallaSpaceModulatorScenario(ValhallaSpaceModulatorScenari
             $"{Id} declares {format}, which this scenario does not say how to find");
         var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
-        installed.Harness.VerifyEditor(bridge);
-        installed.Harness.VerifyOrigin(bridge);
+        var editor = installed.Harness.VerifyEditor(bridge);
+        Assert.True(
+            editor.Wine != "none" && editor.Wine == editor.Told,
+            $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
         var audio = await installed.Harness.Render(bridge, Mix, installed.Display);
 
         Assert.True(audio.Parameters > 0, $"{installed.Entry.Name} exposed no parameters");
