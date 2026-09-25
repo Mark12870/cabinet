@@ -21,10 +21,14 @@ for entry in data/library/*/*.yml; do
     fi
 done
 
+if [ -z "${GITHUB_ACTIONS:-}" ] && [ ${#missing[@]} -gt 0 ]; then
+    echo 'Not tested -- these entries have no plugin scenario:'
+fi
+
 for entry in "${missing[@]}"; do
     name=$(sed -n 's/^Name: *//p' "$entry")
     if [ -n "${GITHUB_ACTIONS:-}" ]; then
-        printf '::warning file=%s,title=No plugin scenario::%s has no end-to-end runtime scenario\n' "$entry" "$name"
+        printf '::warning file=%s,title=Not tested::%s is not tested: it has no plugin scenario yet\n' "$entry" "$name"
     else
         printf '%s  %s\n' "$(basename "$entry" .yml)" "$name"
     fi
@@ -34,7 +38,9 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     {
         echo '### Plugin scenario coverage'
         echo
-        echo "$((shipped - ${#missing[@]})) of $shipped shipped entries have an end-to-end runtime scenario."
+        echo "$((shipped - ${#missing[@]})) of $shipped shipped entries are tested by an end-to-end runtime scenario."
+        echo
+        echo "**Not tested** -- these ${#missing[@]} entries have no scenario yet:"
         echo
         for entry in "${missing[@]}"; do
             echo "- \`$(basename "$entry" .yml)\` ($(sed -n 's/^Name: *//p' "$entry"))"
