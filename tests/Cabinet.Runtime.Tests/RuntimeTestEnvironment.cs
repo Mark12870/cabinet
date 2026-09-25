@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Cabinet.Runtime.Tests;
 
@@ -53,6 +55,21 @@ internal static class RuntimeTestEnvironment
         info.Environment["CABINET_RUNTIME_TOOLBOX"] = Toolbox;
     }
 
+    public static void OwnHome(ProcessStartInfo info, string home)
+    {
+        var name = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(home)))[..16];
+        var passwd = Path.Combine(TemporaryDirectory, $"passwd-{name}");
+        var group = Path.Combine(TemporaryDirectory, $"group-{name}");
+        var uid = Identity("Uid:");
+        var gid = Identity("Gid:");
+        Directory.CreateDirectory(TemporaryDirectory);
+        File.WriteAllText(passwd, $"{Environment.UserName}:x:{uid}:{gid}::{home}:/bin/bash\n");
+        File.WriteAllText(group, $"{Environment.UserName}:x:{gid}:\n");
+        info.Environment["LD_PRELOAD"] = "libnss_wrapper.so";
+        info.Environment["NSS_WRAPPER_PASSWD"] = passwd;
+        info.Environment["NSS_WRAPPER_GROUP"] = group;
+    }
+
     public static void AddEnvironmentArguments(ICollection<string> arguments)
     {
         arguments.Add($"HOME={Home}");
@@ -67,6 +84,11 @@ internal static class RuntimeTestEnvironment
         arguments.Add($"CABINET_RUNTIME_BACKEND={Backend}");
         arguments.Add($"CABINET_RUNTIME_TOOLBOX={Toolbox}");
     }
+
+    private static string Identity(string field) =>
+        File.ReadLines("/proc/self/status")
+            .First(line => line.StartsWith(field, StringComparison.Ordinal))
+            .Split('\t', StringSplitOptions.RemoveEmptyEntries)[1];
 
     private static string Configuration(string key)
     {

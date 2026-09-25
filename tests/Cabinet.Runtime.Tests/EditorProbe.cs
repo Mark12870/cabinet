@@ -83,6 +83,7 @@ internal static class EditorProbe
         info.Environment["XDG_DATA_HOME"] = Path.Combine(home, ".local", "share");
         info.Environment["XDG_CONFIG_HOME"] = Path.Combine(home, ".config");
         info.Environment["XDG_CACHE_HOME"] = Path.Combine(home, ".cache");
+        RuntimeTestEnvironment.OwnHome(info, home);
 
         info.Environment["WINELOADER"] = Path.Combine(yabridge, "cabinet-wine");
         var wrapper = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "editor-bin");

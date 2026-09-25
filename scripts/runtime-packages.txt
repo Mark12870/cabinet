@@ -17,6 +17,7 @@ libXrandr-devel
 make
 mesa-dri-drivers
 mingw64-gcc
+nss_wrapper-libs
 pkgconf-pkg-config
 pulseaudio-libs-devel
 python3-qt5-base

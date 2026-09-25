@@ -86,6 +86,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
                 info.Environment["WINELOADER"] = Path.Combine(yabridge, "cabinet-wine");
                 info.Environment["YABRIDGE_TEMP_DIR"] = socket;
                 info.Environment["YABRIDGE_NO_WATCHDOG"] = "1";
+                RuntimeTestEnvironment.OwnHome(info, Home);
             });
 
         File.WriteAllText(Path.Combine(audio, "render.log"), result.Said);

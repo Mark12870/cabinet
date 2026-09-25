@@ -165,6 +165,10 @@ flatpak run --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c \
   'export PATH=/usr/lib/sdk/rust-stable/bin:$PATH; cd shim; cargo test native_daw_does_not_hop_through_the_host'
 ```
 
+Never run the whole of `Cabinet.Runtime.Tests`, every scenario or a whole interaction suite locally; each takes tens of
+minutes. Fix and verify one plugin at a time: one scenario class with `--filter`, or that plugin's probe driven
+directly. The full runtime matrix is CI's job.
+
 For a front-end-only compile, use `dotnet build src/Cabinet.Cli --nologo -v q` or
 `dotnet build src/Cabinet.Gui --nologo -v q -p:UseSharedCompilation=false`.
 

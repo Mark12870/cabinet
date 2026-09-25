@@ -183,7 +183,10 @@ calls. On its run page `scripts/scenario-report.py` puts one row per entry and f
 failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
-owns its expectations. Run one with:
+owns its expectations. Isolation includes the user database: u-he plugins find their data through
+the passwd home rather than `HOME`, so a probe runs under `nss_wrapper` with a passwd entry whose
+home is its own. Without it Protoverb passed locally on the developer's own `~/.u-he` and showed
+its 600x400 data-missing screen on CI. Run one with:
 
 ```sh
 toolbox run --container cabinet-runtime \
