@@ -2,6 +2,8 @@
 #include "CarlaHost.h"
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -9,7 +11,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -207,7 +211,7 @@ bool write_parameters(const std::filesystem::path& path,
         const ParameterData* data = carla_get_parameter_data(host, plugin, index);
         if (data != nullptr && data->type == CarlaBackend::PARAMETER_INPUT
             && (data->hints & CarlaBackend::PARAMETER_IS_READ_ONLY) == 0
-            && parameters.back().name == mix
+            && mix[0] != '\0' && parameters.back().name == mix
             && parameters.back().ranges.min <= parameters.back().ranges.max)
         {
             const float wanted = parameters.back().ranges.max;
@@ -281,7 +285,9 @@ int render(const char* plugin_path,
            const char* artefact_dir,
            const char* binaries_dir,
            bool audio,
-           int note)
+           int note,
+           const char* preset,
+           const char* click)
 {
     const std::string requested(format);
     const CarlaBackend::PluginType plugin_type = requested == "vst2" ? CarlaBackend::PLUGIN_VST2
@@ -325,7 +331,8 @@ int render(const char* plugin_path,
 
     const NativePluginDescriptor* descriptor = carla_get_native_rack_plugin();
     if (descriptor == nullptr || descriptor->instantiate == nullptr || descriptor->cleanup == nullptr
-        || descriptor->activate == nullptr || descriptor->deactivate == nullptr || descriptor->process == nullptr)
+        || descriptor->activate == nullptr || descriptor->deactivate == nullptr || descriptor->process == nullptr
+        || descriptor->ui_idle == nullptr)
         return error("setup", "Carla rack descriptor is incomplete");
 
     RackGuard rack{descriptor, descriptor->instantiate(&native_host)};
@@ -378,6 +385,66 @@ int render(const char* plugin_path,
     descriptor->activate(rack.handle);
     rack.active = true;
     reached("rack active");
+
+    if (preset[0] != '\0')
+    {
+        if ((carla_get_plugin_info(host.handle, 0)->optionsAvailable & CarlaBackend::PLUGIN_OPTION_USE_CHUNKS) != 0)
+            carla_set_option(host.handle, 0, CarlaBackend::PLUGIN_OPTION_USE_CHUNKS, true);
+        if (!carla_load_plugin_state(host.handle, 0, preset))
+            return error("preset", carla_get_last_error(host.handle));
+        reached("preset loaded");
+    }
+
+    if (click[0] != '\0')
+    {
+        carla_show_custom_ui(host.handle, 0, true);
+        for (uint32_t turn = 0; turn < 300; ++turn)
+        {
+            descriptor->ui_idle(rack.handle);
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        const std::string log = " >> '" + (artefacts / "click.log").string() + "' 2>&1";
+        std::atomic<bool> done = false;
+        std::atomic<bool> clicked = false;
+        std::thread gesture([&] {
+            std::string commands = "window=$(xdotool search --sync --onlyvisible --name audio-render | head -1)"
+                + log + " && xdotool windowactivate $window" + log + " && xdotool windowraise $window" + log
+                + " && xdotool mousemove 0 0" + log + " && sleep 1";
+            std::istringstream positions(click);
+            std::string x;
+            std::string y;
+            while (positions >> x >> y)
+                commands += " && sleep 1 && xdotool mousemove --window $window " + x + " " + y + log
+                    + " && xdotool getmouselocation" + log + " && xdotool click 1" + log;
+            clicked = std::system((commands + " && sleep 1").c_str()) == 0;
+            done = true;
+        });
+        for (uint32_t turn = 0; turn < 3000 && !done; ++turn)
+        {
+            descriptor->ui_idle(rack.handle);
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+        gesture.join();
+        carla_show_custom_ui(host.handle, 0, false);
+        if (!clicked)
+            return error("click", "xdotool could not click the editor");
+        reached("clicked");
+    }
+
+    if (preset[0] != '\0' || click[0] != '\0')
+    {
+        std::vector<float> quiet(block_size, 0.0f);
+        std::vector<float> ignored_left(block_size, 0.0f);
+        std::vector<float> ignored_right(block_size, 0.0f);
+        float* quiet_input[] = {quiet.data(), quiet.data()};
+        float* ignored_output[] = {ignored_left.data(), ignored_right.data()};
+        for (uint32_t block = 0; block < 5 * sample_rate / block_size; ++block)
+        {
+            descriptor->process(rack.handle, quiet_input, ignored_output, block_size, nullptr, 0);
+            std::this_thread::sleep_for(std::chrono::microseconds(1000000 * block_size / sample_rate));
+        }
+        reached("settled");
+    }
 
     try
     {
@@ -461,11 +528,13 @@ extern "C" int audio_render(const char* plugin,
                             const char* artefacts,
                             const char* binaries,
                             const char* audio,
-                            const char* note)
+                            const char* note,
+                            const char* preset,
+                            const char* click)
 {
     try
     {
-        return render(plugin, format, mix, artefacts, binaries, std::string(audio) == "1", std::atoi(note));
+        return render(plugin, format, mix, artefacts, binaries, std::string(audio) == "1", std::atoi(note), preset, click);
     }
     catch (...)
     {

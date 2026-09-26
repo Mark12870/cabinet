@@ -65,15 +65,17 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         : new(Installed(Path.Combine(ScanDir(Formats[format].Extension), file)), Formats[format].Carla);
 
     public Task<AudioMeasurement> Render(Bridge bridge, string mix, Display display) =>
-        Measure(bridge, mix, audio: true, note: -1, display);
+        Measure(bridge, mix, audio: true, note: -1, state: "", click: "", display);
 
     public Task<AudioMeasurement> Render(Bridge bridge, string mix, int note, Display display) =>
-        Measure(bridge, mix, audio: true, note, display);
+        Measure(bridge, mix, audio: true, note, state: "", click: "", display);
 
-    public Task<AudioMeasurement> Play(Bridge bridge, int note, Display display) =>
-        Measure(bridge, mix: "", audio: false, note, display);
+    public Task<AudioMeasurement> Play(
+        Bridge bridge, int note, Display display, string state = "", string click = "") =>
+        Measure(bridge, mix: "", audio: false, note, state, click, display);
 
-    private async Task<AudioMeasurement> Measure(Bridge bridge, string mix, bool audio, int note, Display display)
+    private async Task<AudioMeasurement> Measure(
+        Bridge bridge, string mix, bool audio, int note, string state, string click, Display display)
     {
         var (plugin, format) = bridge;
         var library = await (audioProbe ??= CompileAudioProbe());
@@ -95,6 +97,8 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
                 binaries,
                 audio ? "1" : "0",
                 note.ToString(CultureInfo.InvariantCulture),
+                state,
+                click,
             ],
             display,
             ProbePatience,
@@ -125,13 +129,13 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
             found.Groups[5].Value == "1");
     }
 
-    public EditorOrigin VerifyEditor(Bridge bridge)
+    public EditorOrigin VerifyEditor(Bridge bridge, bool controlsAreParameters = true, string click = "")
     {
         var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, "editor", format);
         Directory.CreateDirectory(shots);
         var result = EditorProbe.RunIn(
-            Home, socket, Path.Combine(shots, "yabridge.log"), "editor-interaction.py", plugin, format, shots);
+            Home, socket, Path.Combine(shots, "yabridge.log"), "editor-interaction.py", plugin, format, shots, click);
         File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
 
@@ -149,7 +153,9 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         Assert.True(reaction >= 0.0005 && reaction > noise, $"the editor did not react: {result.Said}");
         Assert.Equal("0", found.Groups[11].Value);
         Assert.Equal("yes", found.Groups[13].Value);
-        Assert.True(found.Groups[14].Value != "none", $"no control moved under the pointer: {result.Said}");
+        Assert.True(
+            !controlsAreParameters || found.Groups[14].Value != "none",
+            $"no control moved under the pointer: {result.Said}");
         Assert.DoesNotContain("crashed while being torn down", result.Said, StringComparison.Ordinal);
         return new EditorOrigin(found.Groups[15].Value, found.Groups[16].Value);
     }

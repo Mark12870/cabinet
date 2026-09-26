@@ -193,7 +193,22 @@ its 600x400 data-missing screen on CI. A home that fresh is also every plugin's 
 plugin that covers its editor on first run gets the answer it would have saved written into the
 scenario's home by `Installed.Settle`, after the install and before the editor opens, the way the
 setup does for the fixtures: Sitala 1 would otherwise open its Update window, a separate window
-the editor capture never shows, and every press would land on it. Run one with:
+the editor capture never shows, and every press would land on it.
+
+An instrument that ships nothing to play is given something: `Content` writes a half-second
+decaying tone, a DrumGizmo kit or a Decent Sampler group around it, and a Carla state file that
+points the plugin at it, which the render loads with `carla_load_plugin_state`. Carla drops the
+first character and the last five of every chunk-typed `<Value>`, since its own writer wraps one
+in a newline and a newline with four spaces, so `Content` writes that wrapping too; written plainly
+the value arrives garbled and the plugin keeps its empty default. A plugin that mutes itself until
+a button is pressed gets the press: `click` names the positions, and both the editor probe and the
+render open the editor and press them before measuring, since a press in one process unmutes only
+that instance. The render then keeps processing silence in real time for five seconds, because a
+plugin that loads samples on a thread of its own starts when it is processed, and offline the
+whole render would pass before the first sample arrived. Where a plugin's knobs are its own
+settings rather than host parameters, as DrumGizmo's and Decent Sampler's are, the scenario says
+so with `controlsAreParameters: false`, and every editor assertion but the aimed drag still holds.
+Run one with:
 
 ```sh
 toolbox run --container cabinet-runtime \
@@ -222,13 +237,9 @@ reasons are here:
   such. Podolski plays, but its editor redraws only its text fields: a knob the host moves stays
   where it was drawn, and a drag across its knobs changes no pixel. Whether a user sees either is
   not known yet.
-- **Nothing to play without a user's own file or key.** Decent Sampler plays only a library the
-  user loads and DrumGizmo only a kit the user downloads; neither ships one. MT Power Drum Kit 2
-  mutes itself until START is clicked, once per session, unless a donation key is entered; it
-  also first asks for a language, which `language.txt` and `start_screen.txt` under
-  `~/.config/MANDA_AUDIO` settle, and loads only with `libxcb-cursor.so.0`, which the Toolbox does
-  not have. Sitala 2 opens an activation dialog over its editor until a serial is entered, and
-  SINEplayer a sign-in screen, with no instrument until one is downloaded through it.
+- **Nothing to play without a user's key or account.** Sitala 2 opens an activation dialog over
+  its editor until a serial is entered, and SINEplayer a sign-in screen, with no instrument until
+  one is downloaded through it.
 - **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
   and Roland Cloud Manager install no plugin until someone signs in inside them.
 - **Bring your own installer or account.** Melodyne, Helix Native, Vital and Serum 2 have no

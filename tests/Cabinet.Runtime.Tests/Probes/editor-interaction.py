@@ -28,6 +28,7 @@ PLUGIN = sys.argv[2]
 FORMAT = sys.argv[3]
 LOG = sys.argv[4]
 SHOTS = sys.argv[5]
+CLICK = sys.argv[6].split() if len(sys.argv) > 6 else []
 
 sys.path.insert(0, os.path.join(CARLA, "share", "carla"))
 
@@ -478,6 +479,13 @@ def main():
         run(["xdotool", "windowactivate", str(window)])
         run(["xdotool", "windowraise", str(window)])
         loop.turn(30)
+
+        for x, y in zip(CLICK[::2], CLICK[1::2]):
+            run(["xdotool", "mousemove", "--window", str(window), x, y, "click", "1"])
+            run(["xdotool", "mousemove", "0", "0"])
+            loop.turn(30)
+            note(f"clicked {x} {y}")
+
         resting = capture(window, "resting")
         loop.turn(30)
         again = capture(window, "resting-again")

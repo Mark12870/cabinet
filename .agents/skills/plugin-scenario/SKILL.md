@@ -102,6 +102,14 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
      plugin sounds only on the keys it maps, 36 for a General MIDI kick. An effect that needs a
      note as well, such as a vocoder whose carrier is a synth, calls
      `Harness.Render(bridge, Mix, Note, display)`: the sine and the note over the same 100 ms.
+   - An instrument that ships nothing to play gets content from `Content`: `Hit` writes a tone,
+     and `Lv2State` or `ChunkState` writes the Carla state that points the plugin at it, passed
+     as `Play(..., state: path)`. To learn what a plugin's state holds, load it in Carla with
+     `PLUGIN_OPTION_USE_CHUNKS` set and `save_plugin_state` it; `DrumGizmoScenario` and
+     `DecentSamplerScenario` are the two shapes, LV2 state and a JUCE chunk.
+   - A plugin that stays silent until a button in its editor is pressed gets `click:` with the
+     button's editor-relative positions, on `VerifyEditor` and on `Play` alike; `click.log` beside
+     `render.log` shows where each press landed.
 
 6. When a case fails, read that format's artefacts in `$A/editor/<format>/` and `$A/audio/<format>/`
    before changing anything. `yabridge.log`, `probe.log`, the captures and `render.log` hold the
@@ -116,6 +124,10 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    in the scenario home for what the plugin saved while it ran, and have the scenario's `Installed`
    override `Settle(home)` to write that answer before the editor opens. A dialog that asks for a
    licence, a sign-in or a key cannot be answered this way; that entry is set aside in `TESTS.md`.
+
+   `AIM=none` on an editor that draws and reacts can mean its knobs are the plugin's own settings
+   rather than host parameters. Check `parameters.txt`: if nothing there is a control the editor
+   shows, pass `controlsAreParameters: false` to `VerifyEditor` and say why in the scenario name.
 
 7. Check that every scenario names a shipped entry, then run the full checks:
 

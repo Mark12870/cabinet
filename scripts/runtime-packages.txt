@@ -27,6 +27,7 @@ qt5-qtbase-devel
 unzip
 weston
 which
+xcb-util-cursor
 xdotool
 xorg-x11-server-Xwayland
 xprop
