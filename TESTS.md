@@ -81,7 +81,10 @@ podman run --rm --security-opt label=disable -v "$PWD":/src:ro \
 `prepare` asks Carla's own questions — `which pyuic5`, the Qt5 pkg-config pair, `moc`, `rcc` and
 `uic` — because Carla installs a no-gui build without a word when one of them fails, and the setup
 then stops twenty minutes later for want of `bin/carla`. A minimal base image and a toolbox one
-differ in exactly that sort of package.
+differ in exactly that sort of package. CI runs `prepare` on the pulled image as well, where it
+installs only what the list has gained since the image was made: a missing `nss_wrapper-libs` fails
+nothing by itself, because ld.so ignores a preload it cannot find, and the u-he scenarios then read
+the wrong home.
 
 Nothing has to be baked by hand. A run with nothing to pull installs the fixtures itself and
 pushes the result, which is how the tag is seeded and how it returns if it is deleted. The vendors'

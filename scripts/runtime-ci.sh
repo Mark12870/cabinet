@@ -124,8 +124,10 @@ prepare() {
     local hostbins tool
     mapfile -t packages < "$SOURCE/scripts/runtime-packages.txt"
 
-    step 'dnf install'
-    dnf install -y "${packages[@]}" dbus-daemon util-linux
+    if ! rpm -q "${packages[@]}" dbus-daemon util-linux >/dev/null; then
+        step 'dnf install'
+        dnf install -y "${packages[@]}" dbus-daemon util-linux
+    fi
 
     # Carla builds its frontend only when all of its own tests pass, installs a no-gui build
     # without a word when one does not, and the suite then fails twenty minutes later for want of

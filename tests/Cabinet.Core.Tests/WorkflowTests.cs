@@ -104,6 +104,16 @@ public class WorkflowTests
         Assert.Contains(Repo.Lines(script), line => line.Contains("runtime-packages.txt"));
     }
 
+    [Fact]
+    public void ThePackagesAreInstalledOnAPulledImageToo()
+    {
+        var steps = string.Join('\n', Job(Runtime, "runtime"))
+            .Split("\n      - ", StringSplitOptions.None);
+
+        var prepare = Assert.Single(steps, step => step.Contains("runtime-ci.sh prepare", StringComparison.Ordinal));
+        Assert.DoesNotContain(prepare.Split('\n'), line => Names(line, "if"));
+    }
+
     private static bool Names(string line, string key) =>
         line.TrimStart().StartsWith(key + ":", StringComparison.Ordinal);
 

@@ -114,8 +114,9 @@ jobs:
           docker run --detach --name "${CONTAINER}" --privileged --device /dev/fuse \
             --volume "${PWD}:/src" "${{ steps.image.outputs.from }}" sleep infinity
 
+      # On the pulled image too: a package listed after the image was made reaches it only here,
+      # and one that is missing fails nothing -- ld.so ignores a preload it cannot find.
       - name: Install the tools
-        if: steps.image.outputs.from == env.BASE
         run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
 
       # The drag-and-drop probes ask whether a yabridge patch can go, not whether this commit
