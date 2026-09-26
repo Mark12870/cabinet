@@ -260,11 +260,28 @@ double rms(const std::vector<float>& left, const std::vector<float>& right, uint
     return std::sqrt(static_cast<double>(sum / (2.0L * (end - begin))));
 }
 
+uint32_t note_events(int note, uint32_t offset, NativeMidiEvent (&events)[2])
+{
+    if (note < 0)
+        return 0;
+
+    uint32_t count = 0;
+    const uint32_t on = silence_before;
+    const uint32_t off = silence_before + signal_frames;
+    if (on >= offset && on < offset + block_size)
+        events[count++] = {on - offset, 0, 3, {0x90, static_cast<uint8_t>(note), 100, 0}};
+    if (off >= offset && off < offset + block_size)
+        events[count++] = {off - offset, 0, 3, {0x80, static_cast<uint8_t>(note), 0, 0}};
+    return count;
+}
+
 int render(const char* plugin_path,
            const char* format,
            const char* mix,
            const char* artefact_dir,
-           const char* binaries_dir)
+           const char* binaries_dir,
+           bool audio,
+           int note)
 {
     const std::string requested(format);
     const CarlaBackend::PluginType plugin_type = requested == "vst2" ? CarlaBackend::PLUGIN_VST2
@@ -273,6 +290,8 @@ int render(const char* plugin_path,
                                                                   : CarlaBackend::PLUGIN_NONE;
     if (plugin_type == CarlaBackend::PLUGIN_NONE)
         return error("setup", "unsupported plugin format");
+    if (note > 127 || (!audio && note < 0))
+        return error("setup", "nothing to render, or a note outside MIDI's range");
 
     std::error_code filesystem_error;
     const std::filesystem::path plugin(plugin_path);
@@ -344,7 +363,8 @@ int render(const char* plugin_path,
     std::vector<float> input_right(rendered_frames, 0.0f);
     std::vector<float> output_left(rendered_frames, 0.0f);
     std::vector<float> output_right(rendered_frames, 0.0f);
-    make_input(input_left, input_right);
+    if (audio)
+        make_input(input_left, input_right);
 
     input_left.resize(total_frames);
     input_right.resize(total_frames);
@@ -370,7 +390,9 @@ int render(const char* plugin_path,
             state.time.usecs = static_cast<uint64_t>(static_cast<double>(offset) * 1000000.0 / sample_rate);
             if (offset == 0)
                 reached("process enter");
-            descriptor->process(rack.handle, input, output, block_size, nullptr, 0);
+            NativeMidiEvent events[2];
+            const uint32_t event_count = note_events(note, offset, events);
+            descriptor->process(rack.handle, input, output, block_size, events, event_count);
             if (offset == 0)
                 reached("process leave");
         }
@@ -433,12 +455,17 @@ int render(const char* plugin_path,
 
 }
 
-extern "C" int audio_render(
-    const char* plugin, const char* format, const char* mix, const char* artefacts, const char* binaries)
+extern "C" int audio_render(const char* plugin,
+                            const char* format,
+                            const char* mix,
+                            const char* artefacts,
+                            const char* binaries,
+                            const char* audio,
+                            const char* note)
 {
     try
     {
-        return render(plugin, format, mix, artefacts, binaries);
+        return render(plugin, format, mix, artefacts, binaries, std::string(audio) == "1", std::atoi(note));
     }
     catch (...)
     {

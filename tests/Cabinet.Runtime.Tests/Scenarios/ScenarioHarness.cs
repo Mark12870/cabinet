@@ -64,19 +64,35 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         ? new(file, Formats[format].Carla)
         : new(Installed(Path.Combine(ScanDir(Formats[format].Extension), file)), Formats[format].Carla);
 
-    public async Task<AudioMeasurement> Render(Bridge bridge, string mix, Display display)
+    public Task<AudioMeasurement> Render(Bridge bridge, string mix, Display display) =>
+        Measure(bridge, mix, audio: true, note: -1, display);
+
+    public Task<AudioMeasurement> Play(Bridge bridge, int note, Display display) =>
+        Measure(bridge, mix: "", audio: false, note, display);
+
+    private async Task<AudioMeasurement> Measure(Bridge bridge, string mix, bool audio, int note, Display display)
     {
         var (plugin, format) = bridge;
         var library = await (audioProbe ??= CompileAudioProbe());
         var binaries = Path.Combine(EditorProbe.CarlaPrefix(), "lib", "carla");
-        var audio = Path.Combine(Artefacts, "audio", format);
-        Directory.CreateDirectory(audio);
+        var output = Path.Combine(Artefacts, "audio", format);
+        Directory.CreateDirectory(output);
         var wrapper = EditorProbe.Wrapper(Path.Combine(root, "bin"), display, Home, socket);
 
         var launcher = Path.Combine(AppContext.BaseDirectory, "Probes", "audio-render.py");
         var result = await Run(
             "python3",
-            [launcher, library, plugin, format, mix, audio, binaries],
+            [
+                launcher,
+                library,
+                plugin,
+                format,
+                mix,
+                output,
+                binaries,
+                audio ? "1" : "0",
+                note.ToString(CultureInfo.InvariantCulture),
+            ],
             display,
             ProbePatience,
             info =>
@@ -89,7 +105,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
                 RuntimeTestEnvironment.OwnHome(info, Home);
             });
 
-        File.WriteAllText(Path.Combine(audio, "render.log"), result.Said);
+        File.WriteAllText(Path.Combine(output, "render.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
 
         var found = Regex.Match(

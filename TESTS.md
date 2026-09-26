@@ -207,6 +207,31 @@ The render probe is a library that `audio-render.py` loads through `ctypes`, the
 the editor probes load Carla: linked into an executable, Carla's bundled asio takes the place of
 yabridge's own and the VST3 bridge crashes while it loads.
 
+### What the scenarios leave out
+
+`scripts/scenario-coverage.sh` lists every entry without a scenario. It cannot say why, so the
+reasons are here:
+
+- **Tried and set aside.** Aaltoverb's editor opens at 720x220 and captures as one flat colour on
+  the test display, with nothing in Wine's log. Virta imports the same `OPENGL32.dll`, runs in
+  the same prefix and draws, so it is not OpenGL as such. Whether a user sees the same blank
+  editor is not known yet. TAL-Vocoder renders silence with no carrier, and its carrier is a
+  synth that needs a note held over the audio, which the probe can do and the harness does not
+  ask for yet.
+- **Instruments not reached yet.** `Harness.Play` holds one note over silence, and TAL-NoiseMaker
+  was the first to use it. Aalto, Kaivo, Sumu, Sitala 1 and 2, SINEplayer, Dexed, Surge XT, the
+  u-he synths, MT Power Drum Kit 2, Decent Sampler and DrumGizmo follow one at a time.
+- **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
+  and Roland Cloud Manager install no plugin until someone signs in inside them.
+- **Bring your own installer or account.** Melodyne, Helix Native, Vital and Serum 2 have no
+  download Cabinet may fetch, and Splice INSTRUMENT needs a Splice sign-in, so none can be
+  installed unattended.
+- **FabFilter Total Bundle.** A 30-day trial whose evaluation dialog covers the editor, and a
+  download the vendor replaces with every release.
+
+Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
+and with no model loaded the scenario proves the plugin's output gain rather than an amp.
+
 ## Patch probes
 
 `DragAndDropTests` tells you when `patches/yabridge-foreign-drag-drop.patch` is no longer needed

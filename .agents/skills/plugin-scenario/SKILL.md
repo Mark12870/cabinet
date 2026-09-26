@@ -96,7 +96,10 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    - Put the `Tail` and `Peak` floors about 20 dB below the measured values, a tenth of each.
    - `signal_rms` can legitimately be near zero: a fully wet delay speaks only after the 100 ms
      input has ended.
-   - The probe feeds audio and sends no MIDI, so it measures effects only.
+   - `Render` feeds an effect a 100 ms sine and sends no MIDI. An instrument calls
+     `Harness.Play(bridge, Note, display)` instead: silence in, one note held for the same 100 ms.
+     It has no `Mix` and asserts no `MixChanged`. `Note` is the scenario's to choose; a drum
+     plugin sounds only on the keys it maps, 36 for a General MIDI kick.
 
 6. When a case fails, read that format's artefacts in `$A/editor/<format>/` and `$A/audio/<format>/`
    before changing anything. `yabridge.log`, `probe.log`, the captures and `render.log` hold the
