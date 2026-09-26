@@ -499,7 +499,7 @@ def main():
         aimed, reaction = aim(window, loop) if AIMING else ("none", 0.0)
         note(f"aimed {aimed}")
 
-        if aimed == "none":
+        if aimed == "none" or reaction < ENOUGH + noise:
             reaction = max(reaction, sweep(window, again or resting or baseline, loop, noise))
 
         note(f"reaction {reaction:.6f}")

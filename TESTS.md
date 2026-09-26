@@ -301,9 +301,11 @@ moves up to 24 parameters from the host, one at a time, since a plugin's first p
 often on a page the editor is not showing, and presses and drags wherever the editor redraws one,
 vertically first and then sideways, since Surge XT's macro sliders answer only a horizontal drag;
 the host must see that parameter move (`AIM`). A control that moved is the strongest answer an
-editor can give, so only when none does is the pointer swept over a grid inside the window, then
-clicked and dragged at four points until the editor answers. Aiming first took Triple Cheese from
-39 s to 21 s, whose sweep found nothing to answer it before the aim found its first knob. A
+editor can give, so only when none does, or the one that moved redrew too little to count as an
+answer, is the pointer swept over a grid inside the window, then clicked and dragged at four
+points until the editor answers. Aalto's, Dexed's and TAL-Vocoder's knobs move under the aim yet
+turn only a few pixels. Aiming first took Triple Cheese from 39 s to 21 s, whose sweep found
+nothing to answer it before the aim found its first knob. A
 scenario whose knobs are not host parameters skips the aim and goes straight to the sweep. Five
 things are asserted per plugin.
 
