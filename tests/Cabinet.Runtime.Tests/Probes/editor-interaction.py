@@ -4,8 +4,9 @@ Carla loads the plugin and opens its editor. The editor window is whichever top-
 appears across that call, so a native plugin is found the same way a bridged one is and no
 yabridge trace is needed. The pointer crosses a grid of points inside the window, and until the
 editor answers, four of them are clicked and dragged. The first parameters are then moved from the
-host one at a time, and wherever the editor redraws one, the pointer presses and drags; the host
-must see that parameter move. Every capture is compared against one taken with the pointer held
+host one at a time, and wherever the editor redraws one, the pointer presses and drags it up,
+down, then sideways, since a slider may answer only along its own axis; the host must see that
+parameter move. Every capture is compared against one taken with the pointer held
 still: a plugin that animates on its own must not pass for one that answers the pointer. A
 bridged editor's trace also says where Wine was told the window is, which must be where it is.
 
@@ -374,9 +375,9 @@ def pressed(window, loop, index, x, y, name):
     loop.turn(4)
     hit = False
 
-    for direction in (-1, 1):
+    for across, down in ((0, -1), (0, 1), (-1, 0), (1, 0)):
         for swing in SWING:
-            run(["xdotool", "mousemove", str(x), str(y + direction * swing)])
+            run(["xdotool", "mousemove", str(x + across * swing), str(y + down * swing)])
             loop.turn(3)
             hit = hit or moved(host, index, original)
 

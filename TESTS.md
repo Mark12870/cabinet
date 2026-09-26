@@ -219,8 +219,9 @@ reasons are here:
   synth that needs a note held over the audio, which the probe can do and the harness does not
   ask for yet.
 - **Instruments not reached yet.** `Harness.Play` holds one note over silence, and TAL-NoiseMaker
-  was the first to use it. Aalto, Kaivo, Sumu, Sitala 1 and 2, SINEplayer, Dexed, Surge XT, the
-  u-he synths, MT Power Drum Kit 2, Decent Sampler and DrumGizmo follow one at a time.
+  was the first to use it, then Dexed and Surge XT. Aalto, Kaivo, Sumu, Sitala 1 and 2,
+  SINEplayer, the u-he synths, MT Power Drum Kit 2, Decent Sampler and DrumGizmo follow one at a
+  time.
 - **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
   and Roland Cloud Manager install no plugin until someone signs in inside them.
 - **Bring your own installer or account.** Melodyne, Helix Native, Vital and Serum 2 have no
@@ -277,7 +278,8 @@ Geometry says where a window is, not whether the user can use what is in it. `In
 answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
 sweeps the pointer over a grid inside it, then clicks and drags at four points until the editor
 answers. It then moves the first parameters from the host and presses and drags wherever the
-editor redraws one; the host must see that parameter move (`AIM`). Five things are asserted per
+editor redraws one, vertically first and then sideways, since Surge XT's macro sliders answer only
+a horizontal drag; the host must see that parameter move (`AIM`). Five things are asserted per
 plugin.
 
 Pixels cannot tell a shifted click from a generous hit area, so a bridged plugin's scenario also
