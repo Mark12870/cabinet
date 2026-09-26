@@ -67,6 +67,9 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
     public Task<AudioMeasurement> Render(Bridge bridge, string mix, Display display) =>
         Measure(bridge, mix, audio: true, note: -1, display);
 
+    public Task<AudioMeasurement> Render(Bridge bridge, string mix, int note, Display display) =>
+        Measure(bridge, mix, audio: true, note, display);
+
     public Task<AudioMeasurement> Play(Bridge bridge, int note, Display display) =>
         Measure(bridge, mix: "", audio: false, note, display);
 

@@ -99,7 +99,9 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    - `Render` feeds an effect a 100 ms sine and sends no MIDI. An instrument calls
      `Harness.Play(bridge, Note, display)` instead: silence in, one note held for the same 100 ms.
      It has no `Mix` and asserts no `MixChanged`. `Note` is the scenario's to choose; a drum
-     plugin sounds only on the keys it maps, 36 for a General MIDI kick.
+     plugin sounds only on the keys it maps, 36 for a General MIDI kick. An effect that needs a
+     note as well, such as a vocoder whose carrier is a synth, calls
+     `Harness.Render(bridge, Mix, Note, display)`: the sine and the note over the same 100 ms.
 
 6. When a case fails, read that format's artefacts in `$A/editor/<format>/` and `$A/audio/<format>/`
    before changing anything. `yabridge.log`, `probe.log`, the captures and `render.log` hold the
@@ -107,6 +109,13 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    `gdb -batch -ex run -ex bt` in the Toolbox. Use the scenario home and the environment that
    `ScenarioHarness.Render` sets, then map the faulting library offset with `objdump` inside the
    Toolbox.
+
+   An editor that reacts to nothing, or whose presses never move a control, is often covered by
+   something a first run shows: a language picker, a welcome screen, an update window. An update
+   window is a window of its own, so `resting.png` may look clean while it takes every press. Look
+   in the scenario home for what the plugin saved while it ran, and have the scenario's `Installed`
+   override `Settle(home)` to write that answer before the editor opens. A dialog that asks for a
+   licence, a sign-in or a key cannot be answered this way; that entry is set aside in `TESTS.md`.
 
 7. Check that every scenario names a shipped entry, then run the full checks:
 

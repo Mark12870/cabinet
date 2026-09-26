@@ -189,7 +189,11 @@ every shipped entry that has no scenario yet; a scenario naming the entry clears
 owns its expectations. Isolation includes the user database: u-he plugins find their data through
 the passwd home rather than `HOME`, so a probe runs under `nss_wrapper` with a passwd entry whose
 home is its own. Without it Protoverb passed locally on the developer's own `~/.u-he` and showed
-its 600x400 data-missing screen on CI. Run one with:
+its 600x400 data-missing screen on CI. A home that fresh is also every plugin's first run, so a
+plugin that covers its editor on first run gets the answer it would have saved written into the
+scenario's home by `Installed.Settle`, after the install and before the editor opens, the way the
+setup does for the fixtures: Sitala 1 would otherwise open its Update window, a separate window
+the editor capture never shows, and every press would land on it. Run one with:
 
 ```sh
 toolbox run --container cabinet-runtime \
@@ -212,16 +216,19 @@ yabridge's own and the VST3 bridge crashes while it loads.
 `scripts/scenario-coverage.sh` lists every entry without a scenario. It cannot say why, so the
 reasons are here:
 
-- **Tried and set aside.** Aaltoverb's editor opens at 720x220 and captures as one flat colour on
-  the test display, with nothing in Wine's log. Virta imports the same `OPENGL32.dll`, runs in
-  the same prefix and draws, so it is not OpenGL as such. Whether a user sees the same blank
-  editor is not known yet. TAL-Vocoder renders silence with no carrier, and its carrier is a
-  synth that needs a note held over the audio, which the probe can do and the harness does not
-  ask for yet.
-- **Instruments not reached yet.** `Harness.Play` holds one note over silence, and TAL-NoiseMaker
-  was the first to use it, then Dexed and Surge XT. Aalto, Kaivo, Sumu, Sitala 1 and 2,
-  SINEplayer, the u-he synths, MT Power Drum Kit 2, Decent Sampler and DrumGizmo follow one at a
-  time.
+- **Editors the probe cannot use.** Aaltoverb and Sumu, Madrona's two VST3 builds, open their
+  editors as one flat colour on the test display, with nothing in Wine's log; Virta, Aalto and
+  Kaivo import the same `OPENGL32.dll`, run in the same prefix and draw, so it is not OpenGL as
+  such. Podolski plays, but its editor redraws only its text fields: a knob the host moves stays
+  where it was drawn, and a drag across its knobs changes no pixel. Whether a user sees either is
+  not known yet.
+- **Nothing to play without a user's own file or key.** Decent Sampler plays only a library the
+  user loads and DrumGizmo only a kit the user downloads; neither ships one. MT Power Drum Kit 2
+  mutes itself until START is clicked, once per session, unless a donation key is entered; it
+  also first asks for a language, which `language.txt` and `start_screen.txt` under
+  `~/.config/MANDA_AUDIO` settle, and loads only with `libxcb-cursor.so.0`, which the Toolbox does
+  not have. Sitala 2 opens an activation dialog over its editor until a serial is entered, and
+  SINEplayer a sign-in screen, with no instrument until one is downloaded through it.
 - **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
   and Roland Cloud Manager install no plugin until someone signs in inside them.
 - **Bring your own installer or account.** Melodyne, Helix Native, Vital and Serum 2 have no
@@ -277,7 +284,8 @@ so a run never puts a plugin window on the user's screen.
 Geometry says where a window is, not whether the user can use what is in it. `InteractionTests`
 answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
 sweeps the pointer over a grid inside it, then clicks and drags at four points until the editor
-answers. It then moves the first parameters from the host and presses and drags wherever the
+answers. It then moves up to 24 parameters from the host, one at a time, since a plugin's first
+parameters are often on a page the editor is not showing, and it presses and drags wherever the
 editor redraws one, vertically first and then sideways, since Surge XT's macro sliders answer only
 a horizontal drag; the host must see that parameter move (`AIM`). Five things are asserted per
 plugin.

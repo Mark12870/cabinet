@@ -22,6 +22,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         Harness.Prepare();
         display = Display.Start();
         await Harness.Install(Entry.Url!, display);
+        Settle(Harness.Home);
     }
 
     public Task DisposeAsync()
@@ -30,6 +31,10 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         display?.Dispose();
         runtimeLock?.Dispose();
         return Task.CompletedTask;
+    }
+
+    protected virtual void Settle(string home)
+    {
     }
 
     private static LibraryEntry Find(string id) =>
