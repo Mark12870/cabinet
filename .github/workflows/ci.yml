@@ -12,10 +12,6 @@ on:
           FabFilter trial, at the cost of a run of hours
         type: boolean
         default: false
-  # Weekly, so the Flathub extensions mirrored beside Cabinet pick up their security updates
-  # without waiting for a release.
-  schedule:
-    - cron: '17 4 * * 1'
 
 permissions:
   contents: read
@@ -72,11 +68,10 @@ jobs:
           release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
           echo "release=${release}" >> "$GITHUB_OUTPUT"
 
-          # A dispatch means "republish what is out" -- that is what the weekly extension refresh
-          # is -- except when it was asked for the test fixtures, which have nothing to do with
+          # A dispatch means "republish what is out" -- that is what an extension refresh is --
+          # except when it was asked for the test fixtures, which have nothing to do with
           # the published repo.
           case "${{ github.event_name }}" in
-            schedule) publish=true ;;
             workflow_dispatch)
               if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
                 publish=false
@@ -91,7 +86,6 @@ jobs:
   # artifact builds. Only a new version ships this very build; a refresh republishes what is out.
   # It does not wait for checks: publish does, so a build nothing gates is only spent minutes.
   build:
-    if: github.event_name != 'schedule'
     uses: ./.github/workflows/build.yml
 
   # A push that only rewrites prose cannot change what a plugin does, and the runtime job is the

@@ -3,9 +3,11 @@ name: Plugins
 # Every catalogue entry's end-to-end scenario, every day, against a Cabinet built from main: the
 # catalogue ships inside the app, so the entries a scenario reads are the ones this build carries.
 # A vendor that moves a download or changes an installer shows up here without anyone pushing.
+# GitHub starts a scheduled run about five hours after its cron, so the cron sits early enough
+# that the results are still in by the morning.
 on:
   schedule:
-    - cron: '23 7 * * *'
+    - cron: '23 1 * * *'
   workflow_dispatch:
 
 permissions:
