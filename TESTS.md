@@ -211,6 +211,13 @@ plugin that loads samples on a thread of its own starts when it is processed, an
 whole render would pass before the first sample arrived. Where a plugin's knobs are its own
 settings rather than host parameters, as DrumGizmo's and Decent Sampler's are, the scenario says
 so with `controlsAreParameters: false`, and every editor assertion but the aimed drag still holds.
+
+A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
+Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their
+artefacts apart and the report counts a format as failed when either fails. A fresh home is a
+fresh trial, so every run gets day one of the 30 and never runs out, and both editors open under
+an evaluation dialog drawn inside them, which `click` dismisses by pressing Evaluate. The vendor
+replaces the download with every release, so each run tests whatever FabFilter ships that day.
 Run one with:
 
 ```sh
@@ -248,9 +255,6 @@ reasons are here:
 - **Bring your own installer or account.** Melodyne, Helix Native, Vital and Serum 2 have no
   download Cabinet may fetch, and Splice INSTRUMENT needs a Splice sign-in, so none can be
   installed unattended.
-- **FabFilter Total Bundle.** A 30-day trial whose evaluation dialog covers the editor, and a
-  download the vendor replaces with every release.
-
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.
 

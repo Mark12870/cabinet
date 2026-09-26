@@ -80,7 +80,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         var (plugin, format) = bridge;
         var library = await (audioProbe ??= CompileAudioProbe());
         var binaries = Path.Combine(EditorProbe.CarlaPrefix(), "lib", "carla");
-        var output = Path.Combine(Artefacts, "audio", format);
+        var output = Path.Combine(Artefacts, "audio", bridge.Label);
         Directory.CreateDirectory(output);
         var wrapper = EditorProbe.Wrapper(Path.Combine(root, "bin"), display, Home, socket);
 
@@ -132,7 +132,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
     public EditorOrigin VerifyEditor(Bridge bridge, bool controlsAreParameters = true, string click = "")
     {
         var (plugin, format) = bridge;
-        var shots = Path.Combine(Artefacts, "editor", format);
+        var shots = Path.Combine(Artefacts, "editor", bridge.Label);
         Directory.CreateDirectory(shots);
         var result = EditorProbe.RunIn(
             Home,
@@ -294,7 +294,10 @@ internal sealed record ScenarioProcessResult(int ExitCode, string Output, string
     public string Said => $"{Output}\nstderr:\n{Error}\nexit: {ExitCode}";
 }
 
-internal sealed record Bridge(string Plugin, string Format);
+internal sealed record Bridge(string Plugin, string Format)
+{
+    public string Label { get; init; } = Format;
+}
 
 internal sealed record EditorOrigin(string Wine, string Told);
 

@@ -47,7 +47,7 @@ def results(trx: Path) -> dict[tuple[str, str], str]:
     outcomes = {}
     for result in ElementTree.parse(trx).getroot().iter(f"{TRX}UnitTestResult"):
         found = TEST_RE.match(result.get("testName", ""))
-        if found:
+        if found and outcomes.get((found.group(1), found.group(2))) != "Failed":
             outcomes[(found.group(1), found.group(2))] = result.get("outcome", "Unknown")
     return outcomes
 
