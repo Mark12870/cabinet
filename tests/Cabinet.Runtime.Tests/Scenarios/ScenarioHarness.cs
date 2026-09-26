@@ -17,7 +17,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
     };
     private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", id);
     private readonly string socket = RuntimeTestEnvironment.SocketDirectory;
-    private Task<string>? audioProbe;
+    private static Task<string>? audioProbe;
 
     public string Artefacts => Path.Combine(root, "artefacts");
     public string Home => Path.Combine(root, "home");
@@ -135,7 +135,15 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         var shots = Path.Combine(Artefacts, "editor", format);
         Directory.CreateDirectory(shots);
         var result = EditorProbe.RunIn(
-            Home, socket, Path.Combine(shots, "yabridge.log"), "editor-interaction.py", plugin, format, shots, click);
+            Home,
+            socket,
+            Path.Combine(shots, "yabridge.log"),
+            "editor-interaction.py",
+            plugin,
+            format,
+            shots,
+            click,
+            controlsAreParameters ? "aim" : "no-aim");
         File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
 
@@ -176,7 +184,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
 
     private async Task<string> CompileAudioProbe()
     {
-        var output = Path.Combine(root, "audio-render.so");
+        var output = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", "audio-render.so");
         var source = Path.Combine(AppContext.BaseDirectory, "Probes", "audio-render.cpp");
         var carla = EditorProbe.CarlaPrefix();
         var carlaSource = Path.Combine(

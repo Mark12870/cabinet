@@ -29,6 +29,7 @@ FORMAT = sys.argv[3]
 LOG = sys.argv[4]
 SHOTS = sys.argv[5]
 CLICK = sys.argv[6].split() if len(sys.argv) > 6 else []
+AIMING = len(sys.argv) <= 7 or sys.argv[7] != "no-aim"
 
 sys.path.insert(0, os.path.join(CARLA, "share", "carla"))
 
@@ -495,10 +496,11 @@ def main():
         wine, told = origin()
         note(f"wine {wine} told {told}")
         note("sweeping")
-        reaction = sweep(window, again or resting or baseline, loop, noise)
-        aimed, pressed_reaction = aim(window, loop)
-        reaction = max(reaction, pressed_reaction)
+        aimed, reaction = aim(window, loop) if AIMING else ("none", 0.0)
         note(f"aimed {aimed}")
+
+        if aimed == "none":
+            reaction = max(reaction, sweep(window, again or resting or baseline, loop, noise))
 
         note(f"reaction {reaction:.6f}")
 
