@@ -69,6 +69,7 @@ as_owner() {
     exec runuser --user "$OWNER" -- env \
         HOME="/home/$OWNER" \
         XDG_RUNTIME_DIR="/run/user/$OWNER_ID" \
+        LANG=C.UTF-8 \
         CABINET_RUNTIME_ROOT="$ROOT" \
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$SOURCE/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \

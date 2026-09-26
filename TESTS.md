@@ -64,12 +64,15 @@ seven vendor installers, five Wine runners and a serial Carla build — and `act
 
 `scripts/runtime-ci.sh` drives every step inside the container: the `direct` backend rather than a
 Toolbox, an unprivileged user because Wine refuses to run as root, and a headless `weston` for the
-vendor installers, which need a display. A push restores the cache, runs the setup — where all
-that is left is the new Cabinet commit and a sync — and commits the free half back, so the next
-push starts from it. Both halves are kept whenever the setup succeeded rather than when the tests
-passed: Decent Sampler fails the first time its editor opens on a root that has no config of its
-own yet, and gating on green would let one such plugin keep the fixtures from ever being kept, so
-every push would reinstall them and fail again.
+vendor installers, which need a display. That user gets `LANG=C.UTF-8`, as a desktop session has a
+UTF-8 locale: a container sets none, and under the `C` locale Wine cannot name a file outside
+ASCII, so Virta's installer, which writes presets under `Mathias Brüssel`, failed to create that
+folder, took its suppressed Abort and exited 5 while every local run passed. A push restores the
+cache, runs the setup — where all that is left is the new Cabinet commit and a sync — and commits
+the free half back, so the next push starts from it. Both halves are kept whenever the setup
+succeeded rather than when the tests passed: Decent Sampler fails the first time its editor opens
+on a root that has no config of its own yet, and gating on green would let one such plugin keep
+the fixtures from ever being kept, so every push would reinstall them and fail again.
 
 What the image must carry can be checked without a run, in the time a `dnf install` takes:
 
