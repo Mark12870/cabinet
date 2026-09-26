@@ -365,6 +365,12 @@ on `Xvfb`, SINE Player died four seconds into `add_plugin`, its main thread gone
 alive at no CPU, which is the hang AGENTS.md describes — the host waits on it forever. Under
 `weston` the same plugin loads and draws.
 
+The headless backend must run with `--fake-seat`. Without it the compositor has no seat at all,
+and Xwayland 24.1 dereferences the missing seat when a client warps the pointer into a window
+that is not a top-level one: `xwl_cursor_warped_to` aborts the X server, and Wine and the editor
+go with it. A plugin editor is embedded in the host's window, and a knob that hides the cursor
+while it is dragged warps it, so Virta took the display down at the probe's first drag.
+
 Cabinet's sandbox reaches the compositor's X server through `--filesystem=/tmp/.X11-unix`; the
 toolbox shares the host's `/tmp`, so the socket is visible from both sides.
 

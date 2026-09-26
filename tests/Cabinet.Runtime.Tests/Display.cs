@@ -48,6 +48,7 @@ internal sealed class Display : IDisposable
                      "--width=1920",
                      "--height=1080",
                      "--refresh-rate=60000",
+                     "--fake-seat",
                      "--xwayland",
                      $"--socket={socket}",
                      $"--log={log}",
