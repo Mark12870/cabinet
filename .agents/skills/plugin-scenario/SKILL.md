@@ -20,6 +20,8 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    {
        private const string Id = "valhalla-supermassive";
 
+       private const string Mix = "Mix";
+
        private static readonly Dictionary<string, string> Bridges = new()
        {
            ["VST3"] = "ValhallaSupermassive.vst3",
@@ -35,13 +37,16 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
            Assert.True(
                Bridges.ContainsKey(format),
                $"{Id} declares {format}, which this scenario does not say how to find");
-           var bridge = installed.Harness.Bridged(format, Bridges[format]);
+           var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
-           installed.Harness.VerifyEditor(bridge);
-           var audio = await installed.Harness.Render(bridge, installed.Display);
+           var editor = installed.Harness.VerifyEditor(bridge);
+           Assert.True(
+               editor.Wine != "none" && editor.Wine == editor.Told,
+               $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
+           var audio = await installed.Harness.Render(bridge, Mix, installed.Display);
 
            Assert.True(audio.Parameters > 0, $"{installed.Entry.Name} exposed no parameters");
-           Assert.True(audio.MixChanged, $"{installed.Entry.Name}'s Mix did not hold fully wet");
+           Assert.True(audio.MixChanged, $"{installed.Entry.Name}'s {Mix} did not hold fully wet");
            Assert.InRange(audio.Before, 0, 0.00001);
            Assert.InRange(audio.Tail, 0.0025, 1);
            Assert.InRange(audio.Peak, 0.014, 1);
@@ -51,9 +56,12 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    }
    ```
 
-   Only the file name and class name, `Id`, `Bridges`, the test name and the audio floors change
-   between scenarios. Keep the test free of conditions and loops. `Harness.Bridged` knows `VST3`
-   and `VST2`; a format it does not know has to be added to `ScenarioHarness.Formats` first.
+   Only the file name and class name, `Id`, `Mix`, `Bridges`, the test name and the audio floors
+   change between scenarios. `Mix` names the parameter the render drives to its maximum. Keep the
+   test free of conditions and loops. `Harness.Plugin` knows `VST3`, `VST2` and `LV2`, where an
+   LV2 bridge is the plugin's URI; a format it does not know has to be added to
+   `ScenarioHarness.Formats` first. The origin assertion is for bridged plugins only. A plugin
+   that has no editor of its own skips `VerifyEditor` altogether and says so in its test name.
 
 3. Fill `Bridges` with one bridged file name for each format in the entry's `Formats:`. To find
    the names, run the scenario once with `Bridges` empty and list what the install left:

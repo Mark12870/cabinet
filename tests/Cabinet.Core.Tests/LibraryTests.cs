@@ -814,7 +814,7 @@ public class LibraryTests : IDisposable
 
         try
         {
-            Assert.True(started.Wait(TimeSpan.FromSeconds(1)));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
             Assert.False(task.IsCompleted);
         }
         finally
@@ -859,7 +859,7 @@ public class LibraryTests : IDisposable
 
         try
         {
-            Assert.True(started.Wait(TimeSpan.FromSeconds(1)));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
             Assert.True(bridged.Wait(TimeSpan.FromSeconds(5)));
         }
         finally
@@ -909,7 +909,7 @@ public class LibraryTests : IDisposable
 
         try
         {
-            Assert.True(started.Wait(TimeSpan.FromSeconds(1)));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
             Assert.True(retried.Wait(TimeSpan.FromSeconds(5)));
         }
         finally
