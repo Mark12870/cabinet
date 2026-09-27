@@ -241,12 +241,9 @@ yabridge's own and the VST3 bridge crashes while it loads.
 `scripts/scenario-coverage.sh` lists every entry without a scenario. It cannot say why, so the
 reasons are here:
 
-- **Editors the probe cannot use.** Aaltoverb and Sumu, Madrona's two VST3 builds, open their
-  editors as one flat colour on the test display, with nothing in Wine's log; Virta, Aalto and
-  Kaivo import the same `OPENGL32.dll`, run in the same prefix and draw, so it is not OpenGL as
-  such. Podolski plays, but its editor redraws only its text fields: a knob the host moves stays
-  where it was drawn, and a drag across its knobs changes no pixel. Whether a user sees either is
-  not known yet.
+- **An editor the probe cannot use.** Podolski plays, but its editor redraws only its text
+  fields: a knob the host moves stays where it was drawn, and a drag across its knobs changes no
+  pixel, on a GPU-backed display as well. Whether a user sees it is not known yet.
 - **Nothing to play without a user's key or account.** Sitala 2 opens an activation dialog over
   its editor until a serial is entered, and SINEplayer a sign-in screen, with no instrument until
   one is downloaded through it.
@@ -257,6 +254,14 @@ reasons are here:
   installed unattended.
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.
+
+Aaltoverb and Sumu, Madrona's two VST3 builds, have scenarios without an editor check too. They
+draw through OpenGL into a child window, which Wine renders offscreen and copies into the editor.
+On a desktop that works, and so does weston's `--renderer=gl` on a GPU, where Aaltoverb's editor
+passes at 3064 colours with a knob moved. On the test display's no-op renderer, or `--renderer=gl`
+on llvmpipe as a runner would have it, Xwayland offers no DRI3 and the editor stays one black
+colour, so an editor check would pass here and fail on CI. Virta, Aalto and Kaivo import the same
+`OPENGL32.dll` but make no `wgl` call, which is why their editors are checked.
 
 ## Patch probes
 
