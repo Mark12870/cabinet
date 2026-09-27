@@ -40,6 +40,8 @@ TYPE = [
 
 sys.path.insert(0, os.path.join(CARLA, "share", "carla"))
 
+STILL = float(os.environ.pop("CABINET_PROBE_STILL", "0"))
+
 os.environ["YABRIDGE_DEBUG_LEVEL"] = "1+editor"
 os.environ["YABRIDGE_DEBUG_FILE"] = LOG
 
@@ -455,6 +457,25 @@ def answered(window, loop, before):
     return time.monotonic() - started
 
 
+def quiet(window, loop):
+    started = time.monotonic()
+    calm = started
+    anchor = capture(window, "calm")
+
+    while anchor and time.monotonic() - calm < STILL and time.monotonic() - started < STILL_LIMIT:
+        loop.turn(20)
+        current = capture(window, "answer")
+
+        if not current:
+            break
+
+        if difference(anchor, current) >= ENOUGH:
+            os.replace(current, anchor)
+            calm = time.monotonic()
+
+    return time.monotonic() - started
+
+
 def press(window, loop):
     reaction = 0.0
 
@@ -573,6 +594,9 @@ def main():
             run(["xdotool", "click", "1"])
             run(["xdotool", "mousemove", "0", "0"])
             note(f"clicked {x} {y}, answered after {answered(window, loop, before):.1f}s")
+
+        if STILL:
+            note(f"still after {quiet(window, loop):.1f}s")
 
         resting = capture(window, "resting")
         loop.turn(30)

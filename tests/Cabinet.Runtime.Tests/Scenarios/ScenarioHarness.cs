@@ -144,7 +144,8 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         string click = "",
         string control = "",
         string press = "",
-        string type = "")
+        string type = "",
+        int still = 0)
     {
         var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, "editor", bridge.Label);
@@ -154,7 +155,11 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
             socket,
             Path.Combine(shots, "yabridge.log"),
             "editor-interaction.py",
-            new Dictionary<string, string> { ["CABINET_PROBE_TYPE"] = type },
+            new Dictionary<string, string>
+            {
+                ["CABINET_PROBE_TYPE"] = type,
+                ["CABINET_PROBE_STILL"] = still.ToString(CultureInfo.InvariantCulture),
+            },
             plugin,
             format,
             shots,

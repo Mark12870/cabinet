@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Cabinet.Runtime.Tests.Scenarios;
 
@@ -7,8 +8,7 @@ internal static class Vital
 {
     private const string Account = "https://account.vital.audio";
 
-    private const string SignIn =
-        "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyBQ-uM8Ta1hyYRaru8kb7hfoKyvBjlRSyQ";
+    private const string SignIn = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
 
     public static async Task<string> Download(string product, string kind, string version, string directory)
     {
@@ -16,7 +16,11 @@ internal static class Vital
         using var client = new HttpClient();
         client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (X11; Linux x86_64)");
 
-        using var signed = await client.PostAsJsonAsync(SignIn, new
+        var config = await client.GetStringAsync($"{Account}/js/firebase.js");
+        var key = Regex.Match(config, @"apiKey:\s*""([^""]+)""");
+        Assert.True(key.Success, "Vital's sign-in page no longer names its Firebase key");
+
+        using var signed = await client.PostAsJsonAsync($"{SignIn}?key={key.Groups[1].Value}", new
         {
             email = credentials["EMAIL"],
             password = credentials["PASSWORD"],
