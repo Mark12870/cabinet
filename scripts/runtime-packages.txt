@@ -9,6 +9,7 @@ git
 ImageMagick
 liblo-devel
 libsamplerate-devel
+libsecret
 libsndfile-devel
 libX11-devel
 libXcursor-devel

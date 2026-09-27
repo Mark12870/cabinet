@@ -568,7 +568,9 @@ def main():
 
         for x, y in zip(CLICK[::2], CLICK[1::2]):
             before = capture(window, "unpressed")
-            run(["xdotool", "mousemove", "--window", str(window), x, y, "click", "1"])
+            run(["xdotool", "mousemove", "--window", str(window), x, y])
+            loop.turn(4)
+            run(["xdotool", "click", "1"])
             run(["xdotool", "mousemove", "0", "0"])
             note(f"clicked {x} {y}, answered after {answered(window, loop, before):.1f}s")
 

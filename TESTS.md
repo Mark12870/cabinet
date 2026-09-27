@@ -245,6 +245,15 @@ page uses, downloads the installer by its path with `raw=1`, and checks a SHA-25
 endpoint is not a documented API, so a Dropbox change shows up as a failed listing. A new Serum 2
 release means replacing the file in the folder and the scenario's path and checksum.
 
+Vital signs in to its account site through Firebase's password sign-in with the same `EMAIL` and
+`PASSWORD`, asks the account's products for the Linux zip of the version the scenario pins, and
+downloads it. 1.0.7 is pinned because 1.6.4 ships no LV2. The editor opens behind a sign-in panel
+that Work offline dismisses; a press is a move, a few turns of the host, and then the click, since
+Vital takes no click that arrives with the pointer. Its knobs are host parameters sorted by name,
+so the aim is named, Macro 1. Only VST2 is checked in the editor: under Carla, Vital's VST3 editor
+draws once and takes no input, and its LV2 editor never opens, on a GPU display as well, while the
+VST3 works in REAPER. Every format still plays a note.
+
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their
 artefacts apart and the report counts a format as failed when either fails. A fresh home is a
@@ -279,8 +288,8 @@ reasons are here:
   one is downloaded through it.
 - **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
   and Roland Cloud Manager install no plugin until someone signs in inside them.
-- **Bring your own installer or account.** Vital has no download Cabinet may fetch, and Splice
-  INSTRUMENT needs a Splice sign-in, so neither can be installed unattended.
+- **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
+  be installed unattended.
 
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.
