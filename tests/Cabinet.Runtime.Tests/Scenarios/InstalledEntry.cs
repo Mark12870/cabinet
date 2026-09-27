@@ -21,7 +21,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         runtimeLock = RuntimeTestLock.Acquire();
         Harness.Prepare();
         display = Display.Start();
-        await Harness.Install(Entry.Url!, display);
+        await Harness.Install(Entry.DemoUrl ?? Entry.Url!, display);
         Settle(Harness.Home);
     }
 

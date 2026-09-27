@@ -31,6 +31,7 @@ SHOTS = sys.argv[5]
 CLICK = sys.argv[6].split() if len(sys.argv) > 6 else []
 AIMING = len(sys.argv) <= 7 or sys.argv[7] != "no-aim"
 CONTROL = [int(value) for value in sys.argv[8].split()] if len(sys.argv) > 8 else []
+PRESS = sys.argv[9].split() if len(sys.argv) > 9 else []
 
 sys.path.insert(0, os.path.join(CARLA, "share", "carla"))
 
@@ -404,6 +405,21 @@ def named(window, loop):
         yield (left + x, top + y, f"control-{index}", still, index)
 
 
+def press(window, loop):
+    reaction = 0.0
+
+    for x, y in zip(PRESS[::2], PRESS[1::2]):
+        still = look(window, f"press-{x}-{y}-still", loop)
+        run(["xdotool", "mousemove", "--window", str(window), x, y, "click", "1"])
+        loop.turn(30)
+        shot = look(window, f"press-{x}-{y}", loop)
+        answered = difference(still, shot) if still and shot else 0.0
+        note(f"press {x} {y} answered {answered:.6f}")
+        reaction = max(reaction, answered)
+
+    return reaction
+
+
 def aim(window, loop):
     for x, y, name, still, index in itertools.chain(named(window, loop), located(window, loop)):
         note(f"aim {name} at {x},{y}")
@@ -507,6 +523,7 @@ def main():
         note("sweeping")
         aimed, reaction = aim(window, loop) if AIMING else ("none", 0.0)
         note(f"aimed {aimed}")
+        reaction = max(reaction, press(window, loop))
 
         if aimed == "none" or reaction < ENOUGH + noise:
             reaction = max(reaction, sweep(window, again or resting or baseline, loop, noise))

@@ -215,6 +215,12 @@ Where the aim cannot find a knob, the scenario names one with `control`, as its 
 editor-relative position, and the probe drags it before any it locates itself. Podolski redraws
 only its text fields when the host moves a parameter, so locating finds no knob, and the sweep's
 four points fall between them; its Attack knob, named, moves parameter 27 and redraws.
+An editor whose controls are neither host parameters nor under the sweep is given `press`: points
+the probe presses as part of the measurement, each compared with the frame just before it.
+Melodyne is that editor. Its entry is bring-your-own, but `InstalledEntry` installs its pinned
+demo, and the scenario answers the welcome window with Melodyne player, the mode that needs no
+account, closes the tips window after it, and presses the inspector toggle. Nothing is
+transferred into it, so it passes the tone through at the level it came in.
 
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their
@@ -250,9 +256,10 @@ reasons are here:
   one is downloaded through it.
 - **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
   and Roland Cloud Manager install no plugin until someone signs in inside them.
-- **Bring your own installer or account.** Melodyne, Helix Native, Vital and Serum 2 have no
-  download Cabinet may fetch, and Splice INSTRUMENT needs a Splice sign-in, so none can be
-  installed unattended.
+- **Bring your own installer or account.** Helix Native, Vital and Serum 2 have no download
+  Cabinet may fetch, and Splice INSTRUMENT needs a Splice sign-in, so none can be installed
+  unattended.
+
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.
 

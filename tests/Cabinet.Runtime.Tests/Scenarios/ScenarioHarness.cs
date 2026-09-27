@@ -130,7 +130,11 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
     }
 
     public EditorOrigin VerifyEditor(
-        Bridge bridge, bool controlsAreParameters = true, string click = "", string control = "")
+        Bridge bridge,
+        bool controlsAreParameters = true,
+        string click = "",
+        string control = "",
+        string press = "")
     {
         var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, "editor", bridge.Label);
@@ -145,7 +149,8 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
             shots,
             click,
             controlsAreParameters ? "aim" : "no-aim",
-            control);
+            control,
+            press);
         File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
 
