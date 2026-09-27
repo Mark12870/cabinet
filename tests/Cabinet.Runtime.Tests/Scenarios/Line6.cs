@@ -8,10 +8,6 @@ internal static class Line6
 {
     private const string Site = "https://line6.com";
 
-    private const int Attempts = 3;
-
-    private static readonly TimeSpan Stall = TimeSpan.FromSeconds(60);
-
     public static async Task<string> Download(string product, string version, string directory)
     {
         var credentials = Credentials.Read();
@@ -43,41 +39,10 @@ internal static class Line6
         Assert.True(link.Success && md5.Success, $"Line 6 gave no download for {product} {version} after its licence");
 
         var installer = Path.Combine(directory, $"{product} {version}.exe");
-        var arrived = false;
-        for (var attempt = 0; attempt < Attempts && !arrived; attempt++)
-        {
-            arrived = await Fetch(client, link.Groups[1].Value, installer);
-        }
-
-        Assert.True(arrived, $"the {product} {version} download stalled {Attempts} times");
+        await Downloads.Fetch(client, link.Groups[1].Value, installer);
         await using var written = File.OpenRead(installer);
         Assert.Equal(md5.Groups[1].Value, Convert.ToHexStringLower(await MD5.HashDataAsync(written)));
         return installer;
-    }
-
-    private static async Task<bool> Fetch(HttpClient client, string link, string installer)
-    {
-        using var response = await client.GetAsync(link, HttpCompletionOption.ResponseHeadersRead);
-        response.EnsureSuccessStatusCode();
-        await using var body = await response.Content.ReadAsStreamAsync();
-        await using var file = File.Create(installer);
-        using var stall = new CancellationTokenSource(Stall);
-        var buffer = new byte[1 << 20];
-        try
-        {
-            int read;
-            while ((read = await body.ReadAsync(buffer, stall.Token)) > 0)
-            {
-                await file.WriteAsync(buffer.AsMemory(0, read));
-                stall.CancelAfter(Stall);
-            }
-
-            return true;
-        }
-        catch (OperationCanceledException)
-        {
-            return false;
-        }
     }
 
     private static string Release(string listing, string version)

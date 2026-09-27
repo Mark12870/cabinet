@@ -238,6 +238,13 @@ typed from stdin, so it is on no command line and in no log, then presses Sign I
 Trial. Each fresh home is a new computer to Line 6 and starts the account's trial there. Signed
 out it passes the tone through untouched; signed in, the default amp preset leaves a tail.
 
+Serum 2's demo sits behind an Xfer sign-in that Cloudflare Turnstile guards, which a test does not
+pass. Its installer is kept instead in a shared Dropbox folder whose read-only link is `DROPBOX`
+in the same file and secrets; the scenario lists the folder through the endpoint Dropbox's own
+page uses, downloads the installer by its path with `raw=1`, and checks a SHA-256 it pins. That
+endpoint is not a documented API, so a Dropbox change shows up as a failed listing. A new Serum 2
+release means replacing the file in the folder and the scenario's path and checksum.
+
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their
 artefacts apart and the report counts a format as failed when either fails. A fresh home is a
@@ -272,8 +279,8 @@ reasons are here:
   one is downloaded through it.
 - **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
   and Roland Cloud Manager install no plugin until someone signs in inside them.
-- **Bring your own installer or account.** Vital and Serum 2 have no download Cabinet may
-  fetch, and Splice INSTRUMENT needs a Splice sign-in, so none can be installed unattended.
+- **Bring your own installer or account.** Vital has no download Cabinet may fetch, and Splice
+  INSTRUMENT needs a Splice sign-in, so neither can be installed unattended.
 
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.

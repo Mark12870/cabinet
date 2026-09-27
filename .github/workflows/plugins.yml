@@ -40,3 +40,4 @@ jobs:
     secrets:
       EMAIL: ${{ secrets.EMAIL }}
       PASSWORD: ${{ secrets.PASSWORD }}
+      DROPBOX: ${{ secrets.DROPBOX }}
