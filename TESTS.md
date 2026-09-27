@@ -222,6 +222,22 @@ demo, and the scenario answers the welcome window with Melodyne player, the mode
 account, closes the tips window after it, and presses the inspector toggle. Nothing is
 transferred into it, so it passes the tone through at the level it came in.
 
+A press is followed by a wait for the editor to answer it: at least 2% of it must change from the
+frame before the press, and then two frames in a row must match, up to a minute. Stillness alone
+is not enough, because Helix Native stops drawing while it talks to Line 6's server, and a frozen
+frame looks settled.
+
+Helix Native is tested through a Line 6 test account. `credentials.env` at the repository root,
+gitignored, holds its `EMAIL` and `PASSWORD`; the Plugins workflow writes the same file inside the
+container from the repository secrets of those names, owned by the test user and readable by no
+one else, and a push never sees them. The scenario signs in to line6.com, takes the Windows
+release whose version the entry pins, accepts the licence and downloads it, checking the MD5 the
+page gives. A download that stops for a minute is asked for again, up to three times. In the
+editor it types the account through `type`, which reaches the probe in its environment and is
+typed from stdin, so it is on no command line and in no log, then presses Sign In and Start Free
+Trial. Each fresh home is a new computer to Line 6 and starts the account's trial there. Signed
+out it passes the tone through untouched; signed in, the default amp preset leaves a tail.
+
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their
 artefacts apart and the report counts a format as failed when either fails. A fresh home is a
@@ -256,9 +272,8 @@ reasons are here:
   one is downloaded through it.
 - **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
   and Roland Cloud Manager install no plugin until someone signs in inside them.
-- **Bring your own installer or account.** Helix Native, Vital and Serum 2 have no download
-  Cabinet may fetch, and Splice INSTRUMENT needs a Splice sign-in, so none can be installed
-  unattended.
+- **Bring your own installer or account.** Vital and Serum 2 have no download Cabinet may
+  fetch, and Splice INSTRUMENT needs a Splice sign-in, so none can be installed unattended.
 
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.

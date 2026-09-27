@@ -214,7 +214,15 @@ run_setup() {
     CABINET_RUNTIME_BACKEND=direct CABINET_RUNTIME_ENTRIES="$entries" scripts/setup-runtime-tests.sh
 }
 
+credentials() {
+    [ "$(id -u)" = 0 ] && [ -n "${EMAIL:-}" ] || return 0
+
+    install -o "$OWNER" -g "$OWNER" -m 600 /dev/null "$WORK/credentials.env"
+    printf 'EMAIL=%s\nPASSWORD=%s\n' "$EMAIL" "$PASSWORD" > "$WORK/credentials.env"
+}
+
 run_test() {
+    credentials
     as_owner test
 
     session_bus

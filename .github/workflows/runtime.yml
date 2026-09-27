@@ -12,6 +12,11 @@ on:
         description: general, or scenarios
         type: string
         default: general
+    secrets:
+      EMAIL:
+        required: false
+      PASSWORD:
+        required: false
 
 jobs:
   # TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
@@ -200,9 +205,11 @@ jobs:
         env:
           PROBES: ${{ steps.probes.outputs.value }}
           SUITE: ${{ inputs.suite }}
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
         run: |
           docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
-            "${CONTAINER}" /src/scripts/runtime-ci.sh test
+            --env EMAIL --env PASSWORD "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs
         if: always()

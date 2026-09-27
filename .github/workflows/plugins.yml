@@ -37,3 +37,6 @@ jobs:
       packages: read
     with:
       suite: scenarios
+    secrets:
+      EMAIL: ${{ secrets.EMAIL }}
+      PASSWORD: ${{ secrets.PASSWORD }}

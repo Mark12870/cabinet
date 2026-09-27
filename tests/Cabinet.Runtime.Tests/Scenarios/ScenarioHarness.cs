@@ -37,6 +37,14 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
 
     public async Task Install(string download, Display display)
     {
+        var said = await Install(display);
+        Assert.Contains($"Downloading {download}", said, StringComparison.Ordinal);
+    }
+
+    public Task InstallFrom(string installer, Display display) => Install(display, installer);
+
+    private async Task<string> Install(Display display, params string[] installer)
+    {
         var result = await Run(
             "flatpak",
             [
@@ -51,13 +59,14 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
                 "library",
                 "install",
                 id,
+                .. installer,
             ],
             display,
             InstallPatience);
 
         File.WriteAllText(Path.Combine(Artefacts, "install.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
-        Assert.Contains($"Downloading {download}", result.Said, StringComparison.Ordinal);
+        return result.Said;
     }
 
     public Bridge Plugin(string format, string file) => format == "LV2"
@@ -134,7 +143,8 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         bool controlsAreParameters = true,
         string click = "",
         string control = "",
-        string press = "")
+        string press = "",
+        string type = "")
     {
         var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, "editor", bridge.Label);
@@ -144,6 +154,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
             socket,
             Path.Combine(shots, "yabridge.log"),
             "editor-interaction.py",
+            new Dictionary<string, string> { ["CABINET_PROBE_TYPE"] = type },
             plugin,
             format,
             shots,

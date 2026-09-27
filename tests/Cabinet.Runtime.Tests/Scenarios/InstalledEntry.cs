@@ -21,7 +21,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         runtimeLock = RuntimeTestLock.Acquire();
         Harness.Prepare();
         display = Display.Start();
-        await Harness.Install(Entry.DemoUrl ?? Entry.Url!, display);
+        await Install(display);
         Settle(Harness.Home);
     }
 
@@ -32,6 +32,8 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         runtimeLock?.Dispose();
         return Task.CompletedTask;
     }
+
+    private protected virtual Task Install(Display display) => Harness.Install(Entry.DemoUrl ?? Entry.Url!, display);
 
     protected virtual void Settle(string home)
     {

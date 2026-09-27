@@ -16,11 +16,13 @@ invisible in a log. Every call into the host is timed as well: a host that stops
 loop while an editor is open is the DAW freeze, and a stall in engine_close is where it shows.
 """
 
+import ctypes
 import itertools
 import os
 import re
 import subprocess
 import sys
+import threading
 import time
 
 CARLA = sys.argv[1]
@@ -32,6 +34,9 @@ CLICK = sys.argv[6].split() if len(sys.argv) > 6 else []
 AIMING = len(sys.argv) <= 7 or sys.argv[7] != "no-aim"
 CONTROL = [int(value) for value in sys.argv[8].split()] if len(sys.argv) > 8 else []
 PRESS = sys.argv[9].split() if len(sys.argv) > 9 else []
+TYPE = [
+    line.split("\t", 1) for line in os.environ.pop("CABINET_PROBE_TYPE", "").splitlines() if line
+]
 
 sys.path.insert(0, os.path.join(CARLA, "share", "carla"))
 
@@ -65,6 +70,9 @@ ROWS = 4
 INSET = 0.15
 SPREAD = (0.25, 0.5, 0.75)
 LIMIT = 10
+STILL_LIMIT = 60
+CHANGED = 0.02
+HUNG = 15
 LOCATE = 24
 SWING = (10, 20, 30, 40)
 BLOBS = 4
@@ -405,6 +413,48 @@ def named(window, loop):
         yield (left + x, top + y, f"control-{index}", still, index)
 
 
+def windows():
+    note(f"closing has not returned after {HUNG}s; the windows on the display:")
+    x11 = ctypes.CDLL("libX11.so.6")
+    x11.XOpenDisplay.restype = ctypes.c_void_p
+    x11.XDefaultRootWindow.restype = ctypes.c_ulong
+    x11.XFetchName.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_char_p)]
+    display = ctypes.c_void_p(x11.XOpenDisplay(None))
+    root, parent = ctypes.c_ulong(), ctypes.c_ulong()
+    children, count = ctypes.POINTER(ctypes.c_ulong)(), ctypes.c_uint()
+    x11.XQueryTree(
+        display, x11.XDefaultRootWindow(display), ctypes.byref(root), ctypes.byref(parent),
+        ctypes.byref(children), ctypes.byref(count))
+    for index in range(count.value):
+        window = children[index]
+        name = ctypes.c_char_p()
+        x11.XFetchName(display, ctypes.c_ulong(window), ctypes.byref(name))
+        shot = capture(window, f"hung-{index}")
+        note(f"  {window:#x} {name.value} {'captured' if shot else 'not viewable'}")
+
+
+def answered(window, loop, before):
+    started = time.monotonic()
+    changed = False
+    previous = before
+
+    while time.monotonic() - started < STILL_LIMIT:
+        loop.turn(20)
+        current = capture(window, "answer")
+
+        if not current or not previous:
+            break
+
+        changed = changed or difference(before, current) >= CHANGED
+
+        if changed and difference(previous, current) == 0:
+            break
+
+        previous = current
+
+    return time.monotonic() - started
+
+
 def press(window, loop):
     reaction = 0.0
 
@@ -506,11 +556,21 @@ def main():
         run(["xdotool", "windowraise", str(window)])
         loop.turn(30)
 
+        for at, text in TYPE:
+            x, y = at.split()
+            run(["xdotool", "mousemove", "--window", str(window), x, y, "click", "1"])
+            loop.turn(10)
+            subprocess.run(
+                ["xdotool", "type", "--file", "-"], input=text, text=True, timeout=LIMIT, check=False
+            )
+            loop.turn(10)
+            note(f"typed at {x} {y}")
+
         for x, y in zip(CLICK[::2], CLICK[1::2]):
+            before = capture(window, "unpressed")
             run(["xdotool", "mousemove", "--window", str(window), x, y, "click", "1"])
             run(["xdotool", "mousemove", "0", "0"])
-            loop.turn(30)
-            note(f"clicked {x} {y}")
+            note(f"clicked {x} {y}, answered after {answered(window, loop, before):.1f}s")
 
         resting = capture(window, "resting")
         loop.turn(30)
@@ -540,7 +600,10 @@ def main():
         drift = difference(settled, rested) if settled and rested else 0.0
         noise = max(noise, drift)
         note(f"drift {drift:.6f}")
+        watchdog = threading.Timer(HUNG, windows)
+        watchdog.start()
         closing = loop.timed(lambda: host.show_custom_ui(0, False))
+        watchdog.cancel()
         note("closed")
         loop.turn(SETTLE)
 

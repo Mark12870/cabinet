@@ -27,4 +27,4 @@ opencode.json
 
 # Other
 TODO.md
-audit/**
+/credentials.env

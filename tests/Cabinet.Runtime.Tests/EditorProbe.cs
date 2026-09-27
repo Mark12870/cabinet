@@ -32,12 +32,23 @@ internal static class EditorProbe
         string script,
         string plugin,
         string format,
+        params string[] extra) =>
+        RunIn(home, session, trace, script, new Dictionary<string, string>(), plugin, format, extra);
+
+    public static ProbeResult RunIn(
+        string home,
+        string session,
+        string trace,
+        string script,
+        IReadOnlyDictionary<string, string> environment,
+        string plugin,
+        string format,
         params string[] extra)
     {
         try
         {
             using var display = Display.Start();
-            return Drive(display, home, script, trace, plugin, format, extra, session);
+            return Drive(display, home, script, trace, plugin, format, extra, session, environment);
         }
         finally
         {
@@ -65,7 +76,8 @@ internal static class EditorProbe
         string plugin,
         string format,
         IReadOnlyList<string> extra,
-        string session)
+        string session,
+        IReadOnlyDictionary<string, string> environment)
     {
         var yabridge = Path.Combine(Host.Location(), "files", "lib", "yabridge");
         File.Delete(log);
@@ -90,6 +102,11 @@ internal static class EditorProbe
         info.Environment["PATH"] = $"{Wrapper(wrapper, display, home, session)}:{yabridge}:/usr/bin:/bin";
         info.Environment["YABRIDGE_TEMP_DIR"] = session;
         info.Environment["YABRIDGE_NO_WATCHDOG"] = "1";
+        foreach (var (name, value) in environment)
+        {
+            info.Environment[name] = value;
+        }
+
         info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Probes", script));
         info.ArgumentList.Add(CarlaPrefix());
         info.ArgumentList.Add(plugin);
