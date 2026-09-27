@@ -30,6 +30,7 @@ LOG = sys.argv[4]
 SHOTS = sys.argv[5]
 CLICK = sys.argv[6].split() if len(sys.argv) > 6 else []
 AIMING = len(sys.argv) <= 7 or sys.argv[7] != "no-aim"
+CONTROL = [int(value) for value in sys.argv[8].split()] if len(sys.argv) > 8 else []
 
 sys.path.insert(0, os.path.join(CARLA, "share", "carla"))
 
@@ -395,8 +396,16 @@ def pressed(window, loop, index, x, y, name):
     return hit, shot
 
 
+def named(window, loop):
+    left, top, _, _ = geometry(window)
+
+    for index, x, y in zip(CONTROL[::3], CONTROL[1::3], CONTROL[2::3]):
+        still = look(window, f"control-{index}-still", loop)
+        yield (left + x, top + y, f"control-{index}", still, index)
+
+
 def aim(window, loop):
-    for x, y, name, still, index in located(window, loop):
+    for x, y, name, still, index in itertools.chain(named(window, loop), located(window, loop)):
         note(f"aim {name} at {x},{y}")
 
         if loop.closed:

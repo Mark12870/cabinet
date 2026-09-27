@@ -211,6 +211,10 @@ plugin that loads samples on a thread of its own starts when it is processed, an
 whole render would pass before the first sample arrived. Where a plugin's knobs are its own
 settings rather than host parameters, as DrumGizmo's and Decent Sampler's are, the scenario says
 so with `controlsAreParameters: false`, and every editor assertion but the aimed drag still holds.
+Where the aim cannot find a knob, the scenario names one with `control`, as its parameter and
+editor-relative position, and the probe drags it before any it locates itself. Podolski redraws
+only its text fields when the host moves a parameter, so locating finds no knob, and the sweep's
+four points fall between them; its Attack knob, named, moves parameter 27 and redraws.
 
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their
@@ -241,9 +245,6 @@ yabridge's own and the VST3 bridge crashes while it loads.
 `scripts/scenario-coverage.sh` lists every entry without a scenario. It cannot say why, so the
 reasons are here:
 
-- **An editor the probe cannot use.** Podolski plays, but its editor redraws only its text
-  fields: a knob the host moves stays where it was drawn, and a drag across its knobs changes no
-  pixel, on a GPU-backed display as well. Whether a user sees it is not known yet.
 - **Nothing to play without a user's key or account.** Sitala 2 opens an activation dialog over
   its editor until a serial is entered, and SINEplayer a sign-in screen, with no instrument until
   one is downloaded through it.
