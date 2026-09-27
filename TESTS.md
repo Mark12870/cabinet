@@ -286,8 +286,11 @@ reasons are here:
 - **Nothing to play without a user's key or account.** Sitala 2 opens an activation dialog over
   its editor until a serial is entered, and SINEplayer a sign-in screen, with no instrument until
   one is downloaded through it.
-- **Managers.** Arturia Software Center, IK Product Manager, Klevgrand Helper, Native Access
-  and Roland Cloud Manager install no plugin until someone signs in inside them.
+- **Managers.** IK Product Manager, Klevgrand Helper, Native Access and Roland Cloud Manager
+  install no plugin until someone signs in inside them. Arturia Software Center is the exception:
+  its scenario signs in with the test account, installs the Piano V3 demo and plays it. Each
+  screen is recognised by a reference crop under `Scenarios/References/` before anything is
+  clicked or typed, and the password is typed only once its page is on screen.
 - **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
   be installed unattended.
 

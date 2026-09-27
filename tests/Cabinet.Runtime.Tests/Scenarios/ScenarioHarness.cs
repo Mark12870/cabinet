@@ -45,29 +45,41 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
 
     private async Task<string> Install(Display display, params string[] installer)
     {
-        var result = await Run(
-            "flatpak",
-            [
-                "run",
-                "--nofilesystem=home",
-                $"--filesystem={Home}:create",
-                $"--filesystem={InstalledApp}:ro",
-                $"--env=HOME={Home}",
-                $"--env=XDG_RUNTIME_DIR={RuntimeTestEnvironment.RuntimeDirectory}",
-                $"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}",
-                Host.App,
-                "library",
-                "install",
-                id,
-                .. installer,
-            ],
-            display,
-            InstallPatience);
+        var result = await Run("flatpak", Cabinet("install", installer), display, InstallPatience);
 
         File.WriteAllText(Path.Combine(Artefacts, "install.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
         return result.Said;
     }
+
+    public Manager Open(Display display)
+    {
+        var shots = Path.Combine(Artefacts, "manager");
+        Directory.CreateDirectory(shots);
+        var info = Prepared("flatpak", Cabinet("launch"), display);
+        var launch = Process.Start(info) ?? throw new InvalidOperationException("could not launch the manager");
+        return new Manager(
+            launch,
+            display,
+            shots,
+            () => Run("flatpak", Cabinet("stop"), display, ProbePatience));
+    }
+
+    private List<string> Cabinet(string verb, params string[] arguments) =>
+    [
+        "run",
+        "--nofilesystem=home",
+        $"--filesystem={Home}:create",
+        $"--filesystem={InstalledApp}:ro",
+        $"--env=HOME={Home}",
+        $"--env=XDG_RUNTIME_DIR={RuntimeTestEnvironment.RuntimeDirectory}",
+        $"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}",
+        Host.App,
+        "library",
+        verb,
+        id,
+        .. arguments,
+    ];
 
     public Bridge Plugin(string format, string file) => format == "LV2"
         ? new(file, Formats[format].Carla)
@@ -249,6 +261,16 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         TimeSpan patience,
         Action<ProcessStartInfo>? configure = null)
     {
+        var info = Prepared(file, arguments, display);
+        configure?.Invoke(info);
+
+        using var process = Process.Start(info)
+            ?? throw new InvalidOperationException($"could not start {file}");
+        return await Finished(process, file, patience);
+    }
+
+    private ProcessStartInfo Prepared(string file, IReadOnlyList<string> arguments, Display? display)
+    {
         var info = new ProcessStartInfo(file)
         {
             RedirectStandardOutput = true,
@@ -266,14 +288,16 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
             info.Environment.Remove("WAYLAND_DISPLAY");
         }
 
-        configure?.Invoke(info);
         foreach (var argument in arguments)
         {
             info.ArgumentList.Add(argument);
         }
 
-        using var process = Process.Start(info)
-            ?? throw new InvalidOperationException($"could not start {file}");
+        return info;
+    }
+
+    private static async Task<ScenarioProcessResult> Finished(Process process, string file, TimeSpan patience)
+    {
         var output = process.StandardOutput.ReadToEndAsync();
         var error = process.StandardError.ReadToEndAsync();
         using var deadline = new CancellationTokenSource(patience);
