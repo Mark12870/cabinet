@@ -236,9 +236,10 @@ page gives. A download that stops for a minute is asked for again, up to three t
 editor it types the account through `type`, which reaches the probe in its environment and is
 typed from stdin, so it is on no command line and in no log, then presses Sign In and Start Free
 Trial. Line 6 knows a computer by the name Wine takes from the hostname, and allows the account
-five active computers and eleven over its lifetime, six of them already spent. The Plugins
-workflow therefore starts its container as `toolbx`, the name every toolbox has, so CI and a local
-run are the one computer the account has authorized; a run anywhere else spends one for good.
+five active computers and eleven over its lifetime, seven of them spent once CI has run. The
+Plugins workflow therefore starts its container as `ci`, so every CI run is one computer beside the
+toolbox's `toolbx`, and the account's devices say which ran; a run under any other name spends one
+for good.
 Signed out it passes the tone through untouched; signed in, the default amp preset leaves a tail.
 
 Serum 2's demo sits behind an Xfer sign-in that Cloudflare Turnstile guards, which a test does not
