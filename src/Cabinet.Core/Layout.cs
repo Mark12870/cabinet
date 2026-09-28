@@ -98,6 +98,14 @@ public sealed class Layout
 
     public static IniFile FlatpakInfo => Info.Value;
 
+    public static FileNotFoundException Missing(string path) => new(
+        FlatpakInfo.Get("Application", "name") is null
+            ? $"no such file: {path}"
+            : $"no such file: {path} — Cabinet sees only its own directories and what you choose "
+              + "in its window; to hand it this one, run `flatpak override --user "
+              + $"--filesystem={Path.GetDirectoryName(Path.GetFullPath(path))}:ro {AppId}`",
+        path);
+
     public string Home { get; }
     public string RuntimeDir { get; }
     public string SandboxDataHome { get; }

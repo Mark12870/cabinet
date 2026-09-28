@@ -189,7 +189,7 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
         var full = Path.GetFullPath(installer);
         if (!File.Exists(full))
         {
-            throw new FileNotFoundException($"no such installer: {full}", full);
+            throw Layout.Missing(full);
         }
 
         Prepare(name, null, onOutput);

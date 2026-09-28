@@ -139,10 +139,14 @@ public class ManifestTests
     }
 
     [Fact]
-    public void TheHomeGrantStaysReadOnly()
+    public void NothingGrantsTheWholeHome()
     {
-        Assert.Contains("--filesystem=home:ro", FinishArgs);
-        Assert.DoesNotContain("--filesystem=home", FinishArgs);
+        var whole = FinishArgs
+            .Where(grant => grant.Split(':')[0] is "--filesystem=home" or "--filesystem=host"
+                or "--filesystem=~" or "--filesystem=host-os")
+            .ToList();
+
+        Assert.Empty(whole);
     }
 
     [Fact]

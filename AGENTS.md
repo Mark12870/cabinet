@@ -112,8 +112,11 @@ the name or the structure instead. Anything that genuinely will not fit there is
   `cabinet/native` in `~/.vst3`, `~/.vst`, `~/.clap`; `~/.lv2` flat, as hosts scan it one level deep), the per-file
   links older releases left in `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared
   `Data:` directory. Do not add arbitrary writes in `$HOME`.
-- The manifest keeps `$HOME` read-only. A new Library `Data:` root also needs a matching
-  `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`.
+- The manifest grants no `home`: Wine maps `Z:` to `/`, so every installer and plugin would read all of `$HOME`. A
+  new path Cabinet reads or writes needs its own grant; a new Library `Data:` root needs a matching
+  `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`. Files the user picks come through the
+  FileChooser portal, which exposes only the chosen file, so an installer that needs the `.bin` or `.cab` files beside
+  it needs a `flatpak override --filesystem=<dir>:ro` for its folder.
 
 ## Writing code
 

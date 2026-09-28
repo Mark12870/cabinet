@@ -84,7 +84,7 @@ public sealed partial class Library
 
         if (installer is not null && !File.Exists(installer))
         {
-            throw new FileNotFoundException($"no such file: {installer}", installer);
+            throw Layout.Missing(installer);
         }
 
         var prefixes = new Prefixes(layout, runner);
@@ -231,7 +231,7 @@ public sealed partial class Library
 
         if (supplied is not null && !File.Exists(supplied))
         {
-            throw new FileNotFoundException($"no such file: {supplied}", supplied);
+            throw Layout.Missing(supplied);
         }
 
         var root = layout.NativePath(entry.Id);
