@@ -258,6 +258,15 @@ so the aim is named, Macro 1. Only VST2 is checked in the editor: under Carla, V
 draws once and takes no input, and its LV2 editor never opens, on a GPU display as well, while the
 VST3 works in REAPER. Every format still plays a note.
 
+IK Product Manager signs in with `USERNAME` rather than the email, kept in the same file and
+secrets, and nothing is captured from the
+first key until its log-in page has gone. The scenario presses MODO BASS 2 CS's download, which
+starts an Inno Setup wizard of its own, walks it with the licence accepted, and waits for the
+manager to authorise the product. The account holds five devices, and IK counts the same computer
+across fresh prefixes, so repeated runs keep it at one. MODO BASS 2's controls are its own: the VST2
+exposes no parameter and the VST3 only Bypass and MIDI CC proxies, so its editor has no aim and
+the scenario counts no parameters.
+
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their
 artefacts apart and the report counts a format as failed when either fails. A fresh home is a
@@ -292,11 +301,11 @@ reasons are here:
   and the count, so it raises no warning.
 - **Nothing to play without a user's account.** SINEplayer opens a sign-in screen, with no
   instrument until one is downloaded through it.
-- **Managers.** IK Product Manager, Klevgrand Helper, Native Access and Roland Cloud Manager
-  install no plugin until someone signs in inside them. Arturia Software Center is the exception:
-  its scenario signs in with the test account, installs the Piano V3 demo and plays it. Each
-  screen is recognised by a reference crop under `Scenarios/References/` before anything is
-  clicked or typed, and the password is typed only once its page is on screen.
+- **Managers.** Klevgrand Helper, Native Access and Roland Cloud Manager install no plugin until
+  someone signs in inside them. Arturia Software Center and IK Product Manager are the exceptions:
+  their scenarios sign in with the test account, install the Piano V3 demo and MODO BASS 2 CS, and
+  play them. Each screen is recognised by a reference crop under `Scenarios/References/` before
+  anything is clicked or typed, and the password is typed only once its page is on screen.
 - **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
   be installed unattended.
 

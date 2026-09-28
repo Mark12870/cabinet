@@ -19,6 +19,8 @@ on:
         required: false
       DROPBOX:
         required: false
+      USERNAME:
+        required: false
 
 jobs:
   # TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
@@ -212,9 +214,10 @@ jobs:
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
           DROPBOX: ${{ secrets.DROPBOX }}
+          USERNAME: ${{ secrets.USERNAME }}
         run: |
           docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
-            --env EMAIL --env PASSWORD --env DROPBOX "${CONTAINER}" /src/scripts/runtime-ci.sh test
+            --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs
         if: always()

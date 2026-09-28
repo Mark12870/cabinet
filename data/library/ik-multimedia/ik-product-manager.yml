@@ -3,7 +3,7 @@ Kind: windows
 Category: Manager
 Summary: IK Multimedia's own manager, which downloads and installs their plugins.
 Developer: IK Multimedia
-Version: 1.1.12
+Version: 1.1.15
 Licence: Freeware
 Licensing:
   The app is free and signs in to an IK Multimedia account. What it will install
@@ -12,8 +12,8 @@ Licensing:
 Formats: VST3, VST2
 Homepage: https://www.ikmultimedia.com/products/productmanager/
 Source: download
-Url: https://g2.ikmultimedia.com/plugins/ProductManager/ik_product_manager_1.1.12.zip
-Sha256: f00ccce0c7cc4b1ebd1fa857e1955f4a4476e2982f8889f57e0926cf3b07f353
+Url: https://g2.ikmultimedia.com/plugins/ProductManager/ik_product_manager_1.1.15.zip
+Sha256: b329e59d2aee3618647e41f42c85ed56a4e00275708796b3a9d567753aa91baf
 Prefix: ik-multimedia
 Launch: C:\Program Files\IK Multimedia\IK Product Manager\IK Product Manager.exe
 Script: ik-multimedia.sh

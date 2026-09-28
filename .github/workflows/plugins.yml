@@ -41,3 +41,4 @@ jobs:
       EMAIL: ${{ secrets.EMAIL }}
       PASSWORD: ${{ secrets.PASSWORD }}
       DROPBOX: ${{ secrets.DROPBOX }}
+      USERNAME: ${{ secrets.USERNAME }}
