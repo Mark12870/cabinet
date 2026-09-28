@@ -247,6 +247,67 @@ public sealed class ProcessRunnerTests : IDisposable
         Assert.False(Directory.Exists($"/proc/{childPid}"));
     }
 
+    [Fact]
+    public async Task AProgramLeftHoldingTheOutputIsNamedAndCanBeStopped()
+    {
+        var streamed = new List<string>();
+        var watched = new List<Lingering?>();
+        Lingering.Watcher = found =>
+        {
+            watched.Add(found);
+            found?.Stop();
+        };
+
+        try
+        {
+            var result = await Task.Run(() => Subject.Run("sh", ["-c", "sleep 60 & exit 0"], onOutput: streamed.Add))
+                .WaitAsync(TimeSpan.FromSeconds(20));
+
+            Assert.True(result.Ok);
+            Assert.Equal(["sleep"], watched[0]!.Programs);
+            Assert.Null(watched[1]);
+            Assert.Contains("sh has finished, but it started sleep; waiting for that to close.", streamed);
+        }
+        finally
+        {
+            Lingering.Watcher = null;
+        }
+    }
+
+    [Fact]
+    public void AProgramLeftHoldingTheOutputIsWaitedForUntilItCloses()
+    {
+        var watched = new List<Lingering?>();
+        Lingering.Watcher = watched.Add;
+
+        try
+        {
+            var result = Subject.Run("sh", ["-c", "(sleep 4; echo late) & exit 0"], onOutput: _ => { });
+
+            Assert.True(result.Ok);
+            Assert.Contains("late", result.Stdout);
+            Assert.Equal(2, watched.Count);
+        }
+        finally
+        {
+            Lingering.Watcher = null;
+        }
+    }
+
+    [Fact]
+    public async Task CancellingStopsAProgramLeftHoldingTheOutput()
+    {
+        using var cancelled = new CancellationTokenSource();
+        var running = Task.Run(() => Subject.Run(
+            "sh", ["-c", "sleep 60 & exit 0"], onOutput: _ => { }, cancellationToken: cancelled.Token));
+
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        cancelled.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(
+            () => running.WaitAsync(TimeSpan.FromSeconds(10)));
+    }
+
     private static async Task WaitForFile(string path)
     {
         for (var attempt = 0; attempt < 500 && !File.Exists(path); attempt++)

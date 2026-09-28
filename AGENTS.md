@@ -106,6 +106,10 @@ the name or the structure instead. Anything that genuinely will not fit there is
   threads keep the process and its pidfd alive; the leader shows as a zombie (`Zl`) and the DAW waits on it forever.
   `supervise` ends a job whose `yabridge-host` leader is a zombie; any other program may outlive its main thread.
   yabridge's plugin side then aborts the DAW at teardown, so this turns a hang into a crash.
+- A program an installer starts on its way out (a "launch now" box) inherits the installer's stdout and stderr, so
+  draining them would wait until the user quits it. `ProcessRunner` names such holders once the started process has
+  exited and hands `Lingering.Watcher` a way to stop them; Wine's own system processes are left to wineserver. Do not
+  stop waiting on exit alone: a bootstrapper that exits early keeps the real installer running on the same pipes.
 - Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
   `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`cabinet/windows` and

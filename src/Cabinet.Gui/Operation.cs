@@ -63,6 +63,7 @@ internal sealed class Operation(
         {
             try
             {
+                Lingering.Watcher = dialog.Linger;
                 work(dialog.Write, dialog.Show, dialog.Token);
                 return (string?)null;
             }
@@ -97,6 +98,7 @@ internal sealed class Operation(
         private readonly Gtk.Label status = Gtk.Label.New(null);
         private readonly Gtk.ProgressBar bar = Gtk.ProgressBar.New();
         private readonly Gtk.TextView log = Gtk.TextView.New();
+        private readonly Gtk.Button stop = Gtk.Button.NewWithLabel("Stop");
         private readonly Gtk.Button cancel = Gtk.Button.NewWithLabel("Cancel");
         private readonly Gtk.Button close = Gtk.Button.NewWithLabel("Close");
         private readonly CancellationTokenSource cancellation = new();
@@ -105,6 +107,8 @@ internal sealed class Operation(
         private bool queued;
         private long drawn;
         private bool finished;
+        private Lingering? lingering;
+        private string? waiting;
 
         public OperationDialog(string title, bool cancellable)
         {
@@ -127,6 +131,10 @@ internal sealed class Operation(
             log.SetEditable(false);
             log.AddCssClass("card");
 
+            stop.SetVisible(false);
+            stop.AddCssClass("destructive-action");
+            stop.OnClicked += (_, _) => Ui.Guard(Stop);
+
             cancel.SetVisible(cancellable);
             cancel.OnClicked += (_, _) => Ui.Guard(Cancel);
 
@@ -136,6 +144,7 @@ internal sealed class Operation(
 
             var buttons = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
             buttons.SetHalign(Gtk.Align.End);
+            buttons.Append(stop);
             buttons.Append(cancel);
             buttons.Append(close);
 
@@ -162,6 +171,30 @@ internal sealed class Operation(
             var buffer = log.GetBuffer();
             buffer.GetEndIter(out var end);
             buffer.Insert(end, line + "\n", -1);
+        });
+
+        public void Linger(Lingering? found) => Ui.OnMainLoop(() =>
+        {
+            if (finished)
+            {
+                return;
+            }
+
+            if (found is null)
+            {
+                lingering = null;
+                stop.SetVisible(false);
+                status.SetText(waiting ?? "");
+                return;
+            }
+
+            lingering = found;
+            waiting ??= status.GetText();
+            status.SetText(
+                $"Waiting for {string.Join(", ", found.Programs)} to close. It was started by this "
+                + "step, which goes on once it closes — close it, or stop it here.");
+            stop.SetSensitive(true);
+            stop.SetVisible(true);
         });
 
         public void Show(double fraction)
@@ -223,8 +256,15 @@ internal sealed class Operation(
             status.SetText(result ?? "Done.");
             status.AddCssClass(result is null ? "success" : cancelled ? "warning" : "error");
             cancel.SetVisible(false);
+            stop.SetVisible(false);
             close.SetSensitive(true);
             dialog.SetCanClose(true);
+        }
+
+        private void Stop()
+        {
+            stop.SetSensitive(false);
+            lingering?.Stop();
         }
 
         private void Cancel()

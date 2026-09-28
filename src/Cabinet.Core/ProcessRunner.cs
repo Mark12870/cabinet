@@ -24,6 +24,8 @@ public interface IProcessRunner
 
 public sealed class ProcessRunner : IProcessRunner
 {
+    private static readonly TimeSpan LingerGrace = TimeSpan.FromSeconds(2);
+
     public ProcessResult Run(
         string file,
         IReadOnlyList<string> args,
@@ -102,10 +104,51 @@ public sealed class ProcessRunner : IProcessRunner
             Drain(process.StandardError, stderr, onOutput));
 
         process.WaitForExit();
+
+        if (!draining.Wait(LingerGrace))
+        {
+            AwaitLingering(file, process, draining, onOutput, cancellationToken);
+        }
+
         draining.GetAwaiter().GetResult();
         cancellationToken.ThrowIfCancellationRequested();
 
         return new ProcessResult(process.ExitCode, stdout.ToString(), stderr.ToString());
+    }
+
+    private static void AwaitLingering(
+        string file,
+        Process process,
+        Task draining,
+        Action<string>? onOutput,
+        CancellationToken cancellationToken)
+    {
+        var lingering = Lingering.Find(process.StandardOutput.BaseStream, process.StandardError.BaseStream);
+
+        if (lingering.Programs.Count == 0)
+        {
+            draining.Wait(cancellationToken);
+            return;
+        }
+
+        onOutput?.Invoke(
+            $"{Path.GetFileName(file)} has finished, but it started {string.Join(", ", lingering.Programs)}; "
+            + "waiting for that to close.");
+
+        var watcher = Lingering.Watcher;
+        watcher?.Invoke(lingering);
+
+        try
+        {
+            using (cancellationToken.Register(lingering.Stop))
+            {
+                draining.Wait(CancellationToken.None);
+            }
+        }
+        finally
+        {
+            watcher?.Invoke(null);
+        }
     }
 
     private static void Terminate(Process process)
