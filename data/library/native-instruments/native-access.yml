@@ -20,6 +20,7 @@ LaunchArgs:
   --disable-gpu
   --disable-gpu-compositing
   --in-process-gpu
+Scheme: native-access
 Script: native-access.sh
 Keep: drive_c/users/Public/Documents/Native Instruments/Downloads
 Recover: kontakt-8.sh

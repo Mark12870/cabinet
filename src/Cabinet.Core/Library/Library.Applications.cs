@@ -352,6 +352,13 @@ public sealed partial class Library
             var line = $"Handing the link to {entry.Name}.";
             LogFile.Append(log, line);
             onOutput?.Invoke(line);
+            prefixes.RunJoined(
+                where,
+                [
+                    "reg", "add", $@"HKLM\Software\Classes\{entry.Scheme}\shell\open\command",
+                    "/ve", "/d", $"\"{entry.Launch}\" \"%1\"", "/f",
+                ],
+                logTo: log);
             var handed = prefixes.RunJoined(where, ["start", link], logTo: log);
 
             if (!handed.Ok)

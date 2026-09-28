@@ -26,6 +26,29 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void ARunningManagersSchemeIsRegisteredMachineWideBeforeTheLinkIsHandedOver()
+    {
+        Catalogue(("thing", Linked));
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: _ => "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"",
+            dawSession: true);
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+
+        new Library(layout, recorder).Open("thingmanager://signed-in?code=1");
+
+        var calls = recorder.Calls.ToList();
+        var registered = calls.FindIndex(call => call.Arguments.SequenceEqual(
+            [
+                Prefixes.JoinMode, "reg", "add", @"HKLM\Software\Classes\thingmanager\shell\open\command",
+                "/ve", "/d", "\"C:\\Program Files\\Thing\\Thing.exe\" \"%1\"", "/f",
+            ]));
+        var handed = calls.FindIndex(call => call.Arguments.Contains("start"));
+        Assert.InRange(registered, 0, handed - 1);
+    }
+
+    [Fact]
     public void ALinkForAClosedManagerOpensItWithTheLink()
     {
         Catalogue(("thing", Linked));

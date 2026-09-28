@@ -327,7 +327,7 @@ pub fn join(socket: &Path, lock: &Path, argv: &[OsString]) -> io::Result<Option<
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error),
     };
-    let _guard = Lock::hold(file.as_raw_fd())?;
+    let guard = Lock::hold(file.as_raw_fd())?;
     let mut stream = match UnixStream::connect(socket) {
         Ok(stream) => stream,
         Err(error)
@@ -344,6 +344,7 @@ pub fn join(socket: &Path, lock: &Path, argv: &[OsString]) -> io::Result<Option<
     let fds = stdio(spare.as_ref().map_or(-1, |file| file.as_raw_fd()));
 
     send_job(&stream, &encode(argv), fds)?;
+    drop(guard);
 
     let status = match read_frame(&mut stream)? {
         payload if payload.len() == 4 => Some(i32::from_le_bytes(
@@ -1631,6 +1632,46 @@ mod tests {
 
         assert!(result.is_err());
         assert!(!serving.join().unwrap());
+        std::fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn a_joined_job_that_is_still_running_lets_another_job_join() {
+        let directory = std::env::temp_dir().join(format!(
+            "cabinet-join-{}-{:?}",
+            std::process::id(),
+            thread::current().id()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let socket = directory.join("session.sock");
+        let lock = directory.join("session.lock");
+        let listener = UnixListener::bind(&socket).unwrap();
+        let serving = thread::spawn(move || {
+            let (mut running, _) = listener.accept().unwrap();
+            let _ = receive_job(&mut running).unwrap();
+            let (mut stopping, _) = listener.accept().unwrap();
+            let _ = receive_job(&mut stopping).unwrap();
+            write_frame(&mut stopping, &7i32.to_le_bytes()).unwrap();
+            write_frame(&mut running, &0i32.to_le_bytes()).unwrap();
+        });
+        let (sent, received) = std::sync::mpsc::channel();
+        let running = {
+            let (socket, lock) = (socket.clone(), lock.clone());
+            thread::spawn(move || join(&socket, &lock, &[OsString::from("app")]).unwrap())
+        };
+        thread::sleep(Duration::from_millis(100));
+        let stopping = thread::spawn(move || {
+            sent.send(join(&socket, &lock, &[OsString::from("taskkill")]).unwrap())
+                .unwrap();
+        });
+
+        assert_eq!(
+            received.recv_timeout(Duration::from_secs(5)).unwrap(),
+            Some(7)
+        );
+        stopping.join().unwrap();
+        assert_eq!(running.join().unwrap(), Some(0));
+        serving.join().unwrap();
         std::fs::remove_dir_all(directory).unwrap();
     }
 

@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.17.2" date="2026-09-28">
+      <description>
+        <p>Signing in to Native Access works</p>
+        <ul>
+          <li>The browser hands Native Access's sign-in back to the app, so you can log in and install your products</li>
+          <li>Stopping Native Access from Cabinet no longer hangs</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.17.1" date="2026-09-20">
       <description>
         <p>Decent Sampler is up to date</p>
