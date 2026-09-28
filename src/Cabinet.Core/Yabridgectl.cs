@@ -12,7 +12,7 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 
     public ProcessResult Remove(string pluginDirectory) => Run(["rm", pluginDirectory]);
 
-    public ProcessResult Sync() => Run(["sync", "--prune"]);
+    public ProcessResult Sync() => Run(["sync", "--prune", "--no-verify"]);
 
     public string Version()
     {

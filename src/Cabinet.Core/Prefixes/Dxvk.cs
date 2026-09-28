@@ -45,7 +45,7 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
                 onOutput);
             Copy(unpacked, "x32", layout.PrefixSysWow64(prefix), Backups(prefix, SysWow64),
                 onOutput);
-            Override(prefix, onOutput);
+            Override(prefix, unpacked, onOutput);
         }
 
         File.WriteAllText(layout.PrefixDxvkFile(prefix), Version + Environment.NewLine);
@@ -199,19 +199,26 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
 
     private const string OverridesKey = @"HKCU\" + Overrides;
 
-    private void Override(string prefix, Action<string>? onOutput)
+    private void Override(string prefix, string staging, Action<string>? onOutput)
     {
+        var overrides = Path.Combine(staging, "overrides.reg");
+        File.WriteAllText(overrides, NativeOverrides);
+
         foreach (var library in Libraries)
         {
             onOutput?.Invoke($"{library}: native");
+        }
 
-            if (!Reg(prefix, ["add", OverridesKey, "/v", library, "/d", "native", "/f"]).Ok)
-            {
-                throw new InvalidOperationException(
-                    $"could not point {library} at its DLL in '{prefix}'");
-            }
+        if (!Reg(prefix, ["import", @"Z:" + overrides.Replace('/', '\\')]).Ok)
+        {
+            throw new InvalidOperationException(
+                $"could not point {string.Join(", ", Libraries)} at DXVK's DLLs in '{prefix}'");
         }
     }
+
+    internal static string NativeOverrides =>
+        $"REGEDIT4\r\n\r\n[HKEY_CURRENT_USER\\{Overrides}]\r\n"
+        + string.Concat(Libraries.Select(library => $"\"{library}\"=\"native\"\r\n"));
 
     private void Unset(string prefix, Action<string>? onOutput)
     {

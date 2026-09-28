@@ -192,6 +192,16 @@ public sealed class DxvkTests : IDisposable
     }
 
     [Fact]
+    public void OneImportPointsEveryLibraryAtItsNativeDll()
+    {
+        Assert.Equal(
+            "REGEDIT4\r\n\r\n[HKEY_CURRENT_USER\\Software\\Wine\\DllOverrides]\r\n"
+            + "\"d3d8\"=\"native\"\r\n\"d3d9\"=\"native\"\r\n\"d3d10core\"=\"native\"\r\n"
+            + "\"d3d11\"=\"native\"\r\n\"dxgi\"=\"native\"\r\n",
+            Dxvk.NativeOverrides);
+    }
+
+    [Fact]
     public void EveryLibraryDxvkReplacesIsListed()
     {
         Assert.Equal(["d3d8", "d3d9", "d3d10core", "d3d11", "dxgi"], Dxvk.Libraries);

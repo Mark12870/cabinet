@@ -844,7 +844,7 @@ public class LibraryTests : IDisposable
                 release.Wait();
             }
 
-            if (args.SequenceEqual(["sync", "--prune"]))
+            if (args.SequenceEqual(["sync", "--prune", "--no-verify"]))
             {
                 bridged.Set();
             }
@@ -890,7 +890,7 @@ public class LibraryTests : IDisposable
                     release.Wait();
                 }
 
-                if (args.SequenceEqual(["sync", "--prune"]))
+                if (args.SequenceEqual(["sync", "--prune", "--no-verify"]))
                 {
                     if (Interlocked.Increment(ref attempts) >= 2)
                     {
@@ -898,7 +898,7 @@ public class LibraryTests : IDisposable
                     }
                 }
             },
-            args => args.SequenceEqual(["sync", "--prune"]) && Volatile.Read(ref attempts) == 1 ? 1 : 0);
+            args => args.SequenceEqual(["sync", "--prune", "--no-verify"]) && Volatile.Read(ref attempts) == 1 ? 1 : 0);
 
         Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
         Directory.CreateDirectory(Path.Combine(layout.PrefixPath(entry.Prefix), "dosdevices"));
@@ -969,7 +969,7 @@ public class LibraryTests : IDisposable
         var layout = Layout();
         var recorder = new RecordingRunner(
             exits: args => args.SequenceEqual([Prefixes.JoinMode, entry.Launch!])
-                           || args.SequenceEqual(["sync", "--prune"])
+                           || args.SequenceEqual(["sync", "--prune", "--no-verify"])
                 ? 1
                 : 0);
 
@@ -2601,7 +2601,7 @@ public class LibraryTests : IDisposable
                         """);
                 }
             },
-            args => !bridges && args.SequenceEqual(["sync", "--prune"]) ? 1 : 0));
+            args => !bridges && args.SequenceEqual(["sync", "--prune", "--no-verify"]) ? 1 : 0));
 
         Assert.Contains(
             "yabridgectl exited with 1",
@@ -2809,7 +2809,7 @@ public class LibraryTests : IDisposable
         Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
         var library = new Library(layout, new RecordingRunner(
-            exits: args => args.SequenceEqual(["sync", "--prune"]) ? 1 : 0));
+            exits: args => args.SequenceEqual(["sync", "--prune", "--no-verify"]) ? 1 : 0));
 
         Assert.Throws<InvalidOperationException>(() => library.Launch(entry));
 
@@ -3391,7 +3391,7 @@ public class LibraryTests : IDisposable
 
     private static bool Synced(RecordingRunner.Call call) =>
         Path.GetFileName(call.File) == "yabridgectl"
-        && call.Arguments.SequenceEqual(["sync", "--prune"]);
+        && call.Arguments.SequenceEqual(["sync", "--prune", "--no-verify"]);
 
     private static LibraryEntry Manager() =>
         LibraryEntry.Parse(

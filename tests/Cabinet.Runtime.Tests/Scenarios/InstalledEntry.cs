@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using Cabinet.Core;
 using Cabinet.Core.Tests;
 
@@ -7,12 +6,13 @@ namespace Cabinet.Runtime.Tests.Scenarios;
 
 public abstract class InstalledEntry(string id) : IAsyncLifetime
 {
+    private static readonly SemaphoreSlim AtOnce = new(3);
     private RuntimeTestLock? runtimeLock;
     private Display? display;
 
     public LibraryEntry Entry { get; } = Find(id);
 
-    internal ScenarioHarness Harness { get; } = new(id, Find(id).Kind);
+    internal ScenarioHarness Harness { get; } = new(Find(id));
 
     internal Display Display => display ?? throw new InvalidOperationException($"{id} is not installed");
 
@@ -20,8 +20,9 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        await AtOnce.WaitAsync();
         var clock = Stopwatch.StartNew();
-        runtimeLock = RuntimeTestLock.Acquire();
+        runtimeLock = RuntimeTestLock.AcquireShared();
         Harness.Prepare();
         Record("prepare", clock);
 
@@ -47,6 +48,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
             return Task.CompletedTask;
         });
         runtimeLock?.Dispose();
+        AtOnce.Release();
     }
 
     private protected virtual Task Install(Display display) => Harness.Install(Entry.DemoUrl ?? Entry.Url!, display);
@@ -69,10 +71,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         }
     }
 
-    private void Record(string step, Stopwatch clock) =>
-        File.AppendAllText(
-            Path.Combine(Harness.Artefacts, "timing.txt"),
-            string.Create(CultureInfo.InvariantCulture, $"{step} {clock.Elapsed.TotalSeconds:F1}\n"));
+    private void Record(string step, Stopwatch clock) => Harness.Time(step, clock.Elapsed);
 
     private static LibraryEntry Find(string id) =>
         new Library(

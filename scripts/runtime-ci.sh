@@ -25,8 +25,8 @@
 # when a yabridge patch can go, which is a question for a refresh rather than for every push.
 # CABINET_RUNTIME_SUITE=general, the default, is everything but the plugin scenarios; a push runs
 # it. CABINET_RUNTIME_SUITE=scenarios is only the plugin scenarios, which run daily on a schedule;
-# each installs its own entry, so its setup leaves out the DAW and the entries, and it has no use
-# for the private fixtures.
+# each installs its own entry, three at a time, so its setup leaves out the DAW and the entries,
+# and it has no use for the private fixtures.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
 # stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user with
@@ -228,11 +228,12 @@ run_test() {
 
     session_bus
 
-    local filter
+    local filter parallel=()
 
     case "${CABINET_RUNTIME_SUITE:-general}" in
         general) filter='FullyQualifiedName!~Cabinet.Runtime.Tests.Scenarios.' ;;
-        scenarios) filter='FullyQualifiedName~Cabinet.Runtime.Tests.Scenarios.' ;;
+        scenarios) filter='FullyQualifiedName~Cabinet.Runtime.Tests.Scenarios.'
+            parallel=(-- xUnit.ParallelizeTestCollections=true) ;;
         *) die "no runtime suite named ${CABINET_RUNTIME_SUITE}" ;;
     esac
 
@@ -245,7 +246,7 @@ run_test() {
     dotnet test tests/Cabinet.Runtime.Tests --nologo \
         -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true \
         --logger 'trx;LogFileName=runtime.trx' \
-        --logger 'console;verbosity=normal' --filter "$filter"
+        --logger 'console;verbosity=normal' --filter "$filter" "${parallel[@]}"
 }
 
 collect() {

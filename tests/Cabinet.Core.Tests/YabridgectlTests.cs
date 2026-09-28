@@ -86,7 +86,7 @@ public sealed class YabridgectlTests : IDisposable
 
         Assert.False(result.Ok);
         Assert.Equal(1, result.ExitCode);
-        Assert.DoesNotContain(runner.Calls, call => call.Arguments.SequenceEqual(["sync", "--prune"]));
+        Assert.DoesNotContain(runner.Calls, call => call.Arguments.SequenceEqual(["sync", "--prune", "--no-verify"]));
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public sealed class YabridgectlTests : IDisposable
 
         Assert.False(result.Ok);
         Assert.Equal(1, result.ExitCode);
-        Assert.DoesNotContain(runner.Calls, call => call.Arguments.SequenceEqual(["sync", "--prune"]));
+        Assert.DoesNotContain(runner.Calls, call => call.Arguments.SequenceEqual(["sync", "--prune", "--no-verify"]));
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class YabridgectlTests : IDisposable
         Assert.Contains($"remove {stale}", result.Stderr);
         Assert.Contains("stale error", result.Stderr);
         Assert.Contains(runner.Calls, call => call is ["add", var directory] && directory == second);
-        Assert.DoesNotContain(runner.Calls, call => call is ["sync", "--prune"]);
+        Assert.DoesNotContain(runner.Calls, call => call is ["sync", "--prune", "--no-verify"]);
     }
 
     [Fact]
@@ -164,7 +164,17 @@ public sealed class YabridgectlTests : IDisposable
 
         Assert.False(result.Ok);
         Assert.Equal(1, result.ExitCode);
-        Assert.DoesNotContain(runner.Calls, call => call.Arguments.SequenceEqual(["sync", "--prune"]));
+        Assert.DoesNotContain(runner.Calls, call => call.Arguments.SequenceEqual(["sync", "--prune", "--no-verify"]));
+    }
+
+    [Fact]
+    public void SyncSkipsYabridgectlsCheckInAPrefixCabinetNeverUses()
+    {
+        var runner = new RecordingRunner();
+
+        new Yabridgectl(TestLayout(), runner).Sync();
+
+        Assert.Equal(["sync", "--prune", "--no-verify"], runner.LastArguments);
     }
 
     [Fact]
@@ -215,7 +225,7 @@ public sealed class YabridgectlTests : IDisposable
         var runner = new ResultRunner(args => args switch
         {
             ["list"] => new(0, "", ""),
-            ["sync", "--prune"] => new(9, "sync output\n", "sync error\n"),
+            ["sync", "--prune", "--no-verify"] => new(9, "sync output\n", "sync error\n"),
             _ => new(0, "", ""),
         });
 

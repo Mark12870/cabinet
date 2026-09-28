@@ -7,7 +7,8 @@ points at the entry to look at. Exit status is 0: the test step has already fail
 
 A second table says where each entry's time went, slowest first. A test's own duration leaves
 out its fixture -- the install above all -- so those steps come from the timing.txt each
-scenario writes beside its artefacts.
+scenario writes beside its artefacts. The install is split again into the phases Cabinet's
+own progress lines mark; those columns are part of Install, not added to the total.
 
     scripts/scenario-report.py runtime/TestResults/runtime.trx
 """
@@ -28,6 +29,7 @@ TRX = "{http://microsoft.com/schemas/VisualStudio/TeamTest/2010}"
 
 ID_RE = re.compile(r'const string Id = "([^"]+)";')
 STEPS = ("prepare", "display", "install", "settle", "dispose")
+PHASES = ("runner", "prefix", "download", "installer", "dxvk", "bridge")
 TEST_RE = re.compile(r'^' + re.escape(NAMESPACE) + r'(\w+)\.\w+\(format: "([^"]+)"\)$')
 
 
@@ -101,7 +103,7 @@ def timings(trx: Path, named: dict[str, Path]) -> list[str]:
         taken = steps(scenarios / entry.stem / "artefacts" / "timing.txt")
         if not taken and scenario not in tested:
             continue
-        total = sum(taken.values()) + tested.get(scenario, 0)
+        total = sum(taken.get(step, 0) for step in STEPS) + tested.get(scenario, 0)
         rows.append((total, entry, taken, tested.get(scenario)))
 
     if not rows:
@@ -111,12 +113,12 @@ def timings(trx: Path, named: dict[str, Path]) -> list[str]:
     lines = [
         "### Where the scenarios' time went",
         "",
-        "| Entry | " + " | ".join(step.capitalize() for step in STEPS) + " | Tests | Total |",
-        "| --- |" + " ---: |" * (len(STEPS) + 2),
+        "| Entry | " + " | ".join(step.capitalize() for step in STEPS + PHASES) + " | Tests | Total |",
+        "| --- |" + " ---: |" * (len(STEPS) + len(PHASES) + 2),
     ]
     lines += [
         f"| `{entry.stem}` | "
-        + " | ".join(clock(taken.get(step)) for step in STEPS)
+        + " | ".join(clock(taken.get(step)) for step in STEPS + PHASES)
         + f" | {clock(tests)} | {clock(total)} |"
         for total, entry, taken, tests in rows
     ]

@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Cabinet.Core;
 
 namespace Cabinet.Runtime.Tests.Scenarios;
 
-internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
+internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 {
     private static readonly TimeSpan InstallPatience = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ProbePatience = TimeSpan.FromMinutes(10);
@@ -15,8 +16,11 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         ["VST2"] = (".vst", "vst2"),
         ["LV2"] = (".lv2", "lv2"),
     };
-    private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", id);
-    private readonly string socket = RuntimeTestEnvironment.SocketDirectory;
+    private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", entry.Id);
+    private static readonly Lock Compiling = new();
+    private static int sessions;
+    private readonly string socket =
+        $"{RuntimeTestEnvironment.SocketDirectory}-{Interlocked.Increment(ref sessions):D3}";
     private static Task<string>? audioProbe;
 
     public string Artefacts => Path.Combine(root, "artefacts");
@@ -45,12 +49,23 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
 
     private async Task<string> Install(Display display, params string[] installer)
     {
-        var result = await Run("flatpak", Cabinet("install", installer), display, InstallPatience);
+        var phases = new InstallPhases(entry.DemoUrl ?? entry.Url);
+        var result = await Run(
+            "flatpak", Cabinet("install", installer), display, InstallPatience, onLine: phases.Heard);
+        foreach (var (phase, taken) in phases.Finish())
+        {
+            Time(phase, taken);
+        }
 
         File.WriteAllText(Path.Combine(Artefacts, "install.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
         return result.Said;
     }
+
+    public void Time(string step, TimeSpan taken) =>
+        File.AppendAllText(
+            Path.Combine(Artefacts, "timing.txt"),
+            string.Create(CultureInfo.InvariantCulture, $"{step} {taken.TotalSeconds:F1}\n"));
 
     public Manager Open(Display display)
     {
@@ -77,7 +92,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         Host.App,
         "library",
         verb,
-        id,
+        entry.Id,
         .. arguments,
     ];
 
@@ -99,7 +114,13 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         Bridge bridge, string mix, bool audio, int note, string state, string click, Display display)
     {
         var (plugin, format) = bridge;
-        var library = await (audioProbe ??= CompileAudioProbe());
+        Task<string> compiled;
+        lock (Compiling)
+        {
+            compiled = audioProbe ??= CompileAudioProbe();
+        }
+
+        var library = await compiled;
         var binaries = Path.Combine(EditorProbe.CarlaPrefix(), "lib", "carla");
         var output = Path.Combine(Artefacts, "audio", bridge.Label);
         Directory.CreateDirectory(output);
@@ -214,7 +235,7 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
     private string ScanDir(string extension)
     {
         var layout = new Layout(Home, RuntimeTestEnvironment.RuntimeDirectory);
-        return kind == PluginKind.Windows ? layout.WindowsScanDir(extension) : layout.NativeScanDir(extension);
+        return entry.Kind == PluginKind.Windows ? layout.WindowsScanDir(extension) : layout.NativeScanDir(extension);
     }
 
     private async Task<string> CompileAudioProbe()
@@ -259,14 +280,15 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         IReadOnlyList<string> arguments,
         Display? display,
         TimeSpan patience,
-        Action<ProcessStartInfo>? configure = null)
+        Action<ProcessStartInfo>? configure = null,
+        Action<string>? onLine = null)
     {
         var info = Prepared(file, arguments, display);
         configure?.Invoke(info);
 
         using var process = Process.Start(info)
             ?? throw new InvalidOperationException($"could not start {file}");
-        return await Finished(process, file, patience);
+        return await Finished(process, file, patience, onLine);
     }
 
     private ProcessStartInfo Prepared(string file, IReadOnlyList<string> arguments, Display? display)
@@ -296,9 +318,10 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         return info;
     }
 
-    private static async Task<ScenarioProcessResult> Finished(Process process, string file, TimeSpan patience)
+    private static async Task<ScenarioProcessResult> Finished(
+        Process process, string file, TimeSpan patience, Action<string>? onLine)
     {
-        var output = process.StandardOutput.ReadToEndAsync();
+        var output = Read(process.StandardOutput, onLine);
         var error = process.StandardError.ReadToEndAsync();
         using var deadline = new CancellationTokenSource(patience);
         try
@@ -313,6 +336,23 @@ internal sealed class ScenarioHarness(string id, PluginKind kind) : IDisposable
         }
 
         return new ScenarioProcessResult(process.ExitCode, await output, await error);
+    }
+
+    private static async Task<string> Read(StreamReader reader, Action<string>? onLine)
+    {
+        if (onLine is null)
+        {
+            return await reader.ReadToEndAsync();
+        }
+
+        var all = new StringBuilder();
+        while (await reader.ReadLineAsync() is { } line)
+        {
+            onLine(line);
+            all.AppendLine(line);
+        }
+
+        return all.ToString();
     }
 
     private static string InstalledApp =>
