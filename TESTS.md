@@ -284,9 +284,11 @@ yabridge's own and the VST3 bridge crashes while it loads.
 `scripts/scenario-coverage.sh` lists every entry without a scenario. It cannot say why, so the
 reasons are here:
 
-- **Nothing to play without a user's key or account.** Sitala 2 opens an activation dialog over
-  its editor until a serial is entered, and SINEplayer a sign-in screen, with no instrument until
-  one is downloaded through it.
+- **Set aside.** Sitala 2 opens an activation dialog over its editor until a serial is entered.
+  It stays in the Library, but the script's `set_aside` list keeps it out of the coverage list
+  and the count, so it raises no warning.
+- **Nothing to play without a user's account.** SINEplayer opens a sign-in screen, with no
+  instrument until one is downloaded through it.
 - **Managers.** IK Product Manager, Klevgrand Helper, Native Access and Roland Cloud Manager
   install no plugin until someone signs in inside them. Arturia Software Center is the exception:
   its scenario signs in with the test account, installs the Piano V3 demo and plays it. Each
