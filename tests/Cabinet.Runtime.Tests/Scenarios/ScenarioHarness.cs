@@ -187,8 +187,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         string control = "",
         string press = "",
         string type = "",
-        int still = 0,
-        int patience = 60)
+        int still = 0)
     {
         var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, "editor", bridge.Label);
@@ -202,7 +201,6 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             {
                 ["CABINET_PROBE_TYPE"] = type,
                 ["CABINET_PROBE_STILL"] = still.ToString(CultureInfo.InvariantCulture),
-                ["CABINET_PROBE_PATIENCE"] = patience.ToString(CultureInfo.InvariantCulture),
             },
             plugin,
             format,

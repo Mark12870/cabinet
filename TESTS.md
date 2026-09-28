@@ -223,9 +223,9 @@ account, closes the tips window after it, and presses the inspector toggle. Noth
 transferred into it, so it passes the tone through at the level it came in.
 
 A press is followed by a wait for the editor to answer it: at least 2% of it must change from the
-frame before the press, and then two frames in a row must match, up to a minute or the
-`patience` the scenario gives. Stillness alone is not enough, because Helix Native stops drawing
-while it talks to Line 6's server, and a frozen frame looks settled.
+frame before the press, and then two frames in a row must match, up to a minute. Stillness alone
+is not enough, because Helix Native stops drawing while it talks to Line 6's server, and a frozen
+frame looks settled.
 
 Helix Native is tested through a Line 6 test account. `credentials.env` at the repository root,
 gitignored, holds its `EMAIL` and `PASSWORD`; the Plugins workflow writes the same file inside the
@@ -235,9 +235,11 @@ release whose version the entry pins, accepts the licence and downloads it, chec
 page gives. A download that stops for a minute is asked for again, up to three times. In the
 editor it types the account through `type`, which reaches the probe in its environment and is
 typed from stdin, so it is on no command line and in no log, then presses Sign In and Start Free
-Trial. Starting the trial has taken over a minute on CI, so the scenario gives that press three.
-Each fresh home is a new computer to Line 6 and starts the account's trial there. Signed out it
-passes the tone through untouched; signed in, the default amp preset leaves a tail.
+Trial. Line 6 knows a computer by the name Wine takes from the hostname, and allows the account
+five active computers and eleven over its lifetime, six of them already spent. The Plugins
+workflow therefore starts its container as `toolbx`, the name every toolbox has, so CI and a local
+run are the one computer the account has authorized; a run anywhere else spends one for good.
+Signed out it passes the tone through untouched; signed in, the default amp preset leaves a tail.
 
 Serum 2's demo sits behind an Xfer sign-in that Cloudflare Turnstile guards, which a test does not
 pass. Its installer is kept instead in a shared Dropbox folder whose read-only link is `DROPBOX`

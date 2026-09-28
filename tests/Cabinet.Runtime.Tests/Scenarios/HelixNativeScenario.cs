@@ -9,8 +9,6 @@ public sealed class HelixNativeScenario(HelixNativeScenario.Installed installed)
 
     private const int SetlistLoaded = 15;
 
-    private const int TrialStarted = 180;
-
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Line 6/Helix Native (x64).vst3",
@@ -28,12 +26,7 @@ public sealed class HelixNativeScenario(HelixNativeScenario.Installed installed)
         var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
         var editor = installed.Harness.VerifyEditor(
-            bridge,
-            controlsAreParameters: false,
-            type: Account(),
-            click: SignInThenStartTrial,
-            still: SetlistLoaded,
-            patience: TrialStarted);
+            bridge, controlsAreParameters: false, type: Account(), click: SignInThenStartTrial, still: SetlistLoaded);
         Assert.True(
             editor.Wine != "none" && editor.Wine == editor.Told,
             $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
