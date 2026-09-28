@@ -46,7 +46,7 @@ public sealed class Http(IProcessRunner runner)
 
         var fetched = runner.Run(
             "curl",
-            ["-fL", "--progress-bar", "--retry", "2", "-o", target, url],
+            ["-fL", "--progress-bar", "--retry", "6", "-o", target, url],
             onOutput: line =>
             {
                 if (FractionOf(line) is not { } fraction)

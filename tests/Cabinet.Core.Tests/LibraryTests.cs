@@ -1853,7 +1853,7 @@ public class LibraryTests : IDisposable
 
         var recording = new RecordingRunner(args =>
         {
-            if (args is ["-fL", "--progress-bar", "--retry", "2", "-o", var target, _])
+            if (args is ["-fL", "--progress-bar", "--retry", "6", "-o", var target, _])
             {
                 File.Copy(demo, target, overwrite: true);
             }
