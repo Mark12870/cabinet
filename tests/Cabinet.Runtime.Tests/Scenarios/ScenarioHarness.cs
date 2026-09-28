@@ -89,7 +89,17 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             () => Run("flatpak", Cabinet("stop"), display, ProbePatience));
     }
 
+    public async Task Hand(string link, Display display)
+    {
+        var result = await Run("flatpak", [.. Sandboxed(), "library", "open", link], display, ProbePatience);
+        File.WriteAllText(Path.Combine(Artefacts, "open.log"), result.Said);
+        Assert.True(result.ExitCode == 0, result.Said);
+    }
+
     private List<string> Cabinet(string verb, params string[] arguments) =>
+        [.. Sandboxed(), "library", verb, entry.Id, .. arguments];
+
+    private List<string> Sandboxed() =>
     [
         "run",
         "--nofilesystem=home",
@@ -99,10 +109,6 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         $"--env=XDG_RUNTIME_DIR={RuntimeTestEnvironment.RuntimeDirectory}",
         $"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}",
         Host.App,
-        "library",
-        verb,
-        entry.Id,
-        .. arguments,
     ];
 
     public Bridge Plugin(string format, string file) => format == "LV2"
