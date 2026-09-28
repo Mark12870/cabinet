@@ -18,9 +18,9 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
     };
     private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", entry.Id);
     private static readonly Lock Compiling = new();
-    private static int sessions;
-    private readonly string socket =
-        $"{RuntimeTestEnvironment.SocketDirectory}-{Interlocked.Increment(ref sessions):D3}";
+    private static readonly HashSet<int> Slots = [];
+    private int slot = -1;
+    private string socket = "";
     private static Task<string>? audioProbe;
 
     public string Artefacts => Path.Combine(root, "artefacts");
@@ -36,6 +36,15 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         Directory.CreateDirectory(Artefacts);
         Directory.CreateDirectory(Data);
         Directory.CreateDirectory(Path.Combine(Home, ".local", "share"));
+
+        lock (Slots)
+        {
+            slot = Enumerable.Range(0, int.MaxValue).First(Slots.Add);
+        }
+
+        socket = Path.Combine(
+            Path.GetDirectoryName(RuntimeTestEnvironment.SocketDirectory)!,
+            slot.ToString(CultureInfo.InvariantCulture));
         Directory.CreateDirectory(socket);
     }
 
@@ -178,7 +187,8 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         string control = "",
         string press = "",
         string type = "",
-        int still = 0)
+        int still = 0,
+        int patience = 60)
     {
         var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, "editor", bridge.Label);
@@ -192,6 +202,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             {
                 ["CABINET_PROBE_TYPE"] = type,
                 ["CABINET_PROBE_STILL"] = still.ToString(CultureInfo.InvariantCulture),
+                ["CABINET_PROBE_PATIENCE"] = patience.ToString(CultureInfo.InvariantCulture),
             },
             plugin,
             format,
@@ -226,8 +237,20 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
     public void Dispose()
     {
+        if (slot < 0)
+        {
+            return;
+        }
+
         Host.KillAll(Host.App, socket);
         Host.Discard(socket);
+
+        lock (Slots)
+        {
+            Slots.Remove(slot);
+        }
+
+        slot = -1;
     }
 
     private string Data => Path.Combine(Home, ".var", "app", Host.App, "data");

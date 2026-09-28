@@ -41,6 +41,7 @@ TYPE = [
 sys.path.insert(0, os.path.join(CARLA, "share", "carla"))
 
 STILL = float(os.environ.pop("CABINET_PROBE_STILL", "0"))
+PATIENCE = float(os.environ.pop("CABINET_PROBE_PATIENCE", "60"))
 
 os.environ["YABRIDGE_DEBUG_LEVEL"] = "1+editor"
 os.environ["YABRIDGE_DEBUG_FILE"] = LOG
@@ -440,7 +441,7 @@ def answered(window, loop, before):
     changed = False
     previous = before
 
-    while time.monotonic() - started < STILL_LIMIT:
+    while time.monotonic() - started < PATIENCE:
         loop.turn(20)
         current = capture(window, "answer")
 
