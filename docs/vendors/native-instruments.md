@@ -39,27 +39,32 @@ release changes things.
 
 ## Kontakt 8 Player
 
-- **Native Access spends about two minutes on its own Kontakt install** after the download, and
-  closing it as soon as the download is complete loses nothing. Cabinet's recovery needs only the
-  kept zip. Kontakt is not activated during that first session.
-- **Native Access's own Kontakt install is unreliable under Wine.** The same click ended once in
-  "Installation failed" and once in "Successfully installed", and neither left a `Kontakt 8.vst3`.
-  Cabinet's `kontakt-8.sh` recovery, run when Native Access closes, extracts the VST3 from the
-  kept `Kontakt_8_Installer.zip` either way.
+- **Why Native Access cannot install Kontakt under Wine.** Its installer is an InstallAware setup
+  (`Kontakt 8 8.13.1 Setup PC.exe`, run silently by NI's daemon) that rewrites its MSI's component
+  table at runtime and then calls `MsiInstallProductA`. On Wine 11.0 Windows Installer terminates
+  right after initialising, without running an action; on Wine 11.18 it gets as far as
+  `CostInitialize` and then waits forever on its `msiexec -Embedding` custom-action server. Either
+  way the setup exits 100, which NI reads as success, and no file is written. Raum's setup, the same
+  kind but smaller, installs normally. The same diagnosis is in
+  [ni-wine](https://github.com/selimbucher/native-instruments), which replays the MSI's file tables.
+- **Cabinet's fix is a `msi.dll` stand-in** (`msi-shim/`), a 32-bit DLL that `native-access.sh`
+  puts in `syswow64` beside a copy of the runner's own `msi.dll` named `msi_wine.dll`, and that an
+  `AppDefaults` override loads only for `Kontakt 8 Setup PC.exe`. 294 of its exports jump straight
+  into `msi_wine.dll`. `MsiInstallProductA/W` do the same for any other package; for Kontakt's they
+  run `kontakt-8.sh --installing` through `start.exe /unix`, wait for its result file, write
+  Kontakt's registry values and return success, or 1603. InstallAware then writes Kontakt's uninstall
+  entry itself, NI's daemon finds and activates Kontakt within seconds, and Native Access lists it
+  as installed in the same session, as on Windows. lld prefixes an underscore to export forwarders
+  on 32-bit x86 (`_msi_wine.MsiCloseHandle`), which is why the exports are stubs, not forwarders.
+- **Prefixes installed before the stand-in** still rely on `kontakt-8.sh`'s recovery when Native
+  Access closes, and on a second opening of Native Access to activate Kontakt.
 - **Licensing goes through `NTKDaemonService`.** Kontakt Player activates only when it is loaded
   while the daemon runs, about 15 seconds in, writing an activation file to
   `Public/Documents/Native Instruments/Native Access/ras3/`. On that first load its editor still
   shows a **"Kontakt 8 Demo"** dialog (Run Demo / Buy / Activate), which blocks the editor.
   From the next load on it opens as Kontakt Player and no longer needs the daemon.
-- **Native Access activates Kontakt itself once it sees it installed.** It cannot during the
-  install, because Cabinet recovers Kontakt only when Native Access closes. Opened again
-  afterwards, Native Access wrote Kontakt's activation file within about 30 seconds, before
-  Kontakt was loaded anywhere. So "open Native Access once more" is all a user needs, and the
-  entry's description says so. Before that, Native Access also refuses a Kontakt library with an
-  "Acoustic Drums needs Kontakt" dialog.
-- **Kontakt also activates itself** when it is loaded while `NTKDaemonService` runs, about 15
-  seconds in. The installer registers the service on demand (`Start=3`), and Cabinet starts it
-  only while Native Access is open.
+- **NI's daemon activates what its scan finds installed.** Its "installed product scan" runs
+  after every install and on start; a Kontakt it finds there is activated within a second.
 - **Setting the service to start automatically does not work.** Every direct Wine step in the
   prefix then starts the daemon, including Cabinet's own `wineboot -u` for DXVK during an install.
   The daemon and its wineserver inherit that step's output pipe, and Cabinet waited on it

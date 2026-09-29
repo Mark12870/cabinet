@@ -105,10 +105,11 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         private const string AcousticDrumsName = "254,434 378,458";
 
-        private const string AcousticDrumsInstalled =
-            References + "native-access-acoustic-drums-installed.png";
+        private const string InstalledPage = References + "native-access-installed.png";
 
-        private const string InstalledButton = "256,488 352,511";
+        private const string FirstCardInstalled = "256,488 352,511";
+
+        private const string ThirdCardInstalled = "767,488 863,511";
 
         private const string AcousticDrumsLoads = References + "native-access-acoustic-drums-loads.png";
 
@@ -117,17 +118,12 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         private const string Lavapipe =
             "VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d/lvp_icd.x86_64.json";
 
-        private const string KontaktInstaller = "Kontakt_8_Installer.zip";
-
         private const string KontaktActivation =
             "drive_c/users/Public/Documents/Native Instruments/Native Access/ras3/"
             + "0e504595-40d8-4982-978e-a242f036912d.jwt";
 
         private const string AcousticDrumsLibrary =
             "drive_c/users/Public/Documents/Acoustic Drums Library/Acoustic Drums.nicnt";
-
-        private const string Downloads =
-            "drive_c/users/Public/Documents/Native Instruments/Downloads";
 
         private const string FeedbackStore = "2342dc42fd705c1d1004971a4b34109453cc7bd2.json";
 
@@ -177,35 +173,21 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
                 manager.Click(window, 333, 94);
                 manager.Until(() => manager.Shows(window, KontaktCard, KontaktName), window, "Kontakt 8 Player among the applications", Answering);
                 manager.Click(window, 814, 499);
-                manager.Until(KontaktDownloaded, window, "Kontakt 8's download", Downloading);
+                manager.Until(() => Harness.Holds("VST3", Kontakt), window, "Kontakt 8 installed and bridged", Downloading);
+                manager.Until(() => File.Exists(Path.Combine(Harness.Prefix, KontaktActivation)), window, "Native Access activating Kontakt 8 Player", Opening);
+                manager.Until(() => manager.Shows(window, InstalledPage, ThirdCardInstalled), window, "Native Access listing Kontakt 8 Player as installed", Answering);
 
-                await manager.Close();
-            }
-
-            Assert.True(Harness.Holds("VST3", Kontakt), "Cabinet recovered no Kontakt 8.vst3 once Native Access closed");
-
-            using (var manager = Harness.Open(display))
-            {
-                var window = manager.Window(Title, Opening);
-                manager.Until(() => manager.Shows(window, SignedInPage, Sidebar), window, "the signed-in home page", Opening);
-                manager.Click(window, 82, 130);
-                Thread.Sleep(TimeSpan.FromSeconds(10));
                 manager.Click(window, 681, 94);
                 manager.Until(() => manager.Shows(window, AcousticDrumsCard, AcousticDrumsName), window, "Acoustic Drums among the Kontakt libraries", Answering);
                 manager.Click(window, 303, 499);
                 manager.Until(() => File.Exists(Path.Combine(Harness.Prefix, AcousticDrumsLibrary)), window, "Acoustic Drums on disk", Downloading);
                 manager.Until(() => manager.Shows(window, AcousticDrumsLoads, LoadsHeading), window, "the note that Acoustic Drums loads in Kontakt", Downloading);
                 manager.Click(window, 704, 556);
-                manager.Until(() => manager.Shows(window, AcousticDrumsInstalled, InstalledButton), window, "Acoustic Drums installed", Downloading);
+                manager.Until(() => manager.Shows(window, InstalledPage, FirstCardInstalled), window, "Acoustic Drums installed", Downloading);
                 manager.Capture(window, "installed");
-                manager.Until(() => File.Exists(Path.Combine(Harness.Prefix, KontaktActivation)), window, "Native Access activating Kontakt 8 Player", Answering);
                 await manager.Close();
             }
         }
-
-        private bool KontaktDownloaded() =>
-            File.Exists(Path.Combine(Harness.Prefix, ".cabinet-kept", KontaktInstaller))
-            && !File.Exists(Path.Combine(Harness.Prefix, Downloads, KontaktInstaller + ".aria2"));
 
         private void DismissTheSurvey()
         {

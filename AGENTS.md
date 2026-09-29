@@ -37,6 +37,9 @@ the name or the structure instead. Anything that genuinely will not fit there is
   and self-contained. Keep Core AOT-safe, and put new behaviour there.
 - Rust is limited to the dependency-free `shim/` (`cabinet-wine`); application code and tests are C#. The shim is Rust
   because it runs on the plugin-load path inside foreign sandboxes.
+- `msi-shim/` is a 32-bit C DLL built with the SDK's LLVM (clang, lld-link), with no C runtime. It stands in for
+  Wine's msi.dll only in Kontakt 8's installer, whose Windows Installer call wedges under Wine, and forwards everything
+  else to the runner's own msi.dll. Keep it that narrow.
 - All three source projects set `TreatWarningsAsErrors`; a warning fails the build.
 - **A yabridge patch is the last resort, never the first fix.** Every patch in `patches/` is a build Cabinet has to
   carry, rebase and retire by hand. Exhaust what Cabinet already owns first: a prefix runner, DXVK, a Wine virtual

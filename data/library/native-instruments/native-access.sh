@@ -14,6 +14,19 @@ if [ ! -f "$app" ]; then
     exit 1
 fi
 
+wine_msi="$(dirname "$WINE")/../lib/wine/i386-windows/msi.dll"
+
+if [ ! -f "$wine_msi" ]; then
+    echo "The runner has no 32-bit msi.dll for Kontakt 8's installer to fall back on" >&2
+    exit 1
+fi
+
+system="$CABINET_PREFIX/drive_c/windows/syswow64"
+install -m644 /app/share/cabinet/library/native-instruments/msi.dll "$system/msi.dll"
+install -m644 "$wine_msi" "$system/msi_wine.dll"
+"$WINE" reg add 'HKCU\Software\Wine\AppDefaults\Kontakt 8 Setup PC.exe\DllOverrides' \
+    /v msi /d native /f
+
 downloads="$CABINET_PREFIX/drive_c/users/Public/Documents/Native Instruments/Downloads"
 mkdir -p "$downloads"
 

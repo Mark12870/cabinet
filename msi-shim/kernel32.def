@@ -1,0 +1,15 @@
+LIBRARY kernel32.dll
+EXPORTS
+    LoadLibraryW@4
+    GetProcAddress@8
+    GetModuleHandleW@4
+    CreateProcessW@40
+    CloseHandle@4
+    CreateFileW@28
+    ReadFile@20
+    DeleteFileW@4
+    Sleep@4
+    MultiByteToWideChar@24
+    GetProcessHeap@0
+    HeapAlloc@12
+    HeapFree@12

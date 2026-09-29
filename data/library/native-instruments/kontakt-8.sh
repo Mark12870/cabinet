@@ -1,6 +1,17 @@
+installing=
+if [ "${1:-}" = --installing ]; then
+    installing=1
+    export PATH="/app/bin:/usr/bin:/bin"
+    CABINET_PREFIX="${2%/}"
+    CABINET_PREFIX="${CABINET_PREFIX%/drive_c}"
+    CABINET_KEPT="$CABINET_PREFIX/.cabinet-kept"
+    result="$CABINET_PREFIX/drive_c/windows/temp/cabinet-msi.result"
+    trap '[ -s "$result" ] || echo failed > "$result"' EXIT
+fi
+
 destination="$CABINET_PREFIX/drive_c/Program Files/Common Files/VST3/Kontakt 8.vst3"
 
-if [ ! -d "$CABINET_KEPT" ] || [ -s "$destination" ]; then
+if [ ! -d "$CABINET_KEPT" ] || { [ -z "$installing" ] && [ -s "$destination" ]; }; then
     exit 0
 fi
 
@@ -52,10 +63,12 @@ fi
 mkdir -p "$(dirname "$destination")"
 cp "$source" "$destination"
 
-"$WINE" reg add 'HKLM\SOFTWARE\Native Instruments\Kontakt 8' \
-    /v InstallVST64Dir /d 'C:\Program Files\Common Files\VST3' /f
-"$WINE" reg add 'HKLM\SOFTWARE\Native Instruments\Kontakt 8' \
-    /v Version /d "$version" /f
+if [ -z "$installing" ]; then
+    "$WINE" reg add 'HKLM\SOFTWARE\Native Instruments\Kontakt 8' \
+        /v InstallVST64Dir /d 'C:\Program Files\Common Files\VST3' /f
+    "$WINE" reg add 'HKLM\SOFTWARE\Native Instruments\Kontakt 8' \
+        /v Version /d "$version" /f
+fi
 
 products="$CABINET_PREFIX/drive_c/users/Public/Documents/Native Instruments/installed_products"
 mkdir -p "$products"
@@ -65,4 +78,5 @@ printf '%s\n' "{\"InstallVST64Dir\":\"C:\\\\Program Files\\\\Common Files\\\\VST
 rm -rf "$work"
 rm -f "$archive" "$archive".*
 
+[ -z "$installing" ] || echo "ok $version" > "$result"
 echo "Recovered Kontakt 8 $version"

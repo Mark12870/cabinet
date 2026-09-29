@@ -319,13 +319,13 @@ in by hand in a scenario install and encode the same two sections again. Raum's 
 checked: it draws through DXVK's Direct3D 9, whose swapchain throws on the test display, and Wine's
 unwinder spins on that exception instead of returning it.
 
-The same scenario installs Kontakt 8 Player, which Native Access fails to install under Wine and
-Cabinet recovers when it closes, and the Acoustic Drums library. The prefix runs on lavapipe, as a
-runner does: on this machine's GPU the test display offers no DRI3 and Kontakt's editor loses its
-X connection at its first frame. Kontakt only exists once Native Access has closed, so the scenario
-opens Native Access a second time: it then activates Kontakt Player by itself, which the scenario
-waits for as its activation file, and installs Acoustic Drums, which it would otherwise refuse
-without Kontakt. Until it is activated, Kontakt's editor opens behind a Demo dialog. Its
+The same scenario installs Kontakt 8 Player and the Acoustic Drums library in the same Native Access
+session. Kontakt's installer goes through Cabinet's `msi.dll` stand-in (see
+`docs/vendors/native-instruments.md`), so the scenario waits for the bridged `Kontakt 8.vst3`, for
+Native Access's own activation of it, and for its card to read Installed before it asks for a
+library that needs it. The prefix runs on lavapipe, as a runner does: on this machine's GPU the test
+display offers no DRI3 and Kontakt's editor loses its X connection at its first frame. Until it is
+activated, Kontakt's editor opens behind a Demo dialog. Its
 saved state does not bring a loaded loop back, so the loop is double-clicked in its browser and the
 note played live through Carla's engine rather than rendered offline. Native Access's two popups are
 settled beforehand: the usage consent is answered on the account, and the survey's dismissal is
