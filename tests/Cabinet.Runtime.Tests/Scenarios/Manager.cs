@@ -12,6 +12,7 @@ internal sealed class Manager(
 
     private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan Draining = TimeSpan.FromSeconds(30);
 
     private readonly Task<string> said = launch.StandardOutput.ReadToEndAsync();
     private readonly Task<string> complained = launch.StandardError.ReadToEndAsync();
@@ -31,7 +32,8 @@ internal sealed class Manager(
             Thread.Sleep(Beat);
         }
 
-        throw new TimeoutException($"no {title} window appeared within {patience}");
+        var shown = Xdotool("search", "--onlyvisible", "--name", ".+", "getwindowname", "%@").Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        throw new TimeoutException($"no {title} window appeared within {patience}; the display showed [{string.Join(", ", shown)}]");
     }
 
     public void Click(string window, int x, int y) =>
@@ -100,8 +102,8 @@ internal sealed class Manager(
         var stopped = await stop();
         using var deadline = new CancellationTokenSource(Patience);
         await launch.WaitForExitAsync(deadline.Token);
-        var log = $"{await said}\nstderr:\n{await complained}\nexit: {launch.ExitCode}\nstop:\n{stopped.Said}";
-        File.WriteAllText(Path.Combine(shots, "launch.log"), log);
+        await Task.WhenAll(said, complained);
+        var log = Keep($"stop:\n{stopped.Said}");
         Assert.True(stopped.ExitCode == 0, log);
         return log;
     }
@@ -112,9 +114,20 @@ internal sealed class Manager(
         {
             launch.Kill(entireProcessTree: true);
             launch.WaitForExit();
+            if (Task.WaitAll([said, complained], Draining))
+            {
+                Keep("killed before it closed");
+            }
         }
 
         launch.Dispose();
+    }
+
+    private string Keep(string ending)
+    {
+        var log = $"{said.Result}\nstderr:\n{complained.Result}\nexit: {launch.ExitCode}\n{ending}";
+        File.WriteAllText(Path.Combine(shots, "launch.log"), log);
+        return log;
     }
 
     private ScenarioProcessResult Xdotool(params string[] arguments) => Run("xdotool", null, arguments);
