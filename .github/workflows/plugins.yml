@@ -42,3 +42,4 @@ jobs:
       PASSWORD: ${{ secrets.PASSWORD }}
       DROPBOX: ${{ secrets.DROPBOX }}
       USERNAME: ${{ secrets.USERNAME }}
+      NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}

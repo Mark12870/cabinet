@@ -89,12 +89,19 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             () => Run("flatpak", Cabinet("stop"), display, ProbePatience));
     }
 
-    public async Task Hand(string link, Display display)
+    public void Restore(string registry)
     {
-        var result = await Run("flatpak", [.. Sandboxed(), "library", "open", link], display, ProbePatience);
-        File.WriteAllText(Path.Combine(Artefacts, "open.log"), result.Said);
-        Assert.True(result.ExitCode == 0, result.Said);
+        var user = Path.Combine(Data, "prefixes", entry.Prefix, "user.reg");
+        var restored = Sections(Encoding.UTF8.GetString(Convert.FromBase64String(registry)));
+        var replaced = restored.Select(Key).ToHashSet(StringComparer.Ordinal);
+        var kept = Sections(File.ReadAllText(user)).Where(section => !replaced.Contains(Key(section)));
+        File.WriteAllText(user, string.Join("\n\n", [.. kept, .. restored]) + "\n");
     }
+
+    private static List<string> Sections(string registry) =>
+        [.. Regex.Split(registry, @"\n(?=\[)").Select(section => section.TrimEnd()).Where(section => section.Length > 0)];
+
+    private static string Key(string section) => section.Split("] ", 2)[0];
 
     private List<string> Cabinet(string verb, params string[] arguments) =>
         [.. Sandboxed(), "library", verb, entry.Id, .. arguments];
@@ -110,6 +117,12 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         $"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}",
         Host.App,
     ];
+
+    public bool Holds(string format, string file)
+    {
+        var path = Path.Combine(ScanDir(Formats[format].Extension), file);
+        return File.Exists(path) || Directory.Exists(path);
+    }
 
     public Bridge Plugin(string format, string file) => format == "LV2"
         ? new(file, Formats[format].Carla)

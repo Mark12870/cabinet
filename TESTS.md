@@ -301,13 +301,23 @@ reasons are here:
   and the count, so it raises no warning.
 - **Nothing to play without a user's account.** SINEplayer opens a sign-in screen, with no
   instrument until one is downloaded through it.
-- **Managers.** Klevgrand Helper, Native Access and Roland Cloud Manager install no plugin until
-  someone signs in inside them. Arturia Software Center and IK Product Manager are the exceptions:
-  their scenarios sign in with the test account, install the Piano V3 demo and MODO BASS 2 CS, and
-  play them. Each screen is recognised by a reference crop under `Scenarios/References/` before
+- **Managers.** Klevgrand Helper and Roland Cloud Manager install no plugin until someone signs in
+  inside them. Arturia Software Center, IK Product Manager and Native Access are the exceptions:
+  their scenarios sign in with the test account, install the Piano V3 demo, MODO BASS 2 CS and
+  Raum, and play them. Each screen is recognised by a reference crop under `Scenarios/References/` before
   anything is clicked or typed, and the password is typed only once its page is on screen.
 - **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
   be installed unattended.
+
+Native Access signs in through a browser, and Native Instruments' login page refuses a browser
+driven by WebDriver, so its scenario does not sign in; it restores a session instead. Native
+Access keeps that session in Wine's Credential Manager, as `NTKDaemon/session_data` under
+`HKCU\Software\Wine\Credential Manager` beside the `EncryptionKey` that decrypts it, and the entry
+holds in a fresh prefix and does not change with use. `NATIVE_ACCESS` in `credentials.env` and the
+secrets holds those two `user.reg` sections base64-encoded. To renew it, sign
+in by hand in a scenario install and encode the same two sections again. Raum's editor is not
+checked: it draws through DXVK's Direct3D 9, whose swapchain throws on the test display, and Wine's
+unwinder spins on that exception instead of returning it.
 
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.

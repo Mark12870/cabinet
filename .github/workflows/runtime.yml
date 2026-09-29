@@ -21,6 +21,8 @@ on:
         required: false
       USERNAME:
         required: false
+      NATIVE_ACCESS:
+        required: false
 
 jobs:
   # TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
@@ -215,9 +217,10 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
           DROPBOX: ${{ secrets.DROPBOX }}
           USERNAME: ${{ secrets.USERNAME }}
+          NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
         run: |
           docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
-            --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME "${CONTAINER}" /src/scripts/runtime-ci.sh test
+            --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME --env NATIVE_ACCESS "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs
         if: always()
