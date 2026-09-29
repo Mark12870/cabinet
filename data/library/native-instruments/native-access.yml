@@ -32,3 +32,7 @@ Description:
   Not a plugin but the door to Native Instruments' catalogue: Kontakt, Battery,
   Komplete Kontrol, Massive X, FM8, Reaktor and more. Sign in, then choose the
   products and libraries your account owns.
+
+  Cabinet finishes installing Kontakt when Native Access closes. Open Native
+  Access once more afterwards so it can activate Kontakt; until then Kontakt
+  opens in demo mode.

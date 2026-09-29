@@ -303,8 +303,8 @@ reasons are here:
   instrument until one is downloaded through it.
 - **Managers.** Klevgrand Helper and Roland Cloud Manager install no plugin until someone signs in
   inside them. Arturia Software Center, IK Product Manager and Native Access are the exceptions:
-  their scenarios sign in with the test account, install the Piano V3 demo, MODO BASS 2 CS and
-  Raum, and play them. Each screen is recognised by a reference crop under `Scenarios/References/` before
+  their scenarios sign in with the test account, install the Piano V3 demo, MODO BASS 2 CS, and
+  Raum with Kontakt 8 Player, and play them. Each screen is recognised by a reference crop under `Scenarios/References/` before
   anything is clicked or typed, and the password is typed only once its page is on screen.
 - **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
   be installed unattended.
@@ -318,6 +318,18 @@ secrets holds those two `user.reg` sections base64-encoded. To renew it, sign
 in by hand in a scenario install and encode the same two sections again. Raum's editor is not
 checked: it draws through DXVK's Direct3D 9, whose swapchain throws on the test display, and Wine's
 unwinder spins on that exception instead of returning it.
+
+The same scenario installs Kontakt 8 Player, which Native Access fails to install under Wine and
+Cabinet recovers when it closes, and the Acoustic Drums library. The prefix runs on lavapipe, as a
+runner does: on this machine's GPU the test display offers no DRI3 and Kontakt's editor loses its
+X connection at its first frame. Kontakt only exists once Native Access has closed, so the scenario
+opens Native Access a second time: it then activates Kontakt Player by itself, which the scenario
+waits for as its activation file, and installs Acoustic Drums, which it would otherwise refuse
+without Kontakt. Until it is activated, Kontakt's editor opens behind a Demo dialog. Its
+saved state does not bring a loaded loop back, so the loop is double-clicked in its browser and the
+note played live through Carla's engine rather than rendered offline. Native Access's two popups are
+settled beforehand: the usage consent is answered on the account, and the survey's dismissal is
+written into its store before it starts.
 
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.

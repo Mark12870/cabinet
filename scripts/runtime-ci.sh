@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs TESTS.md's runtime suite inside a container, for the runtime job in
+# Runs docs/TESTS.md's runtime suite inside a container, for the runtime job in
 # .github/workflows/ci.yml. The workflow only starts the container and carries artifacts out;
 # every step below runs inside it.
 #

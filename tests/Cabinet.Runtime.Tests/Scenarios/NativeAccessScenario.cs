@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace Cabinet.Runtime.Tests.Scenarios;
 
 public sealed class NativeAccessScenario(NativeAccessScenario.Installed installed)
@@ -6,6 +8,19 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
     private const string Id = "native-access";
 
     private const string Mix = "Mix";
+
+    private const string Kontakt = "Kontakt 8.vst3";
+
+    private const int Note = 60;
+
+    private const string FocusThenCloseWhatsNew = "600 560 727 231";
+
+    private const string LoopsTab = "329 117";
+
+    private const string KontaktWindow = "^Kontakt 8";
+
+    private const string FirstAcousticDrumsLoop =
+        "click 600 560; click 727 231; click 329 117; wait 3; double 862 380; wait 20";
 
     private static readonly Dictionary<string, string> Bridges = new()
     {
@@ -30,6 +45,32 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         Assert.InRange(audio.Before, 0, 0.00001);
         Assert.InRange(audio.Tail, 0.0025, 1);
         Assert.InRange(audio.Peak, 0.014, 1);
+    }
+
+    [Fact]
+    public void OpensKontaktsEditorOnceItsLicenceIsActive()
+    {
+        var bridge = installed.Harness.Plugin("VST3", Kontakt);
+
+        var editor = installed.Harness.VerifyEditor(
+            bridge, controlsAreParameters: false, click: FocusThenCloseWhatsNew, press: LoopsTab);
+
+        Assert.True(
+            editor.Wine != "none" && editor.Wine == editor.Told,
+            $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
+    }
+
+    [Fact]
+    public void PlaysAnAcousticDrumsLoopLoadedThroughKontaktsBrowser()
+    {
+        var bridge = installed.Harness.Plugin("VST3", Kontakt);
+
+        var played = installed.Harness.PlayThroughEditor(
+            bridge, Note, FirstAcousticDrumsLoop, KontaktWindow);
+
+        Assert.InRange(played.Before, 0, 0.00001);
+        Assert.InRange(played.Held, 0.05, 1);
+        Assert.InRange(played.After, 0, 0.03);
     }
 
     public sealed class Installed() : InstalledEntry(Id)
@@ -58,45 +99,137 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         private const string Success = "252,738 462,762";
 
+        private const string KontaktCard = References + "native-access-kontakt.png";
+
+        private const string KontaktName = "764,434 888,458";
+
+        private const string AcousticDrumsCard = References + "native-access-acoustic-drums.png";
+
+        private const string AcousticDrumsName = "254,434 378,458";
+
+        private const string AcousticDrumsInstalled =
+            References + "native-access-acoustic-drums-installed.png";
+
+        private const string InstalledButton = "256,488 352,511";
+
+        private const string AcousticDrumsLoads = References + "native-access-acoustic-drums-loads.png";
+
+        private const string LoadsHeading = "270,242 722,272";
+
+        private const string Lavapipe =
+            "VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d/lvp_icd.x86_64.json";
+
+        private const string KontaktInstaller = "Kontakt_8_Installer.zip";
+
+        private const string KontaktActivation =
+            "drive_c/users/Public/Documents/Native Instruments/Native Access/ras3/"
+            + "0e504595-40d8-4982-978e-a242f036912d.jwt";
+
+        private const string AcousticDrumsLibrary =
+            "drive_c/users/Public/Documents/Acoustic Drums Library/Acoustic Drums.nicnt";
+
+        private const string Downloads =
+            "drive_c/users/Public/Documents/Native Instruments/Downloads";
+
+        private const string FeedbackStore = "2342dc42fd705c1d1004971a4b34109453cc7bd2.json";
+
         private static readonly TimeSpan Opening = TimeSpan.FromMinutes(3);
 
         private static readonly TimeSpan Answering = TimeSpan.FromMinutes(1);
 
-        private static readonly TimeSpan Downloading = TimeSpan.FromMinutes(20);
+        private static readonly TimeSpan Downloading = TimeSpan.FromMinutes(10);
 
         private protected override async Task Install(Display display)
         {
             await base.Install(display);
             Harness.Restore(Credentials.Read()["NATIVE_ACCESS"]);
+            DismissTheSurvey();
+            await Harness.Set(display, "env", Lavapipe);
 
-            using var manager = Harness.Open(display);
-            var window = manager.Window(Title, Opening);
-            manager.Until(() => manager.Shows(window, LicencePage, LicenceHeading), window, "the licence page", Opening);
-            manager.Until(
-                () =>
+            using (var manager = Harness.Open(display))
+            {
+                var window = manager.Window(Title, Opening);
+                manager.Until(() => manager.Shows(window, LicencePage, LicenceHeading), window, "the licence page", Opening);
+                manager.Until(
+                    () =>
+                    {
+                        manager.Click(window, 512, 500);
+                        manager.Press("End");
+                        manager.Press("ctrl+End");
+                        return manager.Shows(window, AgreeButton, Agree);
+                    },
+                    window,
+                    "the licence scrolled to its end",
+                    Answering);
+                manager.Click(window, 711, 655);
+                manager.Until(() => manager.Shows(window, SignedInPage, Sidebar), window, "the signed-in home page", Opening);
+
+                manager.Click(window, 82, 130);
+                Thread.Sleep(TimeSpan.FromSeconds(10));
+                manager.Click(window, 975, 77);
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+                manager.Click(window, 516, 94);
+                manager.Until(() => manager.Shows(window, RaumCard, RaumName), window, "Raum among the effects", Answering);
+                manager.Click(window, 303, 665);
+                manager.Until(() => manager.Shows(window, RaumInstalled, Success), window, "Raum's install", Downloading);
+                manager.Until(() => Harness.Holds("VST3", "Raum.vst3"), window, "Cabinet bridging Raum.vst3", Answering);
+
+                manager.Click(window, 975, 60);
+                Thread.Sleep(TimeSpan.FromSeconds(2));
+                manager.Click(window, 333, 94);
+                manager.Until(() => manager.Shows(window, KontaktCard, KontaktName), window, "Kontakt 8 Player among the applications", Answering);
+                manager.Click(window, 814, 499);
+                manager.Until(KontaktDownloaded, window, "Native Access done with Kontakt 8's download", Downloading);
+
+                await manager.Close();
+            }
+
+            Assert.True(Harness.Holds("VST3", Kontakt), "Cabinet recovered no Kontakt 8.vst3 once Native Access closed");
+
+            using (var manager = Harness.Open(display))
+            {
+                var window = manager.Window(Title, Opening);
+                manager.Until(() => manager.Shows(window, SignedInPage, Sidebar), window, "the signed-in home page", Opening);
+                manager.Click(window, 82, 130);
+                Thread.Sleep(TimeSpan.FromSeconds(10));
+                manager.Click(window, 681, 94);
+                manager.Until(() => manager.Shows(window, AcousticDrumsCard, AcousticDrumsName), window, "Acoustic Drums among the Kontakt libraries", Answering);
+                manager.Click(window, 303, 499);
+                manager.Until(() => File.Exists(Path.Combine(Harness.Prefix, AcousticDrumsLibrary)), window, "Acoustic Drums on disk", Downloading);
+                manager.Until(() => manager.Shows(window, AcousticDrumsLoads, LoadsHeading), window, "the note that Acoustic Drums loads in Kontakt", Downloading);
+                manager.Click(window, 704, 556);
+                manager.Until(() => manager.Shows(window, AcousticDrumsInstalled, InstalledButton), window, "Acoustic Drums installed", Downloading);
+                manager.Capture(window, "installed");
+                manager.Until(() => File.Exists(Path.Combine(Harness.Prefix, KontaktActivation)), window, "Native Access activating Kontakt 8 Player", Answering);
+                await manager.Close();
+            }
+        }
+
+        private bool KontaktDownloaded() =>
+            File.Exists(Path.Combine(Harness.Prefix, ".cabinet-kept", KontaktInstaller))
+            && !File.Exists(Path.Combine(Harness.Prefix, Downloads, KontaktInstaller));
+
+        private void DismissTheSurvey()
+        {
+            var user = Directory.GetDirectories(Path.Combine(Harness.Prefix, "drive_c", "users"))
+                .Single(directory => Path.GetFileName(directory) != "Public");
+            var store = Path.Combine(user, "AppData", "Roaming", "Native Instruments", "Native Access");
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            Directory.CreateDirectory(store);
+            File.WriteAllText(
+                Path.Combine(store, FeedbackStore),
+                new JsonObject
                 {
-                    manager.Click(window, 512, 500);
-                    manager.Press("End");
-                    manager.Press("ctrl+End");
-                    return manager.Shows(window, AgreeButton, Agree);
-                },
-                window,
-                "the licence scrolled to its end",
-                Answering);
-            manager.Click(window, 711, 655);
-            manager.Until(() => manager.Shows(window, SignedInPage, Sidebar), window, "the signed-in home page", Opening);
-
-            manager.Click(window, 82, 130);
-            Thread.Sleep(TimeSpan.FromSeconds(10));
-            manager.Click(window, 975, 77);
-            Thread.Sleep(TimeSpan.FromSeconds(2));
-            manager.Click(window, 516, 94);
-            manager.Until(() => manager.Shows(window, RaumCard, RaumName), window, "Raum among the effects", Answering);
-            manager.Click(window, 303, 665);
-            manager.Until(() => manager.Shows(window, RaumInstalled, Success), window, "Raum's install", Downloading);
-            manager.Capture(window, "installed");
-            manager.Until(() => Harness.Holds("VST3", "Raum.vst3"), window, "Cabinet bridging Raum.vst3", Answering);
-            await manager.Close();
+                    ["userFeedbackRecords"] = new JsonArray(
+                        new JsonObject
+                        {
+                            ["context"] = "all installs complete",
+                            ["displayedAt"] = now,
+                            ["question"] = "How is your experience so far?",
+                            ["action"] = "dismissed",
+                            ["resolvedAt"] = now,
+                        }),
+                }.ToJsonString());
         }
     }
 }

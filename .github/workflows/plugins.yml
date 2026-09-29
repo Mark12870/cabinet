@@ -7,7 +7,7 @@ name: Plugins
 # that the results are still in by the morning.
 on:
   schedule:
-    - cron: '23 1 * * *'
+    - cron: '23 0 * * *'
   workflow_dispatch:
 
 permissions:

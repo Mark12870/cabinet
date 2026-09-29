@@ -89,9 +89,18 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             () => Run("flatpak", Cabinet("stop"), display, ProbePatience));
     }
 
+    public string Prefix => Path.Combine(Data, "prefixes", entry.Prefix);
+
+    public async Task Set(Display display, params string[] arguments)
+    {
+        var result = await Run(
+            "flatpak", [.. Sandboxed(), "set", entry.Prefix, .. arguments], display, ProbePatience);
+        Assert.True(result.ExitCode == 0, result.Said);
+    }
+
     public void Restore(string registry)
     {
-        var user = Path.Combine(Data, "prefixes", entry.Prefix, "user.reg");
+        var user = Path.Combine(Prefix, "user.reg");
         var restored = Sections(Encoding.UTF8.GetString(Convert.FromBase64String(registry)));
         var replaced = restored.Select(Key).ToHashSet(StringComparer.Ordinal);
         var kept = Sections(File.ReadAllText(user)).Where(section => !replaced.Contains(Key(section)));
@@ -412,6 +421,31 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
     }
 
+    public Performance PlayThroughEditor(Bridge bridge, int note, string steps, string title)
+    {
+        var (plugin, format) = bridge;
+        var shots = Path.Combine(Artefacts, "played", bridge.Label);
+        Directory.CreateDirectory(shots);
+        var result = EditorProbe.RunIn(
+            Home,
+            socket,
+            Path.Combine(shots, "yabridge.log"),
+            "editor-play.py",
+            plugin,
+            format,
+            shots,
+            note.ToString(CultureInfo.InvariantCulture),
+            steps,
+            title);
+        File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
+        Assert.True(result.ExitCode == 0, result.Said);
+
+        var found = Regex.Match(
+            result.Said, @"PLAYED BEFORE=([0-9.]+) HELD=([0-9.]+) AFTER=([0-9.]+)");
+        Assert.True(found.Success, result.Said);
+        return new Performance(Number(found, 1), Number(found, 2), Number(found, 3));
+    }
+
     private static double Number(Match found, int group) =>
         double.Parse(found.Groups[group].Value, CultureInfo.InvariantCulture);
 }
@@ -427,6 +461,8 @@ internal sealed record Bridge(string Plugin, string Format)
 }
 
 internal sealed record EditorOrigin(string Wine, string Told);
+
+internal sealed record Performance(double Before, double Held, double After);
 
 internal sealed record AudioMeasurement(
     double Peak,

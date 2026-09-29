@@ -60,10 +60,10 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
 7. Remove only temporary prefixes in the isolated runtime after testing. Never
    mutate or clean a host prefix during runtime diagnosis.
 
-8. Read the plugin matrix and the unsupported Windows LV2 combination in `TESTS.md`.
+8. Read the plugin matrix and the unsupported Windows LV2 combination in `docs/TESTS.md`.
 
 9. `InteractionTests` opens each editor and drives the pointer over it, so it needs no session
    display: it starts its own headless `weston` per probe. When a case fails, read the captures
    and `result.txt` it leaves in `$CABINET_RUNTIME_ROOT/tmp/interaction/<plugin>/` before
-   believing the number in the message. Plugins with a known defect are listed in `TESTS.md` and
+   believing the number in the message. Plugins with a known defect are listed in `docs/TESTS.md` and
    assert that the defect is still there, so the suite is green until one is fixed.

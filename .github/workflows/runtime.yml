@@ -25,7 +25,7 @@ on:
         required: false
 
 jobs:
-  # TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
+  # docs/TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
   # which nothing in checks.sh can do. It starts beside the build rather than after it, because
   # the only thing it wants from the build is an artifact it does not touch until it installs
   # Cabinet. The fixtures come in two halves -- a public image of what may be republished, the

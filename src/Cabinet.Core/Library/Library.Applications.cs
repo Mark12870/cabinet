@@ -317,6 +317,30 @@ public sealed partial class Library
         }
     }
 
+    public void StopServices(string prefix)
+    {
+        var services = Entries()
+            .Where(entry => entry.Prefix == prefix && entry.LaunchService is not null)
+            .Select(entry => entry.LaunchService!)
+            .ToList();
+
+        if (services.Count == 0)
+        {
+            return;
+        }
+
+        var prefixes = new Prefixes(layout, runner);
+
+        try
+        {
+            using var claim = prefixes.Claim(prefix, $"stop {string.Join(" and ", services)}");
+            Settle(prefixes, prefix);
+        }
+        catch (PrefixInUseException)
+        {
+        }
+    }
+
     public LibraryEntry ForLink(string link)
     {
         var at = link.IndexOf(':');

@@ -304,6 +304,7 @@ internal sealed class PrefixPage
             {
                 var result = new Winetricks(layout, runner).Open(Name, output);
                 new Prefixes(layout, runner).Bridge(output);
+                new Library(layout, runner).StopServices(Name);
                 Operation.Ensure(result, "winetricks");
             },
             changed);
@@ -316,6 +317,7 @@ internal sealed class PrefixPage
                 var prefixes = new Prefixes(layout, runner);
                 var result = prefixes.Run(Name, command, arguments, output);
                 prefixes.Bridge(output);
+                new Library(layout, runner).StopServices(Name);
                 Operation.Ensure(result, command);
             },
             changed);

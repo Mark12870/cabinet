@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Everything .github/workflows/ci.yml's checks job runs, so the hook and the human run one
-# list. The runtime suite is the job beside it, and TESTS.md owns that.
+# list. The runtime suite is the job beside it, and docs/TESTS.md owns that.
 #
 #   scripts/checks.sh            verify all of it, tests included
 #   scripts/checks.sh --staged   what .githooks/pre-commit runs: reformat the staged code

@@ -76,6 +76,7 @@ internal static partial class Program
                 ? winetricks.Open(name, Console.WriteLine)
                 : winetricks.Apply(name, verbs, Console.WriteLine);
             new Prefixes(layout, runner).Bridge(Console.WriteLine);
+            new Library(layout, runner).StopServices(name);
 
             return Exited("winetricks", result);
         });
@@ -243,6 +244,7 @@ internal static partial class Program
             var prefixes = new Prefixes(layout, runner);
             var result = prefixes.Run(name, command, arguments, interactive: true);
             prefixes.Bridge(Console.Error.WriteLine);
+            new Library(layout, runner).StopServices(name);
             return result.ExitCode;
         });
     }

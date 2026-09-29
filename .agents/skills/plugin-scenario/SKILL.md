@@ -123,7 +123,7 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    window is a window of its own, so `resting.png` may look clean while it takes every press. Look
    in the scenario home for what the plugin saved while it ran, and have the scenario's `Installed`
    override `Settle(home)` to write that answer before the editor opens. A dialog that asks for a
-   licence, a sign-in or a key cannot be answered this way; that entry is set aside in `TESTS.md`.
+   licence, a sign-in or a key cannot be answered this way; that entry is set aside in `docs/TESTS.md`.
 
    `AIM=none` on an editor that draws and reacts can mean its knobs are the plugin's own settings
    rather than host parameters. Check `parameters.txt`: if nothing there is a control the editor
