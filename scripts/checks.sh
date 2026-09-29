@@ -36,6 +36,10 @@ fi
 
 step() { printf '  %s\n' "$*" >&2; }
 
+# Microsoft.Testing.Platform writes its results under the working directory unless told
+# otherwise, and on CI the checkout's root belongs to the runner, not to the sandbox's user.
+unit_tests() { dotnet test --project "tests/$1" --results-directory "tests/$1/TestResults"; }
+
 runtime_pin() {
   local sdk props pinned bundled
   sdk=$(dotnet --list-sdks | tail -1)
@@ -56,10 +60,10 @@ if [ "${1:-}" != --staged ]; then
   step 'dotnet build';    dotnet build src/Cabinet.Gui --nologo -v q \
                             -p:UseSharedCompilation=false
   step 'dotnet build';    dotnet build tests/Cabinet.Runtime.Tests --nologo -v q
-  step 'dotnet test';     dotnet test --project tests/Cabinet.Core.Tests
-  step 'dotnet test';     dotnet test --project tests/Cabinet.Cli.Tests
+  step 'dotnet test';     unit_tests Cabinet.Core.Tests
+  step 'dotnet test';     unit_tests Cabinet.Cli.Tests
   step 'cargo build';     (cd shim && cargo build)
-  step 'dotnet test';     dotnet test --project tests/Cabinet.Contract.Tests
+  step 'dotnet test';     unit_tests Cabinet.Contract.Tests
   step 'appstreamcli';    appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml
   step 'cargo fmt';       (cd shim && cargo fmt --check)
   step 'cargo clippy';    (cd shim && cargo clippy --all-targets -- -D warnings)
