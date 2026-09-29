@@ -32,13 +32,16 @@ release changes things.
   complete. It covers the install result bar. Native Access decides from `userFeedbackRecords` in
   its store file `2342dc42fd705c1d1004971a4b34109453cc7bd2.json`; a record with
   `"action": "dismissed"` keeps it away.
-- Native Access downloads into its `Downloads` folder and deletes the file once it has tried to
-  install it. Cabinet hard-links each download into the prefix's `.cabinet-kept` as it appears.
-  "In `.cabinet-kept` and gone from `Downloads`" is therefore a reliable "done with this download",
-  whatever Native Access reports.
+- Native Access downloads into its `Downloads` folder through aria2, whose `.aria2` control file
+  sits beside the download until it completes. Cabinet hard-links each download into the prefix's
+  `.cabinet-kept` as it appears. "In `.cabinet-kept`, with no `.aria2` left in `Downloads`" is
+  therefore a reliable "downloaded", whatever Native Access reports next.
 
 ## Kontakt 8 Player
 
+- **Native Access spends about two minutes on its own Kontakt install** after the download, and
+  closing it as soon as the download is complete loses nothing. Cabinet's recovery needs only the
+  kept zip. Kontakt is not activated during that first session.
 - **Native Access's own Kontakt install is unreliable under Wine.** The same click ended once in
   "Installation failed" and once in "Successfully installed", and neither left a `Kontakt 8.vst3`.
   Cabinet's `kontakt-8.sh` recovery, run when Native Access closes, extracts the VST3 from the

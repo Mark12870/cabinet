@@ -13,9 +13,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
     private const int Note = 60;
 
-    private const string FocusThenCloseWhatsNew = "600 560 727 231";
-
-    private const string LoopsTab = "329 117";
+    private const string CloseWhatsNewThenLoopsTab = "727 231 329 117";
 
     private const string KontaktWindow = "^Kontakt 8";
 
@@ -53,7 +51,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         var bridge = installed.Harness.Plugin("VST3", Kontakt);
 
         var editor = installed.Harness.VerifyEditor(
-            bridge, controlsAreParameters: false, click: FocusThenCloseWhatsNew, press: LoopsTab);
+            bridge, controlsAreParameters: false, press: CloseWhatsNewThenLoopsTab);
 
         Assert.True(
             editor.Wine != "none" && editor.Wine == editor.Told,
@@ -179,7 +177,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
                 manager.Click(window, 333, 94);
                 manager.Until(() => manager.Shows(window, KontaktCard, KontaktName), window, "Kontakt 8 Player among the applications", Answering);
                 manager.Click(window, 814, 499);
-                manager.Until(KontaktDownloaded, window, "Native Access done with Kontakt 8's download", Downloading);
+                manager.Until(KontaktDownloaded, window, "Kontakt 8's download", Downloading);
 
                 await manager.Close();
             }
@@ -207,7 +205,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         private bool KontaktDownloaded() =>
             File.Exists(Path.Combine(Harness.Prefix, ".cabinet-kept", KontaktInstaller))
-            && !File.Exists(Path.Combine(Harness.Prefix, Downloads, KontaktInstaller));
+            && !File.Exists(Path.Combine(Harness.Prefix, Downloads, KontaktInstaller + ".aria2"));
 
         private void DismissTheSurvey()
         {
