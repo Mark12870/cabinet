@@ -76,8 +76,10 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
 
    ```sh
    toolbox run --container cabinet-runtime nice \
-     dotnet test tests/Cabinet.Runtime.Tests --nologo -m:1 -p:BuildInParallel=false \
-     --filter 'FullyQualifiedName~<Entry>Scenario'
+     dotnet build tests/Cabinet.Runtime.Tests --nologo -m:1 -p:BuildInParallel=false
+   toolbox run --container cabinet-runtime nice \
+     dotnet test --project tests/Cabinet.Runtime.Tests --no-build \
+     --filter-class '*<Entry>Scenario'
    ```
 
    Run it in the background and wait for the completion event instead of polling. Each run
@@ -132,7 +134,7 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
 7. Check that every scenario names a shipped entry, then run the full checks:
 
    ```sh
-   dotnet test tests/Cabinet.Core.Tests --filter 'FullyQualifiedName~CatalogueTests'
+   dotnet test --project tests/Cabinet.Core.Tests --filter-class '*CatalogueTests'
    scripts/checks.sh
    ```
 

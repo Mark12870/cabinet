@@ -108,6 +108,13 @@ Carla supervisor logs, Cabinet's own logs and the `.trx`. Read them before belie
 hosted runner has no GPU, so DXVK draws through lavapipe there and the numbers below are this
 machine's, not its.
 
+A failed test runs once more, in a fresh process with its fixture rebuilt, through
+Microsoft.Testing.Platform's retry: a vendor's server that stalls once fails a test with nothing
+wrong in it. Past a fifth of the suite failing, the cause is Cabinet's and nothing is rerun. The
+top `runtime.trx` then holds only the last attempt, each attempt keeps its own under
+`TestResults/Retries/`, and the scenario report marks a test that passed only on the rerun as
+`Passed on rerun`.
+
 ## Test matrix
 
 `Cabinet.Runtime.Tests` requires every fixture and fails if one is missing. It starts Carla's
@@ -162,8 +169,10 @@ Run the complete matrix after setup with:
 
 ```sh
 toolbox run --container cabinet-runtime \
-  dotnet test tests/Cabinet.Runtime.Tests --nologo \
+  dotnet build tests/Cabinet.Runtime.Tests --nologo \
   -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
+toolbox run --container cabinet-runtime \
+  dotnet test --project tests/Cabinet.Runtime.Tests --no-build
 ```
 
 Enter the Toolbox before the test applies its synthetic HOME and XDG paths.
@@ -277,8 +286,10 @@ Run one with:
 
 ```sh
 toolbox run --container cabinet-runtime \
-  dotnet test tests/Cabinet.Runtime.Tests --nologo -m:1 \
-  --filter 'FullyQualifiedName~ValhallaSupermassiveScenario'
+  dotnet build tests/Cabinet.Runtime.Tests --nologo -m:1
+toolbox run --container cabinet-runtime \
+  dotnet test --project tests/Cabinet.Runtime.Tests --no-build \
+  --filter-class '*ValhallaSupermassiveScenario'
 ```
 
 For each format, `ValhallaSupermassiveScenario` verifies the bridged editor and processes explicit

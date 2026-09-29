@@ -137,7 +137,7 @@ public sealed class RunnerIndexTests : IDisposable
     [Fact]
     public void BothFamiliesComeFromOneRequest()
     {
-        var available = Answering("200", Index).Available();
+        var available = Answering("200", Index).Available(TestContext.Current.CancellationToken);
 
         Assert.Equal(5, available.Count);
         Assert.Equal("wine-9.21-staging-tkg", Answering("200", Index).Find("9.21").Name);
@@ -181,7 +181,7 @@ public sealed class RunnerIndexTests : IDisposable
     [Fact]
     public void ThePinnedBuildStandsInForTheIndexListingOfIt()
     {
-        var available = Answering("200", Index).Available();
+        var available = Answering("200", Index).Available(TestContext.Current.CancellationToken);
 
         Assert.Equal(5, available.Count);
         Assert.Equal(
@@ -197,7 +197,9 @@ public sealed class RunnerIndexTests : IDisposable
         var release = new RunnerIndex(runner).Find("9.21");
 
         var refused = Assert.Throws<InvalidOperationException>(
-            () => new RunnerIndex(runner).Download(release, root));
+            () => new RunnerIndex(runner).Download(
+                release, root,
+                cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "https://github.com/Kron4ek/Wine-Builds/releases/download/9.21/wine-9.21-staging-tkg-amd64.tar.xz",

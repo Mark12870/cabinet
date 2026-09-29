@@ -22,9 +22,11 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
 
    ```sh
    toolbox run --container cabinet-runtime \
-     dotnet test tests/Cabinet.Runtime.Tests --nologo \
-     -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true \
-     --filter 'FullyQualifiedName!~Cabinet.Runtime.Tests.Scenarios.'
+     dotnet build tests/Cabinet.Runtime.Tests --nologo \
+     -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
+   toolbox run --container cabinet-runtime \
+     dotnet test --project tests/Cabinet.Runtime.Tests --no-build \
+     --filter-not-namespace Cabinet.Runtime.Tests.Scenarios
    ```
 
    For one plugin entry, run its scenario alone as the `plugin-scenario` skill describes.

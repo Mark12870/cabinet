@@ -1,4 +1,6 @@
 using System.Runtime.Versioning;
+using Xunit.Sdk;
+using Xunit.v3;
 
 [assembly: SupportedOSPlatform("linux")]
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
+[assembly: Parallelization(Mode = ParallelMode.None)]

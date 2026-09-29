@@ -114,7 +114,9 @@ public partial class LibraryTests
 
         var archive = Path.Combine(root, "VitalInstaller.tar.gz");
         var real = new ProcessRunner();
-        Assert.True(real.Run("tar", ["-czf", archive, "-C", staging, "."]).Ok);
+        Assert.True(real.Run(
+            "tar", ["-czf", archive, "-C", staging, "."],
+            cancellationToken: TestContext.Current.CancellationToken).Ok);
 
         Catalogue(("vital", """
             Name: Vital
@@ -148,7 +150,9 @@ public partial class LibraryTests
 
         var archive = Path.Combine(root, "VitalInstaller.tar.gz");
         var real = new ProcessRunner();
-        Assert.True(real.Run("tar", ["-czf", archive, "-C", staging, "."]).Ok);
+        Assert.True(real.Run(
+            "tar", ["-czf", archive, "-C", staging, "."],
+            cancellationToken: TestContext.Current.CancellationToken).Ok);
 
         Catalogue(("vital", """
             Name: Vital
@@ -398,7 +402,9 @@ public partial class LibraryTests
 
         var archive = Path.Combine(root, "thing.tar.gz");
         var real = new ProcessRunner();
-        Assert.True(real.Run("tar", ["-czf", archive, "-C", staging, "."]).Ok);
+        Assert.True(real.Run(
+            "tar", ["-czf", archive, "-C", staging, "."],
+            cancellationToken: TestContext.Current.CancellationToken).Ok);
 
         Catalogue(("thing", $"""
             Name: Thing

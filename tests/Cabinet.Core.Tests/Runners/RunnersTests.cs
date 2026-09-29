@@ -81,10 +81,14 @@ public sealed class RunnersTests : IDisposable
         var archive = Path.Combine(root, "wine-d2d1-11.0-x86_64.tar.zst");
         var real = new ProcessRunner();
         Assert.True(real
-            .Run("tar", ["-cf", archive, "-C", Path.Combine(root, "staging"), "wine-d2d1"]).Ok);
+            .Run(
+                "tar", ["-cf", archive, "-C", Path.Combine(root, "staging"), "wine-d2d1"],
+                cancellationToken: TestContext.Current.CancellationToken).Ok);
 
         var said = new List<string>();
-        var found = new Runners(Layout, real).Add(archive, "wine-d2d1-11.0", said.Add);
+        var found = new Runners(Layout, real).Add(
+            archive, "wine-d2d1-11.0", said.Add,
+            TestContext.Current.CancellationToken);
 
         Assert.False(found.Multilib);
         Assert.Contains(said, line => line.Contains("carries no 32-bit tree"));
@@ -140,7 +144,7 @@ public sealed class RunnersTests : IDisposable
             File.WriteAllText(Path.Combine(into, "bin", "wine"), "");
         }));
 
-        var added = runners.Add(tarball);
+        var added = runners.Add(tarball, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.NotEqual(Layout.RunnerPath("wine-10.0"), Assert.Single(unpacked));
         Assert.Equal(Layout.RunnerWine("wine-10.0"), added.Wine);
@@ -157,7 +161,8 @@ public sealed class RunnersTests : IDisposable
         File.WriteAllText(tarball, "");
 
         Assert.Throws<InvalidOperationException>(
-            () => new Runners(Layout, new RecordingRunner()).Add(tarball));
+            () => new Runners(Layout, new RecordingRunner()).Add(
+                tarball, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Empty(Directory.EnumerateFileSystemEntries(Layout.RunnersDir));
     }

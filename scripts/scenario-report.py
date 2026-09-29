@@ -10,6 +10,10 @@ out its fixture -- the install above all -- so those steps come from the timing.
 scenario writes beside its artefacts. The install is split again into the phases Cabinet's
 own progress lines mark; those columns are part of Install, not added to the total.
 
+A failed test runs once more (scripts/runtime-ci.sh), and the .trx beside the one named here
+then holds only that last attempt, while every attempt keeps its own under Retries/. A test that
+failed and then passed reads "Passed on rerun", so a vendor that stalled stays visible.
+
     scripts/scenario-report.py runtime/TestResults/runtime.trx
 """
 
@@ -45,6 +49,20 @@ def entries() -> dict[str, Path]:
         if found:
             named[scenario.stem] = next(LIBRARY.glob(f"*/{found.group(1)}.yml"))
     return named
+
+
+def attempts(trx: Path) -> list[Path]:
+    retried = sorted(trx.parent.glob(f"Retries/*/*/{trx.name}"), key=lambda path: int(path.parent.name))
+    return retried or [trx]
+
+
+def merged(trx: Path) -> dict[tuple[str, str], str]:
+    outcomes: dict[tuple[str, str], str] = {}
+    for attempt in attempts(trx):
+        for key, outcome in results(attempt).items():
+            rerun = outcomes.get(key) == "Failed" and outcome == "Passed"
+            outcomes[key] = "Passed on rerun" if rerun else outcome
+    return outcomes
 
 
 def results(trx: Path) -> dict[tuple[str, str], str]:
@@ -96,7 +114,10 @@ def clock(value: float | None) -> str:
 
 def timings(trx: Path, named: dict[str, Path]) -> list[str]:
     scenarios = trx.parent.parent / "scenarios"
-    tested = durations(trx)
+    tested: dict[str, float] = {}
+    for attempt in attempts(trx):
+        for scenario, spent in durations(attempt).items():
+            tested[scenario] = tested.get(scenario, 0) + spent
 
     rows = []
     for scenario, entry in named.items():
@@ -129,7 +150,7 @@ def timings(trx: Path, named: dict[str, Path]) -> list[str]:
 def main() -> int:
     trx = Path(sys.argv[1])
     named = entries()
-    outcomes = results(trx)
+    outcomes = merged(trx)
 
     rows = []
     for scenario, entry in named.items():

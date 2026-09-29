@@ -18,7 +18,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
 
     public static TheoryData<string> Formats(string id) => [.. Find(id).Formats.Where(format => format != "CLAP")];
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         await AtOnce.WaitAsync();
         var clock = Stopwatch.StartNew();
@@ -39,7 +39,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         });
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await Timed("dispose", () =>
         {

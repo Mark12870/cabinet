@@ -24,13 +24,14 @@ public class HttpTests : IDisposable
     [Fact]
     public void ABodyComesBackWhenTheStatusIsFine()
     {
-        Assert.Equal("hello", Answering("200", "hello").Text(Url));
+        Assert.Equal("hello", Answering("200", "hello").Text(Url, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public void AnHttpFailureNamesTheStatusRatherThanTheUrl()
     {
-        var refused = Assert.Throws<InvalidOperationException>(() => Answering("429", "").Text(Url));
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => Answering("429", "").Text(Url, TestContext.Current.CancellationToken));
 
         Assert.Equal("example.invalid answered 429 for /a/b.yml", refused.Message);
     }
@@ -40,7 +41,7 @@ public class HttpTests : IDisposable
     {
         var runner = new StubRunner(new ProcessResult(0, "body", "HTTP/2 302 \nHTTP/2 200 \n"));
 
-        Assert.Equal("body", new Http(runner).Text(Url));
+        Assert.Equal("body", new Http(runner).Text(Url, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -49,7 +50,8 @@ public class HttpTests : IDisposable
         var runner = new StubRunner(
             new ProcessResult(6, "", "curl: (6) Could not resolve host: example.invalid\n"));
 
-        var offline = Assert.Throws<InvalidOperationException>(() => new Http(runner).Text(Url));
+        var offline = Assert.Throws<InvalidOperationException>(
+            () => new Http(runner).Text(Url, TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "could not reach example.invalid — curl: (6) Could not resolve host: example.invalid",
@@ -61,7 +63,7 @@ public class HttpTests : IDisposable
     {
         var runner = new StreamingRunner();
 
-        new Http(runner).ToFile(Url, Fetched());
+        new Http(runner).ToFile(Url, Fetched(), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains("--progress-bar", runner.LastArguments);
         Assert.DoesNotContain("-sS", runner.LastArguments);
@@ -74,7 +76,7 @@ public class HttpTests : IDisposable
         var lines = new List<string>();
 
         Downloading("###   35.9%", "no meter here", "##### 100.0%")
-            .ToFile(Url, Fetched(), lines.Add, fractions.Add);
+            .ToFile(Url, Fetched(), lines.Add, fractions.Add, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, fractions.Count);
         Assert.Equal(0.359, fractions[0], 3);
@@ -89,7 +91,7 @@ public class HttpTests : IDisposable
         var lines = new List<string>();
 
         Downloading("# 5.0%", "## 12.0%", "### 19.9%", "#### 20.4%")
-            .ToFile(Url, Fetched(), lines.Add);
+            .ToFile(Url, Fetched(), lines.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
             ["Downloading… 10%", "Downloading… 20%"],
@@ -102,7 +104,7 @@ public class HttpTests : IDisposable
         var lines = new List<string>();
 
         Downloading("", "#=#=#", "##O#- #", "### 40.0%")
-            .ToFile(Url, Fetched(), lines.Add);
+            .ToFile(Url, Fetched(), lines.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain("#=#=#", lines);
         Assert.DoesNotContain("##O#- #", lines);

@@ -164,7 +164,7 @@ shim fmt/clippy/tests. The GUI build needs
 A focused Core test runs against host `dotnet 10`:
 
 ```sh
-dotnet test tests/Cabinet.Core.Tests --filter 'FullyQualifiedName~CatalogueTests'
+dotnet test --project tests/Cabinet.Core.Tests --filter-class '*CatalogueTests'
 ```
 
 On the intended Silverblue host, `cargo` comes from the `rust-stable` SDK extension. Run a focused shim test in the same
@@ -176,9 +176,9 @@ flatpak run --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c \
 ```
 
 `Cabinet.Runtime.Tests` holds two kinds of test. The general suite, everything outside `Scenarios/`, is the quick
-build check the runtime job runs on every push (`FullyQualifiedName!~Cabinet.Runtime.Tests.Scenarios.`). The plugin
+build check the runtime job runs on every push (`--filter-not-namespace Cabinet.Runtime.Tests.Scenarios`). The plugin
 scenarios in `Scenarios/` test the catalogue entries themselves and run independently in the `Plugins` workflow. Never
-run all the scenarios locally: fix and verify one plugin at a time, with its scenario class as the `--filter` or its
+run all the scenarios locally: fix and verify one plugin at a time, with its scenario class as the `--filter-class` or its
 probe driven directly, and leave the rest to that workflow.
 
 For a front-end-only compile, use `dotnet build src/Cabinet.Cli --nologo -v q` or

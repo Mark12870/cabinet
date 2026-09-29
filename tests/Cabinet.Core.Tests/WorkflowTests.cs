@@ -71,8 +71,8 @@ public class WorkflowTests
         Assert.Contains(Plugins, line => line.Trim() == "schedule:");
         Assert.DoesNotContain(Plugins, line => line.Trim() is "push:" or "pull_request:");
         Assert.DoesNotContain(Ci, line => Names(line, "suite"));
-        Assert.Contains($"general) filter='FullyQualifiedName!~{scenarios}.'", Driver, StringComparison.Ordinal);
-        Assert.Contains($"scenarios) filter='FullyQualifiedName~{scenarios}.'", Driver, StringComparison.Ordinal);
+        Assert.Contains($"general) filter=(--filter-not-namespace {scenarios})", Driver, StringComparison.Ordinal);
+        Assert.Contains($"scenarios) filter=(--filter-namespace {scenarios})", Driver, StringComparison.Ordinal);
         Assert.All(
             Directory.EnumerateFiles(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios"), "*.cs"),
             file => Assert.Contains($"namespace {scenarios};", File.ReadAllText(file), StringComparison.Ordinal));

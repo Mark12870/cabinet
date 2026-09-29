@@ -228,25 +228,34 @@ run_test() {
 
     session_bus
 
-    local filter parallel=()
+    local filter=() parallel=()
 
     case "${CABINET_RUNTIME_SUITE:-general}" in
-        general) filter='FullyQualifiedName!~Cabinet.Runtime.Tests.Scenarios.' ;;
-        scenarios) filter='FullyQualifiedName~Cabinet.Runtime.Tests.Scenarios.'
-            parallel=(-- xUnit.ParallelizeTestCollections=true) ;;
+        general) filter=(--filter-not-namespace Cabinet.Runtime.Tests.Scenarios) ;;
+        scenarios) filter=(--filter-namespace Cabinet.Runtime.Tests.Scenarios)
+            parallel=(--parallel collections) ;;
         *) die "no runtime suite named ${CABINET_RUNTIME_SUITE}" ;;
     esac
 
     if [ "${CABINET_RUNTIME_PROBES:-1}" != 1 ]; then
-        filter="$filter&FullyQualifiedName!~DragAndDropTests"
+        filter+=(--filter-not-class '*DragAndDropTests')
     fi
 
-    step 'dotnet test'
+    step 'dotnet build'
     cd "$WORK"
-    dotnet test tests/Cabinet.Runtime.Tests --nologo \
-        -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true \
-        --logger 'trx;LogFileName=runtime.trx' \
-        --logger 'console;verbosity=normal' --filter "$filter" "${parallel[@]}"
+    dotnet build tests/Cabinet.Runtime.Tests --nologo \
+        -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
+
+    # A vendor's server that stalls once fails a test with nothing wrong in it, so a failed test
+    # runs once more in a fresh process, fixture and all. Past a fifth of the suite failing, the
+    # cause is Cabinet's and nothing is rerun. The top runtime.trx is the last attempt alone;
+    # each attempt's own is under Retries/, which scenario-report.py reads.
+    step 'dotnet test'
+    dotnet test --project tests/Cabinet.Runtime.Tests --no-build \
+        --results-directory "$WORK/tests/Cabinet.Runtime.Tests/TestResults" \
+        --report-trx --report-trx-filename runtime.trx --output detailed \
+        --retry-failed-tests 1 --retry-failed-tests-max-percentage 20 \
+        "${filter[@]}" "${parallel[@]}"
 }
 
 collect() {

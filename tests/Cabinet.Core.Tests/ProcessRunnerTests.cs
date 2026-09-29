@@ -15,7 +15,8 @@ public sealed class ProcessRunnerTests : IDisposable
         var streamed = new List<string>();
 
         var result = Subject.Run(
-            "sh", ["-c", "echo one; echo two; echo three"], onOutput: streamed.Add);
+            "sh", ["-c", "echo one; echo two; echo three"], onOutput: streamed.Add,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["one", "two", "three"], streamed);
         Assert.Equal("one" + Environment.NewLine + "two" + Environment.NewLine
@@ -28,7 +29,9 @@ public sealed class ProcessRunnerTests : IDisposable
     {
         var streamed = new List<string>();
 
-        var result = Subject.Run("sh", ["-c", "echo boom >&2"], onOutput: streamed.Add);
+        var result = Subject.Run(
+            "sh", ["-c", "echo boom >&2"], onOutput: streamed.Add,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["boom"], streamed);
         Assert.Contains("boom", result.Stderr);
@@ -37,7 +40,9 @@ public sealed class ProcessRunnerTests : IDisposable
     [Fact]
     public void TheExitCodeSurvivesStreaming()
     {
-        var result = Subject.Run("sh", ["-c", "echo out; exit 3"], onOutput: _ => { });
+        var result = Subject.Run(
+            "sh", ["-c", "echo out; exit 3"], onOutput: _ => { },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(3, result.ExitCode);
         Assert.False(result.Ok);
@@ -46,7 +51,7 @@ public sealed class ProcessRunnerTests : IDisposable
     [Fact]
     public void OutputIsStillCollectedWithNoSink()
     {
-        var result = Subject.Run("sh", ["-c", "echo quiet"]);
+        var result = Subject.Run("sh", ["-c", "echo quiet"], cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains("quiet", result.Stdout);
     }
@@ -56,7 +61,8 @@ public sealed class ProcessRunnerTests : IDisposable
     {
         var result = Subject.Run(
             "sh", ["-c", "echo $CABINET_TEST"],
-            new Dictionary<string, string> { ["CABINET_TEST"] = "carried" });
+            new Dictionary<string, string> { ["CABINET_TEST"] = "carried" },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains("carried", result.Stdout);
     }
@@ -66,7 +72,8 @@ public sealed class ProcessRunnerTests : IDisposable
     {
         var result = Subject.Run(
             "sh", ["-c", "printenv CABINET_GONE"],
-            new Dictionary<string, string> { ["CABINET_GONE"] = "" });
+            new Dictionary<string, string> { ["CABINET_GONE"] = "" },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(1, result.ExitCode);
         Assert.Empty(result.Stdout);
@@ -76,8 +83,10 @@ public sealed class ProcessRunnerTests : IDisposable
     public void AnExplicitBlankValueRemainsPresent()
     {
         var result = Subject.Run(
-            "sh", ["-c", "test \"${CABINET_BLANK+x}\" = x && test -z \"$CABINET_BLANK\""],
-            blankEnvironment: new HashSet<string> { "CABINET_BLANK" });
+            "sh",
+            ["-c", "test \"${CABINET_BLANK+x}\" = x && test -z \"$CABINET_BLANK\""],
+            blankEnvironment: new HashSet<string> { "CABINET_BLANK" },
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.Ok);
     }
@@ -85,7 +94,9 @@ public sealed class ProcessRunnerTests : IDisposable
     [Fact]
     public void ACapturedChildReadsEndOfFileFromStdin()
     {
-        var result = Subject.Run("sh", ["-c", "if read value; then echo read; else echo eof; fi"]);
+        var result = Subject.Run(
+            "sh", ["-c", "if read value; then echo read; else echo eof; fi"],
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("eof" + Environment.NewLine, result.Stdout);
     }
@@ -96,7 +107,8 @@ public sealed class ProcessRunnerTests : IDisposable
         var result = Subject.Run(
             "sh",
             ["-c", "[ /proc/$$/fd/1 -ef /proc/$PPID/fd/1 ] && [ /proc/$$/fd/2 -ef /proc/$PPID/fd/2 ]"],
-            interactive: true);
+            interactive: true,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(result.Ok);
         Assert.Equal("", result.Stdout);
@@ -105,7 +117,9 @@ public sealed class ProcessRunnerTests : IDisposable
     [Fact]
     public void ACapturedChildDoesNotWriteToTheCallersOwnStreams()
     {
-        var result = Subject.Run("sh", ["-c", "[ /proc/$$/fd/1 -ef /proc/$PPID/fd/1 ]"]);
+        var result = Subject.Run(
+            "sh", ["-c", "[ /proc/$$/fd/1 -ef /proc/$PPID/fd/1 ]"],
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(result.Ok);
     }
@@ -115,7 +129,9 @@ public sealed class ProcessRunnerTests : IDisposable
     {
         var streamed = new List<string>();
 
-        var result = Subject.Run("sh", ["-c", "printf fragment"], onOutput: streamed.Add);
+        var result = Subject.Run(
+            "sh", ["-c", "printf fragment"], onOutput: streamed.Add,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("fragment", result.Stdout);
         Assert.Equal(["fragment"], streamed);
@@ -129,7 +145,8 @@ public sealed class ProcessRunnerTests : IDisposable
         Subject.Run(
             "sh",
             ["-c", @"printf '\r###  10.0%%\r##### 50.0%%\r####100.0%%\n' >&2"],
-            onOutput: lines.Add);
+            onOutput: lines.Add,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["", "###  10.0%", "##### 50.0%", "####100.0%"], lines);
     }
@@ -139,7 +156,9 @@ public sealed class ProcessRunnerTests : IDisposable
     {
         var log = Path.Combine(root, "child-stdio.log");
 
-        Subject.Run("sh", ["-c", "readlink /proc/self/fd/1"], logTo: log);
+        Subject.Run(
+            "sh", ["-c", "readlink /proc/self/fd/1"], logTo: log,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(log, File.ReadAllText(log).Trim());
 
@@ -151,7 +170,9 @@ public sealed class ProcessRunnerTests : IDisposable
     {
         var log = Path.Combine(root, "logged-run.log");
 
-        var result = Subject.Run("sh", ["-c", "echo out; echo boom >&2; exit 3"], logTo: log);
+        var result = Subject.Run(
+            "sh", ["-c", "echo out; echo boom >&2; exit 3"], logTo: log,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(3, result.ExitCode);
         Assert.Empty(result.Stdout);
@@ -167,7 +188,7 @@ public sealed class ProcessRunnerTests : IDisposable
         var log = Path.Combine(root, "append.log");
         File.WriteAllText(log, "opening" + Environment.NewLine);
 
-        Subject.Run("sh", ["-c", "echo printed"], logTo: log);
+        Subject.Run("sh", ["-c", "echo printed"], logTo: log, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(["opening", "printed"], File.ReadAllLines(log));
 
@@ -182,7 +203,8 @@ public sealed class ProcessRunnerTests : IDisposable
         Subject.Run(
             "sh", ["-c", "echo $CABINET_TEST"],
             new Dictionary<string, string> { ["CABINET_TEST"] = "carried" },
-            logTo: log);
+            logTo: log,
+            cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("carried", File.ReadAllText(log).Trim());
 
@@ -211,8 +233,8 @@ public sealed class ProcessRunnerTests : IDisposable
         cancelled.Cancel();
 
         await Assert.ThrowsAsync<OperationCanceledException>(
-            () => running.WaitAsync(TimeSpan.FromSeconds(5)));
-        var childPid = int.Parse(await File.ReadAllTextAsync(child));
+            () => running.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        var childPid = int.Parse(await File.ReadAllTextAsync(child, TestContext.Current.CancellationToken));
         await WaitForProcessExit(childPid);
 
         Assert.False(Directory.Exists($"/proc/{childPid}"));
@@ -239,8 +261,8 @@ public sealed class ProcessRunnerTests : IDisposable
         cancelled.Cancel();
 
         await Assert.ThrowsAsync<OperationCanceledException>(
-            () => running.WaitAsync(TimeSpan.FromSeconds(5)));
-        var childPid = int.Parse(await File.ReadAllTextAsync(child));
+            () => running.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        var childPid = int.Parse(await File.ReadAllTextAsync(child, TestContext.Current.CancellationToken));
         await WaitForProcessExit(childPid);
 
         Assert.Contains("ready", File.ReadAllText(log));
@@ -261,7 +283,7 @@ public sealed class ProcessRunnerTests : IDisposable
         try
         {
             var result = await Task.Run(() => Subject.Run("sh", ["-c", "sleep 60 & exit 0"], onOutput: streamed.Add))
-                .WaitAsync(TimeSpan.FromSeconds(20));
+                .WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
 
             Assert.True(result.Ok);
             Assert.Equal(["sleep"], watched[0]!.Programs);
@@ -282,7 +304,9 @@ public sealed class ProcessRunnerTests : IDisposable
 
         try
         {
-            var result = Subject.Run("sh", ["-c", "(sleep 4; echo late) & exit 0"], onOutput: _ => { });
+            var result = Subject.Run(
+                "sh", ["-c", "(sleep 4; echo late) & exit 0"], onOutput: _ => { },
+                cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.True(result.Ok);
             Assert.Contains("late", result.Stdout);
@@ -301,11 +325,11 @@ public sealed class ProcessRunnerTests : IDisposable
         var running = Task.Run(() => Subject.Run(
             "sh", ["-c", "sleep 60 & exit 0"], onOutput: _ => { }, cancellationToken: cancelled.Token));
 
-        await Task.Delay(TimeSpan.FromSeconds(3));
+        await Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
         cancelled.Cancel();
 
         await Assert.ThrowsAsync<OperationCanceledException>(
-            () => running.WaitAsync(TimeSpan.FromSeconds(10)));
+            () => running.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
     }
 
     private static async Task WaitForFile(string path)

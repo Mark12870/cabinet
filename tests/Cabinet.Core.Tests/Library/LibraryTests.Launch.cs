@@ -262,11 +262,11 @@ public partial class LibraryTests
         Directory.CreateDirectory(pluginDirectory);
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
 
-        var task = Task.Run(() => new Library(layout, recorder).Launch(entry));
+        var task = Task.Run(() => new Library(layout, recorder).Launch(entry), TestContext.Current.CancellationToken);
 
         try
         {
-            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
             Assert.False(task.IsCompleted);
         }
         finally
@@ -307,12 +307,12 @@ public partial class LibraryTests
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
 
         var task = Task.Run(() =>
-            new Library(layout, recorder).Launch(entry));
+            new Library(layout, recorder).Launch(entry), TestContext.Current.CancellationToken);
 
         try
         {
-            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
-            Assert.True(bridged.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            Assert.True(bridged.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
         }
         finally
         {
@@ -357,12 +357,12 @@ public partial class LibraryTests
         File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
 
         var library = new Library(layout, recorder);
-        var task = Task.Run(() => library.Launch(entry));
+        var task = Task.Run(() => library.Launch(entry), TestContext.Current.CancellationToken);
 
         try
         {
-            Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
-            Assert.True(retried.Wait(TimeSpan.FromSeconds(5)));
+            Assert.True(started.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+            Assert.True(retried.Wait(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
         }
         finally
         {
