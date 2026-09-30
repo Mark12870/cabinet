@@ -39,6 +39,9 @@ internal sealed class Manager(
     public void Click(string window, int x, int y) =>
         Xdotool("mousemove", "--window", window, $"{x}", $"{y}", "click", "1", "mousemove", "restore");
 
+    public void Resize(string window, int width, int height) =>
+        Xdotool("windowsize", window, $"{width}", $"{height}");
+
     public void Type(string window, int x, int y, string text)
     {
         Click(window, x, y);
@@ -108,6 +111,22 @@ internal sealed class Manager(
         return log;
     }
 
+    public async Task WaitForExit(TimeSpan patience, string logName)
+    {
+        using var deadline = new CancellationTokenSource(patience);
+        try
+        {
+            await launch.WaitForExitAsync(deadline.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            throw new TimeoutException($"the manager did not exit within {patience}");
+        }
+
+        await Task.WhenAll(said, complained);
+        Keep("exited", logName);
+    }
+
     public void Dispose()
     {
         if (!launch.HasExited)
@@ -123,10 +142,10 @@ internal sealed class Manager(
         launch.Dispose();
     }
 
-    private string Keep(string ending)
+    private string Keep(string ending, string name = "launch")
     {
         var log = $"{said.Result}\nstderr:\n{complained.Result}\nexit: {launch.ExitCode}\n{ending}";
-        File.WriteAllText(Path.Combine(shots, "launch.log"), log);
+        File.WriteAllText(Path.Combine(shots, $"{name}.log"), log);
         return log;
     }
 

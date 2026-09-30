@@ -312,11 +312,11 @@ reasons are here:
   and the count, so it raises no warning.
 - **Nothing to play without a user's account.** SINEplayer opens a sign-in screen, with no
   instrument until one is downloaded through it.
-- **Managers.** Klevgrand Helper and Roland Cloud Manager install no plugin until someone signs in
-  inside them. Arturia Software Center, IK Product Manager and Native Access are the exceptions:
-  their scenarios sign in with the test account, install the Piano V3 demo, MODO BASS 2 CS, and
-  Raum with Kontakt 8 Player, and play them. Each screen is recognised by a reference crop under `Scenarios/References/` before
-  anything is clicked or typed, and the password is typed only once its page is on screen.
+- **Managers.** Roland Cloud Manager installs no plugin until someone signs in inside it. Klevgrand
+  Helper, Arturia Software Center, IK Product Manager and Native Access have scenarios that sign in
+  with the test account, install FreeAMP, Piano V3, MODO BASS 2 CS, and Raum with Kontakt 8 Player,
+  and play them. Sign-in screens are recognised by reference crops under `Scenarios/References/`
+  before the password is typed.
 - **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
   be installed unattended.
 

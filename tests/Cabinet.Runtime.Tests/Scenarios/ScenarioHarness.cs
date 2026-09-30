@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using Cabinet.Core;
+using Cabinet.Core.Tests;
 
 namespace Cabinet.Runtime.Tests.Scenarios;
 
@@ -98,6 +99,54 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         Assert.True(result.ExitCode == 0, result.Said);
     }
 
+    public async Task SendText(Display display, string title, int x, int y, string text)
+    {
+        var executable = Path.Combine(Home, ".send-input.exe");
+        if (!File.Exists(executable))
+        {
+            var compiled = await Run(
+                "x86_64-w64-mingw32-gcc",
+                [
+                    "-O2",
+                    "-municode",
+                    "-mwindows",
+                    "-static",
+                    Repo.Path("tests/Cabinet.Runtime.Tests/Probes/send-input.c"),
+                    "-lshell32",
+                    "-o",
+                    executable,
+                ],
+                display: null,
+                ProbePatience);
+            Assert.True(compiled.ExitCode == 0, compiled.Said);
+        }
+
+        var input = Path.Combine(Home, $".input-{Guid.NewGuid():N}");
+        await File.WriteAllBytesAsync(input, Encoding.Unicode.GetBytes(text));
+        try
+        {
+            var result = await Run(
+                "flatpak",
+                [
+                    .. Sandboxed(),
+                    "run",
+                    entry.Prefix,
+                    Windows(executable),
+                    Windows(input),
+                    title,
+                    x.ToString(CultureInfo.InvariantCulture),
+                    y.ToString(CultureInfo.InvariantCulture),
+                ],
+                display,
+                ProbePatience);
+            Assert.True(result.ExitCode == 0, result.Said);
+        }
+        finally
+        {
+            File.Delete(input);
+        }
+    }
+
     public void Restore(string registry)
     {
         var user = Path.Combine(Prefix, "user.reg");
@@ -111,6 +160,8 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         [.. Regex.Split(registry, @"\n(?=\[)").Select(section => section.TrimEnd()).Where(section => section.Length > 0)];
 
     private static string Key(string section) => section.Split("] ", 2)[0];
+
+    private static string Windows(string path) => @"Z:" + path.Replace('/', '\\');
 
     private List<string> Cabinet(string verb, params string[] arguments) =>
         [.. Sandboxed(), "library", verb, entry.Id, .. arguments];
