@@ -14,6 +14,7 @@ own, one per vendor or product family, and bridges them with patched upstream ya
 - Never commit personal, account or machine-specific data, including usernames, home paths, credentials or local tool
   state, in source, tests, fixtures, documentation, generated files or commit messages; use neutral synthetic values
   instead.
+- Look for your permissions in opencode.json
 
 ### Code style
 
@@ -26,7 +27,7 @@ the name or the structure instead. Anything that genuinely will not fit there is
 
 ### SKILLS
 
-- Never modify the CLAUDE.md, AGENTS.md or skills without asking and approval. You must let me know in separate
+- Never modify the AGENTS.md or skills without asking and approval. You must let me know in separate
   question, otherwise it is forbidden.
 - Skills should always include only the steps to produce the skill.
 
@@ -50,7 +51,6 @@ the name or the structure instead. Anything that genuinely will not fit there is
   `enroll` exists only as a CLI alias for `enrol`.
 - `data/io.github.mark12870.cabinet.svg` is the recoloured Phosphor dresser icon; retain
   `data/LICENSE.phosphor` and the README credit if it changes.
-- `CLAUDE.md` points here.
 - `scripts/`, `site/` and `.github/workflows/` own packaging and publishing; `.claude/skills/`
   holds one procedural skill per repository procedure. Skills should contain only the steps to produce the skill.
 
