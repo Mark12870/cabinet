@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.17.3" date="2026-09-30">
+      <description>
+        <p>Kontakt 8 installs and activates without restarting Native Access</p>
+        <ul>
+          <li>Kontakt 8 finishes installing and can be activated in the same Native Access session</li>
+          <li>Running a program or Winetricks in a prefix now cleans up vendor background services afterwards when the prefix is no longer in use</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.17.2" date="2026-09-28">
       <description>
         <p>Signing in to Native Access works</p>
