@@ -38,7 +38,7 @@ step() { printf '  %s\n' "$*" >&2; }
 
 # Microsoft.Testing.Platform writes its results under the working directory unless told
 # otherwise, and on CI the checkout's root belongs to the runner, not to the sandbox's user.
-unit_tests() { dotnet test --project "tests/$1" --results-directory "tests/$1/TestResults"; }
+unit_tests() { dotnet test --project "tests/$1" --no-progress --results-directory "tests/$1/TestResults"; }
 
 runtime_pin() {
   local sdk props pinned bundled

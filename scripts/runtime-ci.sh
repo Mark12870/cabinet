@@ -251,7 +251,7 @@ run_test() {
     # cause is Cabinet's and nothing is rerun. The top runtime.trx is the last attempt alone;
     # each attempt's own is under Retries/, which scenario-report.py reads.
     step 'dotnet test'
-    dotnet test --project tests/Cabinet.Runtime.Tests --no-build \
+    dotnet test --project tests/Cabinet.Runtime.Tests --no-build --no-progress \
         --results-directory "$WORK/tests/Cabinet.Runtime.Tests/TestResults" \
         --report-trx --report-trx-filename runtime.trx --output detailed \
         --retry-failed-tests 1 --retry-failed-tests-max-percentage 20 \
