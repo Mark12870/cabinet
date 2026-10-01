@@ -17,6 +17,12 @@ internal sealed partial class LibraryPage
 
     private void ConfirmInstall(LibraryEntry entry)
     {
+        if (entry.DemoUrl is not null)
+        {
+            ConfirmDemo(entry);
+            return;
+        }
+
         if (entry.Source == PluginSource.Byo)
         {
             Ui.Confirm(
@@ -50,6 +56,46 @@ internal sealed partial class LibraryPage
             + $"\n\n{entry.Consent}",
             "Install",
             () => Start(entry, null, null));
+    }
+
+    private void ConfirmDemo(LibraryEntry entry)
+    {
+        var installer = Adw.ComboRow.New();
+        installer.SetTitle("Installer");
+        installer.SetModel(Gtk.StringList.New(["Download demo", "Use my installation file"]));
+
+        var fields = Adw.PreferencesGroup.New();
+
+        if (AccountRow(entry) is { } account)
+        {
+            fields.Add(account);
+        }
+
+        fields.Add(installer);
+
+        Ui.Confirm(
+            window,
+            $"Install {entry.Name}?",
+            $"Download the demo from {new Uri(entry.DemoUrl!).Host}, or choose a file you "
+            + "already have. Cabinet keeps it in its own directory and links it into ~/.vst3, "
+            + "~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW afterwards."
+            + Presets(entry)
+            + $"\n\n{entry.Consent}",
+            "Install",
+            () =>
+            {
+                if (installer.GetSelected() == 1)
+                {
+                    Ui.ChooseFile(
+                        window,
+                        $"Choose the {entry.Name} download",
+                        file => Start(entry, null, file));
+                    return;
+                }
+
+                Start(entry, null, null);
+            },
+            extra: fields);
     }
 
     private static string Presets(LibraryEntry entry) => entry.Data is null

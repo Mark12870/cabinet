@@ -445,17 +445,17 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void ADemoUrlIsRefusedOnANativeEntry()
+    public void ANativeEntryCarriesADemoToo()
     {
-        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse("thing", $"""
+        var entry = LibraryEntry.Parse("thing", $"""
             Name: Thing
             Kind: native
             Source: byo
             DemoUrl: https://example.invalid/thing.zip
             DemoSha256: {Zeros}
-            """));
+            """);
 
-        Assert.Contains("not a Windows plugin", refused.Message);
+        Assert.Equal("https://example.invalid/thing.zip", entry.DemoUrl);
     }
 
     [Fact]

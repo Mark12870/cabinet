@@ -1,0 +1,26 @@
+Name: Pianoteq
+Kind: native
+Category: Synth
+Summary: Physically modelled pianos and keyboard instruments.
+Developer: Modartt
+Version: 9.2.5
+Licence: Commercial
+Licensing:
+  The demo is free with no sign-in, but stops after 20 minutes and leaves a few
+  notes silent; once bought, the archive from your Modartt account installs the
+  same way.
+Formats: VST3, LV2
+Homepage: https://www.modartt.com/pianoteq_overview
+Source: byo
+Account: https://www.modartt.com/user_area
+DemoUrl: https://www.modartt.com/try?file=pianoteq_trial_v925.tar.xz
+DemoSha256: 3d7136e8b714f7f12b0aba28522d18c541b3963f66c56b725244f081f393f0cd
+Script: modartt.sh
+Description:
+  A piano that is computed rather than sampled: strings, hammers, soundboard and
+  room are modelled as you play, so every parameter from hammer hardness to lid
+  position can be changed, and the whole instrument fits in a few dozen
+  megabytes.
+
+  Cabinet installs the free demo, or the archive you download from your Modartt
+  account. Add-on instruments are bought and activated inside Pianoteq.

@@ -39,6 +39,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | splice-instrument | `splice.com/instrument` — the official Splice INSTRUMENT interface screenshot, `splice-res.cloudinary.com/image/upload/f_auto,q_auto:eco,c_limit,w_1200/app-assets/instrument/originals/crystal-keys-ui.png`; its icon is a crop of that screenshot |
 | arturia-software-center | Arturia's ASC page, `arturia.com/technology/asc`, `medias.arturia.net/images/demo/miniatureASC.png` — the app's My Products view, trimmed of its transparent margin; its icon is the app's own crosshair tile, `medias.arturia.net/images/products/asc/catalog-image.png`, cropped to the tile |
 | roland-cloud-manager | Roland's product page, `roland.com/global/products/rc_roland_cloud_manager/`, `static.roland.com/assets/images/products/gallery/rc_roland_cloud_manager_01_all_legendary_gal.jpg` — the app's Legendary grid, from its macOS build; its icon is the app's own 256px music note out of `Roland Cloud Manager.exe` in the pinned installer, near-black, recoloured white |
+| pianoteq | the interface snapshot Modartt ship inside the Pianoteq 9.2.5 VST3 bundle, `Pianoteq 9.vst3/Contents/Resources/Snapshots/565354507439717069616E6F74657120_snapshot.png`; its icon is the pedals and keyboard cropped out of it |
 
 | Vendor | Logo |
 | --- | --- |
@@ -66,3 +67,4 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | splice | the official Splice app icon shipped in the pinned 5.4.12 MSIX |
 | arturia | the circled A, `medias.arturia.net/images/logo-black.svg`, vector black on transparent, recoloured white |
 | roland | the R symbol at the left of `commons.wikimedia.org/wiki/File:Roland_Corporation_logo.svg`, PD-textlogo; the wordmark beside it is nearly 5:1 and unreadable at this size, and Roland's own orange reads on the dark ground |
+| modartt | Modartt's own mark and wordmark, `modartt.com/images/logo/logo-modartt-v32-transparent-black.png`, 300×300, black on transparent, recoloured white |

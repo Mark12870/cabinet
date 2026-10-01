@@ -224,7 +224,7 @@ public sealed partial class Library
         Action<string>? onOutput,
         Action<double>? onProgress)
     {
-        if (entry.Source == PluginSource.Byo && supplied is null)
+        if (entry.Source == PluginSource.Byo && supplied is null && entry.DemoUrl is null)
         {
             throw new InvalidOperationException(Undownloadable(entry));
         }
@@ -346,7 +346,17 @@ public sealed partial class Library
         var checksum = entry.DemoSha256 ?? entry.Sha256;
         var target = Path.Combine(staging, ArchiveName(url, entry.Kind));
 
-        http.ToFile(url, target, onOutput, onProgress);
+        if (ModarttTrial.Serves(url))
+        {
+            var cookies = Path.Combine(staging, "cookies.txt");
+            http.ToFile(
+                ModarttTrial.Resolve(http, url, cookies), target, onOutput, onProgress,
+                cookies: cookies);
+        }
+        else
+        {
+            http.ToFile(url, target, onOutput, onProgress);
+        }
 
         if (checksum is { } expected)
         {
@@ -366,6 +376,11 @@ public sealed partial class Library
 
     private static string ArchiveName(string url, PluginKind kind)
     {
+        if (ModarttTrial.Serves(url))
+        {
+            return ModarttTrial.FileName(url);
+        }
+
         var path = url.TrimEnd('/');
         var name = path[(path.LastIndexOf('/') + 1)..];
 

@@ -9,6 +9,8 @@ public partial class LibraryTests
     [InlineData("windows", "https://x.invalid/library-manager/download/win/", "win.exe")]
     [InlineData("windows", "https://x.invalid/download/win", "win.exe")]
     [InlineData("native", "https://x.invalid/a/thing_linux.tar.xz", "thing_linux.tar.xz")]
+    [InlineData(
+        "native", "https://www.modartt.com/try?file=thing_trial_v1.tar.xz", "thing_trial_v1.tar.xz")]
     public void ADownloadWithNoFilenameIsNamedAfterTheLastThingInItsUrl(
         string kind, string url, string expected)
     {
@@ -135,6 +137,36 @@ public partial class LibraryTests
         Assert.True(File.Exists(archive));
         Assert.DoesNotContain(said, line => line.Contains("Checking sha256"));
         Assert.Contains("Unpacking VitalInstaller.tar.gz", File.ReadAllText(layout.InstallLogPath("vital")));
+    }
+
+    [Fact]
+    public void ALinuxPluginWithADemoDownloadsAndChecksItWhenNoFileIsSupplied()
+    {
+        var staging = Path.Combine(root, "supplied");
+        Directory.CreateDirectory(Path.Combine(staging, "Thing.vst3"));
+
+        var demo = Path.Combine(root, "thing_demo.tar.gz");
+        var real = new ProcessRunner();
+        Assert.True(real.Run(
+            "tar", ["-czf", demo, "-C", staging, "."],
+            cancellationToken: TestContext.Current.CancellationToken).Ok);
+
+        Catalogue(("thing", $"""
+            Name: Thing
+            Kind: native
+            Source: byo
+            DemoUrl: {new Uri(demo).AbsoluteUri}
+            DemoSha256: {Checksum.Sha256(demo)}
+            """));
+
+        var layout = Layout();
+        var library = new Library(layout, real);
+        var said = new List<string>();
+
+        library.Install(library.Find("thing"), onOutput: said.Add);
+
+        Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
+        Assert.Contains(said, line => line.StartsWith("Checking sha256", StringComparison.Ordinal));
     }
 
     [Fact]

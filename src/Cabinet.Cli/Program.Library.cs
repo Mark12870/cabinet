@@ -213,7 +213,7 @@ internal static partial class Program
         entry.DemoUrl is not null
             ? $"{entry.Name} offers a demo — install it with `{Command(entry, prefix)}`, or "
               + (entry.Account is { } account
-                  ? $"log in at {account}, download your installer, then "
+                  ? $"log in at {account}, download your copy, then "
                     + $"`{OwnCommand(entry, prefix)}`"
                   : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`")
             : $"{entry.Name} cannot be downloaded — "

@@ -47,12 +47,6 @@ internal static class LibraryEntryParser
                 + "installer share one entry");
         }
 
-        if (demo is not null && kind != PluginKind.Windows)
-        {
-            throw new InvalidOperationException(
-                $"{id}.yml carries DemoUrl but is not a Windows plugin — only Wine can install it");
-        }
-
         if (source == PluginSource.Download && Value(fields, "Sha256") is null)
         {
             throw new InvalidOperationException(

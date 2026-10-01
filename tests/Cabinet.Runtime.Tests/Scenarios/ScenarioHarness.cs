@@ -51,15 +51,15 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
     public async Task Install(string download, Display display)
     {
-        var said = await Install(display);
+        var said = await Install(display, download);
         Assert.Contains($"Downloading {download}", said, StringComparison.Ordinal);
     }
 
-    public Task InstallFrom(string installer, Display display) => Install(display, installer);
+    public Task InstallFrom(string installer, Display display) => Install(display, null, installer);
 
-    private async Task<string> Install(Display display, params string[] installer)
+    private async Task<string> Install(Display display, string? download, params string[] installer)
     {
-        var phases = new InstallPhases(entry.DemoUrl ?? entry.Url);
+        var phases = new InstallPhases(download);
         var result = await Run(
             "flatpak", Cabinet("install", installer), display, InstallPatience, onLine: phases.Heard);
         foreach (var (phase, taken) in phases.Finish())

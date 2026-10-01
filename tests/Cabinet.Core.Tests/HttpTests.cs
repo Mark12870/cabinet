@@ -111,5 +111,49 @@ public class HttpTests : IDisposable
         Assert.DoesNotContain("", lines);
     }
 
+    [Fact]
+    public void ADownloadCarriesTheCookiesItIsGiven()
+    {
+        var runner = new StreamingRunner();
+
+        new Http(runner).ToFile(
+            Url, Fetched(), cancellationToken: TestContext.Current.CancellationToken, cookies: "jar");
+
+        Assert.Equal(
+            ["-b", "jar", "-c", "jar"],
+            runner.LastArguments.SkipWhile(argument => argument != "-b").Take(4));
+    }
+
+    [Fact]
+    public void ADownloadWhoseTlsHandshakeFailsIsTriedAgain()
+    {
+        var exits = new Queue<int>([35, 0]);
+        var runner = new RecordingRunner(exits: _ => exits.Dequeue());
+
+        new Http(runner).ToFile(Url, Fetched(), cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, runner.Calls.Count);
+    }
+
+    [Fact]
+    public void AFailedHandshakeIsTriedThreeTimesInAll()
+    {
+        var runner = new RecordingRunner(exits: _ => 35);
+
+        Assert.Throws<InvalidOperationException>(() => new Http(runner)
+            .Text(Url, TestContext.Current.CancellationToken));
+        Assert.Equal(3, runner.Calls.Count);
+    }
+
+    [Fact]
+    public void AnyOtherFailureIsLeftToCurlsOwnRetries()
+    {
+        var runner = new RecordingRunner(exits: _ => 22);
+
+        Assert.Throws<InvalidOperationException>(() => new Http(runner)
+            .ToFile(Url, Fetched(), cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Single(runner.Calls);
+    }
+
     private static Http Downloading(params string[] lines) => new(new StreamingRunner(lines));
 }
