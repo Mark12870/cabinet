@@ -115,9 +115,6 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         private const string LoadsHeading = "270,242 722,272";
 
-        private const string Lavapipe =
-            "VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d/lvp_icd.x86_64.json";
-
         private const string KontaktActivation =
             "drive_c/users/Public/Documents/Native Instruments/Native Access/ras3/"
             + "0e504595-40d8-4982-978e-a242f036912d.jwt";

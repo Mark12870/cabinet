@@ -77,7 +77,7 @@ mkdir -p "$ROOT"
     CABINET_RUNTIME_ENTRIES="$ENTRIES" \
     CABINET_RUNTIME_TOOLBOX="$BOX" \
     bash -s -- "$ROOT" "$HOST_FLATPAK_REPO" "$CABINET_REF" "$DAW_REF" "$APP" "$COMMIT" \
-    "$REPOSITORY/scripts/carla-vst3-view-removed.patch" <<'EOF'
+    "$REPOSITORY/patches/carla" <<'EOF'
 set -euo pipefail
 
 root=$1
@@ -86,7 +86,7 @@ cabinet_ref=$3
 daw_ref=$4
 app=$5
 commit=$6
-carla_patch=$7
+carla_patches=$7
 home=$root/home
 runtime=$root/runtime
 flatpak_user_dir=$home/.local/share/flatpak
@@ -186,9 +186,11 @@ if [ ! -d "$carla_source/.git" ]; then
     git clone --recurse-submodules https://github.com/falkTX/Carla.git "$carla_source"
 fi
 
-if git -C "$carla_source" apply --reverse --check "$carla_patch" 2>/dev/null; then
-    git -C "$carla_source" apply --reverse "$carla_patch"
-fi
+for patch in "$carla_patches"/*.patch; do
+    git -C "$carla_source" apply --numstat "$patch" | cut -f3 | while read -r patched; do
+        git -C "$carla_source" checkout -- "$patched"
+    done
+done
 
 if [ -n "$(git -C "$carla_source" status --porcelain --untracked-files=all)" ]; then
     printf 'setup-runtime-tests: source checkout is dirty: %s\n' "$carla_source" >&2
@@ -198,10 +200,12 @@ fi
 git -C "$carla_source" fetch --prune origin "$commit"
 git -C "$carla_source" checkout --detach "$commit"
 git -C "$carla_source" submodule update --init --recursive
-git -C "$carla_source" apply "$carla_patch"
+for patch in "$carla_patches"/*.patch; do
+    git -C "$carla_source" apply "$patch"
+done
 
 marker="$carla_prefix/.cabinet-carla-build"
-build="$commit frontend $(sha256sum < "$carla_patch" | cut -d' ' -f1)"
+build="$commit frontend $(cat "$carla_patches"/*.patch | sha256sum | cut -d' ' -f1)"
 if [ ! -x "$carla_prefix/bin/carla" ] || [ ! -f "$marker" ] || [ "$(<"$marker")" != "$build" ]; then
     if [ -f "$marker" ]; then
         make -C "$carla_source" clean

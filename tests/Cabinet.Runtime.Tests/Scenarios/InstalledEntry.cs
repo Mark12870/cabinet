@@ -6,6 +6,9 @@ namespace Cabinet.Runtime.Tests.Scenarios;
 
 public abstract class InstalledEntry(string id) : IAsyncLifetime
 {
+    private protected const string Lavapipe =
+        "VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d/lvp_icd.x86_64.json";
+
     private static readonly SemaphoreSlim AtOnce = new(3);
     private RuntimeTestLock? runtimeLock;
     private Display? display;

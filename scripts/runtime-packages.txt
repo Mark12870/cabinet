@@ -1,4 +1,6 @@
 alsa-lib-devel
+chromedriver
+chromium
 curl
 dotnet-sdk-10.0
 file-devel

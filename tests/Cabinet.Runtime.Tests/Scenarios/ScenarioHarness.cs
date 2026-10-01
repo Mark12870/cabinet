@@ -92,6 +92,13 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
     public string Prefix => Path.Combine(Data, "prefixes", entry.Prefix);
 
+    public async Task OpenLink(string link, Display display)
+    {
+        var result = await Run(
+            "flatpak", [.. Sandboxed(), "library", "open", link], display, ProbePatience);
+        Assert.True(result.ExitCode == 0, result.Said.Replace(link, "<link>", StringComparison.Ordinal));
+    }
+
     public async Task Set(Display display, params string[] arguments)
     {
         var result = await Run(
@@ -147,10 +154,12 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
     }
 
-    public void Restore(string registry)
+    public void Restore(string registry) => Merge(Encoding.UTF8.GetString(Convert.FromBase64String(registry)));
+
+    public void Merge(string registry, string hive = "user.reg")
     {
-        var user = Path.Combine(Prefix, "user.reg");
-        var restored = Sections(Encoding.UTF8.GetString(Convert.FromBase64String(registry)));
+        var user = Path.Combine(Prefix, hive);
+        var restored = Sections(registry);
         var replaced = restored.Select(Key).ToHashSet(StringComparer.Ordinal);
         var kept = Sections(File.ReadAllText(user)).Where(section => !replaced.Contains(Key(section)));
         File.WriteAllText(user, string.Join("\n\n", [.. kept, .. restored]) + "\n");

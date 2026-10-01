@@ -215,7 +215,7 @@ public class ManifestTests
     [Fact]
     public void APluginThatCrashesInItsOwnTeardownDoesNotTakeTheHostWithIt()
     {
-        const string patch = "patches/yabridge-teardown-guard.patch";
+        const string patch = "patches/yabridge/yabridge-teardown-guard.patch";
         var archive = Array.FindIndex(
             Lines,
             line => line.Contains("github.com/robbert-vdh/yabridge/archive/", StringComparison.Ordinal));
@@ -232,10 +232,10 @@ public class ManifestTests
     [Fact]
     public void APluginCannotRevokeDragAndDropOnAWindowOfAnotherProcess()
     {
-        const string patch = "patches/yabridge-foreign-drag-drop.patch";
+        const string patch = "patches/yabridge/yabridge-foreign-drag-drop.patch";
         var guard = Array.FindIndex(
             Lines,
-            line => line.Trim() == "path: patches/yabridge-teardown-guard.patch");
+            line => line.Trim() == "path: patches/yabridge/yabridge-teardown-guard.patch");
         var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
         var redirect = File.ReadAllText(Repo.Path(patch));
 
@@ -249,10 +249,10 @@ public class ManifestTests
     [Fact]
     public void CabinetsChainloaderLoadsCabinetsOwnYabridgeFirst()
     {
-        const string patch = "patches/yabridge-chainloader-cabinet-first.patch";
+        const string patch = "patches/yabridge/yabridge-chainloader-cabinet-first.patch";
         var origin = Array.FindIndex(
             Lines,
-            line => line.Trim() == "path: patches/yabridge-editor-window-origin.patch");
+            line => line.Trim() == "path: patches/yabridge/yabridge-editor-window-origin.patch");
         var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
         var search = File.ReadAllText(Repo.Path(patch));
         var installation = Path.GetRelativePath(
@@ -291,13 +291,31 @@ public class ManifestTests
     public void EveryYabridgePatchIsAppliedAndDocumented()
     {
         var documented = File.ReadAllText(Repo.Path("PATCHES.md"));
-        var patches = Directory.GetFiles(Repo.Path("patches"), "*.patch")
+        var patches = Directory.GetFiles(Repo.Path("patches/yabridge"), "*.patch")
             .Select(Path.GetFileName)
             .ToList();
 
         Assert.NotEmpty(patches);
-        Assert.All(patches, patch => Assert.Contains(Lines, line => line.Trim() == $"path: patches/{patch}"));
+        Assert.All(patches, patch => Assert.Contains(Lines, line => line.Trim() == $"path: patches/yabridge/{patch}"));
         Assert.All(patches, patch => Assert.Contains($"## {patch}", documented, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EveryCarlaPatchIsDocumented()
+    {
+        var documented = File.ReadAllText(Repo.Path("PATCHES.md"));
+        var patches = Directory.GetFiles(Repo.Path("patches/carla"), "*.patch")
+            .Select(Path.GetFileName)
+            .ToList();
+
+        Assert.NotEmpty(patches);
+        Assert.All(patches, patch => Assert.Contains($"## {patch}", documented, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EveryPatchSitsInTheFolderOfTheProjectItPatches()
+    {
+        Assert.Empty(Directory.GetFiles(Repo.Path("patches"), "*.patch"));
     }
 
     [Fact]

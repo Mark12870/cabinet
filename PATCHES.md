@@ -1,7 +1,7 @@
 # yabridge patches
 
-Cabinet builds yabridge from a pinned commit and applies the files in `patches/` in the order the
-manifest lists them. Most work around a failure that kills the Wine plugin host. When the host
+Cabinet builds yabridge from a pinned commit and applies the files in `patches/yabridge/` in the
+order the manifest lists them. Most work around a failure that kills the Wine plugin host. When the host
 dies, yabridge's plugin side aborts the DAW, or the DAW waits forever. Each section below says
 what would make the patch unnecessary.
 
@@ -131,7 +131,7 @@ Cabinet's runners are Wine 9.21-tkg and 11.0. **Do not revert this pin to chase 
 — that trades a blank VST2 editor for every bridged editor mis-routing its clicks.
 
 **Defect found and fixed on 2026-09-16**, by
-`patches/yabridge-editor-window-origin.patch` above. Every bridged editor was placed one monitor
+`patches/yabridge/yabridge-editor-window-origin.patch` above. Every bridged editor was placed one monitor
 width across from the window hosting it — `+1920+0` on a 4480x1440 X screen, for VST2 and VST3
 alike. The plugin rendered the whole time; it rendered off the frame, so the frame was flat grey,
 and because Wine converts screen coordinates to client ones using the position it was given,
@@ -147,3 +147,33 @@ the clicks, and VST3 hides it. Aalto's editor drew on `5.1.1` on 2026-08-17, so 
 which symptom shows. Fixing it belongs upstream in #409; before bumping this pin, re-run the
 editor coverage in `docs/TESTS.md` and expect those cases to go green when it is fixed. Neither patch
 above applies to the `5.1.1` tree.
+
+# Carla patches
+
+The runtime tests build Carla from a pinned commit (`docs/TESTS.md`), and
+`scripts/setup-runtime-tests.sh` applies every file in `patches/carla/` to it. They change the test
+host only, never what Cabinet ships, and each brings it closer to what a DAW does.
+
+## carla-vst3-view-removed.patch
+
+**Failure.** When Carla opens a VST3 editor in a window of its own, it never marks the view
+attached, so removing the plugin skips `set_frame(nullptr)` and `IPlugView::removed()`, and the
+plugin is destroyed with its editor still attached.
+
+**Patch.** Marks the view attached once `attached()` succeeds, so removal detaches it first.
+
+**When it can go.** When the pinned Carla sets the flag itself.
+
+## carla-vst3-component-state.patch
+
+**Failure.** Carla never calls `IEditController::setComponentState`, which DAWs call after
+connecting a plugin's component and controller. ZENOLOGY links its controller to its processor
+only there, so under Carla its editor dereferences null in `IPlugView::attached` and the Wine host
+dies. Carla's state stream also refuses `seek` and `tell` while it is written, which Valhalla
+Supermassive's and SINE Player's VST3 `getState` use.
+
+**Patch.** After connecting the two halves, hands the component's state to the controller through
+`setComponentState`, and makes the stream seekable while written, writing at its position.
+
+**When it can go.** When the pinned Carla syncs component state on load. The Roland scenario's
+editor check fails without it.

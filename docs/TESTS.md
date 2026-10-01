@@ -23,7 +23,8 @@ scripts/setup-runtime-tests.sh
 Carla is built from a pinned 2.6 development commit because Fedora's packaged Carla
 does not expose the required CLAP support. The build is installed in the Toolbox test
 root's `~/.var/app/io.github.mark12870.cabinet/data/carla-tests/prefix` and the source
-is kept in its `source` sibling.
+is kept in its `source` sibling. The patches applied to it are in `patches/carla/`, and
+`PATCHES.md` says why.
 
 The setup installs the pinned free catalogue entries, FabFilter Total Bundle for Windows CLAP
 coverage, and IK Product Manager. It does not log in to or install a product through IK Product
@@ -312,11 +313,11 @@ reasons are here:
   and the count, so it raises no warning.
 - **Nothing to play without a user's account.** SINEplayer opens a sign-in screen, with no
   instrument until one is downloaded through it.
-- **Managers.** Roland Cloud Manager installs no plugin until someone signs in inside it. Klevgrand
-  Helper, Arturia Software Center, IK Product Manager and Native Access have scenarios that sign in
-  with the test account, install FreeAMP, Piano V3, MODO BASS 2 CS, and Raum with Kontakt 8 Player,
-  and play them. Sign-in screens are recognised by reference crops under `Scenarios/References/`
-  before the password is typed.
+- **Managers.** Klevgrand Helper, Arturia Software Center, IK Product Manager, Native Access and
+  Roland Cloud Manager have scenarios that sign in with the test account, install FreeAMP, Piano
+  V3, MODO BASS 2 CS, Raum with Kontakt 8 Player, and ZENOLOGY Lite, and play them. Sign-in
+  screens are recognised by reference crops under `Scenarios/References/` before the password is
+  typed.
 - **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
   be installed unattended.
 
@@ -342,6 +343,14 @@ note played live through Carla's engine rather than rendered offline. Native Acc
 settled beforehand: the usage consent is answered on the account, and the survey's dismissal is
 written into its store before it starts.
 
+Roland Cloud Manager signs in through a browser too, and Roland's login page accepts one driven by
+WebDriver: the scenario points Wine's `WineBrowser` at a script that keeps the sign-in URL, signs in
+with the test account in headless Chromium, and hands the `rolandcloudmanager://` link it returns
+to `library open`. Roland counts each Windows `MachineGuid` as a device and refuses a new one past
+the account's limit, so the scenario writes the same synthetic `MachineGuid` into every prefix. Its
+manager window, like Kontakt's editor, loses its X connection at its first frame on the test
+display, so the prefix runs on lavapipe.
+
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.
 
@@ -355,7 +364,7 @@ colour, so an editor check would pass here and fail on CI. Virta, Aalto and Kaiv
 
 ## Patch probes
 
-`DragAndDropTests` tells you when `patches/yabridge-foreign-drag-drop.patch` is no longer needed
+`DragAndDropTests` tells you when `patches/yabridge/yabridge-foreign-drag-drop.patch` is no longer needed
 (see `PATCHES.md`). The Toolbox's `mingw64-gcc` compiles a small Windows probe from
 `Probes/revoke-drag-drop.c`. Each case runs it through the shim in a probe prefix on the newest
 release of a runner family:
@@ -388,7 +397,7 @@ that offset, so the trace's `Translated coords` must match where X puts the wind
 The window ids come from yabridge's own `+editor` trace, so the cases need no DAW and no pixels.
 Both formats are covered because both drifted; only VST2 showed it, since VST3 is pulled back by
 the size-mismatch poll in `vst3.cpp`. Both suites pass as of 2026-09-16 with
-`patches/yabridge-editor-window-origin.patch` applied; without it each reports the offset it
+`patches/yabridge/yabridge-editor-window-origin.patch` applied; without it each reports the offset it
 measured. Like every other editor case they run on their own headless `weston` (`Display.Start`),
 so a run never puts a plugin window on the user's screen.
 

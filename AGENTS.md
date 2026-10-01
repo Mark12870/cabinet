@@ -241,7 +241,7 @@ dependency changes.
   Cabinet's own yabridgectl output (never native links inside it: `sync` prunes them), reports a path something else
   owns and leaves it in place, and takes out the per-file links older releases left in `~/.local/share/yabridge`.
   yabridge's chainloader searches `$PATH` and `~/.local/share/yabridge`, where every yabridge puts the same names, so
-  `patches/yabridge-chainloader-cabinet-first.patch` makes Cabinet's copies load Cabinet's installed library and host
+  `patches/yabridge/yabridge-chainloader-cabinet-first.patch` makes Cabinet's copies load Cabinet's installed library and host
   first; both stay in Cabinet's installed files, because `yabridgectl sync` prunes every `.so` beside the plugins that
   lacks its own `.dll`. A findable bridge with an unreachable loader aborts the DAW from yabridge's launch thread; the
   manifest's `WINELOADER` fallback rewrite keeps the loader reachable. A long `YABRIDGE_TEMP_DIR` breaks the sockets

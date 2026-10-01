@@ -86,7 +86,7 @@ jobs:
         with:
           path: .flatpak-builder
           key: >-
-            flatpak-builder-${{ hashFiles('io.github.mark12870.cabinet.yml', 'patches/**',
+            flatpak-builder-${{ hashFiles('io.github.mark12870.cabinet.yml', 'patches/yabridge/**',
             'nuget-sources.json', 'shim/Cargo.lock') }}
           restore-keys: flatpak-builder-
 

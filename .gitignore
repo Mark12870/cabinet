@@ -24,6 +24,7 @@ __pycache__/
 .claude/settings.local.json
 .aider*
 opencode.json
+.codex/config.toml
 
 # Other
 TODO.md
