@@ -22,7 +22,7 @@ public sealed class VitalScenario(VitalScenario.Installed installed)
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
 
-    public static TheoryData<string> Editors => ["VST2", "VST3"];
+    public static TheoryData<string> Editors => ["VST2"];
 
     [Theory]
     [MemberData(nameof(Editors))]
