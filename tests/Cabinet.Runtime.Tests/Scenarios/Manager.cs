@@ -51,6 +51,9 @@ internal sealed class Manager(
 
     public void Press(string key) => Xdotool("key", key);
 
+    public void ScrollDown(string window, int x, int y, int steps) =>
+        Xdotool("mousemove", "--window", window, $"{x}", $"{y}", "click", "--repeat", $"{steps}", "--delay", "100", "5");
+
     public string Capture(string window, string name, string hidden = "")
     {
         var raw = Path.Combine(shots, $"{++taken:00}-{name}.xwd");

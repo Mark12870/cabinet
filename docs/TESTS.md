@@ -313,15 +313,14 @@ reasons are here:
 - **Set aside.** Sitala 2 opens an activation dialog over its editor until a serial is entered.
   It stays in the Library, but the script's `set_aside` list keeps it out of the coverage list
   and the count, so it raises no warning.
-- **Nothing to play without a user's account.** SINEplayer opens a sign-in screen, with no
-  instrument until one is downloaded through it.
+- **Account instruments.** SINEplayer signs in with the test account, downloads Lucent and
+  checks its editor and flute playback in VST2 and VST3. Splice INSTRUMENT authorises through
+  its browser sign-in, downloads Piano Granular and checks its editor and VST3 playback.
 - **Managers.** Klevgrand Helper, Arturia Software Center, IK Product Manager, Native Access and
   Roland Cloud Manager have scenarios that sign in with the test account, install FreeAMP, Piano
   V3, MODO BASS 2 CS, Raum with Kontakt 8 Player, and ZENOLOGY Lite, and play them. Sign-in
   screens are recognised by reference crops under `Scenarios/References/` before the password is
   typed.
-- **Bring your own installer or account.** Splice INSTRUMENT needs a Splice sign-in, so it cannot
-  be installed unattended.
 
 Native Access signs in through a browser, and Native Instruments' login page refuses a browser
 driven by WebDriver, so its scenario does not sign in; it restores a session instead. Native

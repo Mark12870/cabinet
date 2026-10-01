@@ -7,13 +7,16 @@ render, because a sampler streaming from disk needs real time to fill its buffer
 metered for the same length of time before the note, while it is held, and after it ends.
 """
 
+import ctypes
 import os
+import re
 import subprocess
 import sys
 import time
 
 CARLA = sys.argv[1]
 PLUGIN = sys.argv[2]
+FORMAT = sys.argv[3]
 LOG = sys.argv[4]
 SHOTS = sys.argv[5]
 NOTE = int(sys.argv[6])
@@ -33,9 +36,24 @@ from carla_backend import (  # noqa: E402
     ENGINE_OPTION_TRANSPORT_MODE,
     ENGINE_PROCESS_MODE_CONTINUOUS_RACK,
     ENGINE_TRANSPORT_MODE_INTERNAL,
+    PLUGIN_VST2,
     PLUGIN_VST3,
     CarlaHostDLL,
 )
+
+TYPES = {"vst2": PLUGIN_VST2, "vst3": PLUGIN_VST3}
+
+x11 = ctypes.CDLL("libX11.so.6")
+x11.XOpenDisplay.argtypes = [ctypes.c_char_p]
+x11.XOpenDisplay.restype = ctypes.c_void_p
+x11.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+x11.XDefaultRootWindow.restype = ctypes.c_ulong
+x11.XWarpPointer.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong,
+                           ctypes.c_int, ctypes.c_int, ctypes.c_uint, ctypes.c_uint,
+                           ctypes.c_int, ctypes.c_int]
+x11.XSync.argtypes = [ctypes.c_void_p, ctypes.c_int]
+display = x11.XOpenDisplay(None)
+root = x11.XDefaultRootWindow(display)
 
 
 def idle(host, seconds):
@@ -49,7 +67,13 @@ def window():
     found = subprocess.run(
         ["xdotool", "search", "--onlyvisible", "--name", TITLE],
         capture_output=True, text=True, check=False).stdout.split()
-    return found[0] if found else ""
+    for candidate in found:
+        state = subprocess.run(
+            ["xprop", "-id", candidate, "WM_STATE"],
+            capture_output=True, text=True, check=False).stdout
+        if "window state" in state.lower():
+            return candidate
+    return ""
 
 
 def capture(name):
@@ -83,7 +107,7 @@ def main():
         print("ENGINE=failed " + host.get_last_error())
         return 1
 
-    if not host.add_plugin(BINARY_NATIVE, PLUGIN_VST3, PLUGIN, "", "", 0, None, 0):
+    if not host.add_plugin(BINARY_NATIVE, TYPES[FORMAT], PLUGIN, "", "", 0, None, 0):
         print("PLUGIN=failed " + host.get_last_error())
         return 1
 
@@ -91,13 +115,20 @@ def main():
     host.show_custom_ui(0, True)
     idle(host, 15)
 
+    capture("opened")
     for step in STEPS:
         if step[0] == "wait":
             idle(host, float(step[1]))
             continue
+        geometry = subprocess.run(
+            ["xdotool", "getwindowgeometry", window()], capture_output=True, text=True, check=True).stdout
+        origin = re.search(r"Position:\s*(-?\d+),(-?\d+)", geometry)
+        x11.XWarpPointer(display, 0, root, 0, 0, 0, 0,
+                         int(origin[1]) + int(step[1]), int(origin[2]) + int(step[2]))
+        x11.XSync(display, 0)
+        idle(host, 0.5)
         subprocess.run(
-            ["xdotool", "mousemove", "--window", window(), step[1], step[2],
-             "click", "--repeat", "2" if step[0] == "double" else "1", "--delay", "120", "1"],
+            ["xdotool", "click", "--repeat", "2" if step[0] == "double" else "1", "--delay", "120", "1"],
             check=False)
         idle(host, 2)
 
