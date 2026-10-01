@@ -5,7 +5,12 @@ order the manifest lists them. Most work around a failure that kills the Wine pl
 dies, yabridge's plugin side aborts the DAW, or the DAW waits forever. Each section below says
 what would make the patch unnecessary.
 
+When investigating any failure covered here, check the linked upstream issues and fixes to see
+whether the patch can be retired, then verify against the pinned version before removing it.
+
 ## yabridge-teardown-guard.patch
+
+[Related discussion: yabridge#492 — Splice on Linux](https://github.com/robbert-vdh/yabridge/issues/492)
 
 **Failure.** Some plugins fault in their own code while the host destroys them. Splice
 INSTRUMENT's `hurricane::api::adapters::LoginHandler` destructor calls into a service object that
@@ -27,7 +32,9 @@ repeatedly in Carla and watching the host's output for "crashed while being torn
 
 ## yabridge-foreign-drag-drop.patch
 
-**Failure.** WineHQ bug 60225. `RegisterDragDrop` stores the raw `IDropTarget` pointer in a window
+[WineHQ bug 60225](https://bugs.winehq.org/show_bug.cgi?id=60225)
+
+**Failure.** `RegisterDragDrop` stores the raw `IDropTarget` pointer in a window
 property. `RevokeDragDrop` releases that pointer even when the window belongs to another process,
 where the pointer means nothing, and faults.
 
@@ -53,6 +60,10 @@ The d2d1 fork's source has had the fix since commit fafb443f85 (2026-07-23), but
 build, v11.0, predates it. Upstream Wine had not fixed this as of 2026-09.
 
 ## yabridge-editor-window-origin.patch
+
+[Tracking issue: yabridge#409 — Wine editor embedding](https://github.com/robbert-vdh/yabridge/issues/409)
+
+[Related report: yabridge#512 — editor coordinate offsets](https://github.com/robbert-vdh/yabridge/issues/512)
 
 **Failure.** Every bridged editor is placed one monitor width across from the wrapper window
 hosting it, so the frame the DAW shows is blank and clicks land offset. See the yabridge source
@@ -89,6 +100,8 @@ considered change, not as a swap.
 
 ## yabridge-chainloader-cabinet-first.patch
 
+[Related discussion: yabridge#135 — Flatpak compatibility](https://github.com/robbert-vdh/yabridge/issues/135)
+
 **Failure.** A DAW outside Flatpak loads Cabinet's chainloader copies from `~/.vst*/cabinet`. The
 chainloader finds `libyabridge-*.so` only through `yabridge-host.exe` on `$PATH` or in
 `$XDG_DATA_HOME/yabridge`, then `dlopen` and `/usr/lib*`, and never beside itself. The library then
@@ -122,8 +135,9 @@ here with a reason. Cabinet used to ship yabridge's prebuilt `5.1.1` release; `3
 
 ## ba7022df0aee1e91cde62d7f0e940d3bc43a82b0
 
-`robbert-vdh/yabridge`, the `new-wine10-embedding` branch behind
-[yabridge#409](https://github.com/robbert-vdh/yabridge/issues/409). It is not a release, and it
+[yabridge#409](https://github.com/robbert-vdh/yabridge/issues/409)
+
+`robbert-vdh/yabridge`, the `new-wine10-embedding` branch. It is not a release, and it
 was chosen deliberately: `5.1.1` (Nov 2024) predates Wine 9.22's editor-embedding changes, and on
 it a bridged editor drew but received absolute screen coordinates where it expected
 client-relative ones, so clicks landed offset by the window's distance from the screen origin.
@@ -156,6 +170,8 @@ host only, never what Cabinet ships, and each brings it closer to what a DAW doe
 
 ## carla-vst3-view-removed.patch
 
+[Related report: Carla#1853 — crashes on close/removal](https://github.com/falkTX/Carla/issues/1853)
+
 **Failure.** When Carla opens a VST3 editor in a window of its own, it never marks the view
 attached, so removing the plugin skips `set_frame(nullptr)` and `IPlugView::removed()`, and the
 plugin is destroyed with its editor still attached.
@@ -165,6 +181,8 @@ plugin is destroyed with its editor still attached.
 **When it can go.** When the pinned Carla sets the flag itself.
 
 ## carla-vst3-component-state.patch
+
+[Related report: Carla#1614 — Roland VST3 editor crashes](https://github.com/falkTX/Carla/issues/1614)
 
 **Failure.** Carla never calls `IEditController::setComponentState`, which DAWs call after
 connecting a plugin's component and controller. ZENOLOGY links its controller to its processor
