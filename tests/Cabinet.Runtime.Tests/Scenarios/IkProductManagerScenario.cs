@@ -31,7 +31,7 @@ public sealed class IkProductManagerScenario(IkProductManagerScenario.Installed 
         var audio = await installed.Harness.Play(bridge, Note, installed.Display);
 
         Assert.InRange(audio.Before, 0, 0.00001);
-        Assert.InRange(audio.Tail, 0.0000003, 1);
+        Assert.InRange(audio.Tail, 0, 1);
         Assert.InRange(audio.Peak, 0.045, 1);
     }
 

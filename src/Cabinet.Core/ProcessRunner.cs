@@ -25,6 +25,7 @@ public interface IProcessRunner
 public sealed class ProcessRunner : IProcessRunner
 {
     private static readonly TimeSpan LingerGrace = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan LingerRecheck = TimeSpan.FromSeconds(1);
 
     public ProcessResult Run(
         string file,
@@ -105,30 +106,29 @@ public sealed class ProcessRunner : IProcessRunner
 
         process.WaitForExit();
 
-        if (!draining.Wait(LingerGrace))
+        if (draining.Wait(LingerGrace) || AwaitLingering(file, process, draining, onOutput, cancellationToken))
         {
-            AwaitLingering(file, process, draining, onOutput, cancellationToken);
+            draining.GetAwaiter().GetResult();
         }
 
-        draining.GetAwaiter().GetResult();
         cancellationToken.ThrowIfCancellationRequested();
 
         return new ProcessResult(process.ExitCode, stdout.ToString(), stderr.ToString());
     }
 
-    private static void AwaitLingering(
+    private static bool AwaitLingering(
         string file,
         Process process,
         Task draining,
         Action<string>? onOutput,
         CancellationToken cancellationToken)
     {
-        var lingering = Lingering.Find(process.StandardOutput.BaseStream, process.StandardError.BaseStream);
+        Stream[] output = [process.StandardOutput.BaseStream, process.StandardError.BaseStream];
+        var lingering = Lingering.Find(output);
 
         if (lingering.Programs.Count == 0)
         {
-            draining.Wait(cancellationToken);
-            return;
+            return false;
         }
 
         onOutput?.Invoke(
@@ -142,7 +142,15 @@ public sealed class ProcessRunner : IProcessRunner
         {
             using (cancellationToken.Register(lingering.Stop))
             {
-                draining.Wait(CancellationToken.None);
+                while (!draining.Wait(LingerRecheck, CancellationToken.None))
+                {
+                    if (Lingering.Find(output).Programs.Count == 0)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
             }
         }
         finally

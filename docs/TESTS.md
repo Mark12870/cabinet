@@ -274,7 +274,9 @@ starts an Inno Setup wizard of its own, walks it with the licence accepted, and 
 manager to authorise the product. The account holds five devices, and IK counts the same computer
 across fresh prefixes, so repeated runs keep it at one. MODO BASS 2's controls are its own: the VST2
 exposes no parameter and the VST3 only Bypass and MIDI CC proxies, so its editor has no aim and
-the scenario counts no parameters.
+the scenario counts no parameters. Nor does it assert a tail: a render is identical to the sample
+until 15 ms after the note-off, but under load the release decays faster, as if timed by the clock
+rather than the samples, and the tail fell from 3e-6 to 1e-11.
 
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their

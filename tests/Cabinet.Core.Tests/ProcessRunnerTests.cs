@@ -332,6 +332,68 @@ public sealed class ProcessRunnerTests : IDisposable
             () => running.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task OutputHeldOnlyByWinesOwnProcessesIsNotWaitedFor()
+    {
+        var held = Path.Combine(root, "wineserver-pid");
+
+        try
+        {
+            var result = await Task.Run(() => Subject.Run(
+                    "sh",
+                    ["-c", "\"$1\" 60 & echo $! > \"$2\"; echo done", "sh", Wineserver(), held],
+                    onOutput: _ => { }))
+                .WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+            Assert.True(result.Ok);
+            Assert.Contains("done", result.Stdout);
+        }
+        finally
+        {
+            End(held);
+        }
+    }
+
+    [Fact]
+    public async Task AProgramThatLeavesOnlyWineHoldingTheOutputIsWaitedForNoLonger()
+    {
+        var held = Path.Combine(root, "wineserver-pid");
+        var watched = new List<Lingering?>();
+        Lingering.Watcher = watched.Add;
+
+        try
+        {
+            var result = await Task.Run(() => Subject.Run(
+                    "sh",
+                    ["-c", "sleep 3 & \"$1\" 60 & echo $! > \"$2\"; exit 0", "sh", Wineserver(), held],
+                    onOutput: _ => { }))
+                .WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+            Assert.True(result.Ok);
+            Assert.Equal(["sleep"], watched[0]!.Programs);
+            Assert.Null(watched[1]);
+        }
+        finally
+        {
+            Lingering.Watcher = null;
+            End(held);
+        }
+    }
+
+    private string Wineserver()
+    {
+        var wineserver = Path.Combine(root, "wineserver");
+        File.Copy("/usr/bin/sleep", wineserver);
+        File.SetUnixFileMode(wineserver, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        return wineserver;
+    }
+
+    private static void End(string held)
+    {
+        using var process = System.Diagnostics.Process.GetProcessById(int.Parse(File.ReadAllText(held)));
+        process.Kill();
+    }
+
     private static async Task WaitForFile(string path)
     {
         for (var attempt = 0; attempt < 500 && !File.Exists(path); attempt++)
