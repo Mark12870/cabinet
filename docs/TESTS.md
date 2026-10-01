@@ -264,9 +264,8 @@ Vital signs in to its account site through Firebase's password sign-in with the 
 downloads it. 1.0.7 is pinned because 1.6.4 ships no LV2. The editor opens behind a sign-in panel
 that Work offline dismisses; a press is a move, a few turns of the host, and then the click, since
 Vital takes no click that arrives with the pointer. Its knobs are host parameters sorted by name,
-so the aim is named, Macro 1. Only VST2 is checked in the editor: under Carla, Vital's VST3 editor
-draws once and takes no input, and its LV2 editor never opens, on a GPU display as well, while the
-VST3 works in REAPER. Every format still plays a note.
+so the aim is named, Macro 1. VST2 and VST3 are checked in the editor; its LV2 editor never opens
+under Carla, on a GPU display as well. Every format still plays a note.
 
 IK Product Manager signs in with `USERNAME` rather than the email, kept in the same file and
 secrets, and nothing is captured from the
