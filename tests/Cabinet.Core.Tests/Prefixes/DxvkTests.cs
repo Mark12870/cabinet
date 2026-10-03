@@ -79,8 +79,7 @@ public sealed class DxvkTests : IDisposable
         new Dxvk(Layout, recorder).Remove("gadget");
 
         Assert.False(File.Exists(system32));
-        Assert.Equal(["-u"], recorder.LastArguments);
-        Assert.Contains("wineboot", recorder.LastFile);
+        Assert.Equal(["wineboot", "-u"], recorder.LastArguments);
     }
 
     [Fact]
@@ -166,7 +165,7 @@ public sealed class DxvkTests : IDisposable
         var recorder = new RecordingRunner();
         new Dxvk(Layout, recorder).Remove("gadget");
 
-        Assert.DoesNotContain(recorder.Calls, call => call.File.Contains("wineboot"));
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments.Contains("wineboot"));
     }
 
     [Fact]

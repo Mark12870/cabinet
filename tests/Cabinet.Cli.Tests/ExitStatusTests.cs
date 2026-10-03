@@ -7,7 +7,7 @@ public sealed class ExitStatusTests
     [Fact]
     public void RunExitsWithItsCommandsOwnStatus()
     {
-        using var cli = new Cli(new RecordingRunner(exits: args => args is ["/c", "exit"] ? 7 : 0));
+        using var cli = new Cli(new RecordingRunner(exits: args => args is ["cmd", "/c", "exit"] ? 7 : 0));
         cli.Prefix("gadget");
 
         var outcome = cli.Run("run", "gadget", "cmd", "/c", "exit");

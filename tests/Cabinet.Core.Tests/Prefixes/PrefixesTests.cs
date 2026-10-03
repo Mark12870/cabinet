@@ -226,9 +226,8 @@ public sealed class PrefixesTests : IDisposable
         new Prefixes(Layout, recorder).MoveToRunner("gadget", "wine-9.21");
 
         var updated = Assert.Single(recorder.Ran);
-        Assert.Equal(Path.Combine(Path.GetDirectoryName(Layout.RunnerWine("wine-9.21"))!, "wineboot"),
-            updated.File);
-        Assert.Equal(["-u"], updated.Arguments);
+        Assert.Equal(Layout.RunnerWine("wine-9.21"), updated.File);
+        Assert.Equal(["wineboot", "-u"], updated.Arguments);
         Assert.Equal(["wine-9.21"], recordedFirst);
     }
 
@@ -368,8 +367,23 @@ public sealed class PrefixesTests : IDisposable
 
         new Prefixes(Layout, recorder).Run("gadget", "winecfg", []);
 
-        Assert.Equal([], recorder.LastArguments);
-        Assert.EndsWith("winecfg", recorder.LastFile);
+        Assert.Equal(["winecfg"], recorder.LastArguments);
+        Assert.Equal("wine", recorder.LastFile);
+    }
+
+    [Fact]
+    public void AWindowsCommandWithNoWrapperBesideWineStillRunsWithoutASession()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        File.WriteAllText(Layout.PrefixRunnerFile("gadget"), "wine-9.21");
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.RunnerWine("wine-9.21"))!);
+        File.WriteAllText(Layout.RunnerWine("wine-9.21"), "");
+        var recorder = new RecordingRunner();
+
+        new Prefixes(Layout, recorder).Run("gadget", "reg", ["query", @"HKCU\Software"]);
+
+        Assert.Equal(Layout.RunnerWine("wine-9.21"), recorder.LastFile);
+        Assert.Equal(["reg", "query", @"HKCU\Software"], recorder.LastArguments);
     }
 
     private string Profile(string prefix, string user, string folder)

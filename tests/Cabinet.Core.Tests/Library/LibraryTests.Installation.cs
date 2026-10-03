@@ -246,10 +246,10 @@ public partial class LibraryTests
         library.Install(library.Find("dexed"), null, installer);
 
         Assert.Equal(
-            ["wineboot", "wine", "wine"],
+            ["wineboot", "reg", Path.GetFileName(installer)],
             recording.Ran
                 .TakeWhile(call => Path.GetFileName(call.File) != "yabridgectl")
-                .Select(call => Path.GetFileName(call.File)));
+                .Select(call => Path.GetFileName(call.Arguments[0])));
         Assert.Equal(
             ["reg", "add", @"HKCU\Software\Wine\WineDbg", "/v", "ShowCrashDialog", "/t", "REG_DWORD", "/d", "0", "/f"],
             recording.Ran[1].Arguments);
@@ -378,7 +378,7 @@ public partial class LibraryTests
             library.Install(library.Find("thing"), installer: missing));
 
         Assert.Equal(missing, thrown.FileName);
-        Assert.DoesNotContain(recording.Calls, call => call.File == "wineboot");
+        Assert.DoesNotContain(recording.Calls, call => call.Arguments.Contains("wineboot"));
         Assert.False(Directory.Exists(Layout().PrefixPath("thing")));
     }
 
@@ -421,7 +421,7 @@ public partial class LibraryTests
             new Library(layout, recording).Find("thing"), installer: installer);
 
         Assert.DoesNotContain(recording.Calls, call => call.File == "curl");
-        Assert.Contains(recording.Calls, call => Path.GetFileName(call.File) == "wineboot");
+        Assert.Contains(recording.Calls, call => call.Arguments.FirstOrDefault() == "wineboot");
     }
 
     [Fact]

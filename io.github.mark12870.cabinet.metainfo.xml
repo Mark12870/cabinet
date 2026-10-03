@@ -46,6 +46,19 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.19.0" date="2026-10-03">
+      <description>
+        <p>Enrolled DAWs no longer need permission to run commands on your computer</p>
+        <ul>
+          <li>A DAW starts Cabinet's Wine through Cabinet itself, so enrolling it no longer grants it the right to run any command on your host; DAWs enrolled earlier keep working, and doctor shows how to drop the old permission</li>
+          <li>Cabinet's native plugins and bridged Windows plugins now live in your plugin folders, so enrolling a DAW asks for fewer permissions; existing installs are moved there on the next start</li>
+          <li>A Windows program that crashes in a new prefix ends instead of waiting on a crash dialog</li>
+          <li>Sitala 1 installs again where Cabinet's data sits under a long path</li>
+          <li>cabinet run works with Windows commands such as reg when no Wine session is running</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.18.0" date="2026-10-03">
       <description>
         <p>Kontakt projects made on Windows open with their instruments</p>

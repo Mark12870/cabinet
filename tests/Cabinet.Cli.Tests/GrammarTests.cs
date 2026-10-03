@@ -145,8 +145,8 @@ public sealed partial class GrammarTests : IDisposable
 
         cli.Run("run", "gadget", "cmd", "/c", "--json", "--", "echo");
 
-        var ran = Assert.Single(cli.Runner.Ran, call => call.File == "cmd");
-        Assert.Equal(["/c", "--json", "--", "echo"], ran.Arguments);
+        var ran = Assert.Single(cli.Runner.Ran, call => call.Arguments.FirstOrDefault() == "cmd");
+        Assert.Equal(["cmd", "/c", "--json", "--", "echo"], ran.Arguments);
         Assert.True(ran.Interactive);
     }
 
@@ -157,7 +157,9 @@ public sealed partial class GrammarTests : IDisposable
 
         cli.Run("run", "gadget", "--", "--dash", "argument");
 
-        Assert.Equal(["argument"], Assert.Single(cli.Runner.Ran, call => call.File == "--dash").Arguments);
+        Assert.Equal(
+            ["--dash", "argument"],
+            Assert.Single(cli.Runner.Ran, call => call.Arguments.FirstOrDefault() == "--dash").Arguments);
     }
 
     [Fact]
@@ -346,7 +348,7 @@ public sealed partial class GrammarTests : IDisposable
         Assert.Equal(0, outcome.Exit);
         Assert.Equal("gadget now runs on bundled." + Environment.NewLine, outcome.Out);
         Assert.False(File.Exists(cli.Layout.PrefixRunnerFile("gadget")));
-        Assert.Equal(["-u"], Assert.Single(cli.Runner.Ran).Arguments);
+        Assert.Equal(["wineboot", "-u"], Assert.Single(cli.Runner.Ran).Arguments);
     }
 
     [Fact]

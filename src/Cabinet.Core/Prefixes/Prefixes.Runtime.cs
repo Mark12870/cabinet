@@ -139,10 +139,11 @@ public sealed partial class Prefixes
         }
 
         var selected = runners.Resolve(RunnerOf(prefix));
+        var native = command.Contains('/') || command == "wineserver";
 
         return runner.Run(
-            Executable(selected, command),
-            arguments,
+            Executable(selected, native ? command : "wine"),
+            native || command == "wine" ? arguments : [command, .. arguments],
             WineVariables(prefix, selected, dllOverrides),
             onOutput,
             logTo: logTo,
