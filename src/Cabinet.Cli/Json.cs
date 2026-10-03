@@ -77,6 +77,7 @@ internal static class Json
                 writer.WriteString("source", entry.Source.ToString().ToLowerInvariant());
                 writer.WriteBoolean("demo", entry.DemoUrl is not null);
                 writer.WriteString("account", entry.Account);
+                writer.WriteString("installInstructions", entry.InstallInstructions);
                 writer.WriteString("prefix", entry.Kind == PluginKind.Native ? null : entry.Prefix);
                 writer.WriteString("runner", entry.Runner);
                 writer.WriteBoolean("dxvk", entry.Dxvk);

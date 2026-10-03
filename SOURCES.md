@@ -12,6 +12,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 
 | Entry | Source |
 | --- | --- |
+| novation-play | Novation's official Play announcement, `novationmusic.com/product_images/uploaded_images/novation-play-news-story-image-2-2400x1350.jpg`, cropped to the interface |
 | melodyne | Celemony's Melodyne 5 studio Quick Start in the official Help Center, `helpcenter.celemony.com/M5/doc/melodyneStudio5/en/M5tour_QuickStart_studio` — `Tour-Intro-Bild_studio_quickstart2` |
 | bazille-cm, podolski, protoverb, triple-cheese, tyrell-n6, zebra-cm, zebralette | u-he's product pages, `u-he.com/products/<product>/assets/images/` |
 | surge-xt | `surge-synthesizer.github.io/images/hero_dark.png` |
@@ -43,6 +44,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 
 | Vendor | Logo |
 | --- | --- |
+| novation | Novation's official white wordmark, `cdn11.bigcommerce.com/s-itgb7ssiy1/images/stencil/original/novation_logo_web_1746028470__81805.original.png` |
 | celemony | Celemony's official wordmark, `celemony.com/WebObjects/CMSApp.woa/Contents/WebServerResources/img/celemony_logo.png`, recoloured white for contrast |
 | u-he | the wordmark out of their own press kit, `press-cdn.u-he.com/company/u-he_company_epk.zip`, the flat 800×464 PNG, keyed off the near-black plate it sits on |
 | xfer-records | `xferrecords.com/assets/logo-…png`, 276×194, already white on transparent |

@@ -136,7 +136,8 @@ a controller that ignores an empty state. A DAW restoring a project restores the
 hands the controller its own state, which a project saved on Windows stores empty. yabridge passes
 that empty stream to the component instead, and Kontakt clears the instrument it has just loaded.
 Saves made through yabridge store the component's state for the controller too, which is why only
-projects made on Windows open empty.
+projects made on Windows open empty. A Phase Plant project saved on Windows reaches the same path
+in Bitwig, where the component rejects the empty stream; that case was not tested.
 
 **Patch.** Each interface forwards to its own function in the proxy, the message carries which one
 the host called, and the Wine host calls that interface when the object has it. An object with

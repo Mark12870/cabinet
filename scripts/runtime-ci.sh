@@ -75,6 +75,7 @@ as_owner() {
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
         CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-1}" \
         CABINET_RUNTIME_SUITE="${CABINET_RUNTIME_SUITE:-general}" \
+        CABINET_RUNTIME_FILTER_CLASS="${CABINET_RUNTIME_FILTER_CLASS:-}" \
         bash "$0" "$@"
 }
 
@@ -233,7 +234,11 @@ run_test() {
     case "${CABINET_RUNTIME_SUITE:-general}" in
         general) filter=(--filter-not-namespace Cabinet.Runtime.Tests.Scenarios) ;;
         scenarios) filter=(--filter-namespace Cabinet.Runtime.Tests.Scenarios)
-            parallel=(--parallel collections) ;;
+            parallel=(--parallel collections)
+            if [ -n "${CABINET_RUNTIME_FILTER_CLASS:-}" ]; then
+                filter+=(--filter-class "$CABINET_RUNTIME_FILTER_CLASS")
+                parallel=(--parallel none)
+            fi ;;
         *) die "no runtime suite named ${CABINET_RUNTIME_SUITE}" ;;
     esac
 

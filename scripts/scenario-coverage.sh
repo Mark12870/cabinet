@@ -4,10 +4,14 @@ set -euo pipefail
 root=$(realpath "$(dirname "$0")/..")
 cd "$root"
 
-set_aside=(sitala-2)
+declare -A set_aside=(
+    [sitala-2]="opens an activation dialog over its editor until a serial is entered"
+    [novation-play]="opens an activation dialog over its editor and stays silent until a code is entered; its installation tests still run"
+)
 covered=$(sed -n 's/.*const string Id = "\([^"]*\)";.*/\1/p' tests/Cabinet.Runtime.Tests/Scenarios/*Scenario.cs)
 shipped=0
 missing=()
+aside=()
 
 for entry in data/library/*/*.yml; do
     vendor=$(dirname "$entry")
@@ -16,7 +20,8 @@ for entry in data/library/*/*.yml; do
     fi
 
     id=$(basename "$entry" .yml)
-    if [[ " ${set_aside[*]} " == *" $id "* ]]; then
+    if [ -n "${set_aside[$id]:-}" ]; then
+        aside+=("$entry")
         continue
     fi
 
@@ -39,6 +44,14 @@ for entry in "${missing[@]}"; do
     fi
 done
 
+if [ -z "${GITHUB_ACTIONS:-}" ] && [ ${#aside[@]} -gt 0 ]; then
+    echo 'Not tested on purpose:'
+    for entry in "${aside[@]}"; do
+        printf '%s  %s: %s\n' "$(basename "$entry" .yml)" "$(sed -n 's/^Name: *//p' "$entry")" \
+            "${set_aside[$(basename "$entry" .yml)]}"
+    done
+fi
+
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     {
         echo '### Plugin scenario coverage'
@@ -49,6 +62,12 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
         echo
         for entry in "${missing[@]}"; do
             echo "- \`$(basename "$entry" .yml)\` ($(sed -n 's/^Name: *//p' "$entry"))"
+        done
+        echo
+        echo "**Not tested on purpose** -- these ${#aside[@]} entries cannot be tested end to end:"
+        echo
+        for entry in "${aside[@]}"; do
+            echo "- \`$(basename "$entry" .yml)\` ($(sed -n 's/^Name: *//p' "$entry")): ${set_aside[$(basename "$entry" .yml)]}"
         done
     } >> "$GITHUB_STEP_SUMMARY"
 fi

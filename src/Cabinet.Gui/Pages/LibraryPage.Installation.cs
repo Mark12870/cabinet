@@ -31,12 +31,13 @@ internal sealed partial class LibraryPage
                 $"Cabinet cannot download {entry.Name}. Log in, download it, then choose the "
                 + "file — Cabinet keeps it in its own directory and links it into ~/.vst3, "
                 + "~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW afterwards."
+                + Instructions(entry)
                 + Presets(entry)
                 + $"\n\n{entry.Consent}",
                 "Choose File…",
                 () => Ui.ChooseFile(
                     window,
-                    $"Choose the {entry.Name} download",
+                    entry.InstallInstructions ?? $"Choose the {entry.Name} download",
                     file => Start(entry, null, file)),
                 extra: AccountGroup(entry));
             return;
@@ -52,6 +53,7 @@ internal sealed partial class LibraryPage
                 : $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own "
                   + "directory and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in "
                   + "your DAW afterwards.")
+            + Instructions(entry)
             + Presets(entry)
             + $"\n\n{entry.Consent}",
             "Install",
@@ -79,6 +81,7 @@ internal sealed partial class LibraryPage
             $"Download the demo from {new Uri(entry.DemoUrl!).Host}, or choose a file you "
             + "already have. Cabinet keeps it in its own directory and links it into ~/.vst3, "
             + "~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW afterwards."
+            + Instructions(entry)
             + Presets(entry)
             + $"\n\n{entry.Consent}",
             "Install",
@@ -88,7 +91,7 @@ internal sealed partial class LibraryPage
                 {
                     Ui.ChooseFile(
                         window,
-                        $"Choose the {entry.Name} download",
+                        entry.InstallInstructions ?? $"Choose the {entry.Name} download",
                         file => Start(entry, null, file));
                     return;
                 }
@@ -97,6 +100,9 @@ internal sealed partial class LibraryPage
             },
             extra: fields);
     }
+
+    private static string Instructions(LibraryEntry entry) =>
+        entry.InstallInstructions is { } instructions ? $"\n\n{instructions}" : "";
 
     private static string Presets(LibraryEntry entry) => entry.Data is null
         ? ""
@@ -213,7 +219,7 @@ internal sealed partial class LibraryPage
                 {
                     Ui.ChooseFile(
                         window,
-                        $"Choose the {entry.Name} installer",
+                        entry.InstallInstructions ?? $"Choose the {entry.Name} installer",
                         installer => Start(entry, prefix, installer));
                     return;
                 }
@@ -225,7 +231,7 @@ internal sealed partial class LibraryPage
     }
 
     private static string Prospect(LibraryEntry entry, string? into, bool again) =>
-        $"{Placement(entry, into, again)}\n\n{entry.Consent}";
+        $"{Placement(entry, into, again)}{Instructions(entry)}\n\n{entry.Consent}";
 
     private static string Placement(LibraryEntry entry, string? into, bool again)
     {

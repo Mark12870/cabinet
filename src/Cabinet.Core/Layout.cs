@@ -78,7 +78,7 @@ public sealed class Layout
         HostAppFiles = hostAppFiles ?? DefaultHostAppFiles(home);
         LibraryDir = libraryDir ?? BundledLibraryDir;
         BundledYabridgeDir = yabridgeDir ?? DefaultYabridgeDir;
-        TempDir = tempDir ?? Path.GetTempPath();
+        TempDir = tempDir ?? Path.Combine(SandboxDataHome, "tmp");
     }
 
     public static Layout FromEnvironment()

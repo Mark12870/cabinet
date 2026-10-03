@@ -5,6 +5,23 @@ namespace Cabinet.Core.Tests;
 public partial class LibraryTests
 {
     [Fact]
+    public void InstallationInstructionsAreOptionalAndJoinWrappedLines()
+    {
+        var entry = LibraryEntry.Parse("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            InstallInstructions:
+              Choose the complete
+              Windows installer ZIP.
+            """);
+
+        Assert.Equal("Choose the complete Windows installer ZIP.", entry.InstallInstructions);
+        Assert.Null(LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\n")
+            .InstallInstructions);
+    }
+
+    [Fact]
     public void EveryFieldOfAnEntryIsRead()
     {
         var entry = LibraryEntry.Parse("surge-xt", SurgeXt);

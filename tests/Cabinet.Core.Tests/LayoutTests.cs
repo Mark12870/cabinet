@@ -7,6 +7,25 @@ public class LayoutTests
     private static readonly Layout Layout = new("/home/u", "/run/user/1000");
 
     [Fact]
+    public void InstallationStagingUsesCabinetsOwnDataDirectory()
+    {
+        Assert.Equal(
+            "/home/u/.var/app/io.github.mark12870.cabinet/data/tmp", Layout.TempDir);
+
+        var layout = new Layout("/home/u", "/run/user/1000", "/sandbox/data");
+
+        Assert.Equal("/sandbox/data/tmp", layout.TempDir);
+    }
+
+    [Fact]
+    public void AnExplicitStagingDirectoryOverridesTheDataDirectory()
+    {
+        var layout = new Layout("/home/u", "/run/user/1000", tempDir: "/isolated/tmp");
+
+        Assert.Equal("/isolated/tmp", layout.TempDir);
+    }
+
+    [Fact]
     public void EverythingCabinetOwnsLivesInItsOwnDataDirectory()
     {
         Assert.Equal(

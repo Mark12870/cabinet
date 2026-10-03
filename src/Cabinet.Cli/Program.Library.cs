@@ -202,7 +202,7 @@ internal static partial class Program
         {
             (PluginSource.Byo, PluginKind.Native) => $"cabinet library install {entry.Id} <file>",
             (PluginSource.Byo, _) =>
-                $"cabinet library install {entry.Id}{PrefixOption(prefix)} <installer.exe>",
+                $"cabinet library install {entry.Id}{PrefixOption(prefix)} <file>",
             _ => $"cabinet library install {entry.Id}{PrefixOption(prefix)}",
         };
 
@@ -210,7 +210,8 @@ internal static partial class Program
         prefix is null ? "" : $" --prefix {prefix}";
 
     private static string BringYourOwn(LibraryEntry entry, string? prefix = null) =>
-        entry.DemoUrl is not null
+        (entry.InstallInstructions is { } instructions ? instructions + "\n\n" : "")
+        + (entry.DemoUrl is not null
             ? $"{entry.Name} offers a demo — install it with `{Command(entry, prefix)}`, or "
               + (entry.Account is { } account
                   ? $"log in at {account}, download your copy, then "
@@ -219,7 +220,7 @@ internal static partial class Program
             : $"{entry.Name} cannot be downloaded — "
               + (entry.Account is { } accountPage
                   ? $"log in at {accountPage}, download it, then `{OwnCommand(entry, prefix)}`"
-                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`");
+                  : $"pass the installer you already have: `{OwnCommand(entry, prefix)}`"));
 
     private static Func<int> InstallFromLibrary(CommandLine line, Layout layout, IProcessRunner runner)
     {

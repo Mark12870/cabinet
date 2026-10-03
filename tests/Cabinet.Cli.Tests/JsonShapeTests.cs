@@ -7,6 +7,7 @@ public sealed class JsonShapeTests : IDisposable
     private static readonly string[] EntryKeys =
     [
         "id", "name", "kind", "category", "summary", "homepage", "source", "demo", "account",
+        "installInstructions",
         "prefix", "runner", "dxvk", "sync", "winetricks", "desktop", "env", "script", "manager",
         "launchService", "launchHelper", "launchArgs", "scheme", "data", "developer", "version",
         "licence", "licensing", "formats", "description", "installed", "installedIn",

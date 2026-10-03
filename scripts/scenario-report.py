@@ -44,7 +44,7 @@ def field(entry: Path, name: str) -> str:
 
 def entries() -> dict[str, Path]:
     named = {}
-    for scenario in sorted(SCENARIOS.glob("*Scenario.cs")):
+    for scenario in sorted(SCENARIOS.glob("*.cs")):
         found = ID_RE.search(scenario.read_text())
         if found:
             named[scenario.stem] = next(LIBRARY.glob(f"*/{found.group(1)}.yml"))

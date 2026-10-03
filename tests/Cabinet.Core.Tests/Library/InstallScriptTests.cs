@@ -9,6 +9,23 @@ public sealed class InstallScriptTests : IDisposable
     public void Dispose() => Directory.Delete(root, recursive: true);
 
     [Fact]
+    public void NovationPlayRequestsItsZipBeforeUnpackingAnExecutable()
+    {
+        var layout = new Layout(root, Path.Combine(root, "runtime"), libraryDir: Repo.Path("data/library"));
+        var entry = LibraryEntry.Parse("novation-play",
+            File.ReadAllText(Repo.Path("data/library/novation/novation-play.yml")), "novation");
+        var said = new List<string>();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            new InstallScript(layout, new ProcessRunner()).Run(
+                entry, Path.Combine(root, "Play Installer.exe"), Path.Combine(root, "work"),
+                root, new Dictionary<string, string>(), said.Add));
+
+        Assert.Contains(entry.InstallInstructions!, said);
+        Assert.False(Directory.Exists(Path.Combine(root, "work", "unpacked")));
+    }
+
+    [Fact]
     public void SpliceInstrumentDoesNotGiveWineDescendantsTheInstallPipe()
     {
         var fdTargets = Path.Combine(root, "fd-targets");

@@ -390,7 +390,8 @@ public sealed partial class Library
     }
 
     private static string Undownloadable(LibraryEntry entry) =>
-        $"{entry.Name} cannot be downloaded, so it needs the file you have"
+        (entry.InstallInstructions is { } instructions ? instructions + "\n\n" : "")
+        + $"{entry.Name} cannot be downloaded, so it needs the file you have"
         + (entry.Account is { } account ? $" from {account}" : "");
 
     public static string Unverifiable(string url) =>

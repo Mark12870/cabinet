@@ -49,7 +49,8 @@ public sealed record LibraryEntry(
     string? Licensing,
     IReadOnlyList<string> Formats,
     IReadOnlyList<string> Description,
-    string Vendor)
+    string Vendor,
+    string? InstallInstructions = null)
 {
     public bool Manager => Launch is not null;
 

@@ -79,6 +79,27 @@ public class WorkflowTests
     }
 
     [Fact]
+    public void AFocusedPluginRunKeepsItsClassFilterAndDisablesParallelScenarios()
+    {
+        var runtime = string.Join('\n', Job(Runtime, "runtime"))
+            .Split("\n      - ", StringSplitOptions.None);
+        var test = Assert.Single(runtime, step => step.Contains("runtime-ci.sh test", StringComparison.Ordinal));
+        var owner = Driver.Split("as_owner() {", StringSplitOptions.None)[1]
+            .Split("\nsession_bus()", StringSplitOptions.None)[0];
+        var scenarios = Driver.Split("scenarios) filter=", StringSplitOptions.None)[1]
+            .Split(";;", StringSplitOptions.None)[0];
+
+        Assert.Contains(Plugins, line => line.Trim() == "filter_class: ${{ inputs.filter_class || '' }}");
+        Assert.Contains("FILTER_CLASS: ${{ inputs.filter_class }}", test, StringComparison.Ordinal);
+        Assert.Contains("--env CABINET_RUNTIME_FILTER_CLASS=\"${FILTER_CLASS}\"", test, StringComparison.Ordinal);
+        Assert.Contains("CABINET_RUNTIME_FILTER_CLASS=\"${CABINET_RUNTIME_FILTER_CLASS:-}\"", owner, StringComparison.Ordinal);
+        Assert.Contains("parallel=(--parallel collections)", scenarios, StringComparison.Ordinal);
+        Assert.Contains("if [ -n \"${CABINET_RUNTIME_FILTER_CLASS:-}\" ]; then", scenarios, StringComparison.Ordinal);
+        Assert.Contains("filter+=(--filter-class \"$CABINET_RUNTIME_FILTER_CLASS\")", scenarios, StringComparison.Ordinal);
+        Assert.Contains("parallel=(--parallel none)", scenarios, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NoFixtureAVendorOwnsRidesInThePublishedImage()
     {
         var shipped = Catalogue.Entries().ToDictionary(entry => entry.Id);

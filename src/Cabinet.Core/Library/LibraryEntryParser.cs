@@ -178,7 +178,8 @@ internal static class LibraryEntryParser
             Sentence(Value(fields, "Licensing")),
             Split(Value(fields, "Formats")),
             Paragraphs(Value(fields, "Description")),
-            vendor);
+            vendor,
+            Sentence(Value(fields, "InstallInstructions")));
     }
 
     private static string ParsePrefix(string id, string name) =>

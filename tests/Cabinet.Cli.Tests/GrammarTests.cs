@@ -243,7 +243,7 @@ public sealed partial class GrammarTests : IDisposable
         Assert.Equal(2, outcome.Exit);
         Assert.Equal(
             "cabinet: Thing cannot be downloaded — pass the installer you already have: "
-            + "`cabinet library install thing --prefix gadget <installer.exe>`\n",
+            + "`cabinet library install thing --prefix gadget <file>`\n",
             outcome.Error);
         Assert.Empty(cli.Runner.Calls);
     }
@@ -359,7 +359,7 @@ public sealed partial class GrammarTests : IDisposable
         Assert.Equal(2, outcome.Exit);
         Assert.Equal(
             "cabinet: Gadget cannot be downloaded — pass the installer you already have: "
-            + "`cabinet library install gadget <installer.exe>`\n",
+            + "`cabinet library install gadget <file>`\n",
             outcome.Error);
         Assert.Empty(cli.Runner.Calls);
     }
