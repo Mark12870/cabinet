@@ -11,9 +11,9 @@ public class EnrolmentTests
     [InlineData("--filesystem=xdg-run/yabridge:create")]
     [InlineData("--talk-name=io.github.mark12870.cabinet.Bridge")]
     [InlineData("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge")]
-    [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
-                + "io.github.mark12870.cabinet/current/active/files:ro")]
-    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
+    [InlineData("--filesystem=~/.local/share/flatpak/app/"
+                + "io.github.mark12870.cabinet/current/active/files/lib/yabridge:ro")]
+    [InlineData("--filesystem=~/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
     public void TheOverrideCarriesEverythingTheBoundaryNeeds(string expected)
     {
         Assert.Contains(expected, Enrolment.OverrideArguments("fm.reaper.Reaper", Layout));
@@ -30,8 +30,9 @@ public class EnrolmentTests
     [InlineData("--env=WINELOADER=")]
     [InlineData("--env=YABRIDGE_DEBUG_FILE=")]
     [InlineData("--env=YABRIDGE_NO_WATCHDOG=")]
-    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/native")]
-    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/bridge")]
+    [InlineData("--filesystem=~/.var/app/io.github.mark12870.cabinet/data/native")]
+    [InlineData("--filesystem=~/.var/app/io.github.mark12870.cabinet/data/bridge")]
+    [InlineData("--filesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files:")]
     public void TheOverrideLeavesOutWhatTheDawNeverNeeds(string unneeded)
     {
         Assert.DoesNotContain(
@@ -62,13 +63,130 @@ public class EnrolmentTests
     }
 
     [Fact]
-    public void PathsAreSpelledOutBecauseFlatpakDoesNoExpansion()
+    public void PathsUnderTheHomeAreLeftForFlatpakToExpandAndTheRestAreSpelledOut()
     {
         var command = Enrolment.OverrideCommand("fm.reaper.Reaper", Layout);
 
         Assert.DoesNotContain("$XDG_RUNTIME_DIR", command);
-        Assert.DoesNotContain("~", command);
+        Assert.DoesNotContain("/home/u/", command);
+        Assert.Contains("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge", command);
         Assert.StartsWith("flatpak override --user fm.reaper.Reaper", command);
+    }
+
+    [Fact]
+    public void AFreshEnrolmentTakesNothingAway()
+    {
+        using var home = new TempHome();
+
+        Assert.Empty(Enrolment.Retirements("fm.reaper.Reaper", home.Layout));
+    }
+
+    [Fact]
+    public void EnrollingAgainTakesBackWhatAnOlderReleaseGranted()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+        Directory.CreateDirectory(layout.FlatpakOverridesDir);
+        File.WriteAllLines(
+            layout.FlatpakOverride("fm.reaper.Reaper"),
+            [
+                "[Context]",
+                $"filesystems={layout.HostAppFiles}:ro;{layout.PrefixesDir}:ro;"
+                    + $"{layout.NativeDir}:ro;{layout.BridgeHome}:ro;xdg-run/yabridge:create;~/Music:ro;",
+                "",
+                "[Session Bus Policy]",
+                "org.freedesktop.Flatpak=talk",
+                "",
+                "[Environment]",
+                "WINELOADER=/somewhere/cabinet-wine",
+                "YABRIDGE_TEMP_DIR=/run/user/1000/yabridge",
+                "YABRIDGE_NO_WATCHDOG=1",
+            ]);
+
+        Assert.Equal(
+            [
+                "--no-talk-name=org.freedesktop.Flatpak",
+                "--nofilesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files",
+                "--nofilesystem=~/data/native",
+                "--nofilesystem=~/data/bridge",
+                "--unset-env=WINELOADER",
+                "--unset-env=YABRIDGE_NO_WATCHDOG",
+            ],
+            Enrolment.Retirements("fm.reaper.Reaper", layout));
+    }
+
+    [Fact]
+    public void TheCommandTakesBackBeforeItGrantsSoNoRetirementCancelsAGrant()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+        Directory.CreateDirectory(layout.FlatpakOverridesDir);
+        File.WriteAllLines(
+            layout.FlatpakOverride("fm.reaper.Reaper"),
+            ["[Context]", $"filesystems={layout.HostAppFiles}/:ro;{layout.PrefixesDir}/:ro;"]);
+
+        var command = Enrolment.OverrideCommand("fm.reaper.Reaper", layout);
+
+        Assert.Equal(
+            ["--nofilesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files"],
+            Enrolment.Retirements("fm.reaper.Reaper", layout));
+        Assert.True(command.IndexOf("--nofilesystem=", StringComparison.Ordinal)
+                    < command.IndexOf("--device=shm", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EnrollingASecondTimeTakesNothingMoreAway()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+        Directory.CreateDirectory(layout.FlatpakOverridesDir);
+        File.WriteAllLines(
+            layout.FlatpakOverride("fm.reaper.Reaper"),
+            [
+                "[Context]",
+                $"filesystems=!{layout.HostAppFiles};!{layout.NativeDir};{layout.HostYabridgeDir}:ro;~/Own:ro;",
+                "",
+                "[Session Bus Policy]",
+                "org.freedesktop.Flatpak=none",
+            ]);
+
+        Assert.Empty(Enrolment.Retirements("fm.reaper.Reaper", layout));
+    }
+
+    [Fact]
+    public void AReadOnlyGrantDoesNotCoverOneThatMustCreate()
+    {
+        using var home = new TempHome();
+
+        Assert.False(Enrolment.Covers(home.Layout, "xdg-run/yabridge:ro;", "xdg-run/yabridge:create"));
+        Assert.True(Enrolment.Covers(home.Layout, "xdg-run/yabridge:create;", "xdg-run/yabridge:create"));
+        Assert.True(Enrolment.Covers(home.Layout, $"{home.Layout.PrefixesDir};", $"{home.Layout.PrefixesDir}:ro"));
+    }
+
+    [Fact]
+    public void AStartLeavesARealBridgeOutputBesideARealScanPathAlone()
+    {
+        using var home = new TempHome();
+        var windows = home.Layout.WindowsScanDir(".vst3");
+        var output = home.Layout.BridgeOutputDir(".vst3");
+        Directory.CreateDirectory(windows);
+        Directory.CreateDirectory(Path.Combine(output, "Plugin.vst3"));
+
+        Enrolment.MoveBridgeOutputIntoScanDirectories(home.Layout);
+
+        Assert.True(Directory.Exists(Path.Combine(output, "Plugin.vst3")));
+        Assert.Null(new DirectoryInfo(output).LinkTarget);
+    }
+
+    [Fact]
+    public void AnOlderGrantOfTheWholeInstallationStillCoversTheBridge()
+    {
+        using var home = new TempHome();
+        var layout = home.Layout;
+
+        Assert.True(Enrolment.Covers(layout, $"{layout.HostAppFiles}:ro;", $"{layout.HostYabridgeDir}:ro"));
+        Assert.False(Enrolment.Covers(layout, $"!{layout.HostAppFiles};", $"{layout.HostYabridgeDir}:ro"));
+        Assert.False(Enrolment.Covers(layout, $"{layout.HostAppFiles}-other:ro;", $"{layout.HostYabridgeDir}:ro"));
     }
 
     [Fact]
@@ -125,6 +243,24 @@ public class EnrolmentTests
 
         Assert.True(Directory.Exists(Path.Combine(home.Layout.WindowsScanDir(".vst3"), "Plugin.vst3")));
         Assert.Equal(home.Layout.WindowsScanDir(".vst3"), new DirectoryInfo(output).LinkTarget);
+    }
+
+    [Fact]
+    public void AStartRepointsTheBridgeOutputSomethingElseRedirected()
+    {
+        using var home = new TempHome();
+        var windows = home.Layout.WindowsScanDir(".vst3");
+        var output = home.Layout.BridgeOutputDir(".vst3");
+        var elsewhere = Directory.CreateDirectory(Path.Combine(home.Root, "elsewhere")).FullName;
+        Directory.CreateDirectory(Path.Combine(windows, "Plugin.vst3"));
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        File.CreateSymbolicLink(output, elsewhere);
+
+        Enrolment.MoveBridgeOutputIntoScanDirectories(home.Layout);
+
+        Assert.Equal(windows, new DirectoryInfo(output).LinkTarget);
+        Assert.True(Directory.Exists(Path.Combine(windows, "Plugin.vst3")));
+        Assert.True(Directory.Exists(elsewhere));
     }
 
     [Fact]
@@ -486,7 +622,7 @@ public class EnrolmentTests
     {
         var boundary = Enrolment.TrustBoundary("fm.reaper.Reaper");
 
-        Assert.Contains("runs in Cabinet's sandbox, not on your host", boundary);
+        Assert.Contains(Enrolment.Grants, grant => grant.Contains("not on your host", StringComparison.Ordinal));
         Assert.All(
             Layout.BridgedScanDirectories.Append(".lv2"),
             directory => Assert.Contains("~/" + directory, boundary));

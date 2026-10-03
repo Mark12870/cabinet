@@ -19,25 +19,13 @@ public sealed partial class Doctor
             .Select(Path.GetFileName)
             .OfType<string>()
             .Where(dawId => dawId != Layout.AppId && Enrolment.IsAppId(dawId))
-            .Where(dawId => ReadOverride(dawId) is { } ini && Enrolled(ini));
+            .Where(dawId => Enrolment.Override(dawId, layout) is { } ini && Enrolled(ini));
     }
 
     private static bool Enrolled(IniFile ini) =>
         ini.Get("Session Bus Policy", Layout.BridgeBusName) == "talk"
         || ini.Get("Environment", "WINELOADER") is { } loader
         && loader.Contains(Layout.AppId, StringComparison.Ordinal);
-
-    private IniFile? ReadOverride(string dawId)
-    {
-        try
-        {
-            return IniFile.Parse(File.ReadAllLines(layout.FlatpakOverride(dawId)));
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
 
     private IEnumerable<Check> NativeDaw()
     {
@@ -91,7 +79,7 @@ public sealed partial class Doctor
 
     private Check EnrolledDaw(string dawId)
     {
-        if (ReadOverride(dawId) is not { } ini)
+        if (Enrolment.Override(dawId, layout) is not { } ini)
         {
             return new Check($"DAW {dawId}", Status.Fail, $"cannot read {layout.FlatpakOverride(dawId)}");
         }
@@ -104,7 +92,7 @@ public sealed partial class Doctor
             if (argument.StartsWith("--device=", StringComparison.Ordinal))
             {
                 var device = argument["--device=".Length..];
-                if (!Values(ini.Get("Context", "devices")).Contains(device, StringComparer.Ordinal))
+                if (!Enrolment.Entries(ini.Get("Context", "devices")).Contains(device, StringComparer.Ordinal))
                 {
                     missing.Add(argument);
                 }
@@ -112,7 +100,7 @@ public sealed partial class Doctor
             else if (argument.StartsWith("--filesystem=", StringComparison.Ordinal))
             {
                 var filesystem = argument["--filesystem=".Length..];
-                if (!HasFilesystem(ini.Get("Context", "filesystems"), filesystem))
+                if (!Enrolment.Covers(layout, ini.Get("Context", "filesystems"), filesystem))
                 {
                     missing.Add(argument);
                 }
@@ -141,22 +129,10 @@ public sealed partial class Doctor
             return new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));
         }
 
-        var bridged = ini.Get("Session Bus Policy", Layout.BridgeBusName) == "talk";
-
         return hostCommands
-            ? new Check($"DAW {dawId}", Status.Warn, Enrolment.HostCommandGrant(dawId, bridged))
-            : new Check($"DAW {dawId}", Status.Ok, "enrolled — " + Enrolment.TrustBoundary(dawId));
-    }
-
-    private static IEnumerable<string> Values(string? value) =>
-        value?.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) ?? [];
-
-    private static bool HasFilesystem(string? configured, string expected)
-    {
-        var withoutReadOnly = expected.EndsWith(":ro", StringComparison.Ordinal)
-            ? expected[..^3]
-            : expected;
-
-        return Values(configured).Any(value => value == expected || value == withoutReadOnly);
+            ? new Check($"DAW {dawId}", Status.Warn, Enrolment.HostCommandGrant(dawId))
+            : Enrolment.Retirements(dawId, layout).Count > 0
+                ? new Check($"DAW {dawId}", Status.Warn, Enrolment.OlderGrants(dawId))
+                : new Check($"DAW {dawId}", Status.Ok, "enrolled — " + Enrolment.TrustBoundary(dawId));
     }
 }

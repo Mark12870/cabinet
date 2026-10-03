@@ -265,7 +265,7 @@ public sealed class DoctorTests : IDisposable
         var check = Checks().Single(found => found.Name == $"DAW {daw}");
 
         Assert.Equal(Status.Fail, check.Status);
-        Assert.Contains($"--filesystem={Layout.HostAppFiles}:ro", check.Detail);
+        Assert.Contains("files/lib/yabridge:ro", check.Detail);
     }
 
     [Fact]
@@ -287,9 +287,8 @@ public sealed class DoctorTests : IDisposable
         var check = Checks().Single(found => found.Name == "DAW fm.reaper.Reaper");
 
         Assert.Equal(Status.Warn, check.Status);
-        Assert.Contains("enrol it again", check.Detail);
-        Assert.Contains(
-            "flatpak override --user --no-talk-name=org.freedesktop.Flatpak fm.reaper.Reaper", check.Detail);
+        Assert.Contains("run any command on your host", check.Detail);
+        Assert.Contains("cabinet enrol fm.reaper.Reaper", check.Detail);
         Assert.Empty(new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
     }
 
@@ -304,7 +303,20 @@ public sealed class DoctorTests : IDisposable
         var check = Checks().Single(found => found.Name == "DAW fm.reaper.Reaper");
 
         Assert.Equal(Status.Warn, check.Status);
-        Assert.Contains("Cabinet no longer needs it", check.Detail);
+        Assert.Contains("cabinet enrol fm.reaper.Reaper", check.Detail);
+        Assert.Empty(new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
+    }
+
+    [Fact]
+    public void DoctorWarnsThatAnEnrolmentStillHoldsWhatAnOlderReleaseAskedFor()
+    {
+        GiveEnrolment(
+            "fm.reaper.Reaper", ["io.github.mark12870.cabinet.Bridge=talk"], [$"WINELOADER={Layout.ShimPath}"]);
+
+        var check = Checks().Single(found => found.Name == "DAW fm.reaper.Reaper");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.Contains("cabinet enrol fm.reaper.Reaper", check.Detail);
         Assert.Empty(new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
     }
 
@@ -387,8 +399,7 @@ public sealed class DoctorTests : IDisposable
             [
                 "[Context]",
                 "devices=shm;",
-                $"filesystems=xdg-run/yabridge:create;{Layout.HostAppFiles};{Layout.PrefixesDir};"
-                    + $"{Layout.NativeDir};{Layout.BridgeHome};",
+                $"filesystems=xdg-run/yabridge:create;{Layout.HostYabridgeDir}:ro;{Layout.PrefixesDir}:ro;",
                 "",
                 "[Session Bus Policy]",
                 .. busPolicy,

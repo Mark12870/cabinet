@@ -6,6 +6,8 @@ internal sealed class EnrolmentDialog(Gtk.Window window, Layout layout, string d
 {
     private readonly Adw.Dialog dialog = Adw.Dialog.New();
 
+    private Gtk.Button? firstCopy;
+
     public void Present()
     {
         dialog.SetTitle($"Enrol {dawId}");
@@ -15,11 +17,17 @@ internal sealed class EnrolmentDialog(Gtk.Window window, Layout layout, string d
         var steps = Gtk.Box.New(Gtk.Orientation.Vertical, 24);
         steps.Append(Step(
             "Grant the permissions",
+            $"Enrolling {dawId} lets it:\n"
+            + string.Join('\n', Enrolment.Grants.Select(grant => "•  " + grant))
+            + (Enrolment.Retirements(dawId, layout).Count > 0
+                ? "\n\n" + Enrolment.TakesBack(dawId)
+                : ""),
             "Cabinet does not run this for you, because the decision is yours. "
             + Enrolment.TrustBoundary(dawId),
             Enrolment.OverrideCommand(dawId, layout)));
         steps.Append(Step(
             "Then check the shim loads",
+            null,
             $"{dawId} may ship a runtime older than the one the shim was built against.",
             Enrolment.SelfTestCommand(dawId, layout)));
 
@@ -31,13 +39,19 @@ internal sealed class EnrolmentDialog(Gtk.Window window, Layout layout, string d
         view.SetContent(body);
         dialog.SetChild(view);
         dialog.Present(window);
+        dialog.SetFocus(firstCopy);
     }
 
-    private Gtk.Box Step(string title, string why, string command)
+    private Gtk.Box Step(string title, string? summary, string why, string command)
     {
         var heading = Gtk.Label.New(title);
         heading.SetXalign(0);
         heading.AddCssClass("heading");
+
+        var listed = Gtk.Label.New(summary);
+        listed.SetXalign(0);
+        listed.SetWrap(true);
+        listed.SetVisible(summary is not null);
 
         var reason = Gtk.Label.New(why);
         reason.SetXalign(0);
@@ -52,9 +66,11 @@ internal sealed class EnrolmentDialog(Gtk.Window window, Layout layout, string d
             window.GetClipboard().SetText(command);
             copy.SetLabel("Copied");
         });
+        firstCopy ??= copy;
 
         var step = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
         step.Append(heading);
+        step.Append(listed);
         step.Append(reason);
         step.Append(Shown(command));
         step.Append(copy);

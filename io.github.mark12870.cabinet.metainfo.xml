@@ -46,6 +46,19 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.20.0" date="2026-10-03">
+      <description>
+        <p>Enrolling a DAW asks for less and explains what it grants</p>
+        <ul>
+          <li>Enrolling a DAW lists in plain words what it lets the DAW do before showing the command</li>
+          <li>A DAW now reads only Cabinet's plugin bridge, not the rest of Cabinet's files</li>
+          <li>Enrolling a DAW again also takes back what older Cabinet releases granted it, and doctor says when a DAW still has such permissions</li>
+          <li>The enrol command uses ~/ paths, so it is shorter and no longer contains your user name</li>
+          <li>Cabinet puts the links to your bridged plugins back on every start if something moved them</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.19.0" date="2026-10-03">
       <description>
         <p>Enrolled DAWs no longer need permission to run commands on your computer</p>

@@ -83,7 +83,23 @@ public sealed partial class GrammarTests : IDisposable
         Assert.Equal(0, outcome.Exit);
         Assert.Contains(Enrolment.OverrideCommand("fm.reaper.Reaper", cli.Layout), outcome.Out);
         Assert.Contains(Enrolment.TrustBoundary("fm.reaper.Reaper"), outcome.Out);
+        Assert.All(Enrolment.Grants, grant => Assert.Contains(grant, outcome.Out));
+        Assert.DoesNotContain(Enrolment.TakesBack("fm.reaper.Reaper"), outcome.Out);
         Assert.False(Directory.Exists(Path.Combine(cli.Layout.Home, ".var", "app", "fm.reaper.Reaper")));
+    }
+
+    [Fact]
+    public void EnrolSaysItTakesBackWhatAnOlderReleaseGranted()
+    {
+        Directory.CreateDirectory(cli.Layout.FlatpakOverridesDir);
+        File.WriteAllLines(
+            cli.Layout.FlatpakOverride("fm.reaper.Reaper"),
+            ["[Session Bus Policy]", "org.freedesktop.Flatpak=talk"]);
+
+        var outcome = cli.Run("enrol", "fm.reaper.Reaper");
+
+        Assert.Contains(Enrolment.TakesBack("fm.reaper.Reaper"), outcome.Out);
+        Assert.Contains("--no-talk-name=org.freedesktop.Flatpak", outcome.Out);
     }
 
     [Fact]
