@@ -1,4 +1,7 @@
-"$WINE" msiexec /i "$CABINET_ARCHIVE" /qn
+package="$CABINET_PREFIX/drive_c/windows/temp/Sitala.msi"
+trap 'rm -f "$package"' EXIT
+cp "$CABINET_ARCHIVE" "$package"
+"$WINE" msiexec /i 'C:\windows\temp\Sitala.msi' /qn
 
 program="$CABINET_PREFIX/drive_c/Program Files"
 vst2="$program/Steinberg/VstPlugins/Sitala.dll"

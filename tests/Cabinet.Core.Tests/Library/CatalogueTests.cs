@@ -83,6 +83,22 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void MsiexecIsGivenAShortWindowsPathNeverTheArchivesUnixPath()
+    {
+        var layout = Catalogue.Layout();
+
+        var unixPaths = Shipped
+            .Where(entry => entry.Script is not null)
+            .SelectMany(
+                entry => File.ReadAllLines(layout.LibraryScript(entry.Vendor, entry.Script!))
+                    .Where(line => line.Contains("msiexec", StringComparison.Ordinal)
+                                   && !line.Contains(@"'C:\", StringComparison.Ordinal)),
+                (entry, line) => $"{entry.Vendor}/{entry.Script}: {line.Trim()}");
+
+        Assert.Empty(unixPaths);
+    }
+
+    [Fact]
     public void WebView2FlagsGoWhereAnElevatedWineHostReadsThem()
     {
         var layout = Catalogue.Layout();
