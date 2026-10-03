@@ -193,29 +193,33 @@ public sealed class YabridgectlTests : IDisposable
     }
 
     [Fact]
-    public void ASuccessfulSyncLinksTheNativeScanPaths()
+    public void ASyncWritesItsOutputStraightIntoTheNativeScanPaths()
     {
         var layout = TestLayout();
 
         var result = new Yabridgectl(layout, new RecordingRunner()).SyncAndPublish([]);
 
         Assert.True(result.Ok);
+        Assert.Null(new DirectoryInfo(layout.WindowsScanDir(".vst3")).LinkTarget);
         Assert.Equal(
-            layout.BridgeOutputDir(".vst3"),
-            new DirectoryInfo(layout.WindowsScanDir(".vst3")).LinkTarget);
+            layout.WindowsScanDir(".vst3"),
+            new DirectoryInfo(layout.BridgeOutputDir(".vst3")).LinkTarget);
     }
 
     [Fact]
     public void ASuccessfulSyncDoesNotFailOnAnOccupiedNativeScanPath()
     {
         var layout = TestLayout();
-        Directory.CreateDirectory(layout.WindowsScanDir(".vst3"));
+        Directory.CreateDirectory(layout.CabinetScanDir(".vst3"));
+        File.WriteAllText(layout.WindowsScanDir(".vst3"), "someone else's");
 
         var result = new Yabridgectl(layout, new RecordingRunner()).SyncAndPublish([]);
 
         Assert.True(result.Ok);
-        Assert.True(Directory.Exists(layout.WindowsScanDir(".vst3")));
+        Assert.Equal("someone else's", File.ReadAllText(layout.WindowsScanDir(".vst3")));
         Assert.Contains(layout.WindowsScanDir(".vst3"), result.Stderr);
+        Assert.Null(new DirectoryInfo(layout.BridgeOutputDir(".vst3")).LinkTarget);
+        Assert.True(Directory.Exists(layout.BridgeOutputDir(".vst3")));
     }
 
     [Fact]

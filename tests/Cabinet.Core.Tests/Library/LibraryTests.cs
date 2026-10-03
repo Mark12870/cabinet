@@ -200,6 +200,27 @@ public partial class LibraryTests : IDisposable
         return archive;
     }
 
+    private string NestedArchive()
+    {
+        var folder = Path.Combine(root, "nested", "Sampler-Linux");
+        var module = Path.Combine(folder, "Sampler.vst3", "Contents", "x86_64-linux");
+        Directory.CreateDirectory(module);
+        File.WriteAllText(Path.Combine(module, "Sampler.so"), "vst3");
+        File.WriteAllText(Path.Combine(folder, "Sampler.so"), "vst2");
+        File.WriteAllText(Path.Combine(folder, "Sampler"), "standalone");
+        File.WriteAllText(Path.Combine(folder, "readme.txt"), "readme");
+
+        return Archive(Path.Combine(root, "nested"));
+    }
+
+    private static string Archive(string payload)
+    {
+        var archive = payload + ".tar.gz";
+        Assert.True(new ProcessRunner().Run("tar", ["-czf", archive, "-C", payload, "."]).Ok);
+
+        return archive;
+    }
+
     private void Script(string name, string body) => Write(Vendor, name, body + "\n");
 
     private Layout Layout()

@@ -100,13 +100,13 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
 
     public ProcessResult SyncAndPublish(IReadOnlyList<Prefix> prefixes)
     {
+        var conflicts = Enrolment.PublishNative(layout);
         var result = SyncPrefixes(prefixes);
         if (!result.Ok)
         {
             return result;
         }
 
-        var conflicts = Enrolment.PublishNative(layout);
         return conflicts.Count == 0
             ? result
             : result with

@@ -480,6 +480,22 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void RemovingANativePluginTakesItsPluginsOutOfTheScanPaths()
+    {
+        var archive = NestedArchive();
+        Catalogue(("sampler", "Name: Sampler\nKind: native\nSource: byo\n"));
+        var layout = Layout();
+        var library = new Library(layout, new ProcessRunner());
+        library.Install(library.Find("sampler"), installer: archive);
+
+        library.Remove(library.RemovalOf(library.Find("sampler")));
+
+        Assert.Empty(Directory.EnumerateFileSystemEntries(layout.NativeScanDir(".vst3")));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(layout.NativeScanDir(".so")));
+        Assert.False(Directory.Exists(layout.NativePath("sampler")));
+    }
+
+    [Fact]
     public void ANativeInstallMovedFromTheLegacyPlaceIsRemovedWithItsLinks()
     {
         var layout = Layout();

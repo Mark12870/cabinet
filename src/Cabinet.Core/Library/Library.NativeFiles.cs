@@ -17,6 +17,12 @@ public sealed partial class Library
                                    $"Cabinet is installing {entry.Name} right now — wait for "
                                    + "that to finish");
 
+        foreach (var placed in Published(root).ToList())
+        {
+            Relocation.Delete(placed);
+            onOutput?.Invoke($"  removed {placed}");
+        }
+
         foreach (var link in LinksInto(root).ToList())
         {
             File.Delete(link);
@@ -67,38 +73,54 @@ public sealed partial class Library
         }
     }
 
-    private void Link(
+    private void Publish(
         LibraryEntry entry,
         string root,
-        List<(string Link, string? Replaced)> made,
+        List<(string Placed, string? Replaced)> made,
         Action<string>? onOutput)
     {
-        foreach (var bundle in Bundles(root).OrderBy(path => path, StringComparer.Ordinal))
-        {
-            var directory = layout.NativeScanDir(Path.GetExtension(bundle));
-            Directory.CreateDirectory(directory);
+        var moved = new Dictionary<string, string>(StringComparer.Ordinal);
 
-            var link = Path.Combine(directory, Path.GetFileName(bundle));
-            var replaced = new FileInfo(link).LinkTarget;
+        foreach (var bundle in Bundles(root)
+                     .OrderBy(bundle => new FileInfo(bundle).LinkTarget is not null)
+                     .ThenBy(bundle => bundle, StringComparer.Ordinal)
+                     .ToList())
+        {
+            var placed = layout.NativePlacement(bundle);
+            Directory.CreateDirectory(Path.GetDirectoryName(placed)!);
+            var replaced = new FileInfo(placed).LinkTarget;
 
             if (replaced is null
-                    ? Path.Exists(link)
-                    : !Inside(link, replaced, root)
-                      && !(Inside(link, replaced, layout.NativeDir) && !Path.Exists(link)))
+                    ? Path.Exists(placed)
+                    : !Inside(placed, replaced, root)
+                      && !(Inside(placed, replaced, layout.NativeDir) && !Path.Exists(placed)))
             {
                 throw new InvalidOperationException(
-                    $"{link} is already there and is not one of Cabinet's links — move it aside");
+                    replaced is not null && Inside(placed, replaced, layout.NativeDir)
+                        ? $"{placed} is another Cabinet plugin's — remove that one first"
+                        : $"{placed} is already there and is not one of Cabinet's plugins — move it aside");
             }
-
-            made.Add((link, replaced));
 
             if (replaced is not null)
             {
-                File.Delete(link);
+                File.Delete(placed);
             }
 
-            File.CreateSymbolicLink(link, bundle);
-            onOutput?.Invoke($"  {Path.GetFileName(bundle)} → {directory}");
+            if (Repointed(bundle, moved) is { } target)
+            {
+                File.CreateSymbolicLink(placed, target);
+                made.Add((placed, replaced));
+                File.Delete(bundle);
+            }
+            else
+            {
+                Relocation.Move(bundle, placed);
+                made.Add((placed, replaced));
+                moved[bundle] = placed;
+            }
+
+            File.CreateSymbolicLink(bundle, placed);
+            onOutput?.Invoke($"  {Path.GetFileName(bundle)} → {Path.GetDirectoryName(placed)}");
         }
 
         if (made.Count == 0)
@@ -109,18 +131,41 @@ public sealed partial class Library
         }
     }
 
-    private static void Unlink(IEnumerable<(string Link, string? Replaced)> made)
+    internal static string? Repointed(string bundle, IReadOnlyDictionary<string, string> moved)
     {
-        foreach (var (link, replaced) in made.Reverse())
+        if (new FileInfo(bundle).LinkTarget is not { } link)
         {
-            File.Delete(link);
+            return null;
+        }
+
+        var target = Path.GetFullPath(link, Path.GetDirectoryName(bundle)!);
+
+        return moved
+            .Where(pair => target == pair.Key
+                           || target.StartsWith(pair.Key + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            .Select(pair => pair.Value + target[pair.Key.Length..])
+            .FirstOrDefault();
+    }
+
+    private static void Unpublish(IEnumerable<(string Placed, string? Replaced)> made)
+    {
+        foreach (var (placed, replaced) in made.Reverse())
+        {
+            Relocation.Delete(placed);
 
             if (replaced is not null)
             {
-                File.CreateSymbolicLink(link, replaced);
+                File.CreateSymbolicLink(placed, replaced);
             }
         }
     }
+
+    private IEnumerable<string> Published(string root) =>
+        Bundles(root)
+            .Where(bundle => new FileInfo(bundle).LinkTarget is { } target
+                             && Path.GetFullPath(target, Path.GetDirectoryName(bundle)!)
+                             == layout.NativePlacement(bundle))
+            .Select(layout.NativePlacement);
 
     private static bool Inside(string link, string target, string directory) =>
         Path.GetFullPath(target, Path.GetDirectoryName(link)!)
@@ -150,9 +195,10 @@ public sealed partial class Library
     private static readonly IReadOnlyList<string> BundleDirectories =
         [".vst3", ".clap", ".vst", ".lv2", ".lxvst"];
 
-    private static IEnumerable<string> Bundles(string root)
+    internal static IEnumerable<string> Bundles(string root)
     {
-        foreach (var entry in Directory.EnumerateFileSystemEntries(root))
+        foreach (var entry in Directory.EnumerateFileSystemEntries(root)
+                     .Where(entry => !Staging.Owns(Path.GetFileName(entry))))
         {
             if (IsPlugin(entry))
             {

@@ -249,7 +249,7 @@ public sealed partial class Library
                              ?? throw new InvalidOperationException(
                                  $"Cabinet is already installing {entry.Name} — wait for that to "
                                  + "finish");
-        var links = new List<(string Link, string? Replaced)>();
+        var placed = new List<(string Placed, string? Replaced)>();
         var madeData = false;
 
         try
@@ -283,11 +283,11 @@ public sealed partial class Library
 
             Lay(entry, archive, root, data, staging.Path, onOutput);
             Relink(entry, root, onOutput);
-            Link(entry, root, links, onOutput);
+            Publish(entry, root, placed, onOutput);
         }
         catch
         {
-            Unlink(links);
+            Unpublish(placed);
             Discard(root);
 
             if (madeData)
@@ -304,6 +304,14 @@ public sealed partial class Library
 
     private void Clear(string root, string? data)
     {
+        if (Directory.Exists(root))
+        {
+            foreach (var published in Published(root).ToList())
+            {
+                Relocation.Delete(published);
+            }
+        }
+
         foreach (var link in LinksInto(root).ToList())
         {
             File.Delete(link);

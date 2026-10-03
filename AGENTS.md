@@ -60,9 +60,12 @@ the name or the structure instead. Anything that genuinely will not fit there is
   and clears `Staging` directories whose owner's lock is free.
 - Only Wine runs inside the Cabinet sandbox for the yabridge bridge. The DAW reads yabridge's host-side halves from the
   installed Flatpak's `current/active/files`; `enrol` writes nothing and prints the required `flatpak override` for the
-  user to apply, because it grants `org.freedesktop.Flatpak` and lets the DAW run commands on the host. The chainloader
-  patch finds Cabinet's yabridge by its installed path, so a DAW needs no `data/yabridge` link and the manifest grants
-  nothing under `~/.var/app`.
+  user to apply, because the DAW then loads what Cabinet's Windows code can write. A sandboxed DAW starts a session by
+  activating `io.github.mark12870.cabinet.Bridge` (`shim/src/dispatch.rs`), which starts the broker in Cabinet's own
+  sandbox, so the DAW needs no host access. Older enrolments grant `org.freedesktop.Flatpak` and cannot reach the
+  bridge; the shim then falls back to `flatpak-spawn --host flatpak run`, and so does a Cabinet a test control
+  redirects (`REDIRECTS`), which must never reach the installed bridge. The chainloader patch finds Cabinet's yabridge
+  by its installed path, so a DAW needs no `data/yabridge` link and the manifest grants nothing under `~/.var/app`.
 - The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which hands the plugin to a Wine
   session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host. The
   manifest rewrites that wrapper's fallback from bare `wine` to the shim beside it, so every DAW reaches the shim,
@@ -78,10 +81,10 @@ the name or the structure instead. Anything that genuinely will not fit there is
   namespace boundary and wedge the DAW; that is what froze REAPER on a project holding five Klevgrand plugins.
   `shim/src/session.rs` keys a session on the canonical `WINEPREFIX`, starts it once behind an `flock` in
   `YABRIDGE_TEMP_DIR`, and every later plugin sends its argv to that session over the session socket. The session
-  outlives the shim that started it and its sandbox lives as long as the session. Once idle it retires and, still
-  holding the session lock, kills its own descendants, so Windows services a plugin started end with it and the next
-  session on that prefix starts clean. Wine that Cabinet started itself lives outside that tree and keeps running, and
-  Cabinet's own commands join a live session.
+  outlives the shim that started it, and its sandbox stays up while it runs; the bridge holds every session it started
+  in one sandbox. Once idle a session retires and, still holding the session lock, kills its own descendants, so
+  Windows services a plugin started end with it and the next session on that prefix starts clean. Wine that Cabinet
+  started itself lives outside that tree and keeps running, and Cabinet's own commands join a live session.
 - One owner changes a prefix at a time, and the locks beside the socket in `YABRIDGE_TEMP_DIR` say who it is.
   `cabinet-wine --cabinet-paths` prints every one of them, and Core reads that rather than deriving the names itself. A
   plugin-side shim holds `<key>.busy` shared for its whole life; a Cabinet change takes `<key>.change` and
@@ -113,12 +116,15 @@ the name or the structure instead. Anything that genuinely will not fit there is
   draining them would wait until the user quits it. `ProcessRunner` names such holders once the started process has
   exited and hands `Lingering.Watcher` a way to stop them; Wine's own system processes are left to wineserver. Do not
   stop waiting on exit alone: a bootstrapper that exits early keeps the real installer running on the same pipes.
-- Everything Cabinet owns, including prefixes, runners and native plugin files, stays under
-  `~/.var/app/io.github.mark12870.cabinet/`; use that Bottles-style boundary for new code. yabridge sockets use
-  `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are DAW scan/link paths (`cabinet/windows` and
-  `cabinet/native` in `~/.vst3`, `~/.vst`, `~/.clap`; `~/.lv2` flat, as hosts scan it one level deep), the per-file
-  links older releases left in `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared
-  `Data:` directory. Do not add arbitrary writes in `$HOME`.
+- Everything Cabinet owns, including prefixes and runners, stays under `~/.var/app/io.github.mark12870.cabinet/`;
+  use that Bottles-style boundary for new code. The exception is what a DAW loads: yabridgectl's output and the
+  native plugin bundles live in the DAW scan paths themselves (`cabinet/windows` and `cabinet/native` in `~/.vst3`,
+  `~/.vst`, `~/.clap`; `~/.lv2` flat, as hosts scan it one level deep), so an enrolled DAW needs no grant into
+  Cabinet's data for them. yabridgectl still writes through `bridge/<scan dir>/yabridge`, a link to the scan path,
+  and each native install keeps links to its bundles under `native/<id>`. yabridge sockets use
+  `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are the per-file links older releases left in
+  `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared `Data:` directory. Do not add
+  arbitrary writes in `$HOME`.
 - The manifest grants no `home`: Wine maps `Z:` to `/`, so every installer and plugin would read all of `$HOME`. A
   new path Cabinet reads or writes needs its own grant; a new Library `Data:` root needs a matching
   `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`. Files the user picks come through the
@@ -237,9 +243,9 @@ dependency changes.
   the title bar.
 - yabridge puts its sockets in `$XDG_RUNTIME_DIR` when `YABRIDGE_TEMP_DIR` is unset, and a manifest grants only
   `xdg-run` subdirectories. The shim grants that path by value on every `flatpak run`, so every DAW reaches its sockets.
-- Every successful bridge sets up native DAWs: it links `cabinet/windows` in `~/.vst3`, `~/.clap` and `~/.vst` to
-  Cabinet's own yabridgectl output (never native links inside it: `sync` prunes them), reports a path something else
-  owns and leaves it in place, and takes out the per-file links older releases left in `~/.local/share/yabridge`.
+- Every successful bridge sets up native DAWs: it makes `cabinet/windows` in `~/.vst3`, `~/.clap` and `~/.vst`
+  Cabinet's own yabridgectl output (never native plugins inside it: `sync` prunes them), reports a path something
+  else owns and leaves it in place, and takes out the per-file links older releases left in `~/.local/share/yabridge`.
   yabridge's chainloader searches `$PATH` and `~/.local/share/yabridge`, where every yabridge puts the same names, so
   `patches/yabridge/yabridge-chainloader-cabinet-first.patch` makes Cabinet's copies load Cabinet's installed library and host
   first; both stay in Cabinet's installed files, because `yabridgectl sync` prunes every `.so` beside the plugins that

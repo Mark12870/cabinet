@@ -307,7 +307,7 @@ clean() {
     local -a wanted=()
 
     step 'drop the run'
-    rm -rf "$WORK" "$ROOT/tmp" "$ROOT/q" "$data/bridge"
+    rm -rf "$WORK" "$ROOT/tmp" "$ROOT/q" "$data/bridge" "$ROOT"/home/.{vst3,vst,clap}/cabinet/windows
 
     step 'drop the probe fixtures'
     rm -rf "$data"/prefixes/drag-drop-*

@@ -9,20 +9,34 @@ public class EnrolmentTests
     [Theory]
     [InlineData("--device=shm")]
     [InlineData("--filesystem=xdg-run/yabridge:create")]
-    [InlineData("--talk-name=org.freedesktop.Flatpak")]
+    [InlineData("--talk-name=io.github.mark12870.cabinet.Bridge")]
     [InlineData("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge")]
-    [InlineData("--env=YABRIDGE_DEBUG_FILE=/run/user/1000/yabridge/yabridge.log")]
-    [InlineData("--env=YABRIDGE_NO_WATCHDOG=1")]
     [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files:ro")]
     [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
-    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/native:ro")]
-    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/bridge:ro")]
-    [InlineData("--env=WINELOADER=/home/u/.local/share/flatpak/app/"
-                + "io.github.mark12870.cabinet/current/active/files/lib/yabridge/cabinet-wine")]
     public void TheOverrideCarriesEverythingTheBoundaryNeeds(string expected)
     {
         Assert.Contains(expected, Enrolment.OverrideArguments("fm.reaper.Reaper", Layout));
+    }
+
+    [Fact]
+    public void TheOverrideGrantsNoHostCommands()
+    {
+        Assert.DoesNotContain(
+            "--talk-name=org.freedesktop.Flatpak", Enrolment.OverrideArguments("fm.reaper.Reaper", Layout));
+    }
+
+    [Theory]
+    [InlineData("--env=WINELOADER=")]
+    [InlineData("--env=YABRIDGE_DEBUG_FILE=")]
+    [InlineData("--env=YABRIDGE_NO_WATCHDOG=")]
+    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/native")]
+    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/bridge")]
+    public void TheOverrideLeavesOutWhatTheDawNeverNeeds(string unneeded)
+    {
+        Assert.DoesNotContain(
+            Enrolment.OverrideArguments("fm.reaper.Reaper", Layout),
+            argument => argument.StartsWith(unneeded, StringComparison.Ordinal));
     }
 
     [Fact]
@@ -75,10 +89,154 @@ public class EnrolmentTests
         var conflicts = Enrolment.PublishNative(home.Layout);
 
         Assert.Empty(conflicts);
+        Assert.True(Directory.Exists(home.Layout.WindowsScanDir(".vst3")));
+        Assert.Null(new DirectoryInfo(home.Layout.WindowsScanDir(".vst3")).LinkTarget);
         Assert.Equal(
-            home.Layout.BridgeOutputDir(".vst3"),
-            File.ResolveLinkTarget(
-                home.Layout.WindowsScanDir(".vst3"), false)!.FullName);
+            home.Layout.WindowsScanDir(".vst3"),
+            new DirectoryInfo(home.Layout.BridgeOutputDir(".vst3")).LinkTarget);
+    }
+
+    [Fact]
+    public void PublishingMovesWhatTheOldOutputLinkHeldIntoTheScanPath()
+    {
+        using var home = new TempHome();
+        var output = home.Layout.BridgeOutputDir(".vst3");
+        Directory.CreateDirectory(Path.Combine(output, "Plugin.vst3"));
+        Directory.CreateDirectory(home.Layout.CabinetScanDir(".vst3"));
+        File.CreateSymbolicLink(home.Layout.WindowsScanDir(".vst3"), output);
+
+        var conflicts = Enrolment.PublishNative(home.Layout);
+
+        Assert.Empty(conflicts);
+        Assert.True(Directory.Exists(Path.Combine(home.Layout.WindowsScanDir(".vst3"), "Plugin.vst3")));
+        Assert.Null(new DirectoryInfo(home.Layout.WindowsScanDir(".vst3")).LinkTarget);
+        Assert.Equal(home.Layout.WindowsScanDir(".vst3"), new DirectoryInfo(output).LinkTarget);
+    }
+
+    [Fact]
+    public void AnInterruptedMoveOfTheBridgeOutputFinishesOnTheNextStart()
+    {
+        using var home = new TempHome();
+        var output = home.Layout.BridgeOutputDir(".vst3");
+        Directory.CreateDirectory(Path.Combine(output, "Plugin.vst3"));
+        Directory.CreateDirectory(home.Layout.CabinetScanDir(".vst3"));
+
+        Enrolment.MoveBridgeOutputIntoScanDirectories(home.Layout);
+
+        Assert.True(Directory.Exists(Path.Combine(home.Layout.WindowsScanDir(".vst3"), "Plugin.vst3")));
+        Assert.Equal(home.Layout.WindowsScanDir(".vst3"), new DirectoryInfo(output).LinkTarget);
+    }
+
+    [Fact]
+    public void NativePluginsMoveIntoTheScanPathsAndLeaveALinkBehind()
+    {
+        using var home = new TempHome();
+        var bundle = Path.Combine(home.Layout.NativePath("synth"), "Folder", "Synth.vst3");
+        Directory.CreateDirectory(bundle);
+        var vst2 = Path.Combine(home.Layout.NativePath("synth"), "Folder", "Synth.so");
+        File.WriteAllText(vst2, "vst2");
+        var placed = home.Layout.NativePlacement(bundle);
+        Directory.CreateDirectory(home.Layout.NativeScanDir(".vst3"));
+        File.CreateSymbolicLink(placed, bundle);
+        Directory.CreateDirectory(home.Layout.NativeScanDir(".so"));
+        File.CreateSymbolicLink(home.Layout.NativePlacement(vst2), vst2);
+
+        Enrolment.MoveNativeIntoScanDirectories(home.Layout);
+
+        Assert.True(Directory.Exists(placed));
+        Assert.Null(new DirectoryInfo(placed).LinkTarget);
+        Assert.Equal(placed, new DirectoryInfo(bundle).LinkTarget);
+        Assert.Equal("vst2", File.ReadAllText(home.Layout.NativePlacement(vst2)));
+        Assert.Null(new FileInfo(home.Layout.NativePlacement(vst2)).LinkTarget);
+        Assert.Empty(Enrolment.UnmovedNative(home.Layout));
+    }
+
+    [Fact]
+    public void ANativeBundleNothingPublishedStaysInCabinet()
+    {
+        using var home = new TempHome();
+        var bundle = Path.Combine(home.Layout.NativePath("synth"), "Synth.vst3");
+        Directory.CreateDirectory(bundle);
+
+        Enrolment.MoveNativeIntoScanDirectories(home.Layout);
+
+        Assert.True(Directory.Exists(bundle));
+        Assert.Null(new DirectoryInfo(bundle).LinkTarget);
+        Assert.False(Path.Exists(home.Layout.NativePlacement(bundle)));
+    }
+
+    [Fact]
+    public void ANativePluginBeingInstalledIsLeftForItsInstallToFinish()
+    {
+        using var home = new TempHome();
+        var bundle = Path.Combine(home.Layout.NativePath("synth"), "Synth.vst3");
+        Directory.CreateDirectory(bundle);
+        Directory.CreateDirectory(home.Layout.NativeScanDir(".vst3"));
+        File.CreateSymbolicLink(home.Layout.NativePlacement(bundle), bundle);
+        using var installing = Underway.Begin(home.Layout.NativeInstalling("synth"))!;
+
+        Enrolment.MoveNativeIntoScanDirectories(home.Layout);
+
+        Assert.Null(new DirectoryInfo(bundle).LinkTarget);
+        Assert.Equal([home.Layout.NativePlacement(bundle)], Enrolment.UnmovedNative(home.Layout));
+    }
+
+    [Fact]
+    public void ARelativeLinkInsideAPluginFollowsTheBundleItPointsInto()
+    {
+        using var home = new TempHome();
+        var root = home.Layout.NativePath("synth");
+        var module = Path.Combine(root, "Synth.vst3", "Contents", "x86_64-linux");
+        Directory.CreateDirectory(module);
+        File.WriteAllText(Path.Combine(module, "Synth.so"), "module");
+        var clap = Path.Combine(root, "Synth.clap");
+        File.CreateSymbolicLink(clap, Path.Combine("Synth.vst3", "Contents", "x86_64-linux", "Synth.so"));
+        foreach (var bundle in new[] { Path.Combine(root, "Synth.vst3"), clap })
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(home.Layout.NativePlacement(bundle))!);
+            File.CreateSymbolicLink(home.Layout.NativePlacement(bundle), bundle);
+        }
+
+        Enrolment.MoveNativeIntoScanDirectories(home.Layout);
+
+        var placed = home.Layout.NativePlacement(clap);
+        Assert.Equal(
+            Path.Combine(home.Layout.NativePlacement(Path.Combine(root, "Synth.vst3")), "Contents", "x86_64-linux", "Synth.so"),
+            new FileInfo(placed).LinkTarget);
+        Assert.Equal("module", File.ReadAllText(placed));
+        Assert.Equal(placed, new FileInfo(clap).LinkTarget);
+    }
+
+    [Fact]
+    public void NoNativePluginMovesIntoACabinetScanPathSomethingElseOwns()
+    {
+        using var home = new TempHome();
+        var bundle = Path.Combine(home.Layout.NativePath("synth"), "Synth.vst3");
+        Directory.CreateDirectory(bundle);
+        var elsewhere = Directory.CreateDirectory(Path.Combine(home.Layout.Home, "elsewhere", "native")).FullName;
+        Directory.CreateDirectory(home.Layout.ScanDir(".vst3"));
+        File.CreateSymbolicLink(home.Layout.CabinetScanDir(".vst3"), Path.GetDirectoryName(elsewhere)!);
+        File.CreateSymbolicLink(Path.Combine(elsewhere, "Synth.vst3"), bundle);
+
+        Enrolment.MoveNativeIntoScanDirectories(home.Layout);
+
+        Assert.Null(new DirectoryInfo(bundle).LinkTarget);
+        Assert.Equal(bundle, new DirectoryInfo(Path.Combine(elsewhere, "Synth.vst3")).LinkTarget);
+    }
+
+    [Fact]
+    public void ANativeScanEntryCabinetDidNotMakeIsLeftWhereItIs()
+    {
+        using var home = new TempHome();
+        var bundle = Path.Combine(home.Layout.NativePath("synth"), "Synth.vst3");
+        Directory.CreateDirectory(bundle);
+        var placed = Path.Combine(home.Layout.NativeScanDir(".vst3"), "Synth.vst3");
+        Directory.CreateDirectory(placed);
+
+        Enrolment.MoveNativeIntoScanDirectories(home.Layout);
+
+        Assert.True(Directory.Exists(bundle));
+        Assert.Null(new DirectoryInfo(bundle).LinkTarget);
     }
 
     [Fact]
@@ -91,20 +249,22 @@ public class EnrolmentTests
 
         Assert.Empty(conflicts);
         Assert.Equal(
-            home.Layout.BridgeOutputDir(".clap"),
-            new DirectoryInfo(home.Layout.WindowsScanDir(".clap")).LinkTarget);
+            home.Layout.WindowsScanDir(".clap"),
+            new DirectoryInfo(home.Layout.BridgeOutputDir(".clap")).LinkTarget);
     }
 
     [Fact]
     public void AForeignNativeScanPathIsNeverReplaced()
     {
         using var home = new TempHome();
-        Directory.CreateDirectory(home.Layout.WindowsScanDir(".vst3"));
+        var elsewhere = Directory.CreateDirectory(Path.Combine(home.Layout.Home, "elsewhere")).FullName;
+        Directory.CreateDirectory(home.Layout.CabinetScanDir(".vst3"));
+        File.CreateSymbolicLink(home.Layout.WindowsScanDir(".vst3"), elsewhere);
 
         var conflicts = Enrolment.PublishNative(home.Layout);
 
         Assert.Equal([home.Layout.WindowsScanDir(".vst3")], conflicts);
-        Assert.Null(new DirectoryInfo(home.Layout.WindowsScanDir(".vst3")).LinkTarget);
+        Assert.Equal(elsewhere, new DirectoryInfo(home.Layout.WindowsScanDir(".vst3")).LinkTarget);
     }
 
     [Fact]
@@ -322,11 +482,11 @@ public class EnrolmentTests
     }
 
     [Fact]
-    public void TheTrustBoundaryNamesTheHostAccessAndTheScanDirectories()
+    public void TheTrustBoundaryKeepsWineOffTheHostAndNamesTheScanDirectories()
     {
         var boundary = Enrolment.TrustBoundary("fm.reaper.Reaper");
 
-        Assert.Contains("run any command on your host", boundary);
+        Assert.Contains("runs in Cabinet's sandbox, not on your host", boundary);
         Assert.All(
             Layout.BridgedScanDirectories.Append(".lv2"),
             directory => Assert.Contains("~/" + directory, boundary));

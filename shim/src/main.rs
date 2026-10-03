@@ -6,6 +6,8 @@ use std::os::unix::process::CommandExt;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 
+mod bus;
+mod dispatch;
 mod session;
 mod x11;
 
@@ -16,6 +18,8 @@ const INNER_MODE: &str = "--cabinet-inner";
 const JOIN_MODE: &str = "--cabinet-join";
 const SESSION_MODE: &str = "--cabinet-session";
 const PATHS_MODE: &str = "--cabinet-paths";
+const DISPATCH_MODE: &str = "--cabinet-dispatch";
+const BRIDGE: &str = "io.github.mark12870.cabinet.Bridge";
 const NO_SESSION: i32 = 1;
 const SESSION_LIVE: &str = "live";
 const SOCKET_DIR: &str = "yabridge";
@@ -44,6 +48,7 @@ const RUNTIME_ROOT: &str = "CABINET_RUNTIME_ROOT";
 const RUNTIME_RUN_ID: &str = "CABINET_RUNTIME_RUN_ID";
 
 const TEST_CONTROLS: &[&str] = &[APP, SHIM_LOG, RUNTIME_ROOT, RUNTIME_RUN_ID];
+const REDIRECTS: &[&str] = &[APP, RUNTIME_ROOT, "FLATPAK_USER_DIR", "FLATPAK_SYSTEM_DIRS"];
 const RUNTIME_ROOT_MARKER: &str = ".cabinet-runtime-root";
 
 const CANON_VARS: &[&str] = &[
@@ -121,7 +126,7 @@ where
     }
 }
 
-fn sync_flags<R>(prefix: Option<&OsStr>, read: &R) -> Vec<OsString>
+fn sync_environment<R>(prefix: Option<&OsStr>, read: &R) -> Vec<(&'static str, &'static str)>
 where
     R: Fn(&Path) -> Option<String>,
 {
@@ -136,9 +141,40 @@ where
 
     SYNC_VARS
         .iter()
-        .zip(values)
-        .map(|(var, value)| OsString::from(format!("--env={var}={value}")))
+        .copied()
+        .zip(values.iter().copied())
         .collect()
+}
+
+fn forwarded<E, C>(getenv: &E, canon: &C) -> Vec<(&'static str, OsString)>
+where
+    E: Fn(&str) -> Option<OsString>,
+    C: Fn(&Path) -> Option<PathBuf>,
+{
+    FORWARD
+        .iter()
+        .filter_map(|var| {
+            let value = getenv(var).filter(|value| !value.is_empty())?;
+
+            let value = if CANON_LIST_VARS.contains(var) {
+                canonicalize_list(&value, canon)
+            } else if CANON_VARS.contains(var) {
+                canonicalize(&value, canon)
+            } else {
+                value
+            };
+
+            Some((*var, value))
+        })
+        .collect()
+}
+
+fn env_flag(var: &str, value: &OsStr) -> OsString {
+    let mut flag = OsString::from("--env=");
+    flag.push(var);
+    flag.push("=");
+    flag.push(value);
+    flag
 }
 
 fn canonicalize<C>(value: &OsStr, canon: &C) -> OsString
@@ -211,40 +247,16 @@ where
     let prefix = getenv("WINEPREFIX").map(|value| canonicalize(&value, &canon));
     let wine = wine_command(prefix.as_deref(), &read);
 
-    for var in FORWARD {
-        let Some(value) = getenv(var) else { continue };
-        if value.is_empty() {
-            continue;
-        }
-
-        let value = if CANON_LIST_VARS.contains(var) {
-            canonicalize_list(&value, &canon)
-        } else if CANON_VARS.contains(var) {
-            canonicalize(&value, &canon)
-        } else {
-            value
-        };
-
-        let mut flag = OsString::from("--env=");
-        flag.push(var);
-        flag.push("=");
-        flag.push(&value);
-        argv.push(flag);
+    for (var, value) in forwarded(&getenv, &canon) {
+        argv.push(env_flag(var, &value));
     }
 
     for var in BLANKED {
-        let mut flag = OsString::from("--env=");
-        flag.push(var);
-        flag.push("=");
-        argv.push(flag);
+        argv.push(env_flag(var, OsStr::new("")));
     }
 
     for (var, value) in FORCED {
-        let mut flag = OsString::from("--env=");
-        flag.push(var);
-        flag.push("=");
-        flag.push(value);
-        argv.push(flag);
+        argv.push(env_flag(var, OsStr::new(value)));
     }
 
     if let Some(runtime) = getenv("XDG_RUNTIME_DIR").filter(|value| !value.is_empty()) {
@@ -274,7 +286,9 @@ where
         argv.push(environment);
     }
 
-    argv.extend(sync_flags(prefix.as_deref(), &read));
+    for (var, value) in sync_environment(prefix.as_deref(), &read) {
+        argv.push(env_flag(var, OsStr::new(value)));
+    }
 
     argv.push(app.into());
     argv.push(INNER_MODE.into());
@@ -392,6 +406,10 @@ fn main() {
         std::process::exit(session::run_broker(&args[1..]));
     }
 
+    if args.first().is_some_and(|arg| arg == DISPATCH_MODE) {
+        std::process::exit(dispatch::serve(&session_dir(&getenv, &canon)));
+    }
+
     for name in TEST_CONTROLS {
         if getenv(name).is_some() && control(&getenv, &canon, &read, name).is_none() {
             eprintln!("cabinet-wine: ignoring {name}, whose value it does not accept");
@@ -470,18 +488,14 @@ fn main() {
         }
     };
 
+    let in_sandbox = Path::new("/.flatpak-info").exists();
     let argv = if in_cabinet {
         inner_argv(socket.as_os_str(), wine_command(prefix.as_deref(), &read))
     } else {
-        build_argv(
-            &app,
-            Path::new("/.flatpak-info").exists(),
-            socket.as_os_str(),
-            getenv,
-            canon,
-            read,
-        )
+        build_argv(&app, in_sandbox, socket.as_os_str(), getenv, canon, read)
     };
+    let request = (!in_cabinet && in_sandbox && dispatchable(&getenv, &canon, &directory))
+        .then(|| dispatch::request(socket.as_os_str(), &forwarded(&getenv, &canon)));
 
     if let Some(path) = control(&getenv, &canon, &read, SHIM_LOG) {
         use std::io::Write;
@@ -496,7 +510,18 @@ fn main() {
 
     let log = session::log_path(&directory, &name);
 
-    match session::submit(&socket, &lock, &job, || start(&argv, &log)) {
+    let start_session = || -> io::Result<Box<dyn session::Starting>> {
+        if let Some(request) = request.as_deref() {
+            match dispatch::submit(getenv, &directory, request) {
+                Ok(dispatched) => return Ok(Box::new(dispatched)),
+                Err(error) => note_fallback(&log, &error),
+            }
+        }
+
+        Ok(Box::new(start(&argv, &[], &log)?))
+    };
+
+    match session::submit(&socket, &lock, &job, start_session) {
         Ok(status) => std::process::exit(status),
         Err(error) => {
             eprintln!("cabinet-wine: cannot reach the Wine session {socket:?}: {error}");
@@ -505,13 +530,48 @@ fn main() {
     }
 }
 
-fn start(argv: &[OsString], log: &Path) -> io::Result<std::process::Child> {
+fn dispatchable<E, C>(getenv: &E, canon: &C, directory: &Path) -> bool
+where
+    E: Fn(&str) -> Option<OsString>,
+    C: Fn(&Path) -> Option<PathBuf>,
+{
+    let given = getenv("YABRIDGE_TEMP_DIR").is_some_and(|given| !given.is_empty());
+    let bridged = getenv("XDG_RUNTIME_DIR")
+        .filter(|runtime| !runtime.is_empty())
+        .is_some_and(|runtime| {
+            let bridge = PathBuf::from(runtime).join(SOCKET_DIR);
+            Path::new(&canonicalize(bridge.as_os_str(), canon)) == directory
+        });
+
+    given && bridged && REDIRECTS.iter().all(|name| getenv(name).is_none())
+}
+
+fn note_fallback(log: &Path, error: &io::Error) {
+    use std::io::Write;
+    if let Ok(mut log) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log)
+    {
+        let _ = writeln!(
+            log,
+            "cabinet-wine: Cabinet's bridge is out of reach ({error}); starting Wine through flatpak-spawn"
+        );
+    }
+}
+
+fn start(
+    argv: &[OsString],
+    environment: &[(OsString, OsString)],
+    log: &Path,
+) -> io::Result<std::process::Child> {
     let diagnostics = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
         .open(log)?;
     let mut command = Command::new(&argv[0]);
     command.args(&argv[1..]);
+    command.envs(environment.iter().map(|(var, value)| (var, value)));
     command.stdin(Stdio::null());
     command.stdout(Stdio::null());
     command.stderr(Stdio::from(diagnostics));
@@ -622,6 +682,49 @@ mod tests {
     fn sandboxed_daw_hops_through_the_host() {
         let argv = build(&[], true);
         assert_eq!(&argv[..3], &["flatpak-spawn", "--host", "flatpak"]);
+    }
+
+    #[test]
+    fn a_redirected_cabinet_never_reaches_the_installed_bridge() {
+        let directory = Path::new("/run/user/1/yabridge");
+        let enrolled = |key: &str| match key {
+            "XDG_RUNTIME_DIR" => Some(OsString::from("/run/user/1")),
+            "YABRIDGE_TEMP_DIR" => Some(OsString::from("/run/user/1/yabridge")),
+            _ => None,
+        };
+        assert!(dispatchable(&enrolled, &fake_canon, directory));
+
+        for redirect in REDIRECTS {
+            let given = |key: &str| {
+                if key == *redirect {
+                    Some(OsString::from("set"))
+                } else {
+                    enrolled(key)
+                }
+            };
+            assert!(!dispatchable(&given, &fake_canon, directory));
+        }
+    }
+
+    #[test]
+    fn a_daw_outside_the_bridges_socket_directory_keeps_the_host_route() {
+        let elsewhere = |key: &str| match key {
+            "XDG_RUNTIME_DIR" => Some(OsString::from("/run/user/1")),
+            "YABRIDGE_TEMP_DIR" => Some(OsString::from("/tmp/mine")),
+            _ => None,
+        };
+        let unset = |key: &str| (key == "XDG_RUNTIME_DIR").then(|| OsString::from("/run/user/1"));
+
+        assert!(!dispatchable(
+            &elsewhere,
+            &fake_canon,
+            Path::new("/tmp/mine")
+        ));
+        assert!(!dispatchable(
+            &unset,
+            &fake_canon,
+            Path::new("/run/user/1/yabridge")
+        ));
     }
 
     #[test]

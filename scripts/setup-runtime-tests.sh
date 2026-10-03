@@ -169,11 +169,8 @@ if [ "${CABINET_RUNTIME_ENTRIES:-1}" = 1 ]; then
         --filesystem=xdg-run/yabridge:create \
         --filesystem="$cabinet_files":ro \
         --filesystem="$data/prefixes":ro \
-        --filesystem="$data/native":ro \
         --talk-name=org.freedesktop.Flatpak \
-        --env=WINELOADER="$cabinet_files/lib/yabridge/cabinet-wine" \
-        --env=YABRIDGE_TEMP_DIR="$runtime/yabridge" \
-        --env=YABRIDGE_NO_WATCHDOG=1
+        --env=YABRIDGE_TEMP_DIR="$runtime/yabridge"
 fi
 
 if [ -e "$carla_source" ] && [ ! -d "$carla_source/.git" ]; then

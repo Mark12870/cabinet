@@ -37,12 +37,14 @@ and `library install` say whose before anything runs.
 
 ## Permissions
 
-`enrol` prints the `flatpak override` rather than applying it, because one of the permissions it asks for is
-`--talk-name=org.freedesktop.Flatpak`. That lets the shim start Cabinet's Wine from inside the DAW's sandbox — **and it
-lets that DAW run any command on your host.** It also loads native plugins from `~/.vst*`, `~/.clap` and `~/.lv2`, which
-the Windows code Cabinet runs can write to, unlike any other Flatpak app's data;
-`flatpak override --user --reset <daw-id>` undoes it. `flatpak uninstall --delete-data` **will** delete your prefixes;
-after any uninstall, remove `~/.vst*/cabinet` and `~/.clap/cabinet` yourself.
+`enrol` prints the `flatpak override` rather than applying it, because the DAW then loads native plugins from
+`~/.vst*`, `~/.clap` and `~/.lv2`, which the Windows code Cabinet runs can write to, unlike any other Flatpak app's
+data. `--talk-name=io.github.mark12870.cabinet.Bridge` lets the shim start Cabinet's Wine, in Cabinet's sandbox,
+from inside the DAW's. DAWs enrolled by earlier releases hold `--talk-name=org.freedesktop.Flatpak` instead, which
+still works **but lets that DAW run any command on your host**; `doctor` names them.
+`flatpak override --user --reset <daw-id>` undoes either. `flatpak uninstall --delete-data` **will** delete your
+prefixes; after any uninstall, remove `~/.vst*/cabinet`, `~/.clap/cabinet` and the native plugins Cabinet put in
+`~/.lv2` yourself.
 
 ## Building
 

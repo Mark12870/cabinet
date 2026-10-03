@@ -10,6 +10,19 @@ public static class Bootstrap
         LinkYabridgeForYabridgectl(layout);
         Enrolment.MoveLegacyScanLinks(layout);
 
+        foreach (var extension in Layout.PluginExtensions)
+        {
+            Staging.Sweep(layout.NativeScanDir(extension));
+        }
+
+        foreach (var directory in Layout.BridgedScanDirectories)
+        {
+            Staging.Sweep(layout.CabinetScanDir(directory));
+        }
+
+        Enrolment.MoveBridgeOutputIntoScanDirectories(layout);
+        Enrolment.MoveNativeIntoScanDirectories(layout);
+
         foreach (var parent in new[]
                  {
                      layout.TempDir, layout.RunnersDir, layout.PrefixesDir, layout.NativeDir,

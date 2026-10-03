@@ -286,8 +286,10 @@ modules:
         CARGO_HOME: /run/build/cabinet-wine/cargo
     build-commands:
       - cargo build --offline --release
-      # Not in bin/: exec'd by the DAW, never run in here.
+      # Not in bin/: exec'd by the DAW, and in here only as the bus-activated dispatcher.
       - install -Dm755 target/release/cabinet-wine ${FLATPAK_DEST}/lib/yabridge/cabinet-wine
+      # A sandboxed DAW starts its Wine sessions by activating this name; it needs no host access.
+      - install -Dm644 io.github.mark12870.cabinet.Bridge.service ${FLATPAK_DEST}/share/dbus-1/services/io.github.mark12870.cabinet.Bridge.service
     sources:
       - type: dir
         path: shim

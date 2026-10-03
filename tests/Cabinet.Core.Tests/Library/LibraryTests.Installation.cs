@@ -246,11 +246,14 @@ public partial class LibraryTests
         library.Install(library.Find("dexed"), null, installer);
 
         Assert.Equal(
-            ["wineboot", "wine"],
+            ["wineboot", "wine", "wine"],
             recording.Ran
                 .TakeWhile(call => Path.GetFileName(call.File) != "yabridgectl")
                 .Select(call => Path.GetFileName(call.File)));
-        Assert.Equal([installer], recording.Ran[1].Arguments);
+        Assert.Equal(
+            ["reg", "add", @"HKCU\Software\Wine\WineDbg", "/v", "ShowCrashDialog", "/t", "REG_DWORD", "/d", "0", "/f"],
+            recording.Ran[1].Arguments);
+        Assert.Equal([installer], recording.Ran[2].Arguments);
         Assert.Contains(recording.Ran, Synced);
         Assert.Equal("dexed", library.Installed()["dexed"]);
     }
@@ -626,7 +629,7 @@ public partial class LibraryTests
         var refused = Assert.Throws<InvalidOperationException>(
             () => library.Install(library.Find("thing"), installer: archive));
 
-        Assert.Contains("is not one of Cabinet's links", refused.Message);
+        Assert.Contains("is not one of Cabinet's plugins", refused.Message);
         Assert.Equal(theirs, new FileInfo(link).LinkTarget);
         Assert.False(Directory.Exists(layout.NativePath("thing")));
         Assert.False(Underway.Marked(layout.NativeInstalling("thing")));
@@ -649,6 +652,51 @@ public partial class LibraryTests
             () => library.Install(library.Find("thing"), installer: archive));
 
         Assert.Equal(other, new FileInfo(link).LinkTarget);
+    }
+
+    [Fact]
+    public void ANativeInstallPutsItsPluginsInTheScanPathsAndKeepsTheRestInCabinet()
+    {
+        var archive = NestedArchive();
+        Catalogue(("sampler", "Name: Sampler\nKind: native\nSource: byo\n"));
+        var layout = Layout();
+        var library = new Library(layout, new ProcessRunner());
+
+        library.Install(library.Find("sampler"), installer: archive);
+
+        var folder = Path.Combine(layout.NativePath("sampler"), "Sampler-Linux");
+        var vst3 = Path.Combine(layout.NativeScanDir(".vst3"), "Sampler.vst3");
+        var vst2 = Path.Combine(layout.NativeScanDir(".so"), "Sampler.so");
+        Assert.True(File.Exists(Path.Combine(vst3, "Contents", "x86_64-linux", "Sampler.so")));
+        Assert.Null(new DirectoryInfo(vst3).LinkTarget);
+        Assert.Equal("vst2", File.ReadAllText(vst2));
+        Assert.Null(new FileInfo(vst2).LinkTarget);
+        Assert.Equal(vst3, new DirectoryInfo(Path.Combine(folder, "Sampler.vst3")).LinkTarget);
+        Assert.Equal(vst2, new FileInfo(Path.Combine(folder, "Sampler.so")).LinkTarget);
+        Assert.Equal("standalone", File.ReadAllText(Path.Combine(folder, "Sampler")));
+    }
+
+    [Fact]
+    public void AClapThatLinksIntoItsVst3BundleStillReachesItOnceBothArePublished()
+    {
+        var payload = Path.Combine(root, "uhe");
+        var module = Path.Combine(payload, "Synth.vst3", "Contents", "x86_64-linux");
+        Directory.CreateDirectory(module);
+        File.WriteAllText(Path.Combine(module, "Synth.so"), "module");
+        File.CreateSymbolicLink(
+            Path.Combine(payload, "Synth.clap"), Path.Combine("Synth.vst3", "Contents", "x86_64-linux", "Synth.so"));
+        var archive = Archive(payload);
+        Catalogue(("synth", "Name: Synth\nKind: native\nSource: byo\n"));
+        var layout = Layout();
+        var library = new Library(layout, new ProcessRunner());
+
+        library.Install(library.Find("synth"), installer: archive);
+
+        var clap = Path.Combine(layout.NativeScanDir(".clap"), "Synth.clap");
+        Assert.Equal("module", File.ReadAllText(clap));
+        Assert.Equal(
+            Path.Combine(layout.NativeScanDir(".vst3"), "Synth.vst3", "Contents", "x86_64-linux", "Synth.so"),
+            new FileInfo(clap).LinkTarget);
     }
 
     [Fact]

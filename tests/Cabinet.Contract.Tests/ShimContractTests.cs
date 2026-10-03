@@ -138,6 +138,17 @@ public sealed class ShimContractTests : IDisposable
     }
 
     [Fact]
+    public void ASandboxedDawStartsItsSessionThroughTheBridgeAlone()
+    {
+        var result = shim.Plugin(["exit", "3"]);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Equal("out 3" + Environment.NewLine, result.Stdout);
+        Assert.Single(shim.Sockets);
+        Assert.False(shim.HoppedThroughTheHost);
+    }
+
+    [Fact]
     public void ADawStartedSessionUsesTheSameEmptyAndBlankEnvironmentRules()
     {
         shim.WriteEnvironment("CABINET_PROBE=one", "CABINET_BLANK=");

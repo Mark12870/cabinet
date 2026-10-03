@@ -41,11 +41,14 @@ public sealed class BootstrapTests : IDisposable
 
         Bootstrap.Ensure(layout);
 
+        var placed = Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3");
         Assert.Equal([layout.CabinetScanDir(".vst3")], Directory.EnumerateFileSystemEntries(layout.ScanDir(".vst3")));
+        Assert.Null(new DirectoryInfo(layout.WindowsScanDir(".vst3")).LinkTarget);
         Assert.Equal(
-            layout.BridgeOutputDir(".vst3"),
-            new DirectoryInfo(layout.WindowsScanDir(".vst3")).LinkTarget);
-        Assert.Equal(bundle, new DirectoryInfo(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")).LinkTarget);
+            layout.WindowsScanDir(".vst3"),
+            new DirectoryInfo(layout.BridgeOutputDir(".vst3")).LinkTarget);
+        Assert.Null(new DirectoryInfo(placed).LinkTarget);
+        Assert.Equal(placed, new DirectoryInfo(bundle).LinkTarget);
     }
 
     public void Dispose() => Directory.Delete(root, recursive: true);

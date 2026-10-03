@@ -3,6 +3,8 @@ namespace Cabinet.Core;
 public sealed class Layout
 {
     public const string AppId = "io.github.mark12870.cabinet";
+    public const string BridgeBusName = AppId + ".Bridge";
+    public const string HostCommandBusName = "org.freedesktop.Flatpak";
 
     private const string DefaultYabridgeDir = "/app/lib/yabridge";
 
@@ -151,6 +153,9 @@ public sealed class Layout
 
     public string NativeScanDir(string extension) =>
         extension == ".lv2" ? ScanDir(extension) : Path.Combine(CabinetScanDir(extension), "native");
+
+    public string NativePlacement(string bundle) =>
+        Path.Combine(NativeScanDir(Path.GetExtension(bundle)), Path.GetFileName(bundle));
 
     public string PrefixesDir => Path.Combine(SandboxDataHome, "prefixes");
 

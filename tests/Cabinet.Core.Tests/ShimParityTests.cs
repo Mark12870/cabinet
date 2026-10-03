@@ -50,6 +50,18 @@ public class ShimParityTests
     }
 
     [Fact]
+    public void TheShimAndItsServiceFileAnswerToTheNameEnrolmentGrants()
+    {
+        var service = IniFile.Parse(Repo.Lines($"shim/{Layout.BridgeBusName}.service"));
+
+        Assert.Equal(Layout.BridgeBusName, Constant("BRIDGE"));
+        Assert.Equal(Layout.BridgeBusName, service.Get("D-BUS Service", "Name"));
+        Assert.Equal(
+            $"{Constant("INNER_COMMAND")} {Constant("DISPATCH_MODE")}",
+            service.Get("D-BUS Service", "Exec"));
+    }
+
+    [Fact]
     public void NeitherSideLetsAPrefixTakeOverWhatCabinetPins()
     {
         Assert.Equal(PrefixSettings.Owned, List("CABINET_OWNED"));

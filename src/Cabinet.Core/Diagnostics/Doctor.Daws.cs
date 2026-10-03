@@ -3,7 +3,7 @@ namespace Cabinet.Core;
 public sealed partial class Doctor
 {
     public IReadOnlyList<string> DawsMissingPermissions() =>
-        EnrolledDawIds().Where(dawId => EnrolledDaw(dawId).Status != Status.Ok).ToList();
+        EnrolledDawIds().Where(dawId => EnrolledDaw(dawId).Status == Status.Fail).ToList();
 
     private IEnumerable<Check> EnrolledDaws() => EnrolledDawIds().Select(EnrolledDaw);
 
@@ -19,9 +19,13 @@ public sealed partial class Doctor
             .Select(Path.GetFileName)
             .OfType<string>()
             .Where(dawId => dawId != Layout.AppId && Enrolment.IsAppId(dawId))
-            .Where(dawId => ReadOverride(dawId)?.Get("Environment", "WINELOADER") is { } loader
-                            && loader.Contains(Layout.AppId, StringComparison.Ordinal));
+            .Where(dawId => ReadOverride(dawId) is { } ini && Enrolled(ini));
     }
+
+    private static bool Enrolled(IniFile ini) =>
+        ini.Get("Session Bus Policy", Layout.BridgeBusName) == "talk"
+        || ini.Get("Environment", "WINELOADER") is { } loader
+        && loader.Contains(Layout.AppId, StringComparison.Ordinal);
 
     private IniFile? ReadOverride(string dawId)
     {
@@ -38,13 +42,15 @@ public sealed partial class Doctor
     private IEnumerable<Check> NativeDaw()
     {
         var entries = Layout.BridgedScanDirectories
-            .Select(directory => (Link: layout.WindowsScanDir(directory),
-                Target: layout.BridgeOutputDir(directory)))
+            .Select(directory => (Scan: layout.WindowsScanDir(directory),
+                Output: layout.BridgeOutputDir(directory)))
             .ToList();
         var owned = Enrolment.ScanLinkConflicts(layout);
         var unlinked = entries
-            .Where(entry => new DirectoryInfo(entry.Link).LinkTarget != entry.Target)
-            .Select(entry => entry.Link)
+            .Where(entry => !Directory.Exists(entry.Scan)
+                            || new DirectoryInfo(entry.Scan).LinkTarget is not null
+                            || new DirectoryInfo(entry.Output).LinkTarget != entry.Scan)
+            .Select(entry => entry.Scan)
             .ToList();
 
         if (owned.Count > 0)
@@ -63,13 +69,21 @@ public sealed partial class Doctor
             yield break;
         }
 
-        var hasPlugins = entries.Any(entry => Directory.Exists(entry.Target)
-            && Directory.EnumerateFiles(entry.Target, "*", SearchOption.AllDirectories)
+        if (Enrolment.UnmovedNative(layout) is { Count: > 0 } unmoved)
+        {
+            yield return new Check("native plugins", Status.Warn,
+                $"still inside Cabinet's data, where a newly enrolled DAW cannot load them: "
+                + $"{string.Join(", ", unmoved.Select(Path.GetFileName))} — make room in the folders they "
+                + "belong in, or fix their permissions, and start Cabinet again");
+        }
+
+        var hasPlugins = entries.Any(entry => Directory.Exists(entry.Scan)
+            && Directory.EnumerateFiles(entry.Scan, "*", SearchOption.AllDirectories)
                 .Any(file => Path.GetExtension(file) is ".so" or ".clap"));
 
         yield return hasPlugins
             ? new Check("native DAWs", Status.Ok,
-                $"Cabinet plugins are under {string.Join(", ", entries.Select(e => e.Link))}; "
+                $"Cabinet plugins are under {string.Join(", ", entries.Select(e => e.Scan))}; "
                 + $"independent yabridge remains at {layout.NativeYabridgeDir}")
             : new Check("native DAWs", Status.Fail,
                 "no Cabinet native plugins have been published — bridge what is installed again");
@@ -83,6 +97,7 @@ public sealed partial class Doctor
         }
 
         var missing = new List<string>();
+        var hostCommands = ini.Get("Session Bus Policy", Layout.HostCommandBusName) == "talk";
 
         foreach (var argument in Enrolment.OverrideArguments(dawId, layout))
         {
@@ -105,7 +120,8 @@ public sealed partial class Doctor
             else if (argument.StartsWith("--talk-name=", StringComparison.Ordinal))
             {
                 var name = argument["--talk-name=".Length..];
-                if (ini.Get("Session Bus Policy", name) != "talk")
+                if (ini.Get("Session Bus Policy", name) != "talk"
+                    && !(name == Layout.BridgeBusName && hostCommands))
                 {
                     missing.Add(argument);
                 }
@@ -120,9 +136,16 @@ public sealed partial class Doctor
             }
         }
 
-        return missing.Count == 0
-            ? new Check($"DAW {dawId}", Status.Ok, "enrolled — " + Enrolment.TrustBoundary(dawId))
-            : new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));
+        if (missing.Count > 0)
+        {
+            return new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));
+        }
+
+        var bridged = ini.Get("Session Bus Policy", Layout.BridgeBusName) == "talk";
+
+        return hostCommands
+            ? new Check($"DAW {dawId}", Status.Warn, Enrolment.HostCommandGrant(dawId, bridged))
+            : new Check($"DAW {dawId}", Status.Ok, "enrolled — " + Enrolment.TrustBoundary(dawId));
     }
 
     private static IEnumerable<string> Values(string? value) =>

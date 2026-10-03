@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using Cabinet.Core;
 using Cabinet.Core.Tests;
@@ -23,8 +24,9 @@ internal sealed class Shim : IDisposable
 
     private readonly string root = Directory.CreateTempSubdirectory("cabinet-contract-").FullName;
     private readonly Dictionary<string, string?> restored = [];
+    private readonly Process bus;
 
-    public Shim()
+    public Shim(bool bridge = true)
     {
         var built = Repo.Path("shim/target/debug/cabinet-wine");
 
@@ -43,7 +45,7 @@ internal sealed class Shim : IDisposable
 
         var bin = Directory.CreateDirectory(Path.Combine(root, "bin")).FullName;
         Script(bin, "flatpak", Flatpak(built));
-        Script(bin, "flatpak-spawn", FlatpakSpawn);
+        Script(bin, "flatpak-spawn", FlatpakSpawn(HostHop));
         Script(bin, "wine", Wine);
 
         Set("PATH", bin + ":" + Environment.GetEnvironmentVariable("PATH"));
@@ -51,6 +53,9 @@ internal sealed class Shim : IDisposable
         {
             Set(key, value);
         }
+
+        Set("XDG_RUNTIME_DIR", Layout.RuntimeDir);
+        bus = StartBus(bridge);
     }
 
     public Layout Layout { get; }
@@ -59,8 +64,12 @@ internal sealed class Shim : IDisposable
 
     public IReadOnlyList<string> Sockets =>
         Directory.Exists(Layout.SocketDir)
-            ? Directory.EnumerateFiles(Layout.SocketDir, "*.sock").ToList()
+            ? Directory.EnumerateFiles(Layout.SocketDir, "cabinet-*.sock").ToList()
             : [];
+
+    public bool HoppedThroughTheHost => File.Exists(HostHop);
+
+    private string HostHop => Path.Combine(root, "flatpak-spawn-used");
 
     public string Scratch(string name) => Path.Combine(root, name);
 
@@ -95,6 +104,10 @@ internal sealed class Shim : IDisposable
             broker.WaitForExit();
         }
 
+        bus.Kill();
+        bus.WaitForExit();
+        bus.Dispose();
+
         foreach (var (key, value) in restored)
         {
             Environment.SetEnvironmentVariable(key, value);
@@ -107,6 +120,7 @@ internal sealed class Shim : IDisposable
         Directory.EnumerateDirectories("/proc")
             .Select(Path.GetFileName)
             .Where(name => int.TryParse(name, out _))
+            .Where(name => name != bus.Id.ToString(CultureInfo.InvariantCulture))
             .Where(name => CommandLine(name!).Contains(root, StringComparison.Ordinal))
             .Select(name => Process.GetProcessById(int.Parse(name!)))
             .ToList();
@@ -125,6 +139,44 @@ internal sealed class Shim : IDisposable
         {
             return "";
         }
+    }
+
+    private Process StartBus(bool bridge)
+    {
+        var services = Directory.CreateDirectory(Path.Combine(root, "services")).FullName;
+        var config = Path.Combine(root, "bus.conf");
+        File.WriteAllText(config, $$"""
+            <busconfig>
+              <type>session</type>
+              <listen>unix:path={{Path.Combine(root, "bus")}}</listen>
+              <servicedir>{{services}}</servicedir>
+              <policy context="default">
+                <allow send_destination="*"/>
+                <allow receive_sender="*"/>
+                <allow own="*"/>
+              </policy>
+            </busconfig>
+            """);
+
+        if (bridge)
+        {
+            File.WriteAllLines(
+                Path.Combine(services, Layout.BridgeBusName + ".service"),
+                ["[D-BUS Service]", $"Name={Layout.BridgeBusName}", $"Exec={Layout.ShimPath} --cabinet-dispatch"]);
+        }
+
+        var start = new ProcessStartInfo("dbus-daemon", ["--config-file=" + config, "--nofork", "--print-address"])
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        var started = Process.Start(start)!;
+        started.ErrorDataReceived += (_, _) => { };
+        started.BeginErrorReadLine();
+
+        Set("DBUS_SESSION_BUS_ADDRESS", started.StandardOutput.ReadLine());
+
+        return started;
     }
 
     private void Set(string key, string? value)
@@ -153,8 +205,9 @@ internal sealed class Shim : IDisposable
         done
         """;
 
-    private const string FlatpakSpawn = """
+    private static string FlatpakSpawn(string used) => $$"""
         #!/bin/sh
+        : > '{{used}}'
         for arg do
           case $arg in
             --host) shift ;;

@@ -26,6 +26,16 @@ public class ManifestTests
     }
 
     [Fact]
+    public void ASandboxedDawCanActivateTheBridge()
+    {
+        var service = $"{Layout.BridgeBusName}.service";
+
+        Assert.Contains(
+            $"- install -Dm644 {service} ${{FLATPAK_DEST}}/share/dbus-1/services/{service}",
+            Lines.Select(line => line.Trim()));
+    }
+
+    [Fact]
     public void TheWrapperFallsBackToTheShimAndNotToABareWine()
     {
         var text = string.Join('\n', Lines);

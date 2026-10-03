@@ -27,8 +27,8 @@ macro_rules! note {
 const IDLE_GRACE: Duration = Duration::from_secs(10);
 const HOST_GRACE: Duration = Duration::from_secs(3);
 const START_TIMEOUT: Duration = Duration::from_secs(30);
-const TICK: Duration = Duration::from_millis(20);
-const WATCH: Duration = Duration::from_secs(1);
+pub(crate) const TICK: Duration = Duration::from_millis(20);
+pub(crate) const WATCH: Duration = Duration::from_secs(1);
 const ATTEMPTS: u32 = 3;
 const YABRIDGE_HOST: &str = "yabridge-host";
 
@@ -144,7 +144,7 @@ pub fn encode(argv: &[OsString]) -> Vec<u8> {
 pub fn decode(bytes: &[u8]) -> Option<Vec<OsString>> {
     let mut cursor = 0;
     let count = take_u32(bytes, &mut cursor)?;
-    let mut argv = Vec::with_capacity(count as usize);
+    let mut argv = Vec::new();
 
     for _ in 0..count {
         argv.push(take_os(bytes, &mut cursor)?);
@@ -275,23 +275,43 @@ fn receive_job(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Vec<OwnedFd>)> {
     Ok((payload, passed))
 }
 
-fn write_frame(stream: &mut UnixStream, payload: &[u8]) -> io::Result<()> {
+pub(crate) fn write_frame(stream: &mut UnixStream, payload: &[u8]) -> io::Result<()> {
     stream.write_all(&(payload.len() as u32).to_le_bytes())?;
     stream.write_all(payload)?;
     stream.flush()
 }
 
-fn read_frame(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
+pub(crate) fn read_frame(stream: &mut UnixStream) -> io::Result<Vec<u8>> {
     let mut header = [0u8; 4];
     stream.read_exact(&mut header)?;
-    let mut payload = vec![0u8; u32::from_le_bytes(header) as usize];
+    let length = u32::from_le_bytes(header) as usize;
+    if length > JOB_LIMIT {
+        return Err(io::Error::other("an oversized frame"));
+    }
+    let mut payload = vec![0u8; length];
     stream.read_exact(&mut payload)?;
     Ok(payload)
 }
 
+pub trait Starting {
+    fn ended(&mut self) -> Option<String>;
+}
+
+impl Starting for std::process::Child {
+    fn ended(&mut self) -> Option<String> {
+        match self.try_wait() {
+            Ok(Some(status)) => Some(format!(
+                "the wine session gave up with {}",
+                exit_code(status)
+            )),
+            _ => None,
+        }
+    }
+}
+
 pub fn submit<S>(socket: &Path, lock: &Path, argv: &[OsString], start: S) -> io::Result<i32>
 where
-    S: Fn() -> io::Result<std::process::Child>,
+    S: Fn() -> io::Result<Box<dyn Starting>>,
 {
     let spare = File::open("/dev/null").ok();
     let fds = stdio(spare.as_ref().map_or(-1, |file| file.as_raw_fd()));
@@ -371,7 +391,7 @@ fn stdio(fallback: RawFd) -> [RawFd; 3] {
 
 fn connect_or_start<S>(socket: &Path, lock: &Path, start: &S) -> io::Result<UnixStream>
 where
-    S: Fn() -> io::Result<std::process::Child>,
+    S: Fn() -> io::Result<Box<dyn Starting>>,
 {
     let file = File::create(lock)?;
     let _guard = Lock::hold(file.as_raw_fd())?;
@@ -389,11 +409,8 @@ where
         if let Ok(stream) = UnixStream::connect(socket) {
             return Ok(stream);
         }
-        if let Ok(Some(status)) = starting.try_wait() {
-            return Err(io::Error::other(format!(
-                "the wine session gave up with {}",
-                exit_code(status)
-            )));
+        if let Some(ended) = starting.ended() {
+            return Err(io::Error::other(ended));
         }
         if Instant::now() >= deadline {
             return Err(io::Error::other("the wine session did not start"));
@@ -402,15 +419,19 @@ where
     }
 }
 
-struct Lock(RawFd);
+pub(crate) struct Lock(RawFd);
 
 impl Lock {
-    fn hold(fd: RawFd) -> io::Result<Self> {
+    pub(crate) fn hold(fd: RawFd) -> io::Result<Self> {
         if unsafe { flock(fd, LOCK_EX) } == -1 {
             return Err(io::Error::last_os_error());
         }
 
         Ok(Self(fd))
+    }
+
+    pub(crate) fn try_hold(fd: RawFd) -> Option<Self> {
+        (unsafe { flock(fd, LOCK_EX | LOCK_NB) } != -1).then_some(Self(fd))
     }
 }
 
@@ -720,13 +741,13 @@ where
     Retirement::Retired
 }
 
-fn file_identity(path: &Path) -> Option<(u64, u64)> {
+pub(crate) fn file_identity(path: &Path) -> Option<(u64, u64)> {
     std::fs::symlink_metadata(path)
         .ok()
         .map(|metadata| (metadata.dev(), metadata.ino()))
 }
 
-fn remove_if_unchanged(path: &Path, expected: Option<(u64, u64)>) {
+pub(crate) fn remove_if_unchanged(path: &Path, expected: Option<(u64, u64)>) {
     let Some(expected) = expected else {
         return;
     };
@@ -1049,8 +1070,12 @@ pub(crate) fn wait_readable(fds: &[RawFd], timeout: Option<Duration>) {
 }
 
 fn hung_up(stream: &UnixStream) -> bool {
+    readable(stream.as_raw_fd())
+}
+
+pub(crate) fn readable(fd: RawFd) -> bool {
     let mut pollfd = PollFd {
-        fd: stream.as_raw_fd(),
+        fd,
         events: POLLIN,
         revents: 0,
     };
@@ -1287,6 +1312,7 @@ struct FileLock {
     pid: i32,
 }
 const LOCK_UN: c_int = 8;
+const LOCK_NB: c_int = 4;
 const SOL_SOCKET: c_int = 1;
 const SCM_RIGHTS: c_int = 1;
 const MSG_CMSG_CLOEXEC: c_int = 0x4000_0000;
@@ -1357,6 +1383,21 @@ extern "C" {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_held_lock_is_refused_rather_than_waited_for() {
+        let path = std::env::temp_dir().join(format!("cabinet-try-lock-{}", std::process::id()));
+        let first = File::create(&path).unwrap();
+        let second = File::create(&path).unwrap();
+
+        let held = Lock::try_hold(first.as_raw_fd());
+
+        assert!(held.is_some());
+        assert!(Lock::try_hold(second.as_raw_fd()).is_none());
+        drop(held);
+        assert!(Lock::try_hold(second.as_raw_fd()).is_some());
+        std::fs::remove_file(path).unwrap();
+    }
 
     fn process(pid: i32, parent: i32, state: u8, comm: &str, start_time: u64) -> ProcessInfo {
         ProcessInfo {

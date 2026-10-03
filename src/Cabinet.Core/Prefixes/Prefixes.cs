@@ -13,6 +13,9 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 
     private const string Unattended = "mscoree=d;mshtml=d";
 
+    private static readonly IReadOnlyList<string> NoCrashDialog =
+        ["reg", "add", @"HKCU\Software\Wine\WineDbg", "/v", "ShowCrashDialog", "/t", "REG_DWORD", "/d", "0", "/f"];
+
     public IReadOnlyList<Prefix> List() => [.. Names().Select(Describe)];
 
     public IReadOnlyList<string> Names() => [.. Directories().Where(Layout.IsName)];
@@ -105,6 +108,13 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
             {
                 throw new InvalidOperationException(
                     $"wineboot failed for '{name}' with exit code {result.ExitCode}");
+            }
+
+            var quiet = Wine(name, "wine", NoCrashDialog, onOutput);
+            if (!quiet.Ok)
+            {
+                throw new InvalidOperationException(
+                    $"could not turn off Wine's crash dialog in '{name}' (exit code {quiet.ExitCode})");
             }
         }
 

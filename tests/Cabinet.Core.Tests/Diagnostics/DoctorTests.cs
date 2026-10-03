@@ -182,7 +182,7 @@ public sealed class DoctorTests : IDisposable
     }
 
     [Fact]
-    public void DoctorReportsAnEnrolledDawWithoutTheRuntimeLog()
+    public void DoctorReportsAnEnrolledDawWithoutTheSharedSocketDirectory()
     {
         var daw = "fm.reaper.Reaper";
         Directory.CreateDirectory(Layout.HostYabridgeDir);
@@ -203,14 +203,12 @@ public sealed class DoctorTests : IDisposable
                 "",
                 "[Environment]",
                 $"WINELOADER={Layout.ShimPath}",
-                $"YABRIDGE_TEMP_DIR={Layout.SocketDir}",
             ]);
 
         var check = Checks().Single(found => found.Name == $"DAW {daw}");
 
         Assert.Equal(Status.Fail, check.Status);
-        Assert.Contains($"--env=YABRIDGE_DEBUG_FILE={Layout.RuntimeLogPath}", check.Detail);
-        Assert.Contains("--env=YABRIDGE_NO_WATCHDOG=1", check.Detail);
+        Assert.Equal($"missing --env=YABRIDGE_TEMP_DIR={Layout.SocketDir}", check.Detail);
         Assert.Equal([daw], new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
     }
 
@@ -227,9 +225,12 @@ public sealed class DoctorTests : IDisposable
         File.WriteAllLines(Path.Combine(overrides, Layout.AppId), ["[Environment]", $"WINELOADER={Layout.ShimPath}"]);
         File.WriteAllLines(
             Path.Combine(overrides, "fm.reaper.Reaper"), ["[Environment]", $"WINELOADER={Layout.ShimPath}"]);
+        File.WriteAllLines(
+            Path.Combine(overrides, "com.bitwig.BitwigStudio"),
+            ["[Session Bus Policy]", $"{Layout.BridgeBusName}=talk"]);
 
         Assert.Equal(
-            ["DAW fm.reaper.Reaper"],
+            ["DAW com.bitwig.BitwigStudio", "DAW fm.reaper.Reaper"],
             Checks().Select(check => check.Name).Where(name => name.StartsWith("DAW ", StringComparison.Ordinal)));
     }
 
@@ -268,6 +269,58 @@ public sealed class DoctorTests : IDisposable
     }
 
     [Fact]
+    public void DoctorTakesADawEnrolledWithTheBridgeAsEnrolled()
+    {
+        GiveEnrolment("fm.reaper.Reaper", ["io.github.mark12870.cabinet.Bridge=talk"], []);
+
+        var check = Checks().Single(found => found.Name == "DAW fm.reaper.Reaper");
+
+        Assert.Equal(Status.Ok, check.Status);
+        Assert.Empty(new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
+    }
+
+    [Fact]
+    public void DoctorWarnsThatAnOlderEnrolmentStillGrantsHostCommands()
+    {
+        GiveEnrolment("fm.reaper.Reaper", ["org.freedesktop.Flatpak=talk"], LegacyEnvironment);
+
+        var check = Checks().Single(found => found.Name == "DAW fm.reaper.Reaper");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.Contains("enrol it again", check.Detail);
+        Assert.Contains(
+            "flatpak override --user --no-talk-name=org.freedesktop.Flatpak fm.reaper.Reaper", check.Detail);
+        Assert.Empty(new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
+    }
+
+    [Fact]
+    public void DoctorStillWarnsWhileAReEnrolledDawKeepsHostCommands()
+    {
+        GiveEnrolment(
+            "fm.reaper.Reaper",
+            ["io.github.mark12870.cabinet.Bridge=talk", "org.freedesktop.Flatpak=talk"],
+            LegacyEnvironment);
+
+        var check = Checks().Single(found => found.Name == "DAW fm.reaper.Reaper");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.Contains("Cabinet no longer needs it", check.Detail);
+        Assert.Empty(new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
+    }
+
+    [Fact]
+    public void DoctorFailsADawThatCannotStartCabinetsWine()
+    {
+        GiveEnrolment("fm.reaper.Reaper", ["org.example.Other=talk"], LegacyEnvironment);
+
+        var check = Checks().Single(found => found.Name == "DAW fm.reaper.Reaper");
+
+        Assert.Equal(Status.Fail, check.Status);
+        Assert.Contains("--talk-name=io.github.mark12870.cabinet.Bridge", check.Detail);
+        Assert.Equal(["fm.reaper.Reaper"], new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
+    }
+
+    [Fact]
     public void DoctorReportsMissingNativeScanPaths()
     {
         var check = Checks().Single(found => found.Name == "native DAWs");
@@ -303,9 +356,10 @@ public sealed class DoctorTests : IDisposable
     }
 
     [Fact]
-    public void DoctorFailsOnANativeScanPathPointingSomewhereElse()
+    public void DoctorFailsOnANativeScanPathSomethingElseOwns()
     {
-        Directory.CreateDirectory(Layout.WindowsScanDir(".vst3"));
+        Directory.CreateDirectory(Layout.CabinetScanDir(".vst3"));
+        File.WriteAllText(Layout.WindowsScanDir(".vst3"), "someone else's");
 
         var check = Checks().Single(found => found.Name == "native DAWs");
 
@@ -320,6 +374,30 @@ public sealed class DoctorTests : IDisposable
             Path.Combine(root, "library"));
 
     private IReadOnlyList<Check> Checks() => new Doctor(Layout, new UnusedRunner()).Run();
+
+    private string[] LegacyEnvironment =>
+        [$"WINELOADER={Layout.ShimPath}", $"YABRIDGE_DEBUG_FILE={Layout.RuntimeLogPath}"];
+
+    private void GiveEnrolment(string daw, string[] busPolicy, string[] environment)
+    {
+        var overrides = Path.Combine(root, ".local", "share", "flatpak", "overrides", daw);
+        Directory.CreateDirectory(Path.GetDirectoryName(overrides)!);
+        File.WriteAllLines(
+            overrides,
+            [
+                "[Context]",
+                "devices=shm;",
+                $"filesystems=xdg-run/yabridge:create;{Layout.HostAppFiles};{Layout.PrefixesDir};"
+                    + $"{Layout.NativeDir};{Layout.BridgeHome};",
+                "",
+                "[Session Bus Policy]",
+                .. busPolicy,
+                "",
+                "[Environment]",
+                $"YABRIDGE_TEMP_DIR={Layout.SocketDir}",
+                .. environment,
+            ]);
+    }
 
     private void GiveEntry(string vendor, string id, string name, string runner)
     {
