@@ -117,6 +117,14 @@ public class WorkflowTests
         Assert.Empty(exposed);
     }
 
+    [Fact]
+    public void APrivateNativeFixtureIsCachedAndStrippedWithTheBundlesItPublished()
+    {
+        Assert.Equal(2, Driver.Split("fixtures=$(private_fixtures) || die").Length - 1);
+        Assert.Contains("declare -f private_paths private_fixtures", Driver, StringComparison.Ordinal);
+        Assert.Contains("tar --list --file \"$archive\"", Driver, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("scripts/setup-runtime-tests.sh")]
     [InlineData("scripts/runtime-ci.sh")]

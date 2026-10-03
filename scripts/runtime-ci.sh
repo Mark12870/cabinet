@@ -63,6 +63,25 @@ private_paths() {
         "$data/native/decent-sampler"
 }
 
+# A native plugin's bundles live in the DAW scan paths, and data/native/<id> holds only links to
+# them, so its fixture is both.
+private_fixtures() {
+    local path link target
+
+    while IFS= read -r path; do
+        printf '%s\n' "$path"
+        [ -d "$ROOT/$path" ] || continue
+
+        while IFS= read -r link; do
+            target=$(readlink "$link")
+            case $target in
+                "$ROOT"/home/.*/?*) realpath --no-symlinks --relative-to="$ROOT" "$target" ;;
+                *) die "$link points outside the scan paths, at $target" ;;
+            esac
+        done < <(find "$ROOT/$path" -type l -lname '/*')
+    done < <(private_paths)
+}
+
 as_owner() {
     [ "$(id -u)" = 0 ] || return 0
 
@@ -175,21 +194,23 @@ restore() {
     fi
 
     step 'unpack the cached fixtures'
+    tar --list --file "$archive" | sed -e 's|/$||' -e "s|^|${ROOT:?}/|" | xargs -d '\n' rm -rf --
     tar --extract --file "$archive" --directory "$ROOT"
 }
 
 save() {
     as_owner save "$@"
 
-    local archive=$1
+    local archive=$1 fixtures
     local -a present=()
     local path
 
+    fixtures=$(private_fixtures) || die 'cannot tell which fixtures are private'
     while IFS= read -r path; do
         if [ -e "$ROOT/$path" ]; then
             present+=("$path")
         fi
-    done < <(private_paths)
+    done <<< "$fixtures"
 
     [ ${#present[@]} -gt 0 ] || die 'the private fixtures are missing; nothing to cache'
 
@@ -304,7 +325,7 @@ clean() {
 
     local data="$ROOT/home/.var/app/$APP/data"
     local path marker runner name
-    local -a wanted=()
+    local -a wanted=() fixtures=()
 
     step 'drop the run'
     rm -rf "$WORK" "$ROOT/tmp" "$ROOT/q" "$data/bridge" "$ROOT"/home/.{vst3,vst,clap}/cabinet/windows
@@ -323,9 +344,11 @@ clean() {
     done
 
     step 'take out what may not be republished'
-    while IFS= read -r path; do
+    fixtures=$(private_fixtures) || die 'cannot tell which fixtures are private'
+    mapfile -t fixtures <<< "$fixtures"
+    for path in "${fixtures[@]}"; do
         rm -rf "${ROOT:?}/$path"
-    done < <(private_paths)
+    done
 
     HOME="$ROOT/home" \
         FLATPAK_USER_DIR="$ROOT/home/.local/share/flatpak" \
@@ -347,8 +370,8 @@ fixture_key() {
         dirname "$entry"
     done | sort -u)
 
-    find $vendors scripts/setup-runtime-tests.sh -type f -print0 | sort -z |
-        xargs -0 sha256sum | sha256sum | cut -d' ' -f1
+    { find $vendors scripts/setup-runtime-tests.sh -type f -print0 | sort -z | xargs -0 sha256sum
+      declare -f private_paths private_fixtures; } | sha256sum | cut -d' ' -f1
 }
 
 case ${1:-} in
