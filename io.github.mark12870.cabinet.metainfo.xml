@@ -46,6 +46,19 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.18.0" date="2026-10-03">
+      <description>
+        <p>Kontakt projects made on Windows open with their instruments</p>
+        <ul>
+          <li>Kontakt 8 keeps the instrument a project saved on Windows had loaded, instead of opening an empty rack</li>
+          <li>Kontakt 8 installs and updates from Native Access complete inside Cabinet, and existing installs are repaired so Native Access can update them</li>
+          <li>Opening Native Access shows a progress window while Cabinet brings what it installed up to date</li>
+          <li>Pianoteq is in the Library, with Modartt's demo installed for you</li>
+          <li>Novation Play is in the Library; it tells you which installer file to choose from your Novation account</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.17.3" date="2026-09-30">
       <description>
         <p>Kontakt 8 installs and activates without restarting Native Access</p>
