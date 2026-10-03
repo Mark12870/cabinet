@@ -338,9 +338,11 @@ session. Kontakt's installer goes through Cabinet's `msi.dll` stand-in (see
 Native Access's own activation of it, and for its card to read Installed before it asks for a
 library that needs it. The prefix runs on lavapipe, as a runner does: on this machine's GPU the test
 display offers no DRI3 and Kontakt's editor loses its X connection at its first frame. Until it is
-activated, Kontakt's editor opens behind a Demo dialog. Its
-saved state does not bring a loaded loop back, so the loop is double-clicked in its browser and the
-note played live through Carla's engine rather than rendered offline. Native Access's two popups are
+activated, Kontakt's editor opens behind a Demo dialog. A loop is double-clicked in its browser and
+the note played live through Carla's engine rather than rendered offline; the plugin's saved state
+is then given to a fresh instance, which has to play the loop again. Without Kontakt's factory
+content its browser finds nothing and that restore hangs, which is why the scenario also checks
+for the application, the factory presets and their registry values. Native Access's two popups are
 settled beforehand: the usage consent is answered on the account, and the survey's dismissal is
 written into its store before it starts.
 

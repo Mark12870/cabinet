@@ -13,6 +13,9 @@ internal static partial class Program
           cabinet enrol <daw-flatpak-id>       prepare a Flatpak DAW (prints the override)
           cabinet new <name> [runner]          create a Wine prefix, optionally on a runner
           cabinet install <name> <installer>   run a Windows installer in that prefix
+          cabinet msi <name> <package> [PROPERTY=value...]
+                                               place an .msi's files and registry values in that
+                                               prefix without Windows Installer
           cabinet delete <name>                delete a prefix and everything in it
           cabinet list                         list prefixes
           cabinet use <name> <runner>          move a prefix to a runner and update it
@@ -120,6 +123,7 @@ internal static partial class Program
             "set" => Set(line, layout, runner),
             "winetricks" => RunWinetricks(line, layout, runner),
             "install" => Install(line, layout, runner),
+            "msi" => Msi(line, layout, runner),
             "delete" => One(line, "a prefix name", name => Delete(layout, runner, name)),
             "list" => line.Then(json => List(layout, runner, json)),
             "sync" => line.Then(() => Sync(layout, runner)),

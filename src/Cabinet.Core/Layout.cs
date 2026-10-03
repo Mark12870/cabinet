@@ -268,6 +268,26 @@ public sealed class Layout
     public string PrefixVst3Dir(string name) =>
         Path.Combine(PrefixPath(name), "drive_c", ProgramFiles64, "Common Files", "VST3");
 
+    public const string PackageRegistry = @"C:\windows\temp\cabinet-package.reg";
+
+    public string PrefixPackageRegistry(string name) => PrefixWindowsPath(name, PackageRegistry);
+
+    public string PrefixWindowsPath(string name, string windowsPath)
+    {
+        var drive = char.ToLowerInvariant(windowsPath[0]);
+        var rest = windowsPath[2..].Split('\\', StringSplitOptions.RemoveEmptyEntries);
+
+        return Path.Combine([
+            drive switch
+            {
+                'c' => Path.Combine(PrefixPath(name), "drive_c"),
+                'z' => "/",
+                _ => Path.Combine(PrefixPath(name), "dosdevices", $"{drive}:"),
+            },
+            .. rest,
+        ]);
+    }
+
     public IEnumerable<string> PrefixPluginDirs(string name)
     {
         var driveC = Path.Combine(PrefixPath(name), "drive_c");

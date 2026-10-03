@@ -88,6 +88,161 @@ public sealed class InstallScriptTests : IDisposable
         Assert.True(took < TimeSpan.FromSeconds(10), $"the install waited {took.TotalSeconds:0} seconds");
     }
 
+    [Fact]
+    public void KontaktWithOnlyItsVst3GetsTheStandInAndItsInstallFoldersRegistered()
+    {
+        var kontakt = Kontakt();
+        File.WriteAllText(Path.Combine(kontakt.Vst3, "Kontakt 8.vst3"), "plugin");
+
+        var said = kontakt.Recover();
+
+        Assert.Equal("stand-in", File.ReadAllText(Path.Combine(kontakt.SysWow64, "msi.dll")));
+        Assert.Equal("wine msi", File.ReadAllText(Path.Combine(kontakt.SysWow64, "msi_wine.dll")));
+        Assert.True(Directory.Exists(Path.Combine(kontakt.DriveC, "Program Files", "Native Instruments", "Kontakt 8")));
+        Assert.True(Directory.Exists(
+            Path.Combine(kontakt.DriveC, "Program Files", "Common Files", "Native Instruments", "Kontakt 8")));
+        Assert.Equal(
+            [
+                @"reg|add|HKCU\Software\Wine\AppDefaults\Kontakt 8 Setup PC.exe\DllOverrides|/v|msi|/d|native|/f|",
+                @"reg|add|HKLM\SOFTWARE\Native Instruments\Kontakt 8|/v|InstallDir|/d|C:\Program Files\Native Instruments\Kontakt 8|/f|",
+                @"reg|add|HKLM\SOFTWARE\Native Instruments\Kontakt 8|/v|ContentDir|/d|C:\Program Files\Common Files\Native Instruments\Kontakt 8|/f|",
+                @"reg|add|HKLM\SOFTWARE\Native Instruments\Kontakt 8|/v|ContentVersion|/d|4.0|/f|",
+                @"reg|add|HKLM\SOFTWARE\Native Instruments\Kontakt 8|/v|InstallVST364Dir|/d|C:\Program Files\Common Files\VST3|/f|",
+            ],
+            File.ReadAllLines(kontakt.Calls));
+        Assert.Contains("Registered Kontakt 8's install folders, so Native Access can update or repair it", said);
+    }
+
+    [Fact]
+    public void AKontaktAlreadyBroughtUpToDateIsLeftAlone()
+    {
+        var kontakt = Kontakt();
+        File.WriteAllText(Path.Combine(kontakt.Vst3, "Kontakt 8.vst3"), "plugin");
+        kontakt.Recover();
+        File.Delete(kontakt.Calls);
+
+        kontakt.Recover();
+
+        Assert.False(File.Exists(kontakt.Calls));
+    }
+
+    [Fact]
+    public void AKontaktInstallTheDawBlockedIsExplainedOnceNativeAccessCloses()
+    {
+        var kontakt = Kontakt();
+        var temp = Path.Combine(kontakt.DriveC, "windows", "temp");
+        Directory.CreateDirectory(temp);
+        File.WriteAllText(Path.Combine(temp, "cabinet-msi.result"), "failed\n");
+        File.WriteAllText(
+            Path.Combine(temp, "cabinet-msi.log"),
+            "cabinet: A DAW is using plugins from native-instruments, so Cabinet will not install "
+            + "Kontakt 8 Setup PC.msi into native-instruments — close those plugins in your DAW and try again.\n");
+
+        var said = kontakt.Recover();
+
+        Assert.Equal(
+            [
+                "Native Access could not install Kontakt 8:",
+                "cabinet: A DAW is using plugins from native-instruments, so Cabinet will not install "
+                + "Kontakt 8 Setup PC.msi into native-instruments — close those plugins in your DAW and try again.",
+                "Install or update it again in Native Access once that is resolved.",
+            ],
+            said);
+        Assert.False(File.Exists(Path.Combine(temp, "cabinet-msi.result")));
+    }
+
+    [Fact]
+    public void AKeptKontaktDownloadWithoutAnInstallerIsDroppedSoTheNextOpenDoesNotTryAgain()
+    {
+        var kontakt = Kontakt();
+        var kept = Path.Combine(kontakt.Prefix, ".cabinet-kept");
+        Directory.CreateDirectory(kept);
+        File.WriteAllText(Path.Combine(kept, "Kontakt_8_Installer.zip"), "not an archive");
+        var said = new List<string>();
+
+        Assert.Throws<InvalidOperationException>(() => kontakt.Recover(said));
+
+        Assert.Empty(Directory.GetFiles(kept));
+        Assert.Contains(
+            "The kept Kontakt 8 download held no installer; install Kontakt 8 again in Native Access", said);
+    }
+
+    [Fact]
+    public void AFailedRegistryWriteSaysWhatWineReported()
+    {
+        var kontakt = Kontakt();
+        File.Delete(kontakt.Wine);
+        File.WriteAllText(kontakt.Wine, """
+            #!/bin/sh
+            echo "wine: could not load kernel32.dll"
+            exit 1
+            """);
+        File.SetUnixFileMode(kontakt.Wine, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        var said = new List<string>();
+
+        Assert.Throws<InvalidOperationException>(() => kontakt.Recover(said));
+
+        Assert.Contains("wine: could not load kernel32.dll", said);
+    }
+
+    private KontaktPrefix Kontakt()
+    {
+        var library = Path.Combine(root, "library", "native-instruments");
+        Directory.CreateDirectory(library);
+        File.Copy(Repo.Path("data/library/native-instruments/kontakt-8.sh"), Path.Combine(library, "kontakt-8.sh"));
+        File.Copy(Repo.Path("data/library/native-instruments/native-access.yml"), Path.Combine(library, "native-access.yml"));
+        File.WriteAllText(Path.Combine(library, "msi.dll"), "stand-in");
+
+        var runner = Path.Combine(root, "runner");
+        var wineMsi = Path.Combine(runner, "lib", "wine", "i386-windows", "msi.dll");
+        Directory.CreateDirectory(Path.GetDirectoryName(wineMsi)!);
+        File.WriteAllText(wineMsi, "wine msi");
+
+        var prefix = Path.Combine(root, "prefix");
+        var kontakt = new KontaktPrefix(
+            new Layout(root, Path.Combine(root, "runtime"), libraryDir: Path.Combine(root, "library")),
+            prefix,
+            Path.Combine(runner, "bin", "wine"),
+            Path.Combine(root, "calls"));
+        Directory.CreateDirectory(kontakt.SysWow64);
+        Directory.CreateDirectory(kontakt.Vst3);
+        Directory.CreateDirectory(Path.GetDirectoryName(kontakt.Wine)!);
+        File.WriteAllText(kontakt.Wine, $$"""
+            #!/bin/sh
+            printf '%s|' "$@" >>"{{kontakt.Calls}}"; echo >>"{{kontakt.Calls}}"
+            """);
+        File.SetUnixFileMode(kontakt.Wine, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        return kontakt;
+    }
+
+    private sealed record KontaktPrefix(Layout Layout, string Prefix, string Wine, string Calls)
+    {
+        public string DriveC => Path.Combine(Prefix, "drive_c");
+
+        public string SysWow64 => Path.Combine(DriveC, "windows", "syswow64");
+
+        public string Vst3 => Path.Combine(DriveC, "Program Files", "Common Files", "VST3");
+
+        public List<string> Recover() => Recover([]);
+
+        public List<string> Recover(List<string> said)
+        {
+            var entry = LibraryEntry.Parse(
+                "native-access",
+                File.ReadAllText(Path.Combine(Layout.LibraryDir, "native-instruments", "native-access.yml")),
+                "native-instruments");
+
+            new InstallScript(Layout, new ProcessRunner()).Recover(
+                entry,
+                Prefix,
+                Path.Combine(Prefix, ".cabinet-kept"),
+                new Dictionary<string, string> { ["CABINET_PREFIX"] = Prefix, ["WINE"] = Wine },
+                said.Add);
+
+            return said;
+        }
+    }
+
     private string RunSpliceInstrument(string record) => RunScript(
         "splice-instrument",
         "splice",

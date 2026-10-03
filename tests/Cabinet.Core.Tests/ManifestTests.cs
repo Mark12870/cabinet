@@ -268,6 +268,24 @@ public class ManifestTests
     }
 
     [Fact]
+    public void AStateIsRestoredToTheInterfaceTheHostGaveItTo()
+    {
+        const string patch = "patches/yabridge/yabridge-state-per-interface.patch";
+        var chainloader = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "path: patches/yabridge/yabridge-chainloader-cabinet-first.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+        var routing = File.ReadAllText(Repo.Path(patch));
+
+        Assert.True(chainloader >= 0);
+        Assert.Equal(chainloader + 2, applied);
+        Assert.Contains("+        return edit_controller_set_state(state);", routing, StringComparison.Ordinal);
+        Assert.Contains("+        return component_set_state(state);", routing, StringComparison.Ordinal);
+        Assert.Contains("+                                      .edit_controller = edit_controller,", routing, StringComparison.Ordinal);
+        Assert.Contains("+                        !(request.edit_controller &&", routing, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheSocketsLandWhereTheSandboxCanReachThem()
     {
         Assert.Contains("--filesystem=xdg-run/yabridge:create", FinishArgs);

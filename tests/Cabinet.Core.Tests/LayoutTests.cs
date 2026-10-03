@@ -91,6 +91,20 @@ public class LayoutTests
     }
 
     [Fact]
+    public void WindowsPathsMapToThePrefixesDrives()
+    {
+        var prefix = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/gadget";
+
+        Assert.Equal(
+            $"{prefix}/drive_c/Program Files/Native Instruments/Kontakt 8",
+            Layout.PrefixWindowsPath("gadget", @"C:\Program Files\Native Instruments\Kontakt 8\"));
+        Assert.Equal("/tmp/payload/data", Layout.PrefixWindowsPath("gadget", @"z:\tmp\payload\data"));
+        Assert.Equal($"{prefix}/dosdevices/d:/Samples", Layout.PrefixWindowsPath("gadget", @"D:\Samples"));
+        Assert.Equal(
+            $"{prefix}/drive_c/windows/temp/cabinet-package.reg", Layout.PrefixPackageRegistry("gadget"));
+    }
+
+    [Fact]
     public void PluginDirectoriesCoverBothBitnesses()
     {
         var prefix = "/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes/gadget/drive_c";

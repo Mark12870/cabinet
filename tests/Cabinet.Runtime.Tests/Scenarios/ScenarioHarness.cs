@@ -481,10 +481,16 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
     }
 
-    public Performance PlayThroughEditor(Bridge bridge, int note, string steps, string title)
+    public Performance PlayThroughEditor(Bridge bridge, int note, string steps, string title) =>
+        Played(PlayEditor(bridge, note, steps, title, "played"), "PLAYED");
+
+    public Performance RestoreAfterPlayingThroughEditor(Bridge bridge, int note, string steps, string title) =>
+        Played(PlayEditor(bridge, note, steps, title, "restored", "restore"), "RESTORED");
+
+    private string PlayEditor(Bridge bridge, int note, string steps, string title, string label, params string[] extra)
     {
         var (plugin, format) = bridge;
-        var shots = Path.Combine(Artefacts, "played", bridge.Label);
+        var shots = Path.Combine(Artefacts, label, bridge.Label);
         Directory.CreateDirectory(shots);
         var result = EditorProbe.RunIn(
             Home,
@@ -493,16 +499,16 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             "editor-play.py",
             plugin,
             format,
-            shots,
-            note.ToString(CultureInfo.InvariantCulture),
-            steps,
-            title);
+            [shots, note.ToString(CultureInfo.InvariantCulture), steps, title, .. extra]);
         File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
         Assert.True(result.ExitCode == 0, result.Said);
+        return result.Said;
+    }
 
-        var found = Regex.Match(
-            result.Said, @"PLAYED BEFORE=([0-9.]+) HELD=([0-9.]+) AFTER=([0-9.]+)");
-        Assert.True(found.Success, result.Said);
+    private static Performance Played(string said, string phase)
+    {
+        var found = Regex.Match(said, phase + @" BEFORE=([0-9.]+) HELD=([0-9.]+) AFTER=([0-9.]+)");
+        Assert.True(found.Success, said);
         return new Performance(Number(found, 1), Number(found, 2), Number(found, 3));
     }
 

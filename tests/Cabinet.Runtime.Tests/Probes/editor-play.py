@@ -1,10 +1,13 @@
 """Report how loud a plugin plays a note once its editor has been used to load a sound.
 
-Some instruments load their sound only through their own editor, and their saved state does not
-bring it back, so the sound is loaded here the way a user loads it: clicks and double-clicks in
-the editor. The note is then played live, through Carla's running engine rather than an offline
-render, because a sampler streaming from disk needs real time to fill its buffers. The output is
-metered for the same length of time before the note, while it is held, and after it ends.
+Some instruments load their sound only through their own editor, so the sound is loaded here the
+way a user loads it: clicks and double-clicks in the editor. The note is then played live, through
+Carla's running engine rather than an offline render, because a sampler streaming from disk needs
+real time to fill its buffers. The output is metered for the same length of time before the note,
+while it is held, and after it ends.
+
+With a ninth argument the plugin's state is then saved, a fresh instance is given it the way a DAW
+opens a project, and the note is metered again.
 """
 
 import ctypes
@@ -22,6 +25,7 @@ SHOTS = sys.argv[5]
 NOTE = int(sys.argv[6])
 STEPS = [step.split() for step in sys.argv[7].split(";") if step.strip()]
 TITLE = sys.argv[8]
+RESTORE = len(sys.argv) > 9
 
 LISTEN = 3.0
 
@@ -36,6 +40,7 @@ from carla_backend import (  # noqa: E402
     ENGINE_OPTION_TRANSPORT_MODE,
     ENGINE_PROCESS_MODE_CONTINUOUS_RACK,
     ENGINE_TRANSPORT_MODE_INTERNAL,
+    PLUGIN_OPTION_USE_CHUNKS,
     PLUGIN_VST2,
     PLUGIN_VST3,
     CarlaHostDLL,
@@ -138,9 +143,34 @@ def main():
     after = listen(host, held=False)
     host.show_custom_ui(0, False)
     idle(host, 2)
+    print(f"PLAYED BEFORE={before:.6f} HELD={held:.6f} AFTER={after:.6f}")
+
+    if RESTORE:
+        state = os.path.join(SHOTS, "state.carxs")
+        host.set_option(0, PLUGIN_OPTION_USE_CHUNKS, True)
+        host.save_plugin_state(0, state)
+        host.remove_all_plugins()
+        idle(host, 5)
+        if not host.add_plugin(BINARY_NATIVE, TYPES[FORMAT], PLUGIN, "", "", 0, None, 0):
+            print("RESTORED=failed " + host.get_last_error())
+            return 1
+        host.set_option(0, PLUGIN_OPTION_USE_CHUNKS, True)
+        if not host.load_plugin_state(0, state):
+            print("RESTORED=failed " + host.get_last_error())
+            return 1
+        idle(host, 20)
+        host.show_custom_ui(0, True)
+        idle(host, 10)
+        capture("restored")
+        before = listen(host, held=False)
+        held = listen(host, held=True)
+        after = listen(host, held=False)
+        host.show_custom_ui(0, False)
+        idle(host, 2)
+        print(f"RESTORED BEFORE={before:.6f} HELD={held:.6f} AFTER={after:.6f}")
+
     host.remove_all_plugins()
     host.engine_close()
-    print(f"PLAYED BEFORE={before:.6f} HELD={held:.6f} AFTER={after:.6f}")
     return 0
 
 

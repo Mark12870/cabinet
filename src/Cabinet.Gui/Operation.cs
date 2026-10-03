@@ -19,6 +19,9 @@ internal sealed class Operation(
         Action? onFinished = null) =>
         Start(title, (output, progress, _) => work(output, progress), onFinished, cancellable: false);
 
+    public void RunThen(string title, Action<Action<string>> work, Action next) =>
+        Start(title, (output, _, _) => work(output), next, cancellable: false, closeWhenDone: true);
+
     public void RunCancellable(
         string title,
         Action<Action<string>, CancellationToken> work,
@@ -43,7 +46,8 @@ internal sealed class Operation(
         string title,
         Action<Action<string>, Action<double>, CancellationToken> work,
         Action? onFinished,
-        bool cancellable)
+        bool cancellable,
+        bool closeWhenDone = false)
     {
         var dialog = new OperationDialog(title, cancellable);
         hold();
@@ -80,6 +84,12 @@ internal sealed class Operation(
             try
             {
                 dialog.Finish(task.Result);
+
+                if (closeWhenDone && task.Result is null)
+                {
+                    dialog.Close();
+                }
+
                 onFinished?.Invoke();
             }
             finally
@@ -107,6 +117,7 @@ internal sealed class Operation(
         private bool queued;
         private long drawn;
         private bool finished;
+        private bool measuring;
         private Lingering? lingering;
         private string? waiting;
 
@@ -124,8 +135,7 @@ internal sealed class Operation(
             status.SetWrap(true);
             status.AddCssClass("heading");
 
-            bar.SetShowText(true);
-            bar.SetVisible(false);
+            bar.Pulse();
 
             log.SetMonospace(true);
             log.SetEditable(false);
@@ -162,7 +172,24 @@ internal sealed class Operation(
 
         public CancellationToken Token => cancellation.Token;
 
-        public void Present(Gtk.Widget parent) => dialog.Present(parent);
+        public void Present(Gtk.Widget parent)
+        {
+            dialog.Present(parent);
+            GLib.Functions.TimeoutAdd(0, (uint)RedrawMilliseconds, () =>
+            {
+                if (finished)
+                {
+                    return false;
+                }
+
+                if (!measuring)
+                {
+                    bar.Pulse();
+                }
+
+                return true;
+            });
+        }
 
         public void Dispose() => cancellation.Dispose();
 
@@ -243,9 +270,18 @@ internal sealed class Operation(
                 return;
             }
 
-            bar.SetVisible(true);
-            bar.SetFraction(drawing);
-            bar.SetText($"{drawing * 100:0}%");
+            measuring = drawing < 1;
+            bar.SetShowText(measuring);
+
+            if (measuring)
+            {
+                bar.SetFraction(drawing);
+                bar.SetText($"{drawing * 100:0}%");
+            }
+            else
+            {
+                bar.Pulse();
+            }
         }
 
         public void Finish(string? result)
@@ -260,6 +296,8 @@ internal sealed class Operation(
             close.SetSensitive(true);
             dialog.SetCanClose(true);
         }
+
+        public void Close() => dialog.Close();
 
         private void Stop()
         {

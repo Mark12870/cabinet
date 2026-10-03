@@ -127,6 +127,25 @@ a setting for it. `ManifestTests` keeps the path equal to `Layout.HostYabridgeDi
 Unwiring it breaks every Windows plugin in a native DAW unless another yabridge happens to be
 installed, and then those plugins run under that one's Wine.
 
+## yabridge-state-per-interface.patch
+
+**Failure.** `setState` and `getState` exist in both `IComponent` and `IEditController`, and
+yabridge's proxy implements them once. The Wine host then calls the component's whenever the
+object has one, on the assumption that no object implements both. Kontakt 8's object does, with
+a controller that ignores an empty state. A DAW restoring a project restores the component, then
+hands the controller its own state, which a project saved on Windows stores empty. yabridge passes
+that empty stream to the component instead, and Kontakt clears the instrument it has just loaded.
+Saves made through yabridge store the component's state for the controller too, which is why only
+projects made on Windows open empty.
+
+**Patch.** Each interface forwards to its own function in the proxy, the message carries which one
+the host called, and the Wine host calls that interface when the object has it. An object with
+only one of the two, or with one class behind both, is called exactly as before. Projects saved
+before the patch hand Kontakt's controller the component's state, which it ignores: on 2026-10-03
+they reopened with the instrument in REAPER, and Carla, which always does this, restored a loop.
+
+**When it can go.** When upstream yabridge tells the two interfaces apart.
+
 # The yabridge Cabinet builds
 
 The manifest pins one yabridge commit, and `ManifestTests` requires that commit to be named

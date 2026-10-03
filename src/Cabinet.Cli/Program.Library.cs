@@ -286,8 +286,21 @@ internal static partial class Program
         var library = new Library(layout, runner);
         var entry = Manager(library, id);
 
+        Prepare(library, entry);
         library.Launch(entry, Console.WriteLine);
         return Exit.Ok;
+    }
+
+    private static void Prepare(Library library, LibraryEntry entry)
+    {
+        try
+        {
+            library.Prepare(entry, Console.WriteLine);
+        }
+        catch (Exception failure)
+        {
+            Console.Error.WriteLine($"cabinet: {failure.Message}");
+        }
     }
 
     private static int StopFromLibrary(Layout layout, IProcessRunner runner, string id)
@@ -309,7 +322,10 @@ internal static partial class Program
 
     private static int OpenFromLibrary(Layout layout, IProcessRunner runner, string link)
     {
-        new Library(layout, runner).Open(link, Console.WriteLine);
+        var library = new Library(layout, runner);
+
+        Prepare(library, library.ForLink(link));
+        library.Open(link, Console.WriteLine);
         return Exit.Ok;
     }
 

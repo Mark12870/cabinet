@@ -4,6 +4,8 @@ namespace Cabinet.Core;
 
 public sealed class InstallScript(Layout layout, IProcessRunner runner)
 {
+    public const string Claimed = "CABINET_CLAIMED";
+
     public void Run(
         LibraryEntry entry,
         string archive,
@@ -73,7 +75,8 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
             onOutput?.Invoke($"Running {name}");
         }
 
-        var result = Detached(entry.Id, script, environment, where, onOutput);
+        var result = Detached(
+            entry.Id, script, new Dictionary<string, string>(environment) { [Claimed] = where }, where, onOutput);
 
         if (!result.Ok)
         {

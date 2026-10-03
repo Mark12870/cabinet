@@ -63,6 +63,20 @@ internal sealed partial class LibraryPage
 
     private void Launch(LibraryEntry entry, Action<Library> start)
     {
+        if (entry.Recover is null)
+        {
+            OpenApp(entry, start);
+            return;
+        }
+
+        operations.RunThen(
+            $"Preparing {entry.Name}",
+            output => new Library(layout, runner).Prepare(entry, output),
+            () => OpenApp(entry, start));
+    }
+
+    private void OpenApp(LibraryEntry entry, Action<Library> start)
+    {
         running.Add(entry.Id);
         toast($"Opening {entry.Name}.");
         changed();

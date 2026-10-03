@@ -48,6 +48,24 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
+    public void MsiNeedsAPrefixAndAPackage()
+    {
+        var outcome = cli.Run("msi", "gadget");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Equal("cabinet: expected a Windows Installer package\n", outcome.Error);
+    }
+
+    [Fact]
+    public void MsiIntoAPrefixThatDoesNotExistIsAbsent()
+    {
+        var outcome = cli.Run("msi", "nowhere", "Setup.msi", "ADDLOCAL=ALL");
+
+        Assert.Equal(4, outcome.Exit);
+        Assert.Equal("cabinet: no such prefix 'nowhere'\n", outcome.Error);
+    }
+
+    [Fact]
     public void EnrolRefusesAnythingButAFlatpakIdBeforeTouchingTheDisk()
     {
         var outcome = cli.Run("enrol", "../../.ssh");

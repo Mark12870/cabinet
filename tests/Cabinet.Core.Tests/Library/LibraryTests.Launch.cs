@@ -600,7 +600,7 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void ARecoverScriptRunsWhenTheAppClosesAndBeforeTheBridge()
+    public void PreparingRunsTheRecoverScriptAndTheAppRunsItAgainWhenItClosesBeforeTheBridge()
     {
         Catalogue(("thing", """
             Name: Thing
@@ -616,15 +616,90 @@ public partial class LibraryTests
         var recorder = new RecordingRunner();
         Directory.CreateDirectory(layout.PrefixPath("thing"));
         File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        var library = new Library(layout, recorder);
+        var said = new List<string>();
 
-        new Library(layout, recorder).Launch(new Library(layout, recorder).Find("thing"));
-
-        var script = Assert.Single(recorder.Calls, call => call.File == "sh");
-        Assert.Equal(["-e", layout.LibraryScript(Vendor, "fixture.sh")], script.Arguments);
-        Assert.Equal(layout.PrefixKeptDir("thing"), script.Environment["CABINET_KEPT"]);
+        library.Prepare(library.Find("thing"), said.Add);
+        library.Launch(library.Find("thing"));
 
         var calls = recorder.Calls.ToList();
-        Assert.True(calls.IndexOf(script) < calls.FindIndex(Synced));
+        var scripts = calls.Where(call => call.File == "sh").ToList();
+        var app = calls.FindIndex(call => call.Arguments.Any(argument => argument.EndsWith("Thing.exe")));
+        Assert.Equal(["Bringing what Thing installed up to date."], said);
+        Assert.Equal(2, scripts.Count);
+        Assert.All(scripts, script => Assert.Equal(["-e", layout.LibraryScript(Vendor, "fixture.sh")], script.Arguments));
+        Assert.All(scripts, script => Assert.Equal(layout.PrefixKeptDir("thing"), script.Environment["CABINET_KEPT"]));
+        Assert.All(scripts, script => Assert.Equal(layout.PrefixPath("thing"), script.Environment[InstallScript.Claimed]));
+        Assert.True(calls.IndexOf(scripts[0]) < app);
+        Assert.True(app < calls.IndexOf(scripts[1]));
+        Assert.True(calls.IndexOf(scripts[1]) < calls.FindIndex(Synced));
+    }
+
+    [Fact]
+    public void PreparingAnAppWithoutARecoverScriptRunsNothing()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+
+        new Library(layout, recorder).Prepare(entry);
+
+        Assert.Empty(recorder.Calls);
+    }
+
+    [Fact]
+    public void PreparingAnAppThatIsAlreadyOpenLeavesItsPrefixAlone()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Launch: C:\\Thing\\Thing.exe
+            Keep: drive_c/downloads
+            Recover: fixture.sh
+            """));
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            outputs: _ => "\"Thing.exe\",\"42\",\"Console\",\"1\",\"90,112 K\"",
+            dawSession: true);
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        using var open = SessionFiles.HeldByAPlugin(SessionFiles.Of(layout, "thing").Apps);
+        var library = new Library(layout, recorder);
+        var said = new List<string>();
+
+        library.Prepare(library.Find("thing"), said.Add);
+
+        Assert.Empty(said);
+        Assert.DoesNotContain(recorder.Calls, call => call.File == "sh");
+    }
+
+    [Fact]
+    public void PreparingAPrefixADawIsUsingSaysWhyAndChangesNothing()
+    {
+        Catalogue(("thing", """
+            Name: Thing
+            Kind: windows
+            Source: byo
+            Launch: C:\\Thing\\Thing.exe
+            Keep: drive_c/downloads
+            Recover: fixture.sh
+            """));
+        Script("fixture.sh", "exit 0");
+
+        var layout = Layout();
+        var recorder = new RecordingRunner();
+        Directory.CreateDirectory(layout.PrefixPath("thing"));
+        File.WriteAllText(layout.PrefixPluginsFile("thing"), "thing\n");
+        using var plugin = SessionFiles.HeldByAPlugin(SessionFiles.Of(layout, "thing").Busy);
+        var library = new Library(layout, recorder);
+
+        var refused = Assert.Throws<PrefixInUseException>(() => library.Prepare(library.Find("thing")));
+
+        Assert.StartsWith("A DAW is using plugins from thing", refused.Message);
+        Assert.DoesNotContain(recorder.Calls, call => call.File == "sh");
     }
 
     [Fact]

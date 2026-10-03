@@ -1,6 +1,5 @@
 typedef unsigned short WCHAR;
 typedef void *HANDLE;
-typedef void *HKEY;
 typedef unsigned long DWORD;
 typedef int BOOL;
 typedef unsigned int UINT;
@@ -9,13 +8,12 @@ typedef unsigned int UINT;
 #define ERROR_SUCCESS 0
 #define ERROR_INSTALL_FAILURE 1603
 #define CP_ACP 0
+#define CP_UTF8 65001
 #define GENERIC_READ 0x80000000
+#define GENERIC_WRITE 0x40000000
+#define CREATE_ALWAYS 2
 #define OPEN_EXISTING 3
 #define INVALID_HANDLE_VALUE ((HANDLE)(long)-1)
-#define HKEY_LOCAL_MACHINE ((HKEY)(unsigned long)0x80000002)
-#define KEY_SET_VALUE 0x0002
-#define KEY_WOW64_64KEY 0x0100
-#define REG_SZ 1
 #define CREATE_NO_WINDOW 0x08000000
 #define MAX_PATH 260
 
@@ -45,20 +43,19 @@ __declspec(dllimport) BOOL WINAPI CreateProcessW(const WCHAR *, WCHAR *, void *,
 __declspec(dllimport) BOOL WINAPI CloseHandle(HANDLE);
 __declspec(dllimport) HANDLE WINAPI CreateFileW(const WCHAR *, DWORD, DWORD, void *, DWORD, DWORD, HANDLE);
 __declspec(dllimport) BOOL WINAPI ReadFile(HANDLE, void *, DWORD, DWORD *, void *);
+__declspec(dllimport) BOOL WINAPI WriteFile(HANDLE, const void *, DWORD, DWORD *, void *);
 __declspec(dllimport) BOOL WINAPI DeleteFileW(const WCHAR *);
 __declspec(dllimport) void WINAPI Sleep(DWORD);
 __declspec(dllimport) int WINAPI MultiByteToWideChar(UINT, DWORD, const char *, int, WCHAR *, int);
+__declspec(dllimport) int WINAPI WideCharToMultiByte(UINT, DWORD, const WCHAR *, int, char *, int, const char *,
+                                                     BOOL *);
 __declspec(dllimport) HANDLE WINAPI GetProcessHeap(void);
 __declspec(dllimport) void *WINAPI HeapAlloc(HANDLE, DWORD, unsigned long);
 __declspec(dllimport) BOOL WINAPI HeapFree(HANDLE, DWORD, void *);
-__declspec(dllimport) long WINAPI RegCreateKeyExW(HKEY, const WCHAR *, DWORD, WCHAR *, DWORD, DWORD, void *,
-                                                  HKEY *, DWORD *);
-__declspec(dllimport) long WINAPI RegSetValueExW(HKEY, const WCHAR *, DWORD, DWORD, const void *, DWORD);
-__declspec(dllimport) long WINAPI RegCloseKey(HKEY);
 
 static const WCHAR Diverted[] = L"Kontakt 8 Setup PC.msi";
 static const WCHAR Result[] = L"C:\\windows\\temp\\cabinet-msi.result";
-static const WCHAR Key[] = L"SOFTWARE\\Native Instruments\\Kontakt 8";
+static const WCHAR Command[] = L"C:\\windows\\temp\\cabinet-msi.command";
 static const char Hook[] = "/app/share/cabinet/library/native-instruments/kontakt-8.sh";
 static const DWORD Patience = 600;
 
@@ -118,30 +115,70 @@ static void append(WCHAR *to, int *at, const WCHAR *text)
     to[*at] = 0;
 }
 
-static void append_narrow(WCHAR *to, int *at, const char *text)
+static BOOL append_narrow(WCHAR *to, int *at, const char *text)
 {
-    for (int i = 0; text[i]; i++)
-        to[(*at)++] = (unsigned char)text[i];
-    to[*at] = 0;
+    int added = MultiByteToWideChar(CP_UTF8, 0, text, -1, to + *at, 2 * MAX_PATH);
+
+    if (!added)
+        return 0;
+
+    *at += added - 1;
+    return 1;
 }
 
-static BOOL hook(void)
+static BOOL append_unix(WCHAR *to, int *at, const WCHAR *path)
 {
     UnixName unix_name = (UnixName)GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "wine_get_unix_file_name");
-    char *drive = unix_name ? unix_name(L"C:\\") : 0;
-    WCHAR command[4 * MAX_PATH];
+    char *unix_path = unix_name ? unix_name(path) : 0;
+
+    if (!unix_path)
+        return 0;
+
+    append(to, at, L" \"");
+    BOOL appended = append_narrow(to, at, unix_path);
+    append(to, at, L"\"");
+    HeapFree(GetProcessHeap(), 0, unix_path);
+    return appended;
+}
+
+static BOOL noted(const WCHAR *command)
+{
+    const WCHAR *text = command ? command : L"";
+    int size = WideCharToMultiByte(CP_UTF8, 0, text, -1, 0, 0, 0, 0);
+    char *utf8 = HeapAlloc(GetProcessHeap(), 0, size);
+    HANDLE file = CreateFileW(Command, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, 0, 0);
+    DWORD written = 0;
+    BOOL wrote = utf8 && file != INVALID_HANDLE_VALUE &&
+                 WideCharToMultiByte(CP_UTF8, 0, text, -1, utf8, size, 0, 0) == size &&
+                 WriteFile(file, utf8, size - 1, &written, 0) && written == (DWORD)(size - 1);
+
+    if (file != INVALID_HANDLE_VALUE)
+        CloseHandle(file);
+
+    if (utf8)
+        HeapFree(GetProcessHeap(), 0, utf8);
+
+    return wrote;
+}
+
+static BOOL hook(const WCHAR *package, const WCHAR *arguments)
+{
+    static WCHAR command[8 * MAX_PATH];
     int at = 0;
     STARTUPINFOW startup;
     PROCESS_INFORMATION started;
 
-    if (!drive)
+    if (!noted(arguments))
         return 0;
 
     append(command, &at, L"C:\\windows\\system32\\start.exe /unix /bin/sh ");
-    append_narrow(command, &at, Hook);
-    append(command, &at, L" --installing ");
-    append_narrow(command, &at, drive);
-    HeapFree(GetProcessHeap(), 0, drive);
+    if (!append_narrow(command, &at, Hook))
+        return 0;
+
+    append(command, &at, L" --installing");
+
+    if (!append_unix(command, &at, L"C:\\") || !append_unix(command, &at, package))
+        return 0;
 
     DeleteFileW(Result);
     memset(&startup, 0, sizeof(startup));
@@ -165,7 +202,6 @@ static int awaited(char *said, DWORD size)
             ReadFile(file, said, size - 1, &read, 0);
             CloseHandle(file);
             said[read] = 0;
-            DeleteFileW(Result);
             return 1;
         }
 
@@ -175,37 +211,27 @@ static int awaited(char *said, DWORD size)
     return 0;
 }
 
-static void recorded(const char *version)
-{
-    WCHAR wide[64];
-    HKEY key;
-    int at = 0;
-
-    append_narrow(wide, &at, version);
-
-    if (RegCreateKeyExW(HKEY_LOCAL_MACHINE, Key, 0, 0, 0, KEY_SET_VALUE | KEY_WOW64_64KEY, 0, &key, 0))
-        return;
-
-    RegSetValueExW(key, L"InstallVST64Dir", 0, REG_SZ, L"C:\\Program Files\\Common Files\\VST3",
-                   (length(L"C:\\Program Files\\Common Files\\VST3") + 1) * sizeof(WCHAR));
-    RegSetValueExW(key, L"Version", 0, REG_SZ, wide, (at + 1) * sizeof(WCHAR));
-    RegCloseKey(key);
-}
-
-static UINT installed(void)
+static UINT installed(const WCHAR *package, const WCHAR *command)
 {
     char said[64];
-    char *version = said + 3;
 
-    if (!hook() || !awaited(said, sizeof(said)) || said[0] != 'o' || said[1] != 'k' || said[2] != ' ')
+    if (!hook(package, command) || !awaited(said, sizeof(said)) || said[0] != 'o' || said[1] != 'k')
         return ERROR_INSTALL_FAILURE;
 
-    for (char *end = version; *end; end++)
-        if (*end == '\n' || *end == '\r')
-            *end = 0;
-
-    recorded(version);
     return ERROR_SUCCESS;
+}
+
+static WCHAR *widened(const char *text)
+{
+    int size = text ? MultiByteToWideChar(CP_ACP, 0, text, -1, 0, 0) : 0;
+    WCHAR *wide = size ? HeapAlloc(GetProcessHeap(), 0, size * sizeof(WCHAR)) : 0;
+
+    if (wide && !MultiByteToWideChar(CP_ACP, 0, text, -1, wide, size)) {
+        HeapFree(GetProcessHeap(), 0, wide);
+        return 0;
+    }
+
+    return wide;
 }
 
 UINT WINAPI MsiInstallProductW(const WCHAR *package, const WCHAR *command)
@@ -213,7 +239,7 @@ UINT WINAPI MsiInstallProductW(const WCHAR *package, const WCHAR *command)
     InstallW forward;
 
     if (diverted(package))
-        return installed();
+        return installed(package, command);
 
     forward = (InstallW)GetProcAddress(wine_msi(), "MsiInstallProductW");
     return forward ? forward(package, command) : ERROR_INSTALL_FAILURE;
@@ -224,8 +250,15 @@ UINT WINAPI MsiInstallProductA(const char *package, const char *command)
     InstallA forward;
     WCHAR wide[MAX_PATH];
 
-    if (package && MultiByteToWideChar(CP_ACP, 0, package, -1, wide, MAX_PATH) && diverted(wide))
-        return installed();
+    if (package && MultiByteToWideChar(CP_ACP, 0, package, -1, wide, MAX_PATH) && diverted(wide)) {
+        WCHAR *arguments = widened(command);
+        UINT result = installed(wide, arguments);
+
+        if (arguments)
+            HeapFree(GetProcessHeap(), 0, arguments);
+
+        return result;
+    }
 
     forward = (InstallA)GetProcAddress(wine_msi(), "MsiInstallProductA");
     return forward ? forward(package, command) : ERROR_INSTALL_FAILURE;

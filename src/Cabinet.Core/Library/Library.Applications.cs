@@ -146,16 +146,7 @@ public sealed partial class Library
         {
             try
             {
-                using var claim = prefixes.Claim(where, $"finish {entry.Name}'s install");
-
-                new InstallScript(layout, runner).Recover(
-                    entry,
-                    layout.PrefixPath(where),
-                    layout.PrefixKeptDir(where),
-                    prefixes.Variables(where),
-                    Say);
-
-                Settle(prefixes, where, log);
+                Recover(entry, prefixes, where, log, Say);
             }
             catch (PrefixInUseException waiting)
             {
@@ -218,6 +209,39 @@ public sealed partial class Library
         }
 
         Say($"{entry.Name} closed.");
+    }
+
+    public void Prepare(LibraryEntry entry, Action<string>? onOutput = null)
+    {
+        if (entry.Recover is null)
+        {
+            return;
+        }
+
+        var where = Where(entry);
+        var prefixes = new Prefixes(layout, runner);
+
+        if (IsOpen(prefixes, where, entry))
+        {
+            return;
+        }
+
+        onOutput?.Invoke($"Bringing what {entry.Name} installed up to date.");
+        Recover(entry, prefixes, where, layout.PrefixLaunchLog(where), onOutput ?? (_ => { }));
+    }
+
+    private void Recover(LibraryEntry entry, Prefixes prefixes, string where, string log, Action<string> say)
+    {
+        using var claim = prefixes.Claim(where, $"finish {entry.Name}'s install");
+
+        new InstallScript(layout, runner).Recover(
+            entry,
+            layout.PrefixPath(where),
+            layout.PrefixKeptDir(where),
+            prefixes.Variables(where),
+            say);
+
+        Settle(prefixes, where, log);
     }
 
     public StopOutcome Stop(
@@ -370,7 +394,7 @@ public sealed partial class Library
         var where = Where(entry);
         var prefixes = new Prefixes(layout, runner);
 
-        if (prefixes.SessionLive(where) && Running(prefixes, where, entry.LaunchExe!))
+        if (IsOpen(prefixes, where, entry))
         {
             var log = layout.PrefixLaunchLog(where);
             var line = $"Handing the link to {entry.Name}.";
@@ -396,6 +420,9 @@ public sealed partial class Library
 
         Launch(entry, onOutput, link);
     }
+
+    private static bool IsOpen(Prefixes prefixes, string where, LibraryEntry entry) =>
+        prefixes.SessionLive(where) && Running(prefixes, where, entry.LaunchExe!);
 
     private static bool Running(Prefixes prefixes, string where, string exe) =>
         prefixes.RunJoined(where, ["tasklist", "/fo", "csv", "/nh"])

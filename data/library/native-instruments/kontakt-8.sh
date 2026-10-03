@@ -1,82 +1,94 @@
-installing=
 if [ "${1:-}" = --installing ]; then
-    installing=1
     export PATH="/app/bin:/usr/bin:/bin"
-    CABINET_PREFIX="${2%/}"
-    CABINET_PREFIX="${CABINET_PREFIX%/drive_c}"
-    CABINET_KEPT="$CABINET_PREFIX/.cabinet-kept"
-    result="$CABINET_PREFIX/drive_c/windows/temp/cabinet-msi.result"
+    drive_c="${2%/}"
+    temp="$drive_c/windows/temp"
+    result="$temp/cabinet-msi.result"
     trap '[ -s "$result" ] || echo failed > "$result"' EXIT
-fi
 
-destination="$CABINET_PREFIX/drive_c/Program Files/Common Files/VST3/Kontakt 8.vst3"
+    command=$(cat "$temp/cabinet-msi.command")
+    source=$(printf '%s\n' "$command" | sed -n 's/.*SRCDIR=\("[^"]*"\|[^ ]*\).*/\1/p')
+    prefix=$(basename "${drive_c%/drive_c}")
 
-if [ ! -d "$CABINET_KEPT" ] || { [ -z "$installing" ] && [ -s "$destination" ]; }; then
+    cabinet msi "$prefix" "$3" "$command" "SourceDir=$source" >"$temp/cabinet-msi.log" 2>&1 &&
+        echo ok > "$result"
     exit 0
 fi
 
-archive=$(find "$CABINET_KEPT" -maxdepth 1 -type f -iname '*kontakt*8*.zip' -printf '%T@ %p\n' | \
+drive_c="$CABINET_PREFIX/drive_c"
+vst3="$drive_c/Program Files/Common Files/VST3/Kontakt 8.vst3"
+install_dir="$drive_c/Program Files/Native Instruments/Kontakt 8"
+content_dir="$drive_c/Program Files/Common Files/Native Instruments/Kontakt 8"
+system="$drive_c/windows/syswow64"
+result="$drive_c/windows/temp/cabinet-msi.result"
+stand_in="$(dirname "$0")/msi.dll"
+wine_msi="$(dirname "$WINE")/../lib/wine/i386-windows/msi.dll"
+
+quietly() {
+    output=$("$@" 2>&1) || { printf '%s\n' "$output" >&2; return 1; }
+}
+
+if [ ! -f "$wine_msi" ]; then
+    echo "The runner has no 32-bit msi.dll for Kontakt 8's installer to fall back on" >&2
+    exit 1
+fi
+
+if ! cmp -s "$stand_in" "$system/msi.dll" || ! cmp -s "$wine_msi" "$system/msi_wine.dll"; then
+    install -m644 "$wine_msi" "$system/msi_wine.dll"
+    install -m644 "$stand_in" "$system/msi.dll"
+    quietly "$WINE" reg add 'HKCU\Software\Wine\AppDefaults\Kontakt 8 Setup PC.exe\DllOverrides' \
+        /v msi /d native /f
+fi
+
+if [ "$(cat "$result" 2>/dev/null)" = failed ]; then
+    rm -f "$result"
+    echo "Native Access could not install Kontakt 8:" >&2
+    cat "$drive_c/windows/temp/cabinet-msi.log" >&2
+    echo "Install or update it again in Native Access once that is resolved." >&2
+fi
+
+if [ -f "$install_dir/Kontakt 8.exe" ]; then
+    exit 0
+fi
+
+archive=$(find "$CABINET_KEPT" -maxdepth 1 -type f -iname '*kontakt*8*.zip' -printf '%T@ %p\n' 2>/dev/null | \
     sort -nr | awk '{ sub(/^[^ ]+ /, ""); print; exit }')
 
-if [ -z "$archive" ]; then
-    exit 0
-fi
+if [ -n "$archive" ]; then
+    echo "Installing Kontakt 8 from $(basename "$archive")"
 
-echo "Recovering Kontakt 8 from $(basename "$archive")"
-
-work="$CABINET_PREFIX/drive_c/cabinet-kontakt"
-rm -rf "$work"
-mkdir -p "$work"
-7z x -y "-o$work" "$archive" >/dev/null 2>&1 || true
-
-source=$(find "$work" -type f -name 'Kontakt 8.vst3' | sort | tail -n 1)
-
-if [ -z "$source" ]; then
+    work="$drive_c/cabinet-kontakt"
+    rm -rf "$work"
+    mkdir -p "$work"
+    7z x -y "-o$work" "$archive" >/dev/null 2>&1 || true
     setup=$(find "$work" -type f -iname '*Kontakt 8*Setup PC.exe' | sort | tail -n 1)
 
     if [ -z "$setup" ]; then
-        echo "The kept Kontakt 8 download held no installer" >&2
+        echo "The kept Kontakt 8 download held no installer; install Kontakt 8 again in Native Access" >&2
         rm -rf "$work"
+        rm -f "$archive" "$archive".*
         exit 1
     fi
 
-    7z x -y "-o$work/payload" "$setup" >/dev/null 2>&1 || true
-    source=$(find "$work/payload" -type f -name 'Kontakt 8.vst3' | sort | tail -n 1)
-fi
-
-if [ -z "$source" ] || [ ! -s "$source" ]; then
-    echo "Kontakt 8's installer held no Kontakt 8.vst3 to recover" >&2
+    rm -f "$result"
+    timeout -k 10s 30m "$WINE" "$setup" /s </dev/null >/dev/null 2>&1 || true
     rm -rf "$work"
-    exit 1
+    rm -f "$archive" "$archive".*
+
+    if [ "$(cat "$result" 2>/dev/null)" != ok ] || [ ! -f "$install_dir/Kontakt 8.exe" ]; then
+        echo "Kontakt 8's installer did not finish; install Kontakt 8 again in Native Access" >&2
+        exit 1
+    fi
+
+    echo "Installed Kontakt 8"
+    exit 0
 fi
 
-version=$(LC_ALL=C grep -aoP -m 1 \
-    'P\x00r\x00o\x00d\x00u\x00c\x00t\x00V\x00e\x00r\x00s\x00i\x00o\x00n\x00\x00\x00\K(?:[0-9]\x00)+(?:\.\x00(?:[0-9]\x00)+)+' \
-    "$source" | tr -d '\000')
-
-if [ -z "$version" ]; then
-    echo "Could not determine the Kontakt version from the recovered VST3" >&2
-    rm -rf "$work"
-    exit 1
+if [ -s "$vst3" ] && [ ! -d "$install_dir" ]; then
+    mkdir -p "$install_dir" "$content_dir"
+    key='HKLM\SOFTWARE\Native Instruments\Kontakt 8'
+    quietly "$WINE" reg add "$key" /v InstallDir /d 'C:\Program Files\Native Instruments\Kontakt 8' /f
+    quietly "$WINE" reg add "$key" /v ContentDir /d 'C:\Program Files\Common Files\Native Instruments\Kontakt 8' /f
+    quietly "$WINE" reg add "$key" /v ContentVersion /d 4.0 /f
+    quietly "$WINE" reg add "$key" /v InstallVST364Dir /d 'C:\Program Files\Common Files\VST3' /f
+    echo "Registered Kontakt 8's install folders, so Native Access can update or repair it"
 fi
-
-mkdir -p "$(dirname "$destination")"
-cp "$source" "$destination"
-
-if [ -z "$installing" ]; then
-    "$WINE" reg add 'HKLM\SOFTWARE\Native Instruments\Kontakt 8' \
-        /v InstallVST64Dir /d 'C:\Program Files\Common Files\VST3' /f
-    "$WINE" reg add 'HKLM\SOFTWARE\Native Instruments\Kontakt 8' \
-        /v Version /d "$version" /f
-fi
-
-products="$CABINET_PREFIX/drive_c/users/Public/Documents/Native Instruments/installed_products"
-mkdir -p "$products"
-printf '%s\n' "{\"InstallVST64Dir\":\"C:\\\\Program Files\\\\Common Files\\\\VST3\",\"Version\":\"$version\",\"VST3Path\":\"C:\\\\Program Files\\\\Common Files\\\\VST3\\\\Kontakt 8.vst3\"}" \
-    > "$products/Kontakt 8.json"
-
-rm -rf "$work"
-rm -f "$archive" "$archive".*
-
-[ -z "$installing" ] || echo "ok $version" > "$result"
-echo "Recovered Kontakt 8 $version"

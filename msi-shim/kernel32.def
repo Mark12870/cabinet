@@ -7,9 +7,11 @@ EXPORTS
     CloseHandle@4
     CreateFileW@28
     ReadFile@20
+    WriteFile@20
     DeleteFileW@4
     Sleep@4
     MultiByteToWideChar@24
+    WideCharToMultiByte@32
     GetProcessHeap@0
     HeapAlloc@12
     HeapFree@12

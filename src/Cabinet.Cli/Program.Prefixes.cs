@@ -190,6 +190,27 @@ internal static partial class Program
             new Prefixes(layout, runner).Install(name, installer, Console.WriteLine)));
     }
 
+    private static Func<int> Msi(CommandLine line, Layout layout, IProcessRunner runner)
+    {
+        var name = line.Word("a prefix name");
+        var package = line.Word("a Windows Installer package");
+        var properties = new List<string>();
+
+        while (line.OptionalWord() is { } property)
+        {
+            properties.Add(property);
+        }
+
+        return line.Then(() => Exited(
+            "regedit",
+            new WindowsInstaller(layout, runner).Install(
+                name,
+                package,
+                string.Join(' ', properties),
+                Console.WriteLine,
+                Environment.GetEnvironmentVariable(InstallScript.Claimed))));
+    }
+
     private static int Delete(Layout layout, IProcessRunner runner, string name)
     {
         var prefixes = new Prefixes(layout, runner);

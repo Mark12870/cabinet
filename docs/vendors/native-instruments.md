@@ -47,17 +47,28 @@ release changes things.
   way the setup exits 100, which NI reads as success, and no file is written. Raum's setup, the same
   kind but smaller, installs normally. The same diagnosis is in
   [ni-wine](https://github.com/selimbucher/native-instruments), which replays the MSI's file tables.
-- **Cabinet's fix is a `msi.dll` stand-in** (`msi-shim/`), a 32-bit DLL that `native-access.sh`
+- **Cabinet's fix is a `msi.dll` stand-in** (`msi-shim/`), a 32-bit DLL that `kontakt-8.sh`
   puts in `syswow64` beside a copy of the runner's own `msi.dll` named `msi_wine.dll`, and that an
   `AppDefaults` override loads only for `Kontakt 8 Setup PC.exe`. 294 of its exports jump straight
   into `msi_wine.dll`. `MsiInstallProductA/W` do the same for any other package; for Kontakt's they
-  run `kontakt-8.sh --installing` through `start.exe /unix`, wait for its result file, write
-  Kontakt's registry values and return success, or 1603. InstallAware then writes Kontakt's uninstall
-  entry itself, NI's daemon finds and activates Kontakt within seconds, and Native Access lists it
-  as installed in the same session, as on Windows. lld prefixes an underscore to export forwarders
-  on 32-bit x86 (`_msi_wine.MsiCloseHandle`), which is why the exports are stubs, not forwarders.
-- **Prefixes installed before the stand-in** still rely on `kontakt-8.sh`'s recovery when Native
-  Access closes, and on a second opening of Native Access to activate Kontakt.
+  save the command line and run `kontakt-8.sh --installing` with the package through
+  `start.exe /unix`, wait for its result file and return success, or 1603. The script hands the
+  package to `cabinet msi`, which places every file and registry value its tables select.
+  InstallAware then writes Kontakt's uninstall entry itself, NI's daemon finds and activates Kontakt
+  within seconds, and Native Access lists it as installed in the same session, as on Windows. lld
+  prefixes an underscore to export forwarders on 32-bit x86 (`_msi_wine.MsiCloseHandle`), which is
+  why the exports are stubs, not forwarders.
+- **InstallAware writes the targets into the package before installing it.** The MSI it passes
+  holds `P622D08AE_1`-style directory properties and `A…` = `TRUE`/`FALSE` component conditions in
+  its `Property` table, and the payload lies under the command line's `SRCDIR`. A real install puts
+  `Kontakt 8.exe` in `Program Files\Native Instruments\Kontakt 8`, 2.9 GB of factory presets and
+  databases in `Common Files\Native Instruments\Kontakt 8`, and `InstallDir`, `ContentDir`,
+  `ContentVersion` and `InstallVST364Dir` under `HKLM\Software\Native Instruments\Kontakt 8`.
+- **An update checks `InstallDir` first.** Without it NI's daemon stops before downloading with
+  `ERROR_CODE_UPDATE_DIR_MISSING` ("Expected install folder: ''").
+- **Older prefixes are brought up to date before every Native Access launch.** `kontakt-8.sh`
+  refreshes the stand-in, runs a kept Kontakt installer through it, and otherwise registers the
+  install folders of a Kontakt that has only its VST3, so Native Access can update it.
 - **Licensing goes through `NTKDaemonService`.** Kontakt Player activates only when it is loaded
   while the daemon runs, about 15 seconds in, writing an activation file to
   `Public/Documents/Native Instruments/Native Access/ras3/`. On that first load its editor still
@@ -86,9 +97,11 @@ release changes things.
   `Public/Documents/Acoustic Drums Library` with `.nkl` kits, `.wav` loops and an `.nicnt`.
 - Kontakt lists it under **Loops**, not Instruments: 160 loop presets that a double-click loads
   into Leap.
-- **Carla's saved state does not bring a loaded loop back.** With chunks enabled, Carla saves a
-  5.7 KB chunk that names the loop's samples. Restoring it logs
-  `PresetSlotManager::selectSlot: slot not found` and leaves the rack empty.
+- **A saved state brings a loaded loop back only with Kontakt's factory content installed.** With
+  only `Kontakt 8.vst3`, the browser finds nothing and a restored state leaves the rack empty or
+  hangs. With the full install a fresh instance given the saved state played the loop at 0.259,
+  against 0.247 before saving. Both log `PresetSlotManager::selectSlot: slot not found`, which is
+  harmless.
 - **Loaded through the browser, the loop plays on MIDI**: silent before, a 0.124 peak while note
   60 is held, silent after release, measured live through Carla's running engine. An offline
   render straight after loading gave silence.

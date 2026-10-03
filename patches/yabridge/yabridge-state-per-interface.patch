@@ -1,0 +1,288 @@
+diff --git a/src/common/logging/vst3.cpp b/src/common/logging/vst3.cpp
+index d289be9..047f657 100644
+--- a/src/common/logging/vst3.cpp
++++ b/src/common/logging/vst3.cpp
+@@ -120,8 +120,9 @@ bool Vst3Logger::log_request(bool is_host_plugin,
+ bool Vst3Logger::log_request(bool is_host_plugin,
+                              const Vst3PluginProxy::SetState& request) {
+     return log_request_base(is_host_plugin, [&](auto& message) {
+-        message << request.instance_id
+-                << ": {IComponent,IEditController}::setState(state = "
++        message << request.instance_id << ": "
++                << (request.edit_controller ? "IEditController" : "IComponent")
++                << "::setState(state = "
+                 << format_bstream(request.state) << ")";
+     });
+ }
+@@ -129,8 +130,9 @@ bool Vst3Logger::log_request(bool is_host_plugin,
+ bool Vst3Logger::log_request(bool is_host_plugin,
+                              const Vst3PluginProxy::GetState& request) {
+     return log_request_base(is_host_plugin, [&](auto& message) {
+-        message << request.instance_id
+-                << ": {IComponent,IEditController}::getState(state = "
++        message << request.instance_id << ": "
++                << (request.edit_controller ? "IEditController" : "IComponent")
++                << "::getState(state = "
+                 << format_bstream(request.state) << ")";
+     });
+ }
+diff --git a/src/common/serialization/vst3/plugin-proxy.h b/src/common/serialization/vst3/plugin-proxy.h
+index 562c6b9..dc9223a 100644
+--- a/src/common/serialization/vst3/plugin-proxy.h
++++ b/src/common/serialization/vst3/plugin-proxy.h
+@@ -288,17 +288,21 @@ class Vst3PluginProxy : public YaAudioPresentationLatency,
+     /**
+      * Message to pass through a call to
+      * `{IComponent,IEditController}::setState(state)` to the Wine plugin host.
++     * `edit_controller` says which of the two the host called, since a plugin
++     * object can implement both with different meanings.
+      */
+     struct SetState {
+         using Response = UniversalTResult;
+ 
+         native_size_t instance_id;
++        bool edit_controller;
+ 
+         YaBStream state;
+ 
+         template <typename S>
+         void serialize(S& s) {
+             s.value8b(instance_id);
++            s.value1b(edit_controller);
+             s.object(state);
+         }
+     };
+@@ -321,17 +325,20 @@ class Vst3PluginProxy : public YaAudioPresentationLatency,
+     /**
+      * Message to pass through a call to
+      * `{IComponent,IEditController}::getState(&state)` to the Wine plugin host.
++     * `edit_controller` says which of the two the host called.
+      */
+     struct GetState {
+         using Response = GetStateResponse;
+ 
+         native_size_t instance_id;
++        bool edit_controller;
+ 
+         YaBStream state;
+ 
+         template <typename S>
+         void serialize(S& s) {
+             s.value8b(instance_id);
++            s.value1b(edit_controller);
+             s.object(state);
+         }
+     };
+diff --git a/src/common/serialization/vst3/plugin/component.h b/src/common/serialization/vst3/plugin/component.h
+index 68ec07e..b59e056 100644
+--- a/src/common/serialization/vst3/plugin/component.h
++++ b/src/common/serialization/vst3/plugin/component.h
+@@ -294,14 +294,18 @@ class YaComponent : public Steinberg::Vst::IComponent {
+ 
+     virtual tresult PLUGIN_API setActive(TBool state) override = 0;
+ 
+-    // `setState()` and `getState()` are defiend in both `IComponent` and
+-    // `IEditController`. Since an object can only ever implement one or the
+-    // other, the messages for calling either are defined directly on
+-    // `Vst3PluginProxy`.
+-    virtual tresult PLUGIN_API
+-    setState(Steinberg::IBStream* state) override = 0;
+-    virtual tresult PLUGIN_API
+-    getState(Steinberg::IBStream* state) override = 0;
++    // `setState()` and `getState()` are defined in both `IComponent` and
++    // `IEditController`, and a single object may implement both with different
++    // meanings. Each interface forwards to its own function so the proxy can
++    // tell them apart. The messages are defined on `Vst3PluginProxy`.
++    tresult PLUGIN_API setState(Steinberg::IBStream* state) override {
++        return component_set_state(state);
++    }
++    tresult PLUGIN_API getState(Steinberg::IBStream* state) override {
++        return component_get_state(state);
++    }
++    virtual tresult component_set_state(Steinberg::IBStream* state) = 0;
++    virtual tresult component_get_state(Steinberg::IBStream* state) = 0;
+ 
+    protected:
+     ConstructArgs arguments_;
+diff --git a/src/common/serialization/vst3/plugin/edit-controller.h b/src/common/serialization/vst3/plugin/edit-controller.h
+index 19edd7f..19308c4 100644
+--- a/src/common/serialization/vst3/plugin/edit-controller.h
++++ b/src/common/serialization/vst3/plugin/edit-controller.h
+@@ -88,14 +88,18 @@ class YaEditController : public Steinberg::Vst::IEditController {
+     virtual tresult PLUGIN_API
+     setComponentState(Steinberg::IBStream* state) override = 0;
+ 
+-    // `setState()` and `getState()` are defiend in both `IComponent` and
+-    // `IEditController`. Since an object can only ever implement one or the
+-    // other, the messages for calling either are defined directly on
+-    // `Vst3PluginProxy`.
+-    virtual tresult PLUGIN_API
+-    setState(Steinberg::IBStream* state) override = 0;
+-    virtual tresult PLUGIN_API
+-    getState(Steinberg::IBStream* state) override = 0;
++    // `setState()` and `getState()` are defined in both `IComponent` and
++    // `IEditController`, and a single object may implement both with different
++    // meanings. Each interface forwards to its own function so the proxy can
++    // tell them apart. The messages are defined on `Vst3PluginProxy`.
++    tresult PLUGIN_API setState(Steinberg::IBStream* state) override {
++        return edit_controller_set_state(state);
++    }
++    tresult PLUGIN_API getState(Steinberg::IBStream* state) override {
++        return edit_controller_get_state(state);
++    }
++    virtual tresult edit_controller_set_state(Steinberg::IBStream* state) = 0;
++    virtual tresult edit_controller_get_state(Steinberg::IBStream* state) = 0;
+ 
+     /**
+      * All of a plugin's parameter infos.
+diff --git a/src/plugin/bridges/vst3-impls/plugin-proxy.cpp b/src/plugin/bridges/vst3-impls/plugin-proxy.cpp
+index e47ce3b..8ab1429 100644
+--- a/src/plugin/bridges/vst3-impls/plugin-proxy.cpp
++++ b/src/plugin/bridges/vst3-impls/plugin-proxy.cpp
+@@ -431,10 +431,17 @@ tresult PLUGIN_API Vst3PluginProxyImpl::setActive(TBool state) {
+     return response.result;
+ }
+ 
+-tresult PLUGIN_API Vst3PluginProxyImpl::setState(Steinberg::IBStream* state) {
++tresult Vst3PluginProxyImpl::component_set_state(Steinberg::IBStream* state) {
++    return set_state(state, false);
++}
++
++tresult Vst3PluginProxyImpl::component_get_state(Steinberg::IBStream* state) {
++    return get_state(state, false);
++}
++
++tresult Vst3PluginProxyImpl::set_state(Steinberg::IBStream* state,
++                                       bool edit_controller) {
+     if (state) {
+-        // Since both interfaces contain this function, this is used for both
+-        // `IComponent::setState()` as well as `IEditController::setState()`
+         // NOTE: This will likely be called from the GUI thread, and some
+         //       plugins will try to resize as part of setting their new state.
+         //       That `IPlugFrame::resizeView()` _also_ has to be handled on the
+@@ -443,6 +450,7 @@ tresult PLUGIN_API Vst3PluginProxyImpl::setState(Steinberg::IBStream* state) {
+         //       performed from the GUI thread.
+         return bridge_.send_mutually_recursive_message(
+             Vst3PluginProxy::SetState{.instance_id = instance_id(),
++                                      .edit_controller = edit_controller,
+                                       .state = state});
+     } else {
+         bridge_.logger_.log(
+@@ -452,10 +460,9 @@ tresult PLUGIN_API Vst3PluginProxyImpl::setState(Steinberg::IBStream* state) {
+     }
+ }
+ 
+-tresult PLUGIN_API Vst3PluginProxyImpl::getState(Steinberg::IBStream* state) {
++tresult Vst3PluginProxyImpl::get_state(Steinberg::IBStream* state,
++                                       bool edit_controller) {
+     if (state) {
+-        // Since both interfaces contain this function, this is used for both
+-        // `IComponent::getState()` as well as `IEditController::getState()`
+         // NOTE: This will likely be called from the GUI thread, if the plugin
+         //       somehow ends up sending a resize while this happens, we should
+         //       end up in a deadlock. Normally this wouldn't be an issue, but
+@@ -465,7 +472,9 @@ tresult PLUGIN_API Vst3PluginProxyImpl::getState(Steinberg::IBStream* state) {
+         //       calls.
+         const GetStateResponse response =
+             bridge_.send_mutually_recursive_message(Vst3PluginProxy::GetState{
+-                .instance_id = instance_id(), .state = state});
++                .instance_id = instance_id(),
++                .edit_controller = edit_controller,
++                .state = state});
+ 
+         assert(response.state.write_back(state) == Steinberg::kResultOk);
+ 
+@@ -622,6 +631,16 @@ Vst3PluginProxyImpl::setComponentState(Steinberg::IBStream* state) {
+     }
+ }
+ 
++tresult Vst3PluginProxyImpl::edit_controller_set_state(
++    Steinberg::IBStream* state) {
++    return set_state(state, true);
++}
++
++tresult Vst3PluginProxyImpl::edit_controller_get_state(
++    Steinberg::IBStream* state) {
++    return get_state(state, true);
++}
++
+ int32 PLUGIN_API Vst3PluginProxyImpl::getParameterCount() {
+     // Parameter information is queried all at once to work around a Kontakt
+     // bug, see <https://github.com/robbert-vdh/yabridge/issues/236>. The first
+diff --git a/src/plugin/bridges/vst3-impls/plugin-proxy.h b/src/plugin/bridges/vst3-impls/plugin-proxy.h
+index 4cb6b30..388ad67 100644
+--- a/src/plugin/bridges/vst3-impls/plugin-proxy.h
++++ b/src/plugin/bridges/vst3-impls/plugin-proxy.h
+@@ -121,8 +121,8 @@ class Vst3PluginProxyImpl : public Vst3PluginProxy {
+                                    int32 index,
+                                    TBool state) override;
+     tresult PLUGIN_API setActive(TBool state) override;
+-    tresult PLUGIN_API setState(Steinberg::IBStream* state) override;
+-    tresult PLUGIN_API getState(Steinberg::IBStream* state) override;
++    tresult component_set_state(Steinberg::IBStream* state) override;
++    tresult component_get_state(Steinberg::IBStream* state) override;
+ 
+     // From `IConnectionPoint`
+     tresult PLUGIN_API connect(IConnectionPoint* other) override;
+@@ -131,9 +131,8 @@ class Vst3PluginProxyImpl : public Vst3PluginProxy {
+ 
+     // From `IEditController`
+     tresult PLUGIN_API setComponentState(Steinberg::IBStream* state) override;
+-    // `IEditController` also contains `getState()` and `setState()`  functions.
+-    // These are identical to those defiend in `IComponent` and they're thus
+-    // handled in in the same function.
++    tresult edit_controller_set_state(Steinberg::IBStream* state) override;
++    tresult edit_controller_get_state(Steinberg::IBStream* state) override;
+     int32 PLUGIN_API getParameterCount() override;
+     tresult PLUGIN_API
+     getParameterInfo(int32 paramIndex,
+@@ -398,6 +397,14 @@ class Vst3PluginProxyImpl : public Vst3PluginProxy {
+     Steinberg::FUnknownPtr<Steinberg::Vst::IUnitHandler2> unit_handler_2_;
+ 
+    private:
++    /**
++     * Pass `{IComponent,IEditController}::setState()` and `getState()` to the
++     * Wine plugin host, together with which of the two interfaces the host
++     * called them on.
++     */
++    tresult set_state(Steinberg::IBStream* state, bool edit_controller);
++    tresult get_state(Steinberg::IBStream* state, bool edit_controller);
++
+     /**
+      * Query information for all of the plugin's parameters and writes the
+      * results to `function_result_cache_` if necessary. Otherwise does nothing.
+diff --git a/src/wine-host/bridges/vst3.cpp b/src/wine-host/bridges/vst3.cpp
+index 7f7d25a..095dd80 100644
+--- a/src/wine-host/bridges/vst3.cpp
++++ b/src/wine-host/bridges/vst3.cpp
+@@ -238,9 +238,11 @@ void Vst3Bridge::run() {
+                         get_instance(request.instance_id);
+ 
+                     // This same function is defined in both `IComponent` and
+-                    // `IEditController`, so the host is calling one or the
+-                    // other
+-                    if (instance.interfaces.component) {
++                    // `IEditController`. An object implementing both may give
++                    // them different meanings, so call the one the host called
++                    if (instance.interfaces.component &&
++                        !(request.edit_controller &&
++                          instance.interfaces.edit_controller)) {
+                         return instance.interfaces.component->setState(
+                             &request.state);
+                     } else {
+@@ -261,9 +263,12 @@ void Vst3Bridge::run() {
+                             get_instance(request.instance_id);
+ 
+                         // This same function is defined in both `IComponent`
+-                        // and `IEditController`, so the host is calling one or
+-                        // the other
+-                        if (instance.interfaces.component) {
++                        // and `IEditController`. An object implementing both
++                        // may give them different meanings, so call the one
++                        // the host called
++                        if (instance.interfaces.component &&
++                            !(request.edit_controller &&
++                              instance.interfaces.edit_controller)) {
+                             return instance.interfaces.component->getState(
+                                 &request.state);
+                         } else {

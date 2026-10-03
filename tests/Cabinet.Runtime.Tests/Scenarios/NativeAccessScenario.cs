@@ -17,8 +17,15 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
     private const string KontaktWindow = "^Kontakt 8";
 
+    private const string KontaktApplication =
+        "drive_c/Program Files/Native Instruments/Kontakt 8/Kontakt 8.exe";
+
+    private const string KontaktFactoryPresets =
+        "drive_c/Program Files/Common Files/Native Instruments/Kontakt 8/Database/Kontakt Factory Presets.kdb";
+
     private const string FirstAcousticDrumsLoop =
-        "click 600 560; click 727 231; click 329 117; wait 3; double 862 380; wait 20";
+        "click 600 560; click 727 231; click 329 117; wait 3; click 104 375; wait 3; click 975 488; wait 2; "
+        + "click 970 152; wait 3; double 856 323; wait 20";
 
     private static readonly Dictionary<string, string> Bridges = new()
     {
@@ -59,6 +66,22 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
     }
 
     [Fact]
+    public void KontaktLandsWithItsApplicationFactoryContentAndRegistryValues()
+    {
+        var registry = File.ReadAllText(Path.Combine(installed.Harness.Prefix, "system.reg"));
+
+        Assert.True(
+            File.Exists(Path.Combine(installed.Harness.Prefix, KontaktApplication)),
+            $"Kontakt 8's installer left no {KontaktApplication}");
+        Assert.True(
+            File.Exists(Path.Combine(installed.Harness.Prefix, KontaktFactoryPresets)),
+            $"Kontakt 8's installer left no {KontaktFactoryPresets}");
+        Assert.Contains(@"""InstallDir""=""C:\\Program Files\\Native Instruments\\Kontakt 8""", registry);
+        Assert.Contains(
+            @"""ContentDir""=""C:\\Program Files\\Common Files\\Native Instruments\\Kontakt 8""", registry);
+    }
+
+    [Fact]
     public void PlaysAnAcousticDrumsLoopLoadedThroughKontaktsBrowser()
     {
         var bridge = installed.Harness.Plugin("VST3", Kontakt);
@@ -69,6 +92,19 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         Assert.InRange(played.Before, 0, 0.00001);
         Assert.InRange(played.Held, 0.05, 1);
         Assert.InRange(played.After, 0, 0.03);
+    }
+
+    [Fact]
+    public void BringsBackAnAcousticDrumsLoopFromKontaktsSavedState()
+    {
+        var bridge = installed.Harness.Plugin("VST3", Kontakt);
+
+        var restored = installed.Harness.RestoreAfterPlayingThroughEditor(
+            bridge, Note, FirstAcousticDrumsLoop, KontaktWindow);
+
+        Assert.InRange(restored.Before, 0, 0.00001);
+        Assert.InRange(restored.Held, 0.05, 1);
+        Assert.InRange(restored.After, 0, 0.03);
     }
 
     public sealed class Installed() : InstalledEntry(Id)
@@ -132,6 +168,11 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         private protected override async Task Install(Display display)
         {
+            Assert.True(
+                OtherDaemons().Count == 0,
+                "Native Instruments' daemon from another prefix is running on this machine and holds the port "
+                + $"every Native Access talks to, so this scenario would sign in to its account: {string.Join(", ", OtherDaemons())}. "
+                + "Close Native Access and any Kontakt session first.");
             await base.Install(display);
             Harness.Restore(Credentials.Read()["NATIVE_ACCESS"]);
             DismissTheSurvey();
@@ -171,6 +212,11 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
                 manager.Until(() => manager.Shows(window, KontaktCard, KontaktName), window, "Kontakt 8 Player among the applications", Answering);
                 manager.Click(window, 814, 499);
                 manager.Until(() => Harness.Holds("VST3", Kontakt), window, "Kontakt 8 installed and bridged", Downloading);
+                manager.Until(
+                    () => File.Exists(Path.Combine(Harness.Prefix, KontaktFactoryPresets)),
+                    window,
+                    "Kontakt 8's factory content",
+                    Downloading);
                 manager.Until(() => File.Exists(Path.Combine(Harness.Prefix, KontaktActivation)), window, "Native Access activating Kontakt 8 Player", Opening);
                 manager.Until(() => manager.Shows(window, InstalledPage, ThirdCardInstalled), window, "Native Access listing Kontakt 8 Player as installed", Answering);
 
@@ -185,6 +231,13 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
                 await manager.Close();
             }
         }
+
+        private static List<string> OtherDaemons() =>
+            Directory.GetDirectories("/proc")
+                .Where(process => File.Exists(Path.Combine(process, "comm")))
+                .Where(process => File.ReadAllText(Path.Combine(process, "comm")).StartsWith("NTKDaemon", StringComparison.Ordinal))
+                .Select(process => Path.GetFileName(process))
+                .ToList();
 
         private void DismissTheSurvey()
         {
