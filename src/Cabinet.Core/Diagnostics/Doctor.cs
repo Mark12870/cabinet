@@ -7,7 +7,7 @@ public enum Status
     Fail,
 }
 
-public sealed record Check(string Name, Status Status, string Detail);
+public sealed record Check(string Name, Status Status, string Detail, string? Daw = null);
 
 public sealed partial class Doctor(Layout layout, IProcessRunner runner)
 {

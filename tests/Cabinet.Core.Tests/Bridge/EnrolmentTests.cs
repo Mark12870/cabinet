@@ -11,9 +11,9 @@ public class EnrolmentTests
     [InlineData("--filesystem=xdg-run/yabridge:create")]
     [InlineData("--talk-name=io.github.mark12870.cabinet.Bridge")]
     [InlineData("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge")]
-    [InlineData("--filesystem=~/.local/share/flatpak/app/"
+    [InlineData("--filesystem=/home/u/.local/share/flatpak/app/"
                 + "io.github.mark12870.cabinet/current/active/files/lib/yabridge:ro")]
-    [InlineData("--filesystem=~/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
+    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/prefixes:ro")]
     public void TheOverrideCarriesEverythingTheBoundaryNeeds(string expected)
     {
         Assert.Contains(expected, Enrolment.OverrideArguments("fm.reaper.Reaper", Layout));
@@ -30,9 +30,9 @@ public class EnrolmentTests
     [InlineData("--env=WINELOADER=")]
     [InlineData("--env=YABRIDGE_DEBUG_FILE=")]
     [InlineData("--env=YABRIDGE_NO_WATCHDOG=")]
-    [InlineData("--filesystem=~/.var/app/io.github.mark12870.cabinet/data/native")]
-    [InlineData("--filesystem=~/.var/app/io.github.mark12870.cabinet/data/bridge")]
-    [InlineData("--filesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files:")]
+    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/native")]
+    [InlineData("--filesystem=/home/u/.var/app/io.github.mark12870.cabinet/data/bridge")]
+    [InlineData("--filesystem=/home/u/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files:")]
     public void TheOverrideLeavesOutWhatTheDawNeverNeeds(string unneeded)
     {
         Assert.DoesNotContain(
@@ -63,12 +63,14 @@ public class EnrolmentTests
     }
 
     [Fact]
-    public void PathsUnderTheHomeAreLeftForFlatpakToExpandAndTheRestAreSpelledOut()
+    public void PathsUnderTheHomeAreLeftForTheShellToExpandAndTheRestAreSpelledOut()
     {
         var command = Enrolment.OverrideCommand("fm.reaper.Reaper", Layout);
 
         Assert.DoesNotContain("$XDG_RUNTIME_DIR", command);
         Assert.DoesNotContain("/home/u/", command);
+        Assert.DoesNotContain("~/", command);
+        Assert.Contains("\"--filesystem=$HOME/.var/app/io.github.mark12870.cabinet/data/prefixes:ro\"", command);
         Assert.Contains("--env=YABRIDGE_TEMP_DIR=/run/user/1000/yabridge", command);
         Assert.StartsWith("flatpak override --user fm.reaper.Reaper", command);
     }
@@ -106,9 +108,9 @@ public class EnrolmentTests
         Assert.Equal(
             [
                 "--no-talk-name=org.freedesktop.Flatpak",
-                "--nofilesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files",
-                "--nofilesystem=~/data/native",
-                "--nofilesystem=~/data/bridge",
+                $"--nofilesystem={layout.HostAppFiles}",
+                $"--nofilesystem={layout.NativeDir}",
+                $"--nofilesystem={layout.BridgeHome}",
                 "--unset-env=WINELOADER",
                 "--unset-env=YABRIDGE_NO_WATCHDOG",
             ],
@@ -127,9 +129,7 @@ public class EnrolmentTests
 
         var command = Enrolment.OverrideCommand("fm.reaper.Reaper", layout);
 
-        Assert.Equal(
-            ["--nofilesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files"],
-            Enrolment.Retirements("fm.reaper.Reaper", layout));
+        Assert.Equal([$"--nofilesystem={layout.HostAppFiles}"], Enrolment.Retirements("fm.reaper.Reaper", layout));
         Assert.True(command.IndexOf("--nofilesystem=", StringComparison.Ordinal)
                     < command.IndexOf("--device=shm", StringComparison.Ordinal));
     }

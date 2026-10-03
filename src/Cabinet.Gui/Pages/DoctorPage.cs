@@ -130,7 +130,7 @@ internal sealed class DoctorPage
         repaired();
     }
 
-    private static Adw.ActionRow Row(Check check)
+    private Adw.ActionRow Row(Check check)
     {
         var row = Adw.ActionRow.New();
         row.SetUseMarkup(false);
@@ -140,6 +140,15 @@ internal sealed class DoctorPage
         var icon = Gtk.Image.NewFromIconName(IconFor(check.Status));
         icon.AddCssClass(CssFor(check.Status));
         row.AddPrefix(icon);
+
+        if (check is { Daw: { } dawId, Status: not Status.Ok })
+        {
+            var fix = Gtk.Button.NewWithLabel("Fix");
+            fix.SetValign(Gtk.Align.Center);
+            fix.SetTooltipText($"Show the command that enrols {dawId}");
+            fix.OnClicked += (_, _) => Ui.Guard(() => new EnrolmentDialog(window, layout, dawId).Present());
+            row.AddSuffix(fix);
+        }
 
         return row;
     }

@@ -208,7 +208,9 @@ public sealed class DoctorTests : IDisposable
         var check = Checks().Single(found => found.Name == $"DAW {daw}");
 
         Assert.Equal(Status.Fail, check.Status);
-        Assert.Equal($"missing --env=YABRIDGE_TEMP_DIR={Layout.SocketDir}", check.Detail);
+        Assert.StartsWith($"missing --env=YABRIDGE_TEMP_DIR={Layout.SocketDir}", check.Detail);
+        Assert.Contains("cabinet enrol fm.reaper.Reaper", check.Detail);
+        Assert.Equal(daw, check.Daw);
         Assert.Equal([daw], new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
     }
 
@@ -317,6 +319,7 @@ public sealed class DoctorTests : IDisposable
 
         Assert.Equal(Status.Warn, check.Status);
         Assert.Contains("cabinet enrol fm.reaper.Reaper", check.Detail);
+        Assert.Equal("fm.reaper.Reaper", check.Daw);
         Assert.Empty(new Doctor(Layout, new UnusedRunner()).DawsMissingPermissions());
     }
 

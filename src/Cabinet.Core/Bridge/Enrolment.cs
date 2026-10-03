@@ -21,8 +21,8 @@ public static class Enrolment
         dawId,
         "--device=shm",
         "--filesystem=xdg-run/yabridge:create",
-        $"--filesystem={FromHome(layout, layout.HostYabridgeDir)}:ro",
-        $"--filesystem={FromHome(layout, layout.PrefixesDir)}:ro",
+        $"--filesystem={layout.HostYabridgeDir}:ro",
+        $"--filesystem={layout.PrefixesDir}:ro",
         $"--talk-name={Layout.BridgeBusName}",
         $"--env=YABRIDGE_TEMP_DIR={layout.SocketDir}",
     ];
@@ -51,7 +51,7 @@ public static class Enrolment
             .Select(entry => Normalised(layout, entry))
             .Where(retired.Contains)
             .Distinct(StringComparer.Ordinal)
-            .Select(path => $"--nofilesystem={FromHome(layout, path)}");
+            .Select(path => $"--nofilesystem={path}");
         var variables = RetiredVariables
             .Where(variable => current.Get("Environment", variable) is { Length: > 0 })
             .Select(variable => $"--unset-env={variable}");
@@ -64,8 +64,13 @@ public static class Enrolment
         var arguments = OverrideArguments(dawId, layout);
 
         return "flatpak " + string.Join(
-            ' ', arguments.Take(3).Concat(Retirements(dawId, layout)).Concat(arguments.Skip(3)).Select(Quote));
+            ' ',
+            arguments.Take(3).Concat(Retirements(dawId, layout)).Concat(arguments.Skip(3))
+                .Select(argument => Shown(layout, argument)));
     }
+
+    public static string Missing(string dawId, IEnumerable<string> missing) =>
+        $"missing {string.Join(", ", missing)} — the command `cabinet enrol {dawId}` prints grants them";
 
     public static string TakesBack(string dawId) =>
         $"It also takes back what older Cabinet releases granted {dawId}.";
@@ -107,10 +112,10 @@ public static class Enrolment
             ? entry[..colon]
             : entry;
 
-    private static string FromHome(Layout layout, string path) =>
-        path.StartsWith(layout.Home + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            ? "~/" + path[(layout.Home.Length + 1)..]
-            : path;
+    private static string Shown(Layout layout, string argument) =>
+        argument.Contains(layout.Home + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            ? $"\"{argument.Replace(layout.Home + Path.DirectorySeparatorChar, "$HOME/", StringComparison.Ordinal)}\""
+            : Quote(argument);
 
     private static string Expanded(Layout layout, string path) =>
         path.StartsWith("~/", StringComparison.Ordinal) ? Path.Combine(layout.Home, path[2..]) : path;

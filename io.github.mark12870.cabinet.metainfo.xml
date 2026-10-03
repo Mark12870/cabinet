@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.20.1" date="2026-10-03">
+      <description>
+        <p>The enrol command takes back old permissions as it should, and doctor can open it for you</p>
+        <ul>
+          <li>The command enrol prints now really removes what older Cabinet releases granted a DAW, instead of leaving it in place beside the new grants</li>
+          <li>Doctor shows a Fix button beside every DAW that needs attention, which opens its enrol command</li>
+          <li>Doctor's message for a DAW missing permissions names the command that grants them</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.20.0" date="2026-10-03">
       <description>
         <p>Enrolling a DAW asks for less and explains what it grants</p>

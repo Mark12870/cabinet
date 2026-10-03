@@ -126,13 +126,14 @@ public sealed partial class Doctor
 
         if (missing.Count > 0)
         {
-            return new Check($"DAW {dawId}", Status.Fail, "missing " + string.Join(", ", missing));
+            return new Check(
+                $"DAW {dawId}", Status.Fail, Enrolment.Missing(dawId, missing), dawId);
         }
 
         return hostCommands
-            ? new Check($"DAW {dawId}", Status.Warn, Enrolment.HostCommandGrant(dawId))
+            ? new Check($"DAW {dawId}", Status.Warn, Enrolment.HostCommandGrant(dawId), dawId)
             : Enrolment.Retirements(dawId, layout).Count > 0
-                ? new Check($"DAW {dawId}", Status.Warn, Enrolment.OlderGrants(dawId))
-                : new Check($"DAW {dawId}", Status.Ok, "enrolled — " + Enrolment.TrustBoundary(dawId));
+                ? new Check($"DAW {dawId}", Status.Warn, Enrolment.OlderGrants(dawId), dawId)
+                : new Check($"DAW {dawId}", Status.Ok, "enrolled — " + Enrolment.TrustBoundary(dawId), dawId);
     }
 }
