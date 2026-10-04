@@ -43,3 +43,4 @@ jobs:
       DROPBOX: ${{ secrets.DROPBOX }}
       USERNAME: ${{ secrets.USERNAME }}
       NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
+      WAVES: ${{ secrets.WAVES }}

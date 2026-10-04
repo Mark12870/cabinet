@@ -18,12 +18,18 @@ internal sealed class Manager(
     private readonly Task<string> complained = launch.StandardError.ReadToEndAsync();
     private int taken;
 
-    public string Window(string title, TimeSpan patience)
+    public string Window(string title, TimeSpan patience) =>
+        WindowMatching($"^{Regex.Escape(title)}$", patience);
+
+    public string VersionedWindow(string title, TimeSpan patience) =>
+        WindowMatching($@"^{Regex.Escape(title)} [0-9]+(\.[0-9]+)+$", patience);
+
+    private string WindowMatching(string pattern, TimeSpan patience)
     {
         var deadline = DateTime.UtcNow + patience;
         while (DateTime.UtcNow < deadline)
         {
-            var found = Xdotool("search", "--onlyvisible", "--name", $"^{Regex.Escape(title)}$").Output.Trim();
+            var found = Xdotool("search", "--onlyvisible", "--name", pattern).Output.Trim();
             if (found.Length > 0)
             {
                 return found.Split('\n')[0];
@@ -33,11 +39,14 @@ internal sealed class Manager(
         }
 
         var shown = Xdotool("search", "--onlyvisible", "--name", ".+", "getwindowname", "%@").Output.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        throw new TimeoutException($"no {title} window appeared within {patience}; the display showed [{string.Join(", ", shown)}]");
+        throw new TimeoutException($"no window matching {pattern} appeared within {patience}; the display showed [{string.Join(", ", shown)}]");
     }
 
     public void Click(string window, int x, int y) =>
         Xdotool("mousemove", "--window", window, $"{x}", $"{y}", "click", "1", "mousemove", "restore");
+
+    public void HoldClick(string window, int x, int y) =>
+        Xdotool("windowfocus", window, "mousemove", "--window", window, $"{x}", $"{y}", "mousedown", "1", "sleep", "0.2", "mouseup", "1", "mousemove", "restore");
 
     public void Resize(string window, int width, int height) =>
         Xdotool("windowsize", window, $"{width}", $"{height}");

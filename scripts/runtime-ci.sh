@@ -240,8 +240,8 @@ credentials() {
     [ "$(id -u)" = 0 ] && [ -n "${EMAIL:-}" ] || return 0
 
     install -o "$OWNER" -g "$OWNER" -m 600 /dev/null "$WORK/credentials.env"
-    printf 'EMAIL=%s\nPASSWORD=%s\nDROPBOX=%s\nUSERNAME=%s\nNATIVE_ACCESS=%s\n' \
-        "$EMAIL" "$PASSWORD" "${DROPBOX:-}" "${USERNAME:-}" "${NATIVE_ACCESS:-}" > "$WORK/credentials.env"
+    printf 'EMAIL=%s\nPASSWORD=%s\nDROPBOX=%s\nUSERNAME=%s\nNATIVE_ACCESS=%s\nWAVES=%s\n' \
+        "$EMAIL" "$PASSWORD" "${DROPBOX:-}" "${USERNAME:-}" "${NATIVE_ACCESS:-}" "${WAVES:-}" > "$WORK/credentials.env"
 }
 
 run_test() {

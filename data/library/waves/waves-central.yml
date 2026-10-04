@@ -1,0 +1,31 @@
+Name: Waves Central
+Kind: windows
+Category: Manager
+Summary: Waves' manager for installing, updating and activating its products.
+Developer: Waves
+Licence: Freeware
+Licensing:
+  The manager is free. A Waves account and product licences or a Creative Access
+  subscription are needed to activate plugins.
+Formats: VST3
+Homepage: https://www.waves.com/downloads/central
+Source: rolling
+Url: https://cf-installers.waves.com/WavesCentral/Install_Waves_Central.exe
+Prefix: waves
+Launch: C:\Program Files\Waves Central\Waves Central.exe
+LaunchArgs:
+  --no-sandbox
+  --disable-gpu
+Scheme: waves-central
+Script: waves.sh
+Runner: 9.21
+Sync: fsync
+Winetricks: powershell
+Description:
+  Install and update Waves plugins, manage Creative Access subscriptions and
+  move licences between computers and USB drives. Central also creates and
+  installs offline product packages.
+
+  Installing the manager does not install any plugins. Sign in to choose the
+  products your account owns, then install and activate them through Central.
+  If the window opens blank, resize it once.
