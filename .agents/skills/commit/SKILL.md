@@ -5,10 +5,11 @@ description: Commit repository changes with the pre-commit hook enabled. Use onl
 
 # Commit the code
 
-Commit all the code including my edits if not specified otherwise with a short commit message. 
+Commit all the code including my edits if not specified otherwise with a short commit message. You may split it into
+multiple commits.
 
 Be sure to execute it with pre-commit hooks. That means to never pass `--no-verify`.
 
-Report the errors if the commit fails. 
+Report the errors if the commit fails.
 
 Thats all. Don't do any review or test! This is not a code change!

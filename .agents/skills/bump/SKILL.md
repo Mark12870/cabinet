@@ -49,5 +49,4 @@ appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml
 
 `MetainfoTests` checks the same file, so `scripts/checks.sh` covers it too.
 
-**5. Stop there.** Bumping is not releasing: don't commit, tag, build or publish without being
-asked.
+**5. Commit.** Create a new commit in format "Release X.X.X" including only the bump changes.

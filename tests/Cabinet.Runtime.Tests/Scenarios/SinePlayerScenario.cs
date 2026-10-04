@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Cabinet.Runtime.Tests.Scenarios;
 
 public sealed class SinePlayerScenario(SinePlayerScenario.Installed installed)
@@ -110,12 +112,18 @@ public sealed class SinePlayerScenario(SinePlayerScenario.Installed installed)
             manager.Type(folder, 410, 446, @"C:\SINE");
             manager.Click(folder, 562, 474);
             manager.Until(
-                () => Directory.EnumerateDirectories(library).Any(instrument =>
-                    File.Exists(Path.Combine(instrument, "dry", "CWF - DRY.otmeta"))
-                    && File.Exists(Path.Combine(instrument, "wet", "CWF - WET.otmeta"))),
-                window, "Lucent installed", Downloading, Account);
+                () => Indexes(@"\dry\CWF - DRY.otmeta") && Indexes(@"\wet\CWF - WET.otmeta"),
+                window, "Lucent's dry and wet mics in SINE's library", Downloading, Account);
             manager.Capture(window, "installed", Account);
             await manager.Close();
+        }
+
+        private bool Indexes(string mic)
+        {
+            var user = Directory.GetDirectories(Path.Combine(Harness.Prefix, "drive_c", "users"))
+                .Single(directory => Path.GetFileName(directory) != "Public");
+            var index = Path.Combine(user, "AppData", "Local", "Orchestral Tools", "SINE Player", "SINELibrary.db");
+            return File.Exists(index) && File.ReadAllBytes(index).AsSpan().IndexOf(Encoding.UTF8.GetBytes(mic)) >= 0;
         }
     }
 }

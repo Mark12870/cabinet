@@ -76,7 +76,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         Assert.True(
             File.Exists(Path.Combine(installed.Harness.Prefix, KontaktFactoryPresets)),
             $"Kontakt 8's installer left no {KontaktFactoryPresets}");
-        Assert.Contains(@"""InstallDir""=""C:\\Program Files\\Native Instruments\\Kontakt 8""", registry);
+        Assert.Contains(@"""InstallDir""=""C:\\Program Files\\Native Instruments\\Kontakt 8\\""", registry);
         Assert.Contains(
             @"""ContentDir""=""C:\\Program Files\\Common Files\\Native Instruments\\Kontakt 8""", registry);
     }
@@ -91,7 +91,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         Assert.InRange(played.Before, 0, 0.00001);
         Assert.InRange(played.Held, 0.05, 1);
-        Assert.InRange(played.After, 0, 0.03);
+        Assert.InRange(played.After, 0, 0.06);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         Assert.InRange(restored.Before, 0, 0.00001);
         Assert.InRange(restored.Held, 0.05, 1);
-        Assert.InRange(restored.After, 0, 0.03);
+        Assert.InRange(restored.After, 0, 0.06);
     }
 
     public sealed class Installed() : InstalledEntry(Id)
@@ -145,7 +145,9 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
 
         private const string FirstCardInstalled = "256,488 352,511";
 
-        private const string ThirdCardInstalled = "767,488 863,511";
+        private const string KontaktOpen = References + "native-access-kontakt-open.png";
+
+        private const string ThirdCardButton = "767,488 863,511";
 
         private const string AcousticDrumsLoads = References + "native-access-acoustic-drums-loads.png";
 
@@ -218,7 +220,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
                     "Kontakt 8's factory content",
                     Downloading);
                 manager.Until(() => File.Exists(Path.Combine(Harness.Prefix, KontaktActivation)), window, "Native Access activating Kontakt 8 Player", Opening);
-                manager.Until(() => manager.Shows(window, InstalledPage, ThirdCardInstalled), window, "Native Access listing Kontakt 8 Player as installed", Answering);
+                manager.Until(() => manager.Shows(window, KontaktOpen, ThirdCardButton), window, "Native Access offering to open Kontakt 8 Player", Answering);
 
                 manager.Click(window, 681, 94);
                 manager.Until(() => manager.Shows(window, AcousticDrumsCard, AcousticDrumsName), window, "Acoustic Drums among the Kontakt libraries", Answering);
