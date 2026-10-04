@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.22.0" date="2026-10-04">
+      <description>
+        <p>Plugin logs now show what went wrong inside the plugin host</p>
+        <ul>
+          <li>Cabinet keeps what a bridged plugin's host prints in a log of its own, which survives a restart, so a crash or freeze can still be looked into afterwards</li>
+          <li>Each line says where it came from and when, and the log records when the plugin host started, when it ended and why</li>
+          <li>The log of the session before is kept too, and both appear under Logs on a plugin's page and in cabinet library log</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.21.0" date="2026-10-04">
       <description>
         <p>See what changed in every Cabinet release</p>
