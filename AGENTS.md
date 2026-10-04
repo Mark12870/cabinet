@@ -10,7 +10,7 @@ own, one per vendor or product family, and bridges them with patched upstream ya
   otherwise it is forbidden.
 - Every feature must be available over GUI and over CLI
 - README.md must be under 100 lines
-- AGENTS.md must be under 500 lines
+- Every other *.md file must be under 500 lines
 - Never commit personal, account or machine-specific data, including usernames, home paths, credentials or local tool
   state, in source, tests, fixtures, documentation, generated files or commit messages; use neutral synthetic values
   instead.
