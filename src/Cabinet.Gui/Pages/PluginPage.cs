@@ -198,7 +198,7 @@ internal sealed class PluginPage
         if (log(entry) is { } written)
         {
             row.Append(Pill(
-                "Logs", null, () => Ui.Log(window, "Cabinet and yabridge logs", log(entry) ?? written)));
+                "Logs", null, () => Ui.Log(window, "Cabinet, plugin host and yabridge logs", log(entry) ?? written)));
         }
 
         row.Append(Pill($"Remove {entry.Name}", "destructive-action", () => remove(entry)));

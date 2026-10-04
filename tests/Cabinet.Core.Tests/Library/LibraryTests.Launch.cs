@@ -762,4 +762,19 @@ public partial class LibraryTests
 
         Assert.Equal(["manager"], new Library(layout, new RecordingRunner()).Opened());
     }
+
+    [Fact]
+    public void APluginsLogShowsWhatItsHostSaidInThisSessionAndTheOneBefore()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        Recorded(layout, entry);
+        File.WriteAllText(layout.PrefixWineLog(entry.Prefix), "terminate called\n");
+        File.WriteAllText(layout.PrefixPreviousWineLog(entry.Prefix), "the run that froze\n");
+
+        var log = new Library(layout, new RecordingRunner()).LaunchLog(entry);
+
+        Assert.Contains($"Plugin host log{Environment.NewLine}terminate called", log);
+        Assert.Contains($"Plugin host log, previous session{Environment.NewLine}the run that froze", log);
+    }
 }

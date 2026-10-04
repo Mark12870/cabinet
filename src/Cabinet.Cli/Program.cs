@@ -34,7 +34,7 @@ internal static partial class Program
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library stop <id>            close a manager Cabinet opened
           cabinet library open <link>          hand a sign-in link to the manager that registered it
-          cabinet library log <id>             Cabinet and shared yabridge logs for an installed plugin
+          cabinet library log <id>             Cabinet, plugin host and yabridge logs for an installed plugin
           cabinet runners                      list installed Wine runners
           cabinet runners available            list Wine versions you can install
           cabinet runners install <version>    download and unpack one

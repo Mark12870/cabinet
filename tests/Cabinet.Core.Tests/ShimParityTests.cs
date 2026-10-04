@@ -17,6 +17,12 @@ public class ShimParityTests
     }
 
     [Fact]
+    public void CabinetReadsThePluginHostLogWhereTheShimKeepsIt()
+    {
+        Assert.Equal(Layout.WineLog, Constant("WINE_LOG"));
+    }
+
+    [Fact]
     public void BothSidesKeepWineOffTheSameSockets()
     {
         Assert.Equal(Prefixes.Blanked, List("BLANKED"));

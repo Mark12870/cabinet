@@ -67,6 +67,7 @@ const FORCED: &[(&str, &str)] = &[("YABRIDGE_NO_WATCHDOG", "1")];
 const RUNNER_MARKER: &str = ".cabinet-runner";
 const SYNC_MARKER: &str = ".cabinet-sync";
 const ENV_MARKER: &str = ".cabinet-env";
+const WINE_LOG: &str = ".cabinet-wine.log";
 const BUNDLED_RUNNER: &str = "bundled";
 
 const SYNC_MODES: &[(&str, [&str; 3])] = &[

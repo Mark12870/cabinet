@@ -437,10 +437,22 @@ public sealed partial class Library
             sections.Add($"Cabinet installation log{Environment.NewLine}{install}");
         }
 
-        if (Installed().GetValueOrDefault(entry.Id) is { } prefix
-            && LogFile.Read(layout.PrefixLaunchLog(prefix)) is { } launch)
+        if (Installed().GetValueOrDefault(entry.Id) is { } prefix)
         {
-            sections.Add($"Cabinet launch log{Environment.NewLine}{launch}");
+            if (LogFile.Read(layout.PrefixLaunchLog(prefix)) is { } launch)
+            {
+                sections.Add($"Cabinet launch log{Environment.NewLine}{launch}");
+            }
+
+            if (LogFile.Read(layout.PrefixWineLog(prefix)) is { } wine)
+            {
+                sections.Add($"Plugin host log{Environment.NewLine}{wine}");
+            }
+
+            if (LogFile.Read(layout.PrefixPreviousWineLog(prefix)) is { } previous)
+            {
+                sections.Add($"Plugin host log, previous session{Environment.NewLine}{previous}");
+            }
         }
 
         if (LogFile.Read(layout.RuntimeLogPath) is { } runtime)

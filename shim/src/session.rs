@@ -14,9 +14,9 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, Once, PoisonError};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 macro_rules! note {
     ($($arg:tt)*) => {{
@@ -31,6 +31,7 @@ pub(crate) const TICK: Duration = Duration::from_millis(20);
 pub(crate) const WATCH: Duration = Duration::from_secs(1);
 const ATTEMPTS: u32 = 3;
 const YABRIDGE_HOST: &str = "yabridge-host";
+const WINE_LOG_LIMIT: u64 = 4 << 20;
 
 pub fn key(seed: &OsStr) -> String {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
@@ -780,29 +781,183 @@ fn serve(
 
     counted.admit();
     let mirror = passed.get(2).and_then(|fd| Spare::of(fd.as_raw_fd()));
+    let log = prefix
+        .filter(|_| hosts_plugin(&argv))
+        .map(|prefix| Path::new(prefix).join(crate::WINE_LOG));
+    let mut passed = passed;
+
+    if let Some(log) = log.as_deref() {
+        ROTATED.call_once(|| rotate(log));
+        record(log, &format!("started {}", shown(&argv)));
+
+        if let Some(stderr) = passed.pop() {
+            passed.push(tee(stderr, log.to_path_buf(), plugin_name(&argv)));
+        }
+    }
 
     let started = start_owned(owned, runner, &argv, passed, prefix, variables);
-    let status = match started {
+    let ended = match started {
         Ok(mut child) => {
             drop(mirror);
             let group = child.id() as i32;
-            let status = supervise(&mut child, group, &argv, &mut stream);
+            let ended = supervise(&mut child, group, &argv, &mut stream);
             forget(owned, group);
-            status
+            ended
         }
         Err(error) => {
-            let told = format!("cabinet-wine: cannot start Wine {runner:?}: {error}");
-            note!("{told}");
+            let reason = format!("cannot start Wine {runner:?}: {error}");
+            note!("cabinet-wine: {reason}");
 
             if let Some(spare) = mirror.as_ref() {
-                spare.tell(&told);
+                spare.tell(&format!("cabinet-wine: {reason}"));
             }
 
-            127
+            if let Some(log) = log.as_deref() {
+                record(log, &reason);
+            }
+
+            Ended::new(127, "Wine could not be started")
         }
     };
 
-    let _ = write_frame(&mut stream, &status.to_le_bytes());
+    if let Some(log) = log.as_deref() {
+        record(
+            log,
+            &format!("ended with status {}: {}", ended.status, ended.why),
+        );
+    }
+
+    let _ = write_frame(&mut stream, &ended.status.to_le_bytes());
+}
+
+struct Ended {
+    status: i32,
+    why: &'static str,
+}
+
+impl Ended {
+    fn new(status: i32, why: &'static str) -> Self {
+        Self { status, why }
+    }
+}
+
+static ROTATED: Once = Once::new();
+
+fn hosts_plugin(argv: &[OsString]) -> bool {
+    argv.first()
+        .and_then(|host| expected_process_name(host))
+        .is_some_and(|name| name.starts_with(YABRIDGE_HOST))
+}
+
+fn shown(argv: &[OsString]) -> String {
+    argv.iter()
+        .map(|arg| arg.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn plugin_name(argv: &[OsString]) -> String {
+    argv.get(2)
+        .and_then(|plugin| Path::new(plugin).file_stem())
+        .map_or_else(
+            || "plugin host".to_string(),
+            |name| name.to_string_lossy().into_owned(),
+        )
+}
+
+fn tee(to: OwnedFd, log: PathBuf, source: String) -> OwnedFd {
+    let Ok((reader, writer)) = UnixStream::pair() else {
+        return to;
+    };
+
+    thread::spawn(move || copy(reader, File::from(to), &log, &source));
+    OwnedFd::from(writer)
+}
+
+fn copy(mut from: impl Read, to: impl Write, log: &Path, source: &str) {
+    let mut to = Some(to);
+    let mut buffer = [0u8; 8192];
+    let mut partial = Vec::new();
+
+    loop {
+        let read = match from.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(read) => read,
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            Err(_) => break,
+        };
+
+        if to
+            .as_mut()
+            .is_some_and(|out| out.write_all(&buffer[..read]).is_err())
+        {
+            to = None;
+        }
+
+        partial.extend_from_slice(&buffer[..read]);
+        let complete = partial
+            .iter()
+            .rposition(|byte| *byte == b'\n')
+            .map_or(0, |at| at + 1);
+        if complete > 0 {
+            let lines: Vec<u8> = partial.drain(..complete).collect();
+            append(log, &tagged(source, &lines));
+        }
+    }
+
+    if !partial.is_empty() {
+        partial.push(b'\n');
+        append(log, &tagged(source, &partial));
+    }
+}
+
+fn tagged(source: &str, lines: &[u8]) -> Vec<u8> {
+    let stamp = format!("{} [{source}] ", clock());
+    let mut written = Vec::with_capacity(lines.len());
+
+    for line in lines.split_inclusive(|byte| *byte == b'\n') {
+        written.extend_from_slice(stamp.as_bytes());
+        written.extend_from_slice(line);
+    }
+
+    written
+}
+
+fn record(log: &Path, what: &str) {
+    append(log, &tagged("cabinet", format!("{what}\n").as_bytes()));
+}
+
+fn append(log: &Path, bytes: &[u8]) {
+    let Ok(mut file) = File::options().create(true).append(true).open(log) else {
+        return;
+    };
+
+    if file
+        .metadata()
+        .is_ok_and(|metadata| metadata.len() < WINE_LOG_LIMIT)
+    {
+        let _ = file.write_all(bytes);
+    }
+}
+
+fn rotate(log: &Path) {
+    let mut older = log.as_os_str().to_os_string();
+    older.push(".1");
+    let _ = std::fs::rename(log, older);
+}
+
+fn clock() -> String {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs())
+        % 86_400;
+
+    format!(
+        "{:02}:{:02}:{:02} UTC",
+        seconds / 3600,
+        seconds / 60 % 60,
+        seconds % 60
+    )
 }
 
 struct Spare(RawFd);
@@ -931,7 +1086,7 @@ fn supervise(
     group: i32,
     argv: &[OsString],
     stream: &mut UnixStream,
-) -> i32 {
+) -> Ended {
     let expected = argv.first().and_then(|host| expected_process_name(host));
     let yabridge_host = expected
         .as_deref()
@@ -952,7 +1107,7 @@ fn supervise(
 
                     if expected.is_none() {
                         terminate_tree(group);
-                        return launcher.unwrap_or(127);
+                        return Ended::new(launcher.unwrap_or(127), "Wine exited");
                     }
                 }
                 Ok(None) => {}
@@ -960,7 +1115,7 @@ fn supervise(
                     note!("cabinet-wine: cannot check Wine: {error}");
                     terminate_tree(group);
                     let _ = child.wait();
-                    return 127;
+                    return Ended::new(127, "Cabinet could not watch Wine");
                 }
             }
         }
@@ -968,7 +1123,7 @@ fn supervise(
         if hung_up(stream) {
             terminate_tree(group);
             let _ = child.wait();
-            return 128 + SIGTERM;
+            return Ended::new(128 + SIGTERM, "the DAW let go of the plugin");
         }
 
         if let Some(expected) = expected.as_deref() {
@@ -977,10 +1132,11 @@ fn supervise(
 
                 if !alive(observed, &current, yabridge_host) {
                     terminate_tree(group);
-                    return match launcher {
+                    let status = match launcher {
                         Some(status) => status,
                         None => child.wait().map(exit_code).unwrap_or(127),
                     };
+                    return Ended::new(status, "the plugin host ended");
                 }
             } else if let Some(found) = find_host(
                 &process_snapshot(),
@@ -992,14 +1148,14 @@ fn supervise(
             ) {
                 if found.state == b'Z' {
                     terminate_tree(group);
-                    let status = child.wait();
-                    return status.map(exit_code).unwrap_or(127);
+                    let status = child.wait().map(exit_code).unwrap_or(127);
+                    return Ended::new(status, "the plugin host's main thread had died");
                 }
 
                 seen = Some((found.clone(), PidFd::open(&found)));
             } else if launcher_ended.is_some_and(|ended| ended.elapsed() >= HOST_GRACE) {
                 terminate_tree(group);
-                return launcher.unwrap_or(127);
+                return Ended::new(launcher.unwrap_or(127), "the plugin host never appeared");
             }
         }
 
@@ -1833,13 +1989,13 @@ mod tests {
         let (_plugin, mut session) = UnixStream::pair().unwrap();
         let (sent, received) = std::sync::mpsc::channel();
         let supervising = thread::spawn(move || {
-            sent.send(supervise(
+            let ended = supervise(
                 &mut child,
                 group,
                 &[OsString::from("yabridge-host.exe.so")],
                 &mut session,
-            ))
-            .unwrap();
+            );
+            sent.send((ended.status, ended.why)).unwrap();
         });
         let deadline = Instant::now() + Duration::from_secs(5);
 
@@ -1853,7 +2009,10 @@ mod tests {
             Err(std::sync::mpsc::RecvTimeoutError::Timeout)
         ));
         std::fs::write(&release, "").unwrap();
-        assert_eq!(received.recv_timeout(Duration::from_secs(5)).unwrap(), 0);
+        assert_eq!(
+            received.recv_timeout(Duration::from_secs(5)).unwrap(),
+            (0, "the plugin host ended")
+        );
         supervising.join().unwrap();
         std::fs::remove_dir_all(directory).unwrap();
     }
@@ -2057,6 +2216,40 @@ mod tests {
     }
 
     #[test]
+    fn a_plugin_host_that_cannot_start_says_why_in_the_prefix_log() {
+        let log = wine_log("unstarted");
+        let prefix = log.parent().unwrap();
+        let (client, server) = UnixStream::pair().unwrap();
+        let (_daw, stderr) = UnixStream::pair().unwrap();
+        let fd = stderr.as_raw_fd();
+        send_job(
+            &client,
+            &encode(&[OsString::from("/app/yabridge-host.exe.so")]),
+            [fd, fd, fd],
+        )
+        .unwrap();
+        let live = Arc::new(AtomicUsize::new(1));
+        let activity = Arc::new(Mutex::new(Instant::now()));
+
+        serve(
+            server,
+            OsStr::new("/nonexistent/bin/wine"),
+            Some(prefix.as_os_str()),
+            &Mutex::new(Vec::new()),
+            &Mutex::new(HashSet::new()),
+            Job::new(live, activity),
+        );
+
+        let written = untimed(&log);
+        assert_eq!(written[0], "[cabinet] started /app/yabridge-host.exe.so");
+        assert!(written[1].starts_with("[cabinet] cannot start Wine \"/nonexistent/bin/wine\""));
+        assert_eq!(
+            written[2],
+            "[cabinet] ended with status 127: Wine could not be started"
+        );
+    }
+
+    #[test]
     fn a_diagnostic_the_job_can_no_longer_take_is_dropped_rather_than_fatal() {
         let (reader, writer) = UnixStream::pair().unwrap();
         let spare = Spare::of(writer.as_raw_fd()).expect("the job's error stream can be copied");
@@ -2066,5 +2259,143 @@ mod tests {
         spare.tell("cabinet-wine: cannot start Wine");
 
         assert!(Spare::of(-1).is_none());
+    }
+
+    struct Closed;
+
+    impl Write for Closed {
+        fn write(&mut self, _: &[u8]) -> io::Result<usize> {
+            Err(io::ErrorKind::BrokenPipe.into())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn wine_log(name: &str) -> PathBuf {
+        let directory =
+            std::env::temp_dir().join(format!("cabinet-wine-log-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).unwrap();
+        directory.join(crate::WINE_LOG)
+    }
+
+    #[test]
+    fn only_a_plugin_host_has_its_output_kept_in_the_prefix() {
+        assert!(hosts_plugin(&["/app/yabridge-host.exe.so".into()]));
+        assert!(hosts_plugin(&["/app/yabridge-host-32.exe.so".into()]));
+        assert!(!hosts_plugin(&["winecfg".into()]));
+        assert!(!hosts_plugin(&[]));
+    }
+
+    #[test]
+    fn the_daw_gets_all_of_a_hosts_output_when_the_log_cannot_be_written() {
+        let mut forwarded = Vec::new();
+
+        copy(
+            &b"terminate called\n"[..],
+            &mut forwarded,
+            Path::new("/nonexistent/.cabinet-wine.log"),
+            "Splice INSTRUMENT",
+        );
+
+        assert_eq!(forwarded, b"terminate called\n");
+    }
+
+    fn untimed(log: &Path) -> Vec<String> {
+        std::fs::read_to_string(log)
+            .unwrap()
+            .lines()
+            .map(|line| line.split_once(" UTC ").unwrap().1.to_string())
+            .collect()
+    }
+
+    #[test]
+    fn a_hosts_output_is_still_kept_after_the_daw_closes_its_end() {
+        let log = wine_log("closed");
+
+        copy(&b"one\ntwo\n"[..], Closed, &log, "Splice INSTRUMENT");
+
+        assert_eq!(
+            untimed(&log),
+            ["[Splice INSTRUMENT] one", "[Splice INSTRUMENT] two"]
+        );
+    }
+
+    #[test]
+    fn a_line_split_across_reads_is_logged_whole_and_an_unfinished_one_at_the_end() {
+        let log = wine_log("split");
+        let chunks = Read::chain(&b"err:on"[..], &b"e\nlast"[..]);
+
+        copy(chunks, Vec::new(), &log, "Splice INSTRUMENT");
+
+        assert_eq!(
+            untimed(&log),
+            ["[Splice INSTRUMENT] err:one", "[Splice INSTRUMENT] last"]
+        );
+    }
+
+    #[test]
+    fn a_hosts_lines_are_tagged_with_the_plugin_it_loads() {
+        let argv: Vec<OsString> = [
+            "/app/yabridge-host.exe.so",
+            "VST3",
+            "/prefixes/splice/drive_c/Program Files/Common Files/VST3/Splice INSTRUMENT.vst3",
+        ]
+        .map(OsString::from)
+        .to_vec();
+
+        assert_eq!(plugin_name(&argv), "Splice INSTRUMENT");
+        assert_eq!(plugin_name(&argv[..1]), "plugin host");
+    }
+
+    #[test]
+    fn the_log_stops_growing_at_its_limit() {
+        let log = wine_log("limit");
+        File::create(&log).unwrap().set_len(WINE_LOG_LIMIT).unwrap();
+
+        append(&log, b"more");
+
+        assert_eq!(std::fs::metadata(&log).unwrap().len(), WINE_LOG_LIMIT);
+    }
+
+    #[test]
+    fn the_previous_sessions_log_is_kept_beside_the_new_one() {
+        let log = wine_log("rotate");
+        std::fs::write(&log, "the run that froze\n").unwrap();
+
+        rotate(&log);
+        record(&log, "started yabridge-host.exe");
+
+        let mut older = log.as_os_str().to_os_string();
+        older.push(".1");
+        assert_eq!(
+            std::fs::read_to_string(older).unwrap(),
+            "the run that froze\n"
+        );
+        assert_eq!(untimed(&log), ["[cabinet] started yabridge-host.exe"]);
+    }
+
+    #[test]
+    fn a_hosts_output_reaches_both_the_daw_and_the_log() {
+        let log = wine_log("tee");
+        let (daw, from_job) = UnixStream::pair().unwrap();
+        let mut job = File::from(tee(
+            OwnedFd::from(from_job),
+            log.clone(),
+            "Splice INSTRUMENT".to_string(),
+        ));
+
+        job.write_all(b"0024:fixme:ole:RevokeDragDrop\n").unwrap();
+        drop(job);
+        let mut seen = String::new();
+        (&daw).read_to_string(&mut seen).unwrap();
+
+        assert_eq!(seen, "0024:fixme:ole:RevokeDragDrop\n");
+        assert_eq!(
+            untimed(&log),
+            ["[Splice INSTRUMENT] 0024:fixme:ole:RevokeDragDrop"]
+        );
     }
 }

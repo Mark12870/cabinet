@@ -36,6 +36,8 @@ public sealed class Layout
 
     public const string LaunchLog = ".cabinet-launch.log";
 
+    public const string WineLog = ".cabinet-wine.log";
+
     public const string RuntimeLog = "yabridge.log";
 
     public const string InstallLog = ".cabinet-install.log";
@@ -248,6 +250,12 @@ public sealed class Layout
 
     public string PrefixLaunchLog(string name) =>
         Path.Combine(PrefixPath(name), LaunchLog);
+
+    public string PrefixWineLog(string name) =>
+        Path.Combine(PrefixPath(name), WineLog);
+
+    public string PrefixPreviousWineLog(string name) =>
+        PrefixWineLog(name) + ".1";
 
     public string PrefixKeptDir(string name) =>
         Path.Combine(PrefixPath(name), KeptMarker);
