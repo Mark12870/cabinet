@@ -40,6 +40,8 @@ public sealed class About(Layout layout, IProcessRunner runner)
             metainfo.BugTracker);
     }
 
+    public static IReadOnlyList<Release> Changelog() => ReadMetainfo().Releases;
+
     private static Origin OriginOf(string? url) => url switch
     {
         null => Origin.Unknown,

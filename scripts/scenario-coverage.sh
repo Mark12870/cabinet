@@ -5,8 +5,8 @@ root=$(realpath "$(dirname "$0")/..")
 cd "$root"
 
 declare -A set_aside=(
-    [sitala-2]="opens an activation dialog over its editor until a serial is entered"
-    [novation-play]="opens an activation dialog over its editor and stays silent until a code is entered; its installation tests still run"
+    [sitala-2]="opens an activation dialog over its editor until a licence key is entered"
+    [novation-play]="opens an activation dialog over its editor until a licence key is entered"
 )
 covered=$(sed -n 's/.*const string Id = "\([^"]*\)";.*/\1/p' tests/Cabinet.Runtime.Tests/Scenarios/*Scenario.cs)
 shipped=0

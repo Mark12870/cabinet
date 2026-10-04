@@ -38,6 +38,29 @@ internal static class Json
             writer.WriteEndObject();
         });
 
+    public static string Changelog(IReadOnlyList<Release> releases) =>
+        Write(writer =>
+        {
+            writer.WriteStartArray();
+            foreach (var release in releases)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("version", release.Version);
+                writer.WriteString("date", release.Date);
+                writer.WriteString("headline", release.Headline);
+                writer.WriteStartArray("changes");
+                foreach (var change in release.Changes)
+                {
+                    writer.WriteStringValue(change);
+                }
+
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+        });
+
     public static string Prefixes(IReadOnlyList<Prefix> prefixes) =>
         Write(writer =>
         {

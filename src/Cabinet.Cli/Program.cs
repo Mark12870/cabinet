@@ -44,10 +44,11 @@ internal static partial class Program
           cabinet run <name> <cmd> [args...]   run a command in a prefix (winecfg, regedit)
           cabinet doctor                       check the setup end to end
           cabinet about                        which Cabinet this is, and what it bundles
+          cabinet changelog                    what changed in each release
 
         Options:
           --json                               JSON on stdout, from list, library, library show,
-                                               doctor and about only
+                                               doctor, about and changelog only
           --                                   no options after this; whatever follows the prefix
                                                of run and winetricks is passed on as it is
 
@@ -130,6 +131,7 @@ internal static partial class Program
             "run" => Run(line, layout, runner),
             "doctor" => line.Then(json => RunDoctor(layout, runner, json)),
             "about" => line.Then(json => ShowAbout(layout, runner, json)),
+            "changelog" => line.Then(json => ShowChangelog(json)),
             var unknown => throw line.Unknown(unknown),
         };
 

@@ -61,7 +61,7 @@ internal sealed class AboutPage
 
     private void Fill(Adw.PreferencesGroup cabinet, Adw.PreferencesGroup bundled, Build build)
     {
-        cabinet.Add(Row("Version", build.Version));
+        cabinet.Add(VersionRow(build));
         cabinet.Add(InstalledFrom(build));
         cabinet.Add(Row("Commit", Short(build.Commit)));
 
@@ -80,6 +80,58 @@ internal sealed class AboutPage
         group.SetTitle(title);
         list.Append(group);
         return group;
+    }
+
+    private Adw.ActionRow VersionRow(Build build)
+    {
+        var row = Row("Version", build.Version);
+        var changelog = Gtk.Button.NewWithLabel("Changelog");
+        changelog.SetValign(Gtk.Align.Center);
+        changelog.OnClicked += (_, _) => Ui.Guard(ShowChangelog);
+        row.AddSuffix(changelog);
+        return row;
+    }
+
+    private void ShowChangelog()
+    {
+        var releases = Gtk.Box.New(Gtk.Orientation.Vertical, 24);
+
+        foreach (var release in About.Changelog())
+        {
+            var group = Adw.PreferencesGroup.New();
+            group.SetTitle(release.Version);
+            group.SetDescription(release.Date);
+            group.Add(Line(release.Headline));
+
+            foreach (var change in release.Changes)
+            {
+                group.Add(Line($"• {change}"));
+            }
+
+            releases.Append(group);
+        }
+
+        var body = Ui.Page();
+        body.Append(Ui.Scrolled(releases));
+
+        var bars = Adw.ToolbarView.New();
+        bars.AddTopBar(Adw.HeaderBar.New());
+        bars.SetContent(body);
+
+        var dialog = Adw.Dialog.New();
+        dialog.SetTitle("Changelog");
+        dialog.SetContentWidth(640);
+        dialog.SetContentHeight(560);
+        dialog.SetChild(bars);
+        dialog.Present(window);
+    }
+
+    private static Adw.ActionRow Line(string text)
+    {
+        var row = Adw.ActionRow.New();
+        row.SetUseMarkup(false);
+        row.SetTitle(text);
+        return row;
     }
 
     private static Adw.ActionRow InstalledFrom(Build build)

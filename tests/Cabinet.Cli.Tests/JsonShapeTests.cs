@@ -1,3 +1,4 @@
+using Cabinet.Core;
 using System.Text.Json;
 
 namespace Cabinet.Cli.Tests;
@@ -93,5 +94,15 @@ public sealed class JsonShapeTests : IDisposable
         Assert.Equal(
             ["version", "remote", "url", "commit", "origin", "yabridge", "wine", "homepage", "bugtracker"],
             Parsed.Keys(about));
+    }
+
+    [Fact]
+    public void AChangelogEntryCarriesItsVersionDateHeadlineAndChanges()
+    {
+        var release = Assert.Single(Parsed.Objects(
+            Json.Changelog([new Release("1.0.0", "2026-01-01", "First", ["One", "Two"])])));
+
+        Assert.Equal(["version", "date", "headline", "changes"], Parsed.Keys(release));
+        Assert.Equal(2, release.GetProperty("changes").GetArrayLength());
     }
 }

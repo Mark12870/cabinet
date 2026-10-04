@@ -12,10 +12,6 @@ on:
         description: general, or scenarios
         type: string
         default: general
-      filter_class:
-        description: Optional scenario class pattern
-        type: string
-        default: ''
     secrets:
       EMAIL:
         required: false
@@ -217,7 +213,6 @@ jobs:
         env:
           PROBES: ${{ steps.probes.outputs.value }}
           SUITE: ${{ inputs.suite }}
-          FILTER_CLASS: ${{ inputs.filter_class }}
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
           DROPBOX: ${{ secrets.DROPBOX }}
@@ -225,7 +220,6 @@ jobs:
           NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
         run: |
           docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
-            --env CABINET_RUNTIME_FILTER_CLASS="${FILTER_CLASS}" \
             --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME --env NATIVE_ACCESS "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs

@@ -198,8 +198,8 @@ hand, against a Cabinet built from main through the same `build.yml` and `runtim
 calls. On its run page `scripts/scenario-report.py` puts one row per entry and format, with a
 failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
-The nightly run includes `NovationPlayInstallationTests`; to run only those, dispatch `Plugins`
-with `filter_class` set to `*NovationPlay*`, which runs them on their own.
+The nightly run includes `NovationPlayInstallationTests`; locally, `--filter-class '*NovationPlay*'`
+runs them on their own.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
 owns its expectations. Isolation includes the user database: u-he plugins find their data through
 the passwd home rather than `HOME`, so a probe runs under `nss_wrapper` with a passwd entry whose
@@ -313,7 +313,7 @@ yabridge's own and the VST3 bridge crashes while it loads.
 reasons are here:
 
 - **Set aside.** Sitala 2 and Novation Play open an activation dialog over their editors until a
-  serial or code is entered, and Play stays silent until then. They stay in the Library, and the
+  licence key is entered. They stay in the Library, and the
   script's `set_aside` list keeps them out of the count and lists them, with that reason, under
   "Not tested on purpose". `NovationPlayInstallationTests` still installs Play from the pinned
   Dropbox ZIP and checks its VST2 and VST3 bridges and factory content.

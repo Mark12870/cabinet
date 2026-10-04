@@ -64,6 +64,30 @@ internal static partial class Program
         return Exit.Ok;
     }
 
+    private static int ShowChangelog(bool json)
+    {
+        var releases = About.Changelog();
+
+        if (json)
+        {
+            Console.WriteLine(Json.Changelog(releases));
+            return Exit.Ok;
+        }
+
+        foreach (var release in releases)
+        {
+            Console.WriteLine($"{release.Version}  {release.Date}  {release.Headline}");
+            foreach (var change in release.Changes)
+            {
+                Console.WriteLine($"  - {change}");
+            }
+
+            Console.WriteLine();
+        }
+
+        return Exit.Ok;
+    }
+
     private static string Describe(Build build) => build.Origin switch
     {
         Origin.Published => $"{build.Remote}  ({build.Url}) — published build",
