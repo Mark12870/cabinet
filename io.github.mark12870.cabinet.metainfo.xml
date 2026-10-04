@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.21.0" date="2026-10-04">
+      <description>
+        <p>See what changed in every Cabinet release</p>
+        <ul>
+          <li>The About page has a Changelog button beside the version, which lists every release and what it changed</li>
+          <li>cabinet changelog prints the same list in a terminal, or as JSON with --json</li>
+          <li>Everything listed for 0.20.0 and 0.20.1 below also reaches you in this update</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.20.3" date="2026-10-04">
       <description>
         <p>Brings the enrol and doctor changes of 0.20.0 to 0.20.2, which a failing test run held back again</p>
