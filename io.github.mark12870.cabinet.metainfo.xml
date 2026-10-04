@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.20.3" date="2026-10-04">
+      <description>
+        <p>Brings the enrol and doctor changes of 0.20.0 to 0.20.2, which a failing test run held back again</p>
+        <ul>
+          <li>Everything listed for 0.20.0 and 0.20.1 below now reaches you in this update</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.20.2" date="2026-10-03">
       <description>
         <p>Brings the enrol and doctor changes of 0.20.0 and 0.20.1, which a failing test run held back</p>
