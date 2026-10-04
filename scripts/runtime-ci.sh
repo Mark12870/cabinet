@@ -70,7 +70,7 @@ private_fixtures() {
 
     while IFS= read -r path; do
         printf '%s\n' "$path"
-        [ -d "$ROOT/$path" ] || continue
+        [[ $path == */native/* && -d $ROOT/$path ]] || continue
 
         while IFS= read -r link; do
             target=$(readlink "$link")

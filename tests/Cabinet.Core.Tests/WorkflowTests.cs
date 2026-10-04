@@ -123,6 +123,7 @@ public class WorkflowTests
         Assert.Equal(2, Driver.Split("fixtures=$(private_fixtures) || die").Length - 1);
         Assert.Contains("declare -f private_paths private_fixtures", Driver, StringComparison.Ordinal);
         Assert.Contains("tar --list --file \"$archive\"", Driver, StringComparison.Ordinal);
+        Assert.Contains("[[ $path == */native/* && -d $ROOT/$path ]] || continue", Driver, StringComparison.Ordinal);
     }
 
     [Theory]

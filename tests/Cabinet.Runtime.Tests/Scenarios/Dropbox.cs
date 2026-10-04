@@ -26,9 +26,12 @@ internal static class Dropbox
         {
             var name = names[depth];
             var within = string.Concat(names.Take(depth).Select(part => "/" + part));
-            entry = (await Entries(client, token, folder, within, rlkey))
-                .FirstOrDefault(found => found.GetProperty("filename").GetString() == name);
-            Assert.True(entry.ValueKind == JsonValueKind.Object, $"the shared Dropbox folder holds no {name} in /{within.TrimStart('/')}");
+            var entries = await Entries(client, token, folder, within, rlkey);
+            var seen = entries.Select(found => found.GetProperty("filename").GetString()).ToList();
+            entry = entries.FirstOrDefault(found => found.GetProperty("filename").GetString() == name);
+            Assert.True(
+                entry.ValueKind == JsonValueKind.Object,
+                $"the shared Dropbox folder holds no {name} in /{within.TrimStart('/')}, only: {string.Join(", ", seen)}");
             folder = new Uri(entry.GetProperty("href").GetString()!);
         }
 
@@ -49,7 +52,7 @@ internal static class Dropbox
         HttpClient client, string token, Uri folder, string within, string rlkey)
     {
         var segments = folder.AbsolutePath.Trim('/').Split('/');
-        using var response = await client.PostAsync(Listing, new FormUrlEncodedContent(new Dictionary<string, string>
+        var request = new Dictionary<string, string>
         {
             ["is_xhr"] = "true",
             ["t"] = token,
@@ -58,9 +61,27 @@ internal static class Dropbox
             ["link_type"] = "c",
             ["sub_path"] = within,
             ["rlkey"] = rlkey,
-        }));
-        Assert.True(response.IsSuccessStatusCode, $"Dropbox would not list /{within.TrimStart('/')} of the shared folder");
-        using var listing = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
-        return [.. listing.RootElement.GetProperty("entries").EnumerateArray().Select(found => found.Clone())];
+        };
+        var entries = new List<JsonElement>();
+        while (true)
+        {
+            using var response = await client.PostAsync(Listing, new FormUrlEncodedContent(request));
+            Assert.True(response.IsSuccessStatusCode, $"Dropbox would not list /{within.TrimStart('/')} of the shared folder");
+            using var listing = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var page = listing.RootElement;
+            entries.AddRange(page.GetProperty("entries").EnumerateArray().Select(found => found.Clone()));
+            if (!MoreAfter(page, out var voucher))
+            {
+                return [.. entries];
+            }
+
+            request["voucher"] = voucher;
+        }
+    }
+
+    private static bool MoreAfter(JsonElement page, out string voucher)
+    {
+        voucher = page.TryGetProperty("next_request_voucher", out var next) ? next.GetString() ?? "" : "";
+        return page.TryGetProperty("has_more_entries", out var more) && more.GetBoolean() && voucher.Length > 0;
     }
 }
