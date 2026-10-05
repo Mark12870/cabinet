@@ -87,11 +87,11 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         var bridge = installed.Harness.Plugin("VST3", Kontakt);
 
         var played = installed.Harness.PlayThroughEditor(
-            bridge, Note, FirstAcousticDrumsLoop, KontaktWindow);
+            bridge, Note, FirstAcousticDrumsLoop, KontaktWindow, release: 3);
 
         Assert.InRange(played.Before, 0, 0.00001);
         Assert.InRange(played.Held, 0.05, 1);
-        Assert.InRange(played.After, 0, 0.06);
+        Assert.InRange(played.After, 0, 0.00001);
     }
 
     [Fact]
@@ -100,11 +100,11 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         var bridge = installed.Harness.Plugin("VST3", Kontakt);
 
         var restored = installed.Harness.RestoreAfterPlayingThroughEditor(
-            bridge, Note, FirstAcousticDrumsLoop, KontaktWindow);
+            bridge, Note, FirstAcousticDrumsLoop, KontaktWindow, release: 3);
 
         Assert.InRange(restored.Before, 0, 0.00001);
         Assert.InRange(restored.Held, 0.05, 1);
-        Assert.InRange(restored.After, 0, 0.06);
+        Assert.InRange(restored.After, 0, 0.00001);
     }
 
     public sealed class Installed() : InstalledEntry(Id)

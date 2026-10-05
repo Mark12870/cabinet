@@ -481,13 +481,13 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
     }
 
-    public Performance PlayThroughEditor(Bridge bridge, int note, string steps, string title) =>
-        Played(PlayEditor(bridge, note, steps, title, "played"), "PLAYED");
+    public Performance PlayThroughEditor(Bridge bridge, int note, string steps, string title, int release = 0) =>
+        Played(PlayEditor(bridge, note, steps, title, "played", release), "PLAYED");
 
-    public Performance RestoreAfterPlayingThroughEditor(Bridge bridge, int note, string steps, string title) =>
-        Played(PlayEditor(bridge, note, steps, title, "restored", "restore"), "RESTORED");
+    public Performance RestoreAfterPlayingThroughEditor(Bridge bridge, int note, string steps, string title, int release = 0) =>
+        Played(PlayEditor(bridge, note, steps, title, "restored", release, "restore"), "RESTORED");
 
-    private string PlayEditor(Bridge bridge, int note, string steps, string title, string label, params string[] extra)
+    private string PlayEditor(Bridge bridge, int note, string steps, string title, string label, int release, params string[] extra)
     {
         var (plugin, format) = bridge;
         var shots = Path.Combine(Artefacts, label, bridge.Label);
@@ -497,6 +497,10 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             socket,
             Path.Combine(shots, "yabridge.log"),
             "editor-play.py",
+            new Dictionary<string, string>
+            {
+                ["CABINET_PROBE_RELEASE"] = release.ToString(CultureInfo.InvariantCulture),
+            },
             plugin,
             format,
             [shots, note.ToString(CultureInfo.InvariantCulture), steps, title, .. extra]);

@@ -26,6 +26,7 @@ NOTE = int(sys.argv[6])
 STEPS = [step.split() for step in sys.argv[7].split(";") if step.strip()]
 TITLE = sys.argv[8]
 RESTORE = len(sys.argv) > 9
+RELEASE = float(os.environ.get("CABINET_PROBE_RELEASE", "0"))
 
 LISTEN = 3.0
 
@@ -140,6 +141,7 @@ def main():
     capture("loaded")
     before = listen(host, held=False)
     held = listen(host, held=True)
+    idle(host, RELEASE)
     after = listen(host, held=False)
     host.show_custom_ui(0, False)
     idle(host, 2)
@@ -164,6 +166,7 @@ def main():
         capture("restored")
         before = listen(host, held=False)
         held = listen(host, held=True)
+        idle(host, RELEASE)
         after = listen(host, held=False)
         host.show_custom_ui(0, False)
         idle(host, 2)
