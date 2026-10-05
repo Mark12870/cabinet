@@ -1301,6 +1301,7 @@ pub struct ProcessInfo {
     pub parent: i32,
     pub group: i32,
     pub state: u8,
+    pub threads: u32,
     pub start_time: u64,
     pub comm: String,
 }
@@ -1313,6 +1314,7 @@ pub fn parse_process_stat(stat: &str) -> Option<ProcessInfo> {
     let state = fields.first()?.as_bytes().first().copied()?;
     let parent = fields.get(1)?.parse().ok()?;
     let group = fields.get(2)?.parse().ok()?;
+    let threads = fields.get(17)?.parse().ok()?;
     let start_time = fields.get(19)?.parse().ok()?;
 
     Some(ProcessInfo {
@@ -1320,6 +1322,7 @@ pub fn parse_process_stat(stat: &str) -> Option<ProcessInfo> {
         parent,
         group,
         state,
+        threads,
         start_time,
         comm: stat[open + 1..close].to_string(),
     })
@@ -1354,21 +1357,19 @@ where
 {
     processes
         .iter()
-        .find(|process| {
-            if process.group == group && process.comm == expected {
-                return true;
-            }
-
-            let Some(identity) = identity else {
-                return false;
-            };
-
-            (process.group == group || process.parent == session)
-                && read_cmdline(process.pid).is_some_and(|cmdline| {
-                    cmdline
-                        .split(|byte| *byte == 0)
-                        .any(|argument| argument == identity.as_bytes())
-                })
+        .find(|process| process.group == group && process.comm == expected)
+        .or_else(|| {
+            let identity = identity?;
+            processes.iter().find(|process| {
+                process.pid != group
+                    && process.comm != "start.exe"
+                    && (process.group == group || process.parent == session)
+                    && read_cmdline(process.pid).is_some_and(|cmdline| {
+                        cmdline
+                            .split(|byte| *byte == 0)
+                            .any(|argument| argument == identity.as_bytes())
+                    })
+            })
         })
         .cloned()
 }
@@ -1400,7 +1401,7 @@ fn terminate_tree(group: i32) {
 fn has_live(group: i32) -> bool {
     process_snapshot()
         .iter()
-        .any(|process| process.state != b'Z' && process.group == group)
+        .any(|process| process.group == group && (process.state != b'Z' || process.threads > 1))
 }
 
 struct PidFd(RawFd);
@@ -1561,6 +1562,7 @@ mod tests {
             parent,
             group: parent,
             state,
+            threads: 1,
             start_time,
             comm: comm.to_string(),
         }
@@ -1572,6 +1574,7 @@ mod tests {
             parent,
             group,
             state,
+            threads: 1,
             start_time: pid as u64,
             comm: comm.to_string(),
         }
@@ -1598,12 +1601,16 @@ mod tests {
     fn process_stat_parsing_handles_parentheses_in_the_command_name() {
         let mut fields = vec!["S".to_string(), "100".to_string(), "100".to_string()];
         fields.extend((0..16).map(|_| "0".to_string()));
+        fields[17] = "3".to_string();
         fields.push("42".to_string());
         let stat = format!("123 (name ) with paren) {}", fields.join(" "));
 
         assert_eq!(
             parse_process_stat(&stat),
-            Some(process(123, 100, b'S', "name ) with paren", 42))
+            Some(ProcessInfo {
+                threads: 3,
+                ..process(123, 100, b'S', "name ) with paren", 42)
+            })
         );
     }
 
@@ -1631,6 +1638,99 @@ mod tests {
         assert_eq!(
             find_host(&processes, 30, 9, "yabridge-host.e", None, |_| None),
             None
+        );
+    }
+
+    #[test]
+    fn a_job_prefers_its_named_host_over_processes_with_the_same_connection() {
+        let processes = vec![
+            grouped(11, 9, 11, b'S', "start.exe"),
+            grouped(12, 9, 11, b'S', "wine"),
+            grouped(13, 9, 11, b'S', "yabridge-host.e"),
+        ];
+        let identity = OsStr::new("/run/yabridge/yabridge-Waves-test");
+
+        assert_eq!(
+            find_host(&processes, 11, 9, "yabridge-host.e", Some(identity), |_| {
+                Some([identity.as_bytes(), b"\0"].concat())
+            })
+            .unwrap()
+            .pid,
+            13
+        );
+    }
+
+    #[test]
+    fn a_launcher_carrying_the_connection_is_not_a_host() {
+        let processes = vec![grouped(11, 9, 11, b'S', "start.exe")];
+        let identity = OsStr::new("/run/yabridge/yabridge-Waves-test");
+
+        assert_eq!(
+            find_host(&processes, 11, 9, "yabridge-host.e", Some(identity), |_| {
+                Some([identity.as_bytes(), b"\0"].concat())
+            }),
+            None
+        );
+    }
+
+    #[test]
+    fn a_wine_launcher_carrying_the_connection_is_not_a_host() {
+        let processes = vec![grouped(11, 9, 11, b'S', "wine")];
+        let identity = OsStr::new("/run/yabridge/yabridge-Waves-test");
+
+        assert_eq!(
+            find_host(&processes, 11, 9, "yabridge-host.e", Some(identity), |_| {
+                Some([identity.as_bytes(), b"\0"].concat())
+            }),
+            None
+        );
+    }
+
+    #[test]
+    fn a_named_host_can_lead_its_process_group() {
+        let processes = vec![grouped(11, 9, 11, b'S', "yabridge-host.e")];
+
+        assert_eq!(
+            find_host(&processes, 11, 9, "yabridge-host.e", None, |_| None)
+                .unwrap()
+                .pid,
+            11
+        );
+    }
+
+    #[test]
+    fn a_reparented_host_sharing_a_launchers_connection_is_selected() {
+        let processes = vec![
+            grouped(11, 9, 11, b'S', "start.exe"),
+            grouped(12, 9, 40, b'S', "wine"),
+        ];
+        let identity = OsStr::new("/run/yabridge/yabridge-Waves-test");
+
+        assert_eq!(
+            find_host(&processes, 11, 9, "yabridge-host.e", Some(identity), |_| {
+                Some([identity.as_bytes(), b"\0"].concat())
+            })
+            .unwrap()
+            .pid,
+            12
+        );
+    }
+
+    #[test]
+    fn a_zombie_host_is_selected_without_a_command_line() {
+        let processes = vec![
+            grouped(11, 9, 11, b'S', "start.exe"),
+            grouped(12, 9, 11, b'Z', "yabridge-host.e"),
+        ];
+        let identity = OsStr::new("/run/yabridge/yabridge-Waves-test");
+
+        assert_eq!(
+            find_host(&processes, 11, 9, "yabridge-host.e", Some(identity), |_| {
+                None
+            })
+            .unwrap()
+            .pid,
+            12
         );
     }
 
@@ -1916,6 +2016,7 @@ mod tests {
             parent,
             group: pid,
             state: b'S',
+            threads: 1,
             start_time: 0,
             comm: String::new(),
         };
@@ -1936,30 +2037,63 @@ mod tests {
     }
 
     #[test]
-    fn a_job_ends_when_its_yabridge_hosts_main_thread_dies() {
-        let script = "import ctypes, threading, time\n\
-                      threading.Thread(target=time.sleep, args=(30,)).start()\n\
-                      libc = ctypes.CDLL(None)\n\
-                      libc.prctl(15, b'yabridge-host.e', 0, 0, 0)\n\
-                      time.sleep(1)\n\
-                      libc.pthread_exit(None)\n";
+    fn a_job_ends_its_hosts_surviving_threads_even_when_the_launcher_shares_its_connection() {
+        use std::io::BufRead;
+
+        let host = "import ctypes, os, signal, threading, time\n\
+                    signal.signal(signal.SIGTERM, signal.SIG_IGN)\n\
+                    threading.Thread(target=time.sleep, args=(30,)).start()\n\
+                    libc = ctypes.CDLL(None)\n\
+                    libc.prctl(15, b'yabridge-host.e', 0, 0, 0)\n\
+                    print(os.getpid(), flush=True)\n\
+                    time.sleep(1)\n\
+                    libc.pthread_exit(None)\n";
+        let script = format!(
+            "import ctypes, subprocess, sys\n\
+             ctypes.CDLL(None).prctl(15, b'start.exe', 0, 0, 0)\n\
+             subprocess.Popen([sys.executable, '-c', {host:?}, sys.argv[1]]).wait()\n",
+        );
+        let identity = "/run/yabridge/yabridge-Waves-test";
         let mut child = Command::new("python3")
-            .args(["-c", script])
+            .args(["-c", &script, identity])
             .process_group(0)
+            .stdout(Stdio::piped())
             .spawn()
             .unwrap();
         let group = child.id() as i32;
+        let mut host_pid = String::new();
+        std::io::BufReader::new(child.stdout.take().unwrap())
+            .read_line(&mut host_pid)
+            .unwrap();
+        let host_pid = host_pid.trim().parse().unwrap();
+        let host_info = process_info(host_pid).unwrap();
+        let host_exit = PidFd::open(&host_info).unwrap();
         let (_plugin, mut session) = UnixStream::pair().unwrap();
-        let started = Instant::now();
+        let (sent, received) = std::sync::mpsc::channel();
+        let supervising = thread::spawn(move || {
+            supervise(
+                &mut child,
+                group,
+                &[
+                    OsString::from("yabridge-host.exe.so"),
+                    OsString::from("vst3"),
+                    OsString::from("plugin.dll"),
+                    OsString::from(identity),
+                ],
+                &mut session,
+            );
+            sent.send(()).unwrap();
+        });
+        let ended = received.recv_timeout(Duration::from_secs(5));
+        let host_ended = host_exit.signalled();
 
-        supervise(
-            &mut child,
-            group,
-            &[OsString::from("yabridge-host.exe.so")],
-            &mut session,
-        );
+        unsafe {
+            kill(-group, SIGKILL);
+        }
+        supervising.join().unwrap();
 
-        assert!(started.elapsed() < Duration::from_secs(10));
+        ended.unwrap();
+        assert!(host_ended);
     }
 
     #[test]

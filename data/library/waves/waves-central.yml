@@ -20,7 +20,7 @@ Scheme: waves-central
 Script: waves.sh
 Runner: 9.21
 Sync: fsync
-Winetricks: powershell
+Winetricks: powershell, allfonts
 Description:
   Install and update Waves plugins, manage Creative Access subscriptions and
   move licences between computers and USB drives. Central also creates and
