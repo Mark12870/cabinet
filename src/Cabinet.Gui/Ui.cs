@@ -122,17 +122,10 @@ internal static class Ui
         return tag;
     }
 
-    public static Gtk.Button RowButton(string iconName, string tooltip, bool destructive = false)
+    public static Gtk.Button RowButton(string iconName, string tooltip)
     {
         var button = IconButton(iconName, tooltip);
         button.SetValign(Gtk.Align.Center);
-
-        if (destructive)
-        {
-            button.AddCssClass("destructive-action");
-            button.RemoveCssClass("flat");
-        }
-
         return button;
     }
 
@@ -140,8 +133,7 @@ internal static class Ui
         string title,
         string subtitle,
         string iconName,
-        Action clicked,
-        bool destructive = false)
+        Action clicked)
     {
         var row = Adw.ActionRow.New();
         row.SetTitle(title);
@@ -151,7 +143,7 @@ internal static class Ui
             row.SetSubtitle(subtitle);
         }
 
-        var button = RowButton(iconName, title, destructive);
+        var button = RowButton(iconName, title);
         button.OnClicked += (_, _) => Guard(clicked);
         row.AddSuffix(button);
         row.SetActivatableWidget(button);

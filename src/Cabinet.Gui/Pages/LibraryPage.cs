@@ -353,7 +353,7 @@ internal sealed partial class LibraryPage
                 ? $"Windows plugin in {prefix}"
                 : "Linux plugin");
 
-            var remove = Ui.RowButton(Icons.Delete, $"Remove {entry.Id}", destructive: true);
+            var remove = Ui.RowButton(Icons.Delete, $"Remove {entry.Id}");
             remove.OnClicked += (_, _) => Ui.Guard(() => ConfirmRemove(entry));
             row.AddSuffix(remove);
             group.Add(row);

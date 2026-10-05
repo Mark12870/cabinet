@@ -87,7 +87,6 @@ internal sealed class PluginPage
     {
         var group = Adw.PreferencesGroup.New();
         group.SetTitle(plan.Title);
-        group.SetDescription($"Review the setup of prefix {plan.Prefix} before updating it.");
         Add(group, "Installed version", plan.Software);
 
         var config = Adw.ActionRow.New();
@@ -97,7 +96,6 @@ internal sealed class PluginPage
 
         var button = Gtk.Button.NewWithLabel("Update prefix…");
         button.SetValign(Gtk.Align.Center);
-        button.AddCssClass("suggested-action");
         button.SetSensitive(!blocked);
         button.SetTooltipText(blocked
             ? "Close apps using this prefix and wait for ongoing operations to finish."

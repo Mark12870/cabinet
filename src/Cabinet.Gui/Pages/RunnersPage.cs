@@ -80,8 +80,7 @@ internal sealed class RunnersPage
 
             if (!installed.Bundled)
             {
-                var remove = Ui.IconButton(Icons.Delete, "Delete this runner");
-                remove.SetValign(Gtk.Align.Center);
+                var remove = Ui.RowButton(Icons.Delete, "Delete this runner");
                 remove.OnClicked += (_, _) => Ui.Guard(() => Remove(installed.Name));
                 row.AddSuffix(remove);
             }
@@ -245,8 +244,7 @@ internal sealed class RunnersPage
         row.SetTitle(release.Version);
         row.SetSubtitle(RunnerIndex.IsPinned(release) ? $"{release.Name} · pinned" : release.Name);
 
-        var install = Ui.IconButton(Icons.Download, $"Install {release.Name}");
-        install.SetValign(Gtk.Align.Center);
+        var install = Ui.RowButton(Icons.Download, $"Install {release.Name}");
         install.OnClicked += (_, _) => Ui.Guard(() =>
         {
             dialog.ForceClose();

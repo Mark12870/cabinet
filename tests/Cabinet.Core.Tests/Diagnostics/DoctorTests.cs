@@ -101,7 +101,8 @@ public sealed class DoctorTests : IDisposable
     {
         GiveRunner("wine-9.21-staging-tkg");
         GivePrefix("gadget", "wine-9.21-staging-tkg");
-        GiveEntry("acme", "gadget", "Gadget 2", "9.21", "fsync");
+        GiveEntry("acme", "gadget", "Gadget 2", "9.21");
+        File.AppendAllText(Path.Combine(root, "library", "acme", "gadget.yml"), "Env: GADGET_MODE=on\n");
         GiveRecord("gadget", "gadget");
 
         var check = Assert.Single(Checks(), c => c.Name == "prefix updates");
@@ -385,16 +386,6 @@ public sealed class DoctorTests : IDisposable
         File.WriteAllText(
             Path.Combine(dir, id + ".yml"),
             $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\n");
-    }
-
-    private void GiveEntry(string vendor, string id, string name, string runner, string sync)
-    {
-        var dir = Path.Combine(root, "library", vendor);
-        Directory.CreateDirectory(dir);
-
-        File.WriteAllText(
-            Path.Combine(dir, id + ".yml"),
-            $"Name: {name}\nKind: windows\nSource: byo\nRunner: {runner}\nSync: {sync}\n");
     }
 
     private void GiveRecord(string prefix, string id) =>

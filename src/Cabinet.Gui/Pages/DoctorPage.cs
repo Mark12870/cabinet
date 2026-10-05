@@ -157,7 +157,6 @@ internal sealed class DoctorPage
         {
             var update = Gtk.Button.NewWithLabel("Update all…");
             update.SetValign(Gtk.Align.Center);
-            update.AddCssClass("suggested-action");
             update.SetTooltipText("Review and apply every pending prefix update");
             update.OnClicked += (_, _) => Ui.Guard(updateAll);
             row.AddSuffix(update);

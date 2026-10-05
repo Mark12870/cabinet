@@ -71,7 +71,7 @@ internal sealed class PrefixPage
         actions.Add(Ui.ActionRow("Windows installer", "", Icons.Install, ChooseInstaller));
         actions.Add(Ui.ActionRow("Run a command", "", Icons.Command, AskForCommand));
         actions.Add(
-            Ui.ActionRow("Delete", "", Icons.Delete, ConfirmDelete, destructive: true));
+            Ui.ActionRow("Delete", "", Icons.Delete, ConfirmDelete));
 
         body.Append(settings);
         body.Append(actions);

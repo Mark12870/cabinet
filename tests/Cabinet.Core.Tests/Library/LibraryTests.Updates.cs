@@ -78,7 +78,8 @@ public partial class LibraryTests
         var library = new Library(layout, recorder);
         var update = library.PrefixUpdateOf(library.Find("thing"))!;
 
-        Assert.Equal(["Winetricks: vcrun2022."], update.Changes);
+        Assert.Equal(["Install vcrun2022 with Winetricks."], update.Changes);
+        Assert.Equal(["vcrun2022"], update.Winetricks);
 
         library.UpdatePrefix(update);
 
@@ -89,20 +90,14 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void AnOlderInstallationOnAnotherRunnerKeepsIt()
+    public void AnOlderInstallationOnAnotherRunnerKeepsItWithoutOfferingAnUpdate()
     {
         var layout = OlderInstallation(SetupRecipe + "\nRunner: 9.21\n", "corefonts\n");
-        var recorder = new RecordingRunner();
-        var library = new Library(layout, recorder);
+        var library = new Library(layout, new UnusedRunner());
         var update = library.PrefixUpdateOf(library.Find("thing"))!;
 
-        Assert.Equal(["Wine: 9.21."], update.Changes);
-        Assert.Contains("Keep Wine bundled", string.Join("\n", update.Preserved));
-
-        library.UpdatePrefix(update);
-
-        Assert.DoesNotContain(recorder.Ran, call => call.Arguments.Contains("wineboot"));
-        Assert.False(File.Exists(layout.PrefixRunnerFile("chosen")));
+        Assert.Empty(update.Changes);
+        Assert.Contains("Keeps Wine bundled", string.Join("\n", update.Preserved));
         Assert.Empty(library.PrefixUpdates());
     }
 
@@ -119,7 +114,7 @@ public partial class LibraryTests
         var update = Assert.IsType<PrefixUpdate>(library.PrefixUpdateOf(library.Find("thing")));
 
         Assert.False(update.Recorded);
-        Assert.Equal(["Winetricks: corefonts."], update.Changes);
+        Assert.Equal(["Install corefonts with Winetricks."], update.Changes);
         Assert.Equal(receipt, File.ReadAllText(layout.PrefixSetupFile("chosen")));
     }
 
@@ -186,7 +181,7 @@ public partial class LibraryTests
         library.UpdatePrefix(update);
 
         Assert.Equal(["another"], update.Sharing);
-        Assert.Equal(["Winetricks: allfonts."], update.Changes);
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
         Assert.Equal(SyncMode.Fsync, settings.Sync("chosen"));
         Assert.Equal("old", settings.Variables("chosen")["MATCH"]);
         Assert.False(settings.Variables("chosen").ContainsKey("ADDED"));
@@ -320,19 +315,17 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void ADependencyRemovedFromTheRecipeIsAcknowledgedWithoutUninstallingIt()
+    public void ADependencyDroppedFromTheConfigIsOfferedWithNothingToInstall()
     {
         var layout = InstallSetup(SetupRecipe);
         Catalogue(("thing", SetupRecipe.Replace("Winetricks: corefonts", "")));
-        var recorder = new RecordingRunner();
-        var library = new Library(layout, recorder);
+        var library = new Library(layout, new UnusedRunner());
         var update = library.PrefixUpdateOf(library.Find("thing"))!;
 
         Assert.True(update.Available);
-        library.UpdatePrefix(update);
-
-        Assert.DoesNotContain(recorder.Ran, call => call.File == Core.Layout.Winetricks);
-        Assert.Empty(library.PrefixUpdates());
+        Assert.Empty(update.Changes);
+        Assert.Equal(["corefonts"], update.Dropped);
+        Assert.Contains("has changed.", update.Summary);
     }
 
     [Fact]
@@ -457,7 +450,7 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void AVersionOnlyChangeReviewsItsSetupWithoutRunningWine()
+    public void ANewConfigVersionIsOfferedEvenWithNothingToInstall()
     {
         var recipe = SetupRecipe + "\nVersion: 1.2.3\n";
         var layout = InstallSetup(recipe);
@@ -467,14 +460,31 @@ public partial class LibraryTests
         var update = library.PrefixUpdateOf(library.Find("thing"))!;
 
         Assert.True(update.Available);
-        Assert.Equal("1.2.3, revision 1", update.Applied);
-        Assert.Contains("1.3.0", string.Join("\n", update.Changes));
+        Assert.Empty(update.Changes);
+        Assert.Contains("Previously version 1.2.3", update.Summary);
+        Assert.NotNull(update.NothingToInstall);
 
         library.UpdatePrefix(update);
 
         Assert.Empty(recorder.Ran);
         Assert.Equal("1.3.0, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
         Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void ARevisionWhoseComponentsAreInstalledSaysSoAndNamesWhatItDropped()
+    {
+        var layout = InstallFamily();
+        File.WriteAllText(layout.PrefixWinetricksLog("custom"), "corefonts\nallfonts\n");
+        Catalogue(("prefix-1", "Revision: 2\nWinetricks: allfonts\n"));
+        var library = new Library(layout, new UnusedRunner());
+        var update = library.PrefixUpdateOf(library.Find("one"))!;
+
+        Assert.True(update.Available);
+        Assert.Empty(update.Changes);
+        Assert.Equal(["allfonts"], update.Present);
+        Assert.Equal(["corefonts"], update.Dropped);
+        Assert.Contains("Revision 1 → 2", update.Summary);
     }
 
     [Fact]
@@ -538,6 +548,20 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void AVerbThePrefixAlreadyHasIsNotOfferedAgain()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), "corefonts\nallfonts\n");
+        Catalogue(("thing", SetupRecipe.Replace("corefonts", "corefonts, allfonts")));
+        var recorder = new RecordingRunner();
+        var library = new Library(layout, recorder);
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Empty(update.Changes);
+        Assert.Empty(update.Winetricks);
+    }
+
+    [Fact]
     public void ThePrefixConfigFollowsTheVersionTheInstalledSoftwareReports()
     {
         Catalogue(
@@ -562,7 +586,7 @@ public partial class LibraryTests
         Assert.Empty(older.Changes);
         Assert.Equal("2.1", newer.Software);
         Assert.Equal("2.0, revision 1", newer.Config);
-        Assert.Equal(["Winetricks: allfonts."], newer.Changes);
+        Assert.Equal(["Install allfonts with Winetricks."], newer.Changes);
     }
 
     [Fact]
@@ -578,7 +602,7 @@ public partial class LibraryTests
         Assert.Equal(["one", "two"], update.Members);
         Assert.Empty(update.Sharing);
         Assert.Equal("1, revision 1", update.Applied);
-        Assert.Contains("Config 1: revision 1 → 2.", update.Changes);
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
 
         library.UpdatePrefix(update);
 

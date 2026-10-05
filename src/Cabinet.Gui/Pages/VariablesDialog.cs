@@ -66,7 +66,7 @@ internal sealed class VariablesDialog(
         row.SetTitle(key);
         row.SetSubtitle(value.Length == 0 ? "unset for this prefix" : value);
 
-        var remove = Ui.RowButton(Icons.Delete, $"Remove {key}", destructive: true);
+        var remove = Ui.RowButton(Icons.Delete, $"Remove {key}");
         remove.OnClicked += (_, _) => Ui.Guard(() => Apply(key, null));
         row.AddSuffix(remove);
 

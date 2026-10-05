@@ -1,4 +1,4 @@
-Revision: 1
+Revision: 2
 Runner: 9.21
 Sync: fsync
-Winetricks: powershell, allfonts
+Winetricks: powershell, arial, courier, verdana, calibri, consolas

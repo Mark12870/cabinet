@@ -205,81 +205,72 @@ public sealed partial class Library
         bool? desktopChange = null;
         var env = new Dictionary<string, string?>(StringComparer.Ordinal);
 
-        if (previous is not null && previous.ConfigVersion != desired.ConfigVersion)
-        {
-            changes.Add($"Config for version {desired.ConfigVersion}, replacing the one for {previous.ConfigVersion}.");
-        }
-        else if (previous is not null && previous.Revision != desired.Revision)
-        {
-            changes.Add($"Config {desired.ConfigVersion}: revision {previous.Revision} → {desired.Revision}.");
-        }
-
         if (previous is null
                 ? free && !RunnerMatches(actual.Runner!, desired.Runner)
                 : previous.Runner != desired.Runner)
         {
-            changes.Add($"Wine: {RunnerWord(desired.Runner)}.");
-
             if (!RunnerMatches(actual.Runner!, desired.Runner))
             {
                 if (previous is not null && RunnerMatches(actual.Runner!, previous.Runner) && free)
                 {
                     runnerChange = desired.Runner ?? Layout.BundledRunner;
+                    changes.Add($"Switch to Wine {RunnerWord(desired.Runner)}.");
                 }
                 else
                 {
-                    kept.Add($"Keep Wine {actual.Runner}; the catalogue recommends {RunnerWord(desired.Runner)}.");
+                    kept.Add($"Keeps Wine {actual.Runner} instead of the recommended {RunnerWord(desired.Runner)}.");
                 }
             }
         }
 
         if (previous is null ? free && actual.Sync != desired.Sync : previous.Sync != desired.Sync)
         {
-            changes.Add($"Sync: {PrefixSettings.Word(desired.Sync)}.");
-
             if (actual.Sync != desired.Sync)
             {
                 if (previous is not null && actual.Sync == previous.Sync && free)
                 {
                     syncChange = desired.Sync;
+                    changes.Add($"Switch the sync mode to {PrefixSettings.Word(desired.Sync)}.");
                 }
                 else
                 {
-                    kept.Add($"Keep {PrefixSettings.Word(actual.Sync)} sync; the catalogue recommends {PrefixSettings.Word(desired.Sync)}.");
+                    kept.Add($"Keeps the {PrefixSettings.Word(actual.Sync)} sync mode instead of the recommended {PrefixSettings.Word(desired.Sync)}.");
                 }
             }
         }
 
         if (previous is null ? free && desired.Dxvk && !actual.Dxvk : previous.Dxvk != desired.Dxvk)
         {
-            changes.Add(desired.Dxvk ? "Use DXVK for Direct3D." : "Use Wine's Direct3D.");
-
             if (actual.Dxvk != desired.Dxvk)
             {
                 if ((previous is null || actual.Dxvk == previous.Dxvk) && free)
                 {
                     dxvkChange = desired.Dxvk;
+                    changes.Add(desired.Dxvk ? "Turn on DXVK for Direct3D." : "Turn off DXVK and use Wine's own Direct3D.");
                 }
                 else
                 {
-                    kept.Add("Keep the current Direct3D setting because it was customised or the prefix is shared.");
+                    kept.Add(desired.Dxvk
+                        ? "Keeps DXVK off instead of the recommended on."
+                        : "Keeps DXVK on instead of the recommended off.");
                 }
             }
         }
 
         if (previous is null ? free && desired.Desktop && !actual.Desktop : previous.Desktop != desired.Desktop)
         {
-            changes.Add(desired.Desktop ? "Use a Wine virtual desktop." : "Use your desktop directly.");
-
             if (actual.Desktop != desired.Desktop)
             {
                 if ((previous is null || actual.Desktop == previous.Desktop) && free)
                 {
                     desktopChange = desired.Desktop;
+                    changes.Add(desired.Desktop ? "Turn on the Wine virtual desktop." : "Turn off the Wine virtual desktop.");
                 }
                 else
                 {
-                    kept.Add("Keep the current desktop setting because it was customised or the prefix is shared.");
+                    kept.Add(desired.Desktop
+                        ? "Keeps the virtual desktop off instead of the recommended on."
+                        : "Keeps the virtual desktop on instead of the recommended off.");
                 }
             }
         }
@@ -296,33 +287,50 @@ public sealed partial class Library
                 continue;
             }
 
-            changes.Add(wanted is null ? $"Remove {key}." : $"Environment: {key}={wanted}.");
-
             if (current != wanted)
             {
                 if (current is null && before is null || previous is not null && current == before)
                 {
                     env[key] = wanted;
+                    changes.Add(wanted is null ? $"Remove the variable {key}." : $"Set {key} to {wanted}.");
                 }
                 else
                 {
-                    kept.Add($"Keep {key} because its value was customised or the prefix is shared.");
+                    kept.Add($"Keeps {key} as it is instead of the recommended value.");
                 }
             }
         }
 
-        var added = desired.Winetricks.Except((previous ?? actual).Winetricks, StringComparer.Ordinal).ToList();
-        changes.AddRange(added.Select(verb => $"Winetricks: {verb}."));
-        changes.AddRange((previous?.Winetricks ?? []).Except(desired.Winetricks, StringComparer.Ordinal)
-            .Select(verb => $"Winetricks {verb} is no longer required; installed components stay."));
-        var verbs = added.Except(actual.Winetricks, StringComparer.Ordinal).ToList();
+        var verbs = desired.Winetricks
+            .Except((previous ?? actual).Winetricks, StringComparer.Ordinal)
+            .Except(actual.Winetricks, StringComparer.Ordinal)
+            .ToList();
+        changes.AddRange(verbs.Select(verb => $"Install {verb} with Winetricks."));
+        var present = previous is null
+            ? []
+            : desired.Winetricks.Except(previous.Winetricks, StringComparer.Ordinal)
+                .Intersect(actual.Winetricks, StringComparer.Ordinal).ToList();
+        var dropped = previous is null
+            ? []
+            : previous.Winetricks.Except(desired.Winetricks, StringComparer.Ordinal).ToList();
+        var revised = previous is null
+            ? null
+            : previous.ConfigVersion != desired.ConfigVersion
+                ? $"{entry.Name} {software ?? desired.ConfigVersion} now uses Cabinet's setup for version "
+                  + $"{desired.ConfigVersion}.\nPreviously version {previous.ConfigVersion}"
+                : previous.Revision != desired.Revision
+                    ? $"Cabinet's setup for {entry.Name} {desired.ConfigVersion} has changed.\n"
+                      + $"Revision {previous.Revision} → {desired.Revision}"
+                    : (previous with { Software = null }).Serialise() != (desired with { Software = null }).Serialise()
+                        ? $"Cabinet's setup for {entry.Name} {desired.ConfigVersion} has changed."
+                        : null;
 
         var state = string.Join('\n', entry.Id, prefix, previous?.Serialise() ?? "",
             desired.Serialise(), actual.Serialise(), dxvkVersion ?? "",
             string.Join('\n', members), string.Join('\n', foreign));
         var stamp = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
-        var review = new PrefixUpdate(entry, prefix, previous is not null, desired.Label, previous?.Label,
-            software, changes, kept, members, foreign, stamp);
+        var review = new PrefixUpdate(entry, prefix, previous is not null, desired.ConfigVersion, desired.Revision, previous?.Label,
+            software, revised, changes, present, dropped, kept, members, foreign, verbs, stamp);
         return new SetupUpdate(review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, verbs);
     }
 
