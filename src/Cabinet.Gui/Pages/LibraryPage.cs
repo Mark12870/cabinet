@@ -229,11 +229,6 @@ internal sealed partial class LibraryPage
             .Where(entry => states.GetSelected() != 3 || updates.ContainsKey(entry.Id))
             .ToList();
 
-        if (states.GetSelected() == 3 && updates.Count > 0)
-        {
-            list.Append(UpdateAll());
-        }
-
         var managers = matching
             .Where(entry => entry.Manager)
             .ToList();

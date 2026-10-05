@@ -11,6 +11,8 @@ public sealed record Check(string Name, Status Status, string Detail, string? Da
 
 public sealed partial class Doctor(Layout layout, IProcessRunner runner)
 {
+    public const string PrefixUpdatesCheck = "prefix updates";
+
     public IReadOnlyList<Check> Run()
     {
         var checks = new List<Check>
@@ -200,11 +202,9 @@ public sealed partial class Doctor(Layout layout, IProcessRunner runner)
             yield break;
         }
 
-        yield return new Check("prefix updates", Status.Warn,
+        yield return new Check(PrefixUpdatesCheck, Status.Warn,
             string.Join("; ", pending.Select(update =>
-                $"{update.Prefix} has a changed setup for {string.Join(", ", update.Members)}"))
-            + ". `cabinet library update --all`, or Update all under the Library's Prefix updates "
-            + "state, applies it with the DAW closed.");
+                $"{update.Prefix} has a changed setup for {string.Join(", ", update.Members)}")));
     }
 
     private IEnumerable<Check> MixedPrefixes()

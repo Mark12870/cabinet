@@ -46,7 +46,7 @@ internal sealed class MainWindow
             prefixes.IsChanging,
             operations);
         runners = new RunnersPage(layout, runner, window, RefreshRunners, operations);
-        doctor = new DoctorPage(layout, runner, window, RefreshDoctor, RefreshAll, operations);
+        doctor = new DoctorPage(layout, runner, window, RefreshDoctor, RefreshAll, operations, library.UpdateAll);
         about = new AboutPage(layout, runner, window);
 
         stack.AddTitledWithIcon(library.Widget, "library", "Library", Icons.Library);

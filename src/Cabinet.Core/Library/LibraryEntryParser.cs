@@ -2,8 +2,6 @@ namespace Cabinet.Core;
 
 internal static class LibraryEntryParser
 {
-    public const string PrefixFile = "prefix.yml";
-
     private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop"];
 
     private static readonly string[] PrefixKeys = ["Prefix", .. SettingKeys];
@@ -12,14 +10,14 @@ internal static class LibraryEntryParser
         string id,
         string text,
         string vendor,
-        string? prefixConfig,
-        IReadOnlyDictionary<string, string>? configs)
+        IReadOnlyDictionary<string, string>? configs,
+        bool family)
     {
         var fields = Fields(text);
         var kind = ParseKind(id, Required(id, fields, "Kind"));
-        var (family, shared) = kind == PluginKind.Windows && prefixConfig is not null
-            ? Share(id, vendor, fields, Fields(prefixConfig), configs ?? new Dictionary<string, string>())
-            : (null, null);
+        var shared = kind == PluginKind.Windows && configs is { Count: > 0 }
+            ? Share(id, vendor, fields, configs, family)
+            : null;
         var source = ParseSource(id, Value(fields, "Source") ?? "download");
         var demo = Value(fields, "DemoUrl");
 
@@ -194,56 +192,38 @@ internal static class LibraryEntryParser
             Paragraphs(Value(fields, "Description")),
             vendor,
             Sentence(Value(fields, "InstallInstructions")),
-            family,
+            family && shared is not null,
             shared);
     }
 
-    private static (string? Family, IReadOnlyList<PrefixConfig> Configs) Share(
+    private static IReadOnlyList<PrefixConfig> Share(
         string id,
         string vendor,
         Dictionary<string, string> fields,
-        IReadOnlyDictionary<string, string> prefix,
-        IReadOnlyDictionary<string, string> configs)
+        IReadOnlyDictionary<string, string> configs,
+        bool family)
     {
         if (PrefixKeys.FirstOrDefault(fields.ContainsKey) is { } repeated)
         {
             throw new InvalidOperationException(
-                $"{id}.yml carries {repeated}, which {vendor}'s prefix files set for every entry in its prefix");
+                $"{id}.yml carries {repeated}, which {vendor}'s {PrefixConfig.FilePrefix}<version>.yml files set "
+                + "for every entry in its prefix");
         }
 
-        if (prefix.Keys.FirstOrDefault(key => key is not ("Prefix" or "Version")) is { } stray)
-        {
-            throw new InvalidOperationException(
-                $"{vendor}/{PrefixFile} carries {stray} — it holds only Prefix and a family's Version; "
-                + $"settings go in {PrefixConfig.FilePrefix}<version>.yml");
-        }
-
-        var name = Value(prefix, "Prefix")
-                   ?? throw new InvalidOperationException($"{vendor}/{PrefixFile} has no Prefix");
-        var family = Value(prefix, "Version");
-        var parsed = configs.ToDictionary(
-            pair => pair.Key,
-            pair => Fields(pair.Value),
-            StringComparer.Ordinal);
-
-        if (parsed.Count == 0)
-        {
-            throw new InvalidOperationException(
-                $"{vendor} has {PrefixFile} but no {PrefixConfig.FilePrefix}<version>.yml to set its prefix up");
-        }
-
-        var all = parsed.Select(pair => Config($"{vendor}/{PrefixConfig.FilePrefix}{pair.Key}", pair.Key, pair.Value))
+        var parsed = configs.ToDictionary(pair => pair.Key, pair => Fields(pair.Value), StringComparer.Ordinal);
+        var all = parsed
+            .Select(pair => Config($"{vendor}/{PrefixConfig.FilePrefix}{pair.Key}", pair.Key, pair.Value))
             .ToList();
-        var current = PrefixConfig.For(all, family ?? Value(fields, "Version"));
+        var current = PrefixConfig.For(all, family ? null : Value(fields, "Version"));
 
-        fields["Prefix"] = name;
+        fields["Prefix"] = vendor;
 
         foreach (var (key, value) in parsed[current.Version].Where(pair => pair.Key != "Revision"))
         {
             fields[key] = value;
         }
 
-        return (family, all);
+        return all;
     }
 
     private static PrefixConfig Config(string file, string version, IReadOnlyDictionary<string, string> fields)

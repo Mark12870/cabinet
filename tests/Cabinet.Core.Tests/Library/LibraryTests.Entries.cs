@@ -116,15 +116,9 @@ public partial class LibraryTests
             "gadget",
             "Name: Gadget\nKind: windows\nSource: byo\nVersion: 2.1\n",
             "a-vendor",
-            "Prefix: family\n",
-            new Dictionary<string, string>
-            {
-                ["1.0"] = "Revision: 1\nRunner: 9.10\n",
-                ["2.0"] = "Revision: 3\nRunner: 9.21\nDxvk: true\nSync: fsync\nWinetricks: corefonts\n",
-                ["3.0"] = "Revision: 1\nRunner: 10.0\n",
-            });
+            ThreeConfigs);
 
-        Assert.Equal("family", entry.Prefix);
+        Assert.Equal("a-vendor", entry.Prefix);
         Assert.Equal("9.21", entry.Runner);
         Assert.True(entry.Dxvk);
         Assert.Equal(SyncMode.Fsync, entry.Sync);
@@ -132,6 +126,23 @@ public partial class LibraryTests
         Assert.Equal("2.0, revision 3", entry.Config.Label);
         Assert.Equal(3, entry.Configs.Count);
     }
+
+    [Fact]
+    public void AFamilyTakesItsNewestConfig()
+    {
+        var entry = LibraryEntry.Parse(
+            "gadget", "Name: Gadget\nKind: windows\nSource: byo\nVersion: 2.1\n", "a-vendor", ThreeConfigs, family: true);
+
+        Assert.Equal("10.0", entry.Runner);
+        Assert.Equal("3.0, revision 1", entry.Config.Label);
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> ThreeConfigs = new Dictionary<string, string>
+    {
+        ["1.0"] = "Revision: 1\nRunner: 9.10\n",
+        ["2.0"] = "Revision: 3\nRunner: 9.21\nDxvk: true\nSync: fsync\nWinetricks: corefonts\n",
+        ["3.0"] = "Revision: 1\nRunner: 10.0\n",
+    };
 
     [Theory]
     [InlineData("0.5", "1.0")]
@@ -156,27 +167,16 @@ public partial class LibraryTests
     ];
 
     [Theory]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\nRunner: 9.21\n", "Prefix: family\n", "Revision: 1\n", "Runner")]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\nRunner: 9.21\n", "Revision: 1\n", "Runner")]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Version: 1\n", "Revision: 1\n", "Prefix")]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\n", "Runner: 9.21\n", "Revision")]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\n", "Revision: 1\nScript: a.sh\n", "Script")]
-    public void PrefixFilesAloneSetThePrefix(string text, string prefix, string config, string named)
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\nRunner: 9.21\n", "Revision: 1\n", "Runner")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\nPrefix: other\n", "Revision: 1\n", "Prefix")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Runner: 9.21\n", "Revision")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Revision: 1\nScript: a.sh\n", "Script")]
+    public void PrefixFilesAloneSetThePrefix(string text, string config, string named)
     {
         var thrown = Assert.Throws<InvalidOperationException>(
-            () => LibraryEntry.Parse("gadget", text, "a-vendor", prefix, new Dictionary<string, string> { ["1"] = config }));
+            () => LibraryEntry.Parse("gadget", text, "a-vendor", new Dictionary<string, string> { ["1"] = config }));
 
         Assert.Contains(named, thrown.Message);
-    }
-
-    [Fact]
-    public void APrefixWithoutAConfigFileIsRefused()
-    {
-        var thrown = Assert.Throws<InvalidOperationException>(
-            () => LibraryEntry.Parse(
-                "gadget", "Name: Gadget\nKind: windows\nSource: byo\n", "a-vendor", "Prefix: family\n"));
-
-        Assert.Contains("prefix-<version>.yml", thrown.Message);
     }
 
     [Theory]

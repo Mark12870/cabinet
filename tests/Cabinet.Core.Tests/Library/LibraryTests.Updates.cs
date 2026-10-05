@@ -542,7 +542,6 @@ public partial class LibraryTests
     {
         Catalogue(
             ("thing", "Name: Thing\nKind: windows\nSource: byo\nVersion: 2.0\n"),
-            ("prefix", "Prefix: chosen\n"),
             ("prefix-1.0", "Revision: 1\nWinetricks: corefonts\n"),
             ("prefix-2.0", "Revision: 1\nWinetricks: allfonts\n"));
         var layout = Layout();
@@ -609,7 +608,6 @@ public partial class LibraryTests
     public void AFamilyMemberSkipsASiblingsPrefixThatHoldsAnotherSetup()
     {
         Catalogue(
-            ("prefix", FamilyPrefix),
             ("prefix-1", FamilyConfig),
             ("one", "Name: One\nKind: windows\nSource: byo\n"),
             ("two", "Name: Two\nKind: windows\nSource: byo\n"));
@@ -619,7 +617,7 @@ public partial class LibraryTests
         File.AppendAllText(layout.PrefixPluginsFile("mixed"), "one\n");
         var library = new Library(layout, new UnusedRunner());
 
-        Assert.Equal("family", library.DefaultPrefix(library.Find("two")));
+        Assert.Equal(Vendor, library.DefaultPrefix(library.Find("two")));
     }
 
     [Fact]
@@ -670,14 +668,11 @@ public partial class LibraryTests
 
     private const string SetupInstaller = "synthetic-setup.exe";
 
-    private const string FamilyPrefix = "Prefix: family\nVersion: 1\n";
-
     private const string FamilyConfig = "Revision: 1\nWinetricks: corefonts\n";
 
     private Layout InstallFamily()
     {
         Catalogue(
-            ("prefix", FamilyPrefix),
             ("prefix-1", FamilyConfig),
             ("one", "Name: One\nKind: windows\nSource: byo\n"),
             ("two", "Name: Two\nKind: windows\nSource: byo\n"));

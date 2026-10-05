@@ -1,7 +1,12 @@
+using System.Text.RegularExpressions;
+
 namespace Cabinet.Core;
 
 public sealed partial class Library(Layout layout, IProcessRunner runner)
 {
+    [GeneratedRegex(@"^Kind:\s*windows\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase)]
+    private static partial Regex WindowsKind();
+
     private readonly Http http = new(runner);
 
     public IReadOnlyList<LibraryEntry> Entries()
@@ -29,22 +34,18 @@ public sealed partial class Library(Layout layout, IProcessRunner runner)
 
     private static IEnumerable<LibraryEntry> VendorEntries(string vendor)
     {
-        var config = Path.Combine(vendor, LibraryEntryParser.PrefixFile);
-        var shared = File.Exists(config) ? File.ReadAllText(config) : null;
         var configs = Directory.EnumerateFiles(vendor, PrefixConfig.FilePrefix + "*.yml")
             .ToDictionary(
                 path => Path.GetFileNameWithoutExtension(path)[PrefixConfig.FilePrefix.Length..],
                 File.ReadAllText,
                 StringComparer.Ordinal);
+        var texts = Directory.EnumerateFiles(vendor, "*.yml")
+            .Where(path => !Path.GetFileName(path).StartsWith(PrefixConfig.FilePrefix, StringComparison.Ordinal))
+            .ToDictionary(path => Path.GetFileNameWithoutExtension(path), File.ReadAllText, StringComparer.Ordinal);
+        var family = texts.Values.Count(text => WindowsKind().IsMatch(text)) > 1;
 
-        return Directory.EnumerateFiles(vendor, "*.yml")
-            .Where(path => path != config && !Path.GetFileName(path).StartsWith(PrefixConfig.FilePrefix, StringComparison.Ordinal))
-            .Select(path => LibraryEntry.Parse(
-                Path.GetFileNameWithoutExtension(path),
-                File.ReadAllText(path),
-                Path.GetFileName(vendor),
-                shared,
-                configs));
+        return texts.Select(pair => LibraryEntry.Parse(
+            pair.Key, pair.Value, Path.GetFileName(vendor), configs, family));
     }
 
     public static IReadOnlyList<string> Categories(IEnumerable<LibraryEntry> entries) =>

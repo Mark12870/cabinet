@@ -338,9 +338,9 @@ public sealed partial class Library
 
     private string? InstalledVersion(LibraryEntry entry, string prefix)
     {
-        if (entry.FamilyVersion is { } family)
+        if (entry.Family)
         {
-            return family;
+            return null;
         }
 
         var keys = RecordedKeys(prefix, entry.Id).ToHashSet(StringComparer.Ordinal);

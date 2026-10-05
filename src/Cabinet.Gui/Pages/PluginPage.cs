@@ -89,27 +89,29 @@ internal sealed class PluginPage
         group.SetTitle(plan.Title);
         group.SetDescription($"Review the setup of prefix {plan.Prefix} before updating it.");
         Add(group, "Installed version", plan.Software);
-        Add(group, "Config", plan.Config);
-        Add(group, "Applied config", plan.Applied);
-        Add(group, "Shares this config", plan.Members.Count > 1 ? string.Join(", ", plan.Members) : null);
-        Add(group, "Changes", plan.Changes.Count > 0 ? string.Join("\n", plan.Changes) : null);
-        Add(group, "Kept", plan.Preserved.Count > 0 ? string.Join("\n", plan.Preserved) : null);
-        Add(group, "Other plugins in this prefix", plan.Sharing.Count > 0 ? string.Join(", ", plan.Sharing) : null);
 
-        var action = Adw.ActionRow.New();
-        action.SetTitle("Update prefix");
-        action.SetSubtitle(blocked
-            ? "Close apps using this prefix and wait for ongoing operations to finish."
-            : "Apply the reviewed dependencies and prefix settings.");
+        var config = Adw.ActionRow.New();
+        config.SetUseMarkup(false);
+        config.SetTitle("Config");
+        config.SetSubtitle(plan.Config);
 
         var button = Gtk.Button.NewWithLabel("Update prefix…");
         button.SetValign(Gtk.Align.Center);
         button.AddCssClass("suggested-action");
         button.SetSensitive(!blocked);
+        button.SetTooltipText(blocked
+            ? "Close apps using this prefix and wait for ongoing operations to finish."
+            : "Apply the reviewed dependencies and prefix settings.");
         button.OnClicked += (_, _) => Ui.Guard(() => update(plan));
-        action.AddSuffix(button);
-        action.SetActivatableWidget(button);
-        group.Add(action);
+        config.AddSuffix(button);
+        config.SetActivatableWidget(button);
+        group.Add(config);
+
+        Add(group, "Applied config", plan.Applied);
+        Add(group, "Shares this config", plan.Members.Count > 1 ? string.Join(", ", plan.Members) : null);
+        Add(group, "Changes", plan.Changes.Count > 0 ? string.Join("\n", plan.Changes) : null);
+        Add(group, "Kept", plan.Preserved.Count > 0 ? string.Join("\n", plan.Preserved) : null);
+        Add(group, "Other plugins in this prefix", plan.Sharing.Count > 0 ? string.Join(", ", plan.Sharing) : null);
         return group;
     }
 

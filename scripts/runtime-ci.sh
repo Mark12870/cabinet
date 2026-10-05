@@ -55,11 +55,11 @@ private_paths() {
     local data="home/.var/app/$APP/data"
 
     printf '%s\n' \
-        "$data/prefixes/valhalla" \
-        "$data/prefixes/sitala-1" \
+        "$data/prefixes/valhalla-dsp" \
+        "$data/prefixes/decomposer" \
         "$data/prefixes/fabfilter" \
         "$data/prefixes/ik-multimedia" \
-        "$data/prefixes/sine-player" \
+        "$data/prefixes/orchestral-tools" \
         "$data/native/decent-sampler"
 }
 

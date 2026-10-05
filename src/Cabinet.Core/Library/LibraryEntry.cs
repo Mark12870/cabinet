@@ -51,12 +51,12 @@ public sealed record LibraryEntry(
     IReadOnlyList<string> Description,
     string Vendor,
     string? InstallInstructions = null,
-    string? FamilyVersion = null,
+    bool Family = false,
     IReadOnlyList<PrefixConfig>? PrefixConfigs = null)
 {
     public bool Manager => Launch is not null;
 
-    public string? SetupVersion => FamilyVersion ?? Version;
+    public string? SetupVersion => Family ? null : Version;
 
     public IReadOnlyList<PrefixConfig> Configs =>
         PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Sync, Winetricks, Env, Desktop)];
@@ -76,9 +76,9 @@ public sealed record LibraryEntry(
         string id,
         string text,
         string vendor = "",
-        string? prefixConfig = null,
-        IReadOnlyDictionary<string, string>? configs = null) =>
-        LibraryEntryParser.Parse(id, text, vendor, prefixConfig, configs);
+        IReadOnlyDictionary<string, string>? configs = null,
+        bool family = false) =>
+        LibraryEntryParser.Parse(id, text, vendor, configs, family);
 
     public IReadOnlyList<string> Requirements()
     {

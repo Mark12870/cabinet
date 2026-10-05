@@ -356,7 +356,7 @@ XML
     # Sitala opens an Update window over the top left of its editor whenever the time it last
     # showed one has passed, and every press there lands on that window. The fixtures date it in
     # 2100, so the editor is never covered.
-    for roaming in "$data"/prefixes/sitala-1/drive_c/users/*/AppData/Roaming; do
+    for roaming in "$data"/prefixes/decomposer/drive_c/users/*/AppData/Roaming; do
         mkdir -p "$roaming/Sitala"
         cat > "$roaming/Sitala/Sitala.settings" <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>

@@ -14,7 +14,6 @@ data/library/u-he/podolski.yml      the entry
 data/library/u-he/podolski.jpg      screenshot, ≤1000px
 data/library/u-he/podolski.png      icon, 192×192
 data/library/u-he/u-he.sh           the install script its entries name
-data/library/<vendor>/prefix.yml    Windows only: the prefix name, and a family's Version
 data/library/<vendor>/prefix-2.1.yml Windows only: the prefix settings for software version 2.1
 data/library/u-he/logo.png          the vendor's mark, 192×192, shown on every page of theirs
 ```
@@ -96,8 +95,8 @@ versions, no rendering APIs.
 **5. Decide the four fields that are judgements.** Everything above is a lookup; these are
 decisions, and getting one wrong shows up much later as a plugin that installs and then cannot
 be used. For a Windows entry they go in the vendor's `prefix-<version>.yml`, never in the entry,
-which may carry none of them. `prefix.yml` holds `Prefix: <name>` (unique across vendors), plus
-`Version:` when several entries share the prefix. Name each `prefix-<version>.yml` after the
+which may carry none of them, nor a `Prefix:`: the prefix is named after the vendor directory,
+and several Windows entries there share it with its newest config. Name each `prefix-<version>.yml` after the
 version the installed software reports as `DisplayVersion` in its prefix's uninstall registry
 key, and start it at `Revision: 1`. Raise `Revision` when you edit that file; add a new
 `prefix-<version>.yml` when newer software needs other settings.

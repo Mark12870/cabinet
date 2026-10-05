@@ -39,8 +39,7 @@ public sealed class Sitala1Scenario(Sitala1Scenario.Installed installed)
     {
         protected override void Settle(string home)
         {
-            var users = Path.Combine(
-                home, ".var", "app", Host.App, "data", "prefixes", Id, "drive_c", "users");
+            var users = Path.Combine(Harness.Prefix, "drive_c", "users");
             foreach (var user in Directory.GetDirectories(users))
             {
                 var settings = Path.Combine(user, "AppData", "Roaming", "Sitala");

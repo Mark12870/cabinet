@@ -24,23 +24,24 @@ internal sealed partial class LibraryPage
             () => Update(update));
     }
 
-    private Gtk.Widget UpdateAll()
-    {
-        var pending = Library.PerPrefix(updates.Values);
-        var group = Adw.PreferencesGroup.New();
-        var row = Adw.ActionRow.New();
-        row.SetTitle("Update every prefix");
-        row.SetSubtitle($"{pending.Count} prefix(es) have a changed catalogue setup.");
+    public void UpdateAll() =>
+        Task.Run(() => new Library(layout, runner).PendingPrefixUpdates()).ContinueWith(found =>
+            Ui.OnMainLoop(() =>
+            {
+                if (found.IsFaulted)
+                {
+                    toast(found.Exception!.InnerException!.Message);
+                    return;
+                }
 
-        var button = Gtk.Button.NewWithLabel("Update all…");
-        button.SetValign(Gtk.Align.Center);
-        button.AddCssClass("suggested-action");
-        button.OnClicked += (_, _) => Ui.Guard(() => ConfirmUpdateAll(pending));
-        row.AddSuffix(button);
-        row.SetActivatableWidget(button);
-        group.Add(row);
-        return group;
-    }
+                if (found.Result.Count == 0)
+                {
+                    toast("Every prefix setup is up to date.");
+                    return;
+                }
+
+                ConfirmUpdateAll(found.Result);
+            }));
 
     private void ConfirmUpdateAll(IReadOnlyList<PrefixUpdate> pending)
     {

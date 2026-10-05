@@ -161,8 +161,7 @@ public sealed class ArturiaSoftwareCenterScenario(ArturiaSoftwareCenterScenario.
 
         protected override void Settle(string home)
         {
-            var settings = Path.Combine(
-                home, ".var", "app", Host.App, "data", "prefixes", "arturia", "drive_c", "ProgramData", "Arturia", "Piano V3", "tmp");
+            var settings = Path.Combine(Harness.Prefix, "drive_c", "ProgramData", "Arturia", "Piano V3", "tmp");
             Directory.CreateDirectory(settings);
             File.WriteAllText(
                 Path.Combine(settings, "plugin.pref.xml"),

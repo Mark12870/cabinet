@@ -30,7 +30,7 @@ public sealed class Sitala2Scenario(Sitala2Scenario.Installed installed)
         var audio = await installed.Harness.Render(bridge, "", installed.Display);
 
         Assert.True(audio.Parameters > 0, $"{installed.Entry.Name} exposed no parameters");
-        Assert.Equal("sitala-2", installed.Entry.Prefix);
+        Assert.Equal("decomposer-sitala-2", installed.Entry.Prefix);
     }
 
     public sealed class Installed() : InstalledEntry(Id);
