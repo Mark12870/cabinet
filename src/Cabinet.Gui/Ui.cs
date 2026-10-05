@@ -100,6 +100,28 @@ internal static class Ui
         return button;
     }
 
+    public static Gtk.Widget Tag(string text, string? appearance = null)
+    {
+        var label = Gtk.Label.New(text);
+        label.AddCssClass("caption");
+        label.SetMarginTop(2);
+        label.SetMarginBottom(2);
+        label.SetMarginStart(8);
+        label.SetMarginEnd(8);
+
+        if (appearance is not null)
+        {
+            label.AddCssClass(appearance);
+            label.AddCssClass("caption-heading");
+        }
+
+        var tag = Gtk.Box.New(Gtk.Orientation.Horizontal, 0);
+        tag.AddCssClass("card");
+        tag.SetValign(Gtk.Align.Center);
+        tag.Append(label);
+        return tag;
+    }
+
     public static Gtk.Button RowButton(string iconName, string tooltip, bool destructive = false)
     {
         var button = IconButton(iconName, tooltip);

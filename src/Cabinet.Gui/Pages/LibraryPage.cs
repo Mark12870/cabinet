@@ -399,21 +399,9 @@ internal sealed partial class LibraryPage
         var row = Adw.ActionRow.New();
         row.SetTitle(entry.Name);
         row.SetSubtitle(Subtitle(entry));
+        row.SetSubtitleLines(1);
         row.AddPrefix(RowIcon(entry, here));
-
-        if (here)
-        {
-            row.AddSuffix(Badge(prefix));
-        }
-
-        if (updates.TryGetValue(entry.Id, out var update))
-        {
-            var badge = Gtk.Label.New(update.Title);
-            badge.AddCssClass("warning");
-            badge.AddCssClass("caption-heading");
-            badge.SetValign(Gtk.Align.Center);
-            row.AddSuffix(badge);
-        }
+        row.AddSuffix(Tags(entry, here, prefix));
 
         if (entry.Manager && here)
         {
@@ -462,44 +450,40 @@ internal sealed partial class LibraryPage
         return icon;
     }
 
-    private static Gtk.Label Badge(string? prefix)
+    private Gtk.Box Tags(LibraryEntry entry, bool here, string? prefix)
     {
-        var badge = Gtk.Label.New(prefix is null ? "Installed" : $"Installed in {prefix}");
-        badge.AddCssClass("success");
-        badge.AddCssClass("caption-heading");
-        badge.SetValign(Gtk.Align.Center);
-        return badge;
+        var tags = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
+        tags.SetValign(Gtk.Align.Center);
+        tags.Append(Ui.Tag(entry.Category));
+        tags.Append(Ui.Tag(entry.Kind == PluginKind.Native ? "Linux" : "Windows"));
+        tags.Append(Ui.Tag(entry.Licence == "Commercial" ? "Paid" : "Free"));
+
+        if (Obtained(entry) is { } obtained)
+        {
+            tags.Append(Ui.Tag(obtained));
+        }
+
+        if (updates.ContainsKey(entry.Id))
+        {
+            tags.Append(Ui.Tag("Update", "warning"));
+        }
+
+        if (here)
+        {
+            tags.Append(Ui.Tag(prefix is null ? "Installed" : $"Installed in {prefix}", "success"));
+        }
+
+        return tags;
     }
 
-    private static string Subtitle(LibraryEntry entry)
-    {
-        var parts = new List<string>();
+    private static string? Obtained(LibraryEntry entry) =>
+        entry.DemoUrl is not null ? "Demo"
+        : entry.Source != PluginSource.Byo ? null
+        : entry.Account is null ? "Your installer"
+        : "Account download";
 
-        if (entry.Developer is { } developer)
-        {
-            parts.Add(developer);
-        }
-
-        parts.Add(entry.Category);
-
-        if (entry.Summary.Length > 0)
-        {
-            parts.Add(entry.Summary);
-        }
-
-        if (entry.DemoUrl is not null)
-        {
-            parts.Add("offers a demo or your own installer");
-        }
-        else if (entry.Source == PluginSource.Byo)
-        {
-            parts.Add(entry.Account is null
-                ? "needs the installer you bought"
-                : "needs the file you download from your account");
-        }
-
-        return string.Join("  ·  ", parts);
-    }
+    private static string Subtitle(LibraryEntry entry) =>
+        string.Join("  ·  ", new[] { entry.Developer, entry.Summary }.Where(part => part is { Length: > 0 }));
 
     private bool Running(string id) => running.Contains(id) || opened.Contains(id);
 
