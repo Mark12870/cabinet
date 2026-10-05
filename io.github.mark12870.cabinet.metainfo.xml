@@ -46,6 +46,22 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.23.0" date="2026-10-05">
+      <description>
+        <p>Prefix updates keep each plugin's prefix in step with Cabinet's setup</p>
+        <ul>
+          <li>When Cabinet's setup for a plugin changes, its page and the doctor offer to update the prefix, listing what will be installed, what is already in place and what the setup no longer needs; settings you changed yourself are kept</li>
+          <li>Update one prefix from the plugin's page or with cabinet library update, or every prefix at once from the doctor or with cabinet library update --all</li>
+          <li>A prefix's setup follows the version of the software installed in it, so a manager that updates itself gets the matching setup</li>
+          <li>New installs get a prefix named after the vendor, and a plugin is no longer installed into a prefix set up for another vendor's plugins</li>
+          <li>Library rows show category, platform, price and status as tags</li>
+          <li>A plugin host whose main thread died no longer keeps its prefix locked after the DAW closes</li>
+          <li>Waves Central installs the fonts its plugins use</li>
+          <li>Buttons look and behave the same across the app</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.22.0" date="2026-10-04">
       <description>
         <p>Plugin logs now show what went wrong inside the plugin host</p>
