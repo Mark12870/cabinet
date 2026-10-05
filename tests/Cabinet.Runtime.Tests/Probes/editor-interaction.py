@@ -577,15 +577,23 @@ def main():
         run(["xdotool", "windowraise", str(window)])
         loop.turn(30)
 
+        typed = 0.0
         for at, text in TYPE:
             x, y = at.split()
+            untyped = look(window, f"type-{x}-{y}-still", loop)
             run(["xdotool", "mousemove", "--window", str(window), x, y, "click", "1"])
             loop.turn(10)
             subprocess.run(
                 ["xdotool", "type", "--file", "-"], input=text, text=True, timeout=LIMIT, check=False
             )
             loop.turn(10)
-            note(f"typed at {x} {y}")
+            shown = look(window, f"type-{x}-{y}", loop)
+            answered = difference(untyped, shown) if untyped and shown else 0.0
+            for frame in (untyped, shown):
+                if frame:
+                    os.remove(frame)
+            note(f"typed at {x} {y} answered {answered:.6f}")
+            typed = max(typed, answered)
 
         for x, y in zip(CLICK[::2], CLICK[1::2]):
             before = capture(window, "unpressed")
@@ -609,7 +617,7 @@ def main():
         note("sweeping")
         aimed, reaction = aim(window, loop) if AIMING else ("none", 0.0)
         note(f"aimed {aimed}")
-        reaction = max(reaction, press(window, loop))
+        reaction = max(reaction, press(window, loop), typed)
 
         if aimed == "none" or reaction < ENOUGH + noise:
             reaction = max(reaction, sweep(window, again or resting or baseline, loop, noise))

@@ -14,10 +14,6 @@ Source: download
 Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/kaivo/KaivoInstaller1.9.4.exe
 Sha256: 1988445197d1c1466908f882727d87e035bd3a476889659b7e4b446bdeac6f73
 Script: madrona-labs.sh
-Prefix: madrona
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   A granulator reads a two-dimensional map of sound and feeds it into finite difference
   models of strings, chimes and springs, and then into a body — wood, a metal plate, a

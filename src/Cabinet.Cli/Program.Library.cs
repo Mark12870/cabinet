@@ -10,6 +10,7 @@ internal static partial class Program
             null => ListLibrary(line, layout, runner),
             "show" => ShowFromLibrary(line, layout, runner),
             "install" => InstallFromLibrary(line, layout, runner),
+            "update" => UpdateFromLibrary(line, layout, runner),
             "remove" => One(line, "a plugin id", id => RemoveFromLibrary(layout, runner, id)),
             "launch" => One(line, "a plugin id", id => LaunchFromLibrary(layout, runner, id)),
             "stop" => One(line, "a plugin id", id => StopFromLibrary(layout, runner, id)),
@@ -22,10 +23,16 @@ internal static partial class Program
     {
         var installed = line.Flag("--installed");
         var notInstalled = line.Flag("--not-installed");
+        var updates = line.Flag("--updates");
 
         if (installed && notInstalled)
         {
             throw new UsageException("--installed and --not-installed exclude each other");
+        }
+
+        if (updates && notInstalled)
+        {
+            throw new UsageException("--updates and --not-installed exclude each other");
         }
 
         var filter = new LibraryFilter(
@@ -35,7 +42,7 @@ internal static partial class Program
             line.Option("--kind") is { } kind ? Kind(kind) : null,
             installed ? true : notInstalled ? false : null);
 
-        return line.Then(json => ListLibrary(layout, runner, filter, json));
+        return line.Then(json => ListLibrary(layout, runner, filter, updates, json));
     }
 
     private static PluginKind Kind(string word) => word.ToLowerInvariant() switch
@@ -46,23 +53,27 @@ internal static partial class Program
     };
 
     private static int ListLibrary(
-        Layout layout, IProcessRunner runner, LibraryFilter filter, bool json)
+        Layout layout, IProcessRunner runner, LibraryFilter filter, bool onlyUpdates, bool json)
     {
         var library = new Library(layout, runner);
         var all = library.Entries();
         var installed = library.Installed();
+        var updates = library.PrefixUpdates();
 
         var entries = all
             .Where(entry => filter.Matches(entry, installed.ContainsKey(entry.Id)))
+            .Where(entry => !onlyUpdates || updates.ContainsKey(entry.Id))
             .ToList();
-        var retired = library.Retired().Where(entry => filter.Matches(entry, true)).ToList();
+        var retired = library.Retired()
+            .Where(entry => !onlyUpdates && filter.Matches(entry, true))
+            .ToList();
 
         if (json)
         {
             Console.WriteLine(Json.Library(
                 [.. entries, .. retired],
                 installed,
-                retired.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal)));
+                retired.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal), updates));
             return Exit.Ok;
         }
 
@@ -83,7 +94,7 @@ internal static partial class Program
         foreach (var entry in entries)
         {
             var cost = entry.Licence == "Commercial" ? "paid" : "free";
-            var mark = installed.ContainsKey(entry.Id) ? "ok" : "  ";
+            var mark = updates.ContainsKey(entry.Id) ? "up" : installed.ContainsKey(entry.Id) ? "ok" : "  ";
 
             Console.WriteLine(
                 $"{mark}  {entry.Id.PadRight(width)}  {KindWord(entry),-8}  {cost,-5}  "
@@ -94,6 +105,13 @@ internal static partial class Program
         {
             Console.WriteLine();
             Console.WriteLine("Install one with `cabinet library install <id>`.");
+        }
+
+        if (entries.Any(entry => updates.ContainsKey(entry.Id)))
+        {
+            Console.WriteLine(
+                "up: A prefix update is available. `cabinet library update <id>` previews it, "
+                + "`--all` every one.");
         }
 
         if (retired.Count > 0)
@@ -133,7 +151,7 @@ internal static partial class Program
 
         if (json)
         {
-            Console.WriteLine(Json.Library([entry], installed, new HashSet<string>()));
+            Console.WriteLine(Json.Library([entry], installed, new HashSet<string>(), library.PrefixUpdates()));
             return Exit.Ok;
         }
 
@@ -161,6 +179,14 @@ internal static partial class Program
         Field("Installed", installed.TryGetValue(id, out var where)
             ? where is null ? "yes" : $"in prefix {where}"
             : "no");
+
+        if (library.PrefixUpdateOf(entry) is { Available: true } update)
+        {
+            Console.WriteLine();
+            Console.WriteLine(update.Title);
+            Console.WriteLine(WrappedUpdate(update));
+            Console.WriteLine($"`cabinet library update {id}` reviews and applies this setup.");
+        }
 
         if (entry.Licensing is { } licensing)
         {
@@ -251,6 +277,91 @@ internal static partial class Program
                 : $"{entry.Name} is installed and bridged.");
             return Exit.Ok;
         });
+    }
+
+    private static string WrappedUpdate(PrefixUpdate update) =>
+        string.Join(Environment.NewLine, update.Description.Split('\n').Select(Wrapped));
+
+    private static Func<int> UpdateFromLibrary(CommandLine line, Layout layout, IProcessRunner runner)
+    {
+        var all = line.Flag("--all");
+        var id = line.OptionalWord();
+
+        if (all == (id is not null))
+        {
+            throw new UsageException("expected a plugin id or --all");
+        }
+
+        return line.Then(() => id is null
+            ? UpdateEveryPrefix(layout, runner)
+            : UpdateFromLibrary(layout, runner, id));
+    }
+
+    private static int UpdateEveryPrefix(Layout layout, IProcessRunner runner)
+    {
+        var library = new Library(layout, runner);
+        var pending = library.PendingPrefixUpdates();
+
+        if (pending.Count == 0)
+        {
+            Console.WriteLine("Every prefix setup is up to date.");
+            return Exit.Ok;
+        }
+
+        foreach (var update in pending)
+        {
+            Console.WriteLine($"{update.Title}: {update.Prefix}");
+            Console.WriteLine();
+            Console.WriteLine(WrappedUpdate(update));
+            Console.WriteLine();
+        }
+
+        if (!Confirmed($"Apply {pending.Count} prefix update(s)? [y/N] "))
+        {
+            return LeftAlone();
+        }
+
+        foreach (var update in pending)
+        {
+            library.UpdatePrefix(update, Console.WriteLine);
+        }
+
+        Console.WriteLine("Every prefix setup is up to date.");
+        return Exit.Ok;
+    }
+
+    private static int UpdateFromLibrary(Layout layout, IProcessRunner runner, string id)
+    {
+        var library = new Library(layout, runner);
+        var entry = library.Find(id);
+
+        if (entry.Kind == PluginKind.Native)
+        {
+            throw new InvalidOperationException($"{entry.Name} is a Linux plugin, so it has no Wine prefix to update");
+        }
+
+        var update = library.PrefixUpdateOf(entry)
+                     ?? throw new KeyNotFoundException($"{entry.Name} is not installed");
+
+        if (!update.Available)
+        {
+            Console.WriteLine($"{entry.Name}'s prefix setup is up to date.");
+            return Exit.Ok;
+        }
+
+        Console.WriteLine(update.Title);
+        Console.WriteLine();
+        Console.WriteLine(WrappedUpdate(update));
+        Console.WriteLine();
+
+        if (!Confirmed($"Apply this setup to prefix '{update.Prefix}'? [y/N] "))
+        {
+            return LeftAlone();
+        }
+
+        library.UpdatePrefix(update, Console.WriteLine);
+        Console.WriteLine($"{entry.Name}'s prefix setup is up to date.");
+        return Exit.Ok;
     }
 
     private static int RemoveFromLibrary(Layout layout, IProcessRunner runner, string id)

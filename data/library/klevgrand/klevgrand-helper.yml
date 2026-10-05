@@ -13,12 +13,8 @@ Homepage: https://klevgrand.com/helper
 Source: download
 Url: https://publicdata.b-cdn.net/Klevgrand_Helper_1_0_12.zip
 Sha256: b510eccd3416c2623940d707578a41a552fff3ac456a3a10206563604568c415
-Prefix: klevgrand
 Launch: C:\Program Files (x86)\Klevgrand\Klevgrand Helper\Klevgrand Helper.exe
 Script: klevgrand-helper.sh
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   Not a plugin but the door to Klevgrand's catalogue: sign in, install and
   authorise the products your account owns, and keep them updated.

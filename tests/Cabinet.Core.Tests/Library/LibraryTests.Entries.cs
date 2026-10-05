@@ -109,6 +109,37 @@ public partial class LibraryTests
         Assert.Empty(entry.Description);
     }
 
+    [Fact]
+    public void APrefixConfigSetsThePrefixOfEveryWindowsEntryBesideIt()
+    {
+        var entry = LibraryEntry.Parse(
+            "gadget",
+            "Name: Gadget\nKind: windows\nSource: byo\nVersion: 2.0\n",
+            "a-vendor",
+            "Prefix: family\nVersion: 3\nRunner: 9.21\nDxvk: true\nSync: fsync\nWinetricks: corefonts\n");
+
+        Assert.Equal("family", entry.Prefix);
+        Assert.Equal("9.21", entry.Runner);
+        Assert.True(entry.Dxvk);
+        Assert.Equal(SyncMode.Fsync, entry.Sync);
+        Assert.Equal(["corefonts"], entry.Winetricks);
+        Assert.Equal("2.0", entry.Version);
+        Assert.Equal("3", entry.ConfigVersion);
+    }
+
+    [Theory]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\nRunner: 9.21\n", "Prefix: family\nVersion: 1\n", "Runner")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\n", "Version")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Version: 1\n", "Prefix")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\nVersion: 1\nScript: a.sh\n", "Script")]
+    public void APrefixConfigAloneSetsThePrefix(string text, string config, string named)
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse("gadget", text, "a-vendor", config));
+
+        Assert.Contains(named, thrown.Message);
+    }
+
     [Theory]
     [InlineData("../../evil.sh")]
     [InlineData("scripts/u-he.sh")]

@@ -34,6 +34,10 @@ public sealed class Layout
 
     public const string PluginsMarker = ".cabinet-plugins";
 
+    public const string SetupMarker = ".cabinet-setup.json";
+
+    public const string WinetricksLog = "winetricks.log";
+
     public const string LaunchLog = ".cabinet-launch.log";
 
     public const string WineLog = ".cabinet-wine.log";
@@ -229,6 +233,12 @@ public sealed class Layout
 
     public string PrefixRunnerFile(string name) =>
         Path.Combine(PrefixPath(name), RunnerMarker);
+
+    public string PrefixSetupFile(string name) =>
+        Path.Combine(PrefixPath(name), SetupMarker);
+
+    public string PrefixWinetricksLog(string name) =>
+        Path.Combine(PrefixPath(name), WinetricksLog);
 
     public string PrefixDxvkFile(string name) =>
         Path.Combine(PrefixPath(name), DxvkMarker);

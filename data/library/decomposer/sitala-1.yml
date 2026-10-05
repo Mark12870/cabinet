@@ -11,9 +11,6 @@ Source: download
 Url: https://decomposer.de/sitala/releases/Sitala-1.0-Setup-64.msi
 Sha256: d75b5c39ee943eba1095bb1b34653038a831f397fd81340e983dad22401c59da
 Script: sitala.sh
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   A drum sampler with one row of sixteen pads and six knobs over them — shape,
   tuning, volume, compression, tone and pan — and the waveform of whichever pad

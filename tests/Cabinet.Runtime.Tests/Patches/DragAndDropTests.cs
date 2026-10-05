@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace Cabinet.Runtime.Tests;
+namespace Cabinet.Runtime.Tests.Patches;
 
 public sealed class DragAndDropTests : IDisposable
 {

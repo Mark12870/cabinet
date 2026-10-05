@@ -24,7 +24,7 @@ internal sealed partial class LibraryPage
         Gtk.DropDown.NewFromStrings(["Any kind", "Windows", "Linux"]);
 
     private readonly Gtk.DropDown states =
-        Gtk.DropDown.NewFromStrings(["Any state", "Installed", "Not installed"]);
+        Gtk.DropDown.NewFromStrings(["Any state", "Installed", "Not installed", "Prefix updates"]);
 
     private readonly HashSet<string> running = new(StringComparer.Ordinal);
     private readonly HashSet<string> stopping = new(StringComparer.Ordinal);
@@ -34,6 +34,9 @@ internal sealed partial class LibraryPage
     private IReadOnlyList<LibraryEntry> retired = [];
     private IReadOnlyDictionary<string, string?> installed =
         new Dictionary<string, string?>(StringComparer.Ordinal);
+
+    private IReadOnlyDictionary<string, PrefixUpdate> updates =
+        new Dictionary<string, PrefixUpdate>(StringComparer.Ordinal);
 
     private PluginPage? open;
     private readonly RefreshGeneration generation = new();
@@ -82,7 +85,8 @@ internal sealed partial class LibraryPage
         {
             var library = new Library(layout, runner);
             return new Snapshot(
-                library.Entries(), library.Installed(), library.Retired(), library.Opened());
+                library.Entries(), library.Installed(), library.Retired(), library.Opened(),
+                library.PrefixUpdates());
         }).ContinueWith(task => Ui.OnMainLoop(() =>
         {
             if (!generation.IsCurrent(current))
@@ -100,6 +104,7 @@ internal sealed partial class LibraryPage
             installed = task.Result.Installed;
             retired = task.Result.Retired;
             opened = task.Result.Opened;
+            updates = task.Result.Updates;
             stopping.RemoveWhere(id => !Running(id));
             fillingFilters = true;
 
@@ -142,7 +147,7 @@ internal sealed partial class LibraryPage
         row.Append(Narrowing(categories, "Category"));
         row.Append(Narrowing(developers, "Developer"));
         row.Append(Narrowing(kinds, "Kind"));
-        row.Append(Narrowing(states, "Installed"));
+        row.Append(Narrowing(states, "State"));
 
         filters.Append(row);
         return filters;
@@ -221,7 +226,13 @@ internal sealed partial class LibraryPage
         var filter = Filter();
         var matching = entries
             .Where(entry => filter.Matches(entry, installed.ContainsKey(entry.Id)))
+            .Where(entry => states.GetSelected() != 3 || updates.ContainsKey(entry.Id))
             .ToList();
+
+        if (states.GetSelected() == 3 && updates.Count > 0)
+        {
+            list.Append(UpdateAll());
+        }
 
         var managers = matching
             .Where(entry => entry.Manager)
@@ -241,7 +252,8 @@ internal sealed partial class LibraryPage
             matching.Where(entry =>
                 entry.Kind == PluginKind.Native && !pinned.Contains(entry.Id)));
 
-        var gone = retired.Where(entry => filter.Matches(entry, true)).ToList();
+        var gone = retired.Where(entry => states.GetSelected() != 3 && filter.Matches(entry, true))
+            .ToList();
         Retired(gone);
 
         if (matching.Count == 0 && gone.Count == 0)
@@ -281,7 +293,9 @@ internal sealed partial class LibraryPage
             still,
             installed.GetValueOrDefault(still.Id),
             installed.ContainsKey(still.Id),
-            Running(still.Id));
+            Running(still.Id),
+            updates.GetValueOrDefault(still.Id),
+            UpdateBlocked(updates.GetValueOrDefault(still.Id)));
     }
 
     private void Open(LibraryEntry entry, string? prefix, bool here)
@@ -294,8 +308,10 @@ internal sealed partial class LibraryPage
             ConfirmRemove,
             Launch,
             Stop,
+            ConfirmUpdate,
             one => LaunchLog(one)());
-        page.Show(entry, prefix, here, Running(entry.Id));
+        page.Show(entry, prefix, here, Running(entry.Id), updates.GetValueOrDefault(entry.Id),
+            UpdateBlocked(updates.GetValueOrDefault(entry.Id)));
 
         open = page;
         navigation.Push(page.Page);
@@ -390,6 +406,15 @@ internal sealed partial class LibraryPage
             row.AddSuffix(Badge(prefix));
         }
 
+        if (updates.TryGetValue(entry.Id, out var update))
+        {
+            var badge = Gtk.Label.New(update.Title);
+            badge.AddCssClass("warning");
+            badge.AddCssClass("caption-heading");
+            badge.SetValign(Gtk.Align.Center);
+            row.AddSuffix(badge);
+        }
+
         if (entry.Manager && here)
         {
             row.AddSuffix(Control(entry));
@@ -482,5 +507,6 @@ internal sealed partial class LibraryPage
         IReadOnlyList<LibraryEntry> Entries,
         IReadOnlyDictionary<string, string?> Installed,
         IReadOnlyList<LibraryEntry> Retired,
-        IReadOnlySet<string> Opened);
+        IReadOnlySet<string> Opened,
+        IReadOnlyDictionary<string, PrefixUpdate> Updates);
 }

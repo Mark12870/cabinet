@@ -50,9 +50,12 @@ public sealed record LibraryEntry(
     IReadOnlyList<string> Formats,
     IReadOnlyList<string> Description,
     string Vendor,
-    string? InstallInstructions = null)
+    string? InstallInstructions = null,
+    string? PrefixVersion = null)
 {
     public bool Manager => Launch is not null;
+
+    public string? ConfigVersion => PrefixVersion ?? Version;
 
     public string? LaunchExe => Launch?.Split('\\')[^1];
 
@@ -63,8 +66,9 @@ public sealed record LibraryEntry(
             ? ""
             : $" Winetricks accepts the licences of {string.Join(", ", Winetricks)} as well.");
 
-    public static LibraryEntry Parse(string id, string text, string vendor = "") =>
-        LibraryEntryParser.Parse(id, text, vendor);
+    public static LibraryEntry Parse(
+        string id, string text, string vendor = "", string? prefixConfig = null) =>
+        LibraryEntryParser.Parse(id, text, vendor, prefixConfig);
 
     public IReadOnlyList<string> Requirements()
     {

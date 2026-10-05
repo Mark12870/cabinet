@@ -90,7 +90,7 @@ public sealed class SpliceInstrumentScenario(SpliceInstrumentScenario.Installed 
             manager.Until(() => manager.Shows(window, WelcomePage, WelcomeHeading), window, "Splice's welcome page", Opening);
             await Harness.SendText(display, Window, 665, 555, "");
             manager.Until(() => File.Exists(captured), window, "Splice's browser sign-in link", Answering);
-            SignIn(File.ReadAllText(captured).Trim());
+            SignIn(File.ReadAllText(captured).Trim(), Harness.Artefacts);
             File.Delete(captured);
             manager.Until(() => manager.Shows(window, PresetPage, Selection), window, "the signed-in preset selection", Opening);
 
@@ -102,18 +102,18 @@ public sealed class SpliceInstrumentScenario(SpliceInstrumentScenario.Installed 
             await manager.Close();
         }
 
-        private static void SignIn(string url)
+        private static void SignIn(string url, string evidence)
         {
             var credentials = Credentials.Read();
-            using var browser = new Browser();
+            using var browser = new Browser(evidence);
             browser.Go(url);
-            Browser.Until(() => browser.Shows("button[name=action]"), Answering, "Splice's device confirmation");
+            browser.Await(() => browser.Shows("button[name=action]"), Answering, "Splice's device confirmation");
             browser.Press("Confirm");
-            Browser.Until(() => browser.Shows("#username") && browser.Shows("#password"), Answering, "Splice's password page");
+            browser.Await(() => browser.Shows("#username") && browser.Shows("#password"), Answering, "Splice's password page");
             browser.Type("#username", credentials["EMAIL"]);
             browser.Type("#password", credentials["PASSWORD"]);
             browser.Press("Continue");
-            Browser.Until(() => browser.Path() == "auth.splice.com/device/success", Answering, "Splice authorising INSTRUMENT");
+            browser.Await(() => browser.Path() == "auth.splice.com/device/success", Answering, "Splice authorising INSTRUMENT");
         }
     }
 }

@@ -1,0 +1,5 @@
+Prefix: helix-native
+Version: 1
+Runner: 9.21
+Sync: fsync
+Env: WINEDLLOVERRIDES=*wbemprox,*wbemcomn=n

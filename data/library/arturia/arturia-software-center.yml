@@ -13,12 +13,8 @@ Homepage: https://www.arturia.com/support/downloads-manuals/product/asc
 Source: download
 Url: https://dl.arturia.net/products/asc/soft/Arturia_Software_Center__2_12_0_3157.exe
 Sha256: e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8
-Prefix: arturia
 Launch: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe
 Script: arturia.sh
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   Not a plugin but the door to Arturia's catalogue: V Collection, Pigments,
   Analog Lab, the FX Collection and more. Sign in, activate what you own on up

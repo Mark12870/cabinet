@@ -13,12 +13,8 @@ Homepage: https://www.orchestraltools.com/get-sine
 Source: download
 Url: https://orchtools-installers-dl.s3.eu-central-1.amazonaws.com/SINE_Player_1.3.4.1218.exe
 Sha256: c6b4008131945ad288c8a223a1e77e0345174096387bf8d3f919598e1df01225
-Prefix: sine-player
 Launch: C:\Program Files\SINE Player\SINE Player.exe
 Script: sine-player.sh
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   SINEplayer loads Orchestral Tools' orchestral, cinematic and contemporary
   sample instruments, with articulation switching, mic-position mixing and a

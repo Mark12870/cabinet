@@ -145,10 +145,10 @@ internal sealed partial class LibraryPage
     private void AskForPrefix(LibraryEntry entry, string? already)
     {
         var prefixes = new Prefixes(layout, runner);
-        var existing = prefixes.Names();
-        List<string> choices = already is null ? ["New prefix", .. existing] : [already];
+        var library = new Library(layout, runner);
+        List<string> choices = already is null ? ["New prefix", .. library.PrefixesFor(entry)] : [already];
 
-        var chosen = choices.IndexOf(already ?? entry.Prefix);
+        var chosen = choices.IndexOf(already ?? library.DefaultPrefix(entry));
 
         var where = Adw.ComboRow.New();
         where.SetTitle("Prefix");
@@ -157,7 +157,7 @@ internal sealed partial class LibraryPage
 
         var name = Adw.EntryRow.New();
         name.SetTitle("Name");
-        name.SetText(entry.Prefix);
+        name.SetText(library.DefaultPrefix(entry));
         name.SetVisible(already is null && where.GetSelected() == 0);
 
         Adw.ComboRow? installer = null;
@@ -239,7 +239,7 @@ internal sealed partial class LibraryPage
             ? $"Its installer runs again in {into}, over what it installed there before."
             : into is null
             ? "A prefix of its own keeps this plugin's dependencies away from every other."
-            : $"It goes into the {into} prefix you already have, beside whatever is in it.";
+            : $"It goes into the {into} prefix you already have, beside the plugins sharing its setup.";
 
         if (entry.DemoUrl is not null)
         {

@@ -11,11 +11,8 @@ Formats: VST3
 Homepage: https://splice.com/instrument
 Source: rolling
 Url: https://instrument-installers.splice.com/win/INSTRUMENT-installer.exe
-Prefix: splice
 Launch: C:\Program Files\Splice\Splice INSTRUMENT\Splice INSTRUMENT.exe
 Script: splice-instrument.sh
-Runner: d2d1-11.0
-Sync: fsync
 Description:
   A sample-based virtual instrument with expressive pianos, synths, drums and
   other playable sounds from Splice, Spitfire Audio and guest artists.

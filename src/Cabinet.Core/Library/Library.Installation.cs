@@ -32,7 +32,7 @@ public sealed partial class Library
         var where = prefix
                     ?? already
                     ?? Unfinished().FirstOrDefault(left => left.Id == entry.Id).Prefix
-                    ?? entry.Prefix;
+                    ?? DefaultPrefix(entry);
 
         if (already is not null && already != where)
         {
@@ -64,8 +64,49 @@ public sealed partial class Library
             return;
         }
 
+        if (already is null && Foreign(where, entry).FirstOrDefault() is { } holder)
+        {
+            throw new InvalidOperationException(
+                $"{where} holds {holder}, whose prefix is set up for other plugins than "
+                + $"{entry.Name} — install {entry.Name} into a prefix of its own");
+        }
+
         InstallWindows(entry, where, installer, Say, onProgress);
     }
+
+    public string DefaultPrefix(LibraryEntry entry)
+    {
+        var family = FamilyOf(entry);
+
+        return Installed()
+                   .Where(held => family.Contains(held.Key) && held.Value is not null)
+                   .Select(held => held.Value!)
+                   .Where(prefix => Foreign(prefix, entry).Count == 0)
+                   .Order(StringComparer.Ordinal)
+                   .FirstOrDefault()
+               ?? (Foreign(entry.Prefix, entry).Count == 0 ? entry.Prefix : entry.Id);
+    }
+
+    public IReadOnlyList<string> PrefixesFor(LibraryEntry entry) =>
+        [.. new Prefixes(layout, runner).Names().Where(name => Foreign(name, entry).Count == 0)];
+
+    private IReadOnlyList<string> Foreign(string prefix, LibraryEntry entry)
+    {
+        var others = Entries()
+            .Where(other => other.Kind == PluginKind.Windows && other.Prefix != entry.Prefix)
+            .Select(other => other.Id)
+            .ToHashSet(StringComparer.Ordinal);
+
+        return Directory.Exists(layout.PrefixPath(prefix))
+            ? [.. Recorded(prefix).Where(others.Contains).Distinct(StringComparer.Ordinal)]
+            : [];
+    }
+
+    private HashSet<string> FamilyOf(LibraryEntry entry) =>
+        Entries()
+            .Where(other => other.Kind == PluginKind.Windows && other.Prefix == entry.Prefix)
+            .Select(other => other.Id)
+            .ToHashSet(StringComparer.Ordinal);
 
     private static void Settle(Prefixes prefixes, string where, string? logTo = null) =>
         prefixes.Run(where, "wineserver", ["-k"], logTo: logTo);
@@ -88,7 +129,7 @@ public sealed partial class Library
         }
 
         var prefixes = new Prefixes(layout, runner);
-        var existing = prefixes.List().FirstOrDefault(one => one.Name == prefix);
+        var existing = prefixes.List().FirstOrDefault(one => one.Name == prefix && one.Initialised);
         Directory.CreateDirectory(layout.PrefixPath(prefix));
         using var claim = prefixes.Claim(prefix, $"install {entry.Name} into {prefix}");
         using var underway = Underway.Begin(layout.PrefixInstalling(prefix))
@@ -202,6 +243,7 @@ public sealed partial class Library
 
         Record(prefix, entry.Id, pending.Keys);
         Bridge(prefixes, onOutput);
+        RecordSetup(entry, prefix, created);
         underway.Finish();
         ForgetUnfinished(entry, prefix);
     }

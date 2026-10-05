@@ -21,10 +21,10 @@
 #   scripts/runtime-ci.sh save tar       pack the private fixtures for the cache
 #   scripts/runtime-ci.sh clean          leave only what the image may carry
 #
-# CABINET_RUNTIME_PROBES=0 leaves the drag-and-drop probes out, fixtures and cases both: they say
-# when a yabridge patch can go, which is a question for a refresh rather than for every push.
-# CABINET_RUNTIME_SUITE=general, the default, is everything but the plugin scenarios; a push runs
-# it. CABINET_RUNTIME_SUITE=scenarios is only the plugin scenarios, which run daily on a schedule;
+# CABINET_RUNTIME_PROBES=1 adds the drag-and-drop fixtures, which only the patch probes use.
+# CABINET_RUNTIME_SUITE=general, the default, is the plugin matrix; a push runs it.
+# CABINET_RUNTIME_SUITE=patches is the probes PATCHES.md reads to retire a yabridge patch, run on
+# demand. CABINET_RUNTIME_SUITE=scenarios is only the plugin scenarios, which run daily on a schedule;
 # each installs its own entry, three at a time, so its setup leaves out the DAW and the entries,
 # and it has no use for the private fixtures.
 #
@@ -92,7 +92,7 @@ as_owner() {
         CABINET_RUNTIME_ROOT="$ROOT" \
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$SOURCE/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
-        CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-1}" \
+        CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-0}" \
         CABINET_RUNTIME_SUITE="${CABINET_RUNTIME_SUITE:-general}" \
         CABINET_RUNTIME_FILTER_CLASS="${CABINET_RUNTIME_FILTER_CLASS:-}" \
         bash "$0" "$@"
@@ -253,7 +253,9 @@ run_test() {
     local filter=() parallel=()
 
     case "${CABINET_RUNTIME_SUITE:-general}" in
-        general) filter=(--filter-not-namespace Cabinet.Runtime.Tests.Scenarios) ;;
+        general) filter=(--filter-not-namespace Cabinet.Runtime.Tests.Scenarios
+            --filter-not-namespace Cabinet.Runtime.Tests.Patches) ;;
+        patches) filter=(--filter-namespace Cabinet.Runtime.Tests.Patches) ;;
         scenarios) filter=(--filter-namespace Cabinet.Runtime.Tests.Scenarios)
             parallel=(--parallel collections)
             if [ -n "${CABINET_RUNTIME_FILTER_CLASS:-}" ]; then
@@ -262,10 +264,6 @@ run_test() {
             fi ;;
         *) die "no runtime suite named ${CABINET_RUNTIME_SUITE}" ;;
     esac
-
-    if [ "${CABINET_RUNTIME_PROBES:-1}" != 1 ]; then
-        filter+=(--filter-not-class '*DragAndDropTests')
-    fi
 
     step 'dotnet build'
     cd "$WORK"
@@ -290,11 +288,6 @@ collect() {
     local destination=$1
     rm -rf "$destination"
     mkdir -p "$destination"
-
-    if [ -d "$ROOT/tmp/interaction" ]; then
-        cp -r "$ROOT/tmp/interaction" "$destination/interaction"
-        find "$destination/interaction" -name '*.xwd' -delete
-    fi
 
     if [ -d "$ROOT/tmp/scenarios" ]; then
         mkdir -p "$destination/scenarios"

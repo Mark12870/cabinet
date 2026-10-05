@@ -323,6 +323,28 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void EveryWindowsVendorSetsItsPrefixInOnePrefixConfig()
+    {
+        var unset = Shipped
+            .Where(entry => entry.Kind == PluginKind.Windows && entry.PrefixVersion is null)
+            .Select(entry => entry.Id);
+
+        Assert.Empty(unset);
+    }
+
+    [Fact]
+    public void NoTwoVendorsShareAPrefix()
+    {
+        var shared = Shipped
+            .Where(entry => entry.Kind == PluginKind.Windows)
+            .GroupBy(entry => entry.Prefix, StringComparer.Ordinal)
+            .Where(same => same.Select(entry => entry.Vendor).Distinct(StringComparer.Ordinal).Count() > 1)
+            .Select(same => same.Key);
+
+        Assert.Empty(shared);
+    }
+
+    [Fact]
     public void AVendorTheManifestHoldsBackSaysWhyBesideItsEntries()
     {
         var held = Shipped

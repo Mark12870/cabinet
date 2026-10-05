@@ -11,10 +11,6 @@ Source: download
 Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/spacemod/ValhallaSpaceModulatorWin_1_1_6v3.zip
 Sha256: d4f48ef188f9f9c8128b0ecda38b7cf6df3cc01028f50d65507ca78d1d5b6ae7
 Script: valhalla.sh
-Prefix: valhalla
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   A flanger whose delay passes through zero, so the notch sweeps out the other
   side the way two tape machines do and nothing else does. The barberpole modes

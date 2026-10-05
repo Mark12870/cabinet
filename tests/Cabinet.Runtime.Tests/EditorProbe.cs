@@ -60,14 +60,6 @@ internal static class EditorProbe
     public static string CarlaPrefix() => Path.Combine(
         RuntimeTestEnvironment.Home, ".var", "app", Host.App, "data", "carla-tests", "prefix");
 
-    public static string Artefacts(string name)
-    {
-        var directory = Path.Combine(
-            RuntimeTestEnvironment.TemporaryDirectory, "interaction", name);
-        Directory.CreateDirectory(directory);
-        return directory;
-    }
-
     private static ProbeResult Drive(
         Display display,
         string home,

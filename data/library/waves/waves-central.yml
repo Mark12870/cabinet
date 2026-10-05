@@ -11,16 +11,12 @@ Formats: VST3
 Homepage: https://www.waves.com/downloads/central
 Source: rolling
 Url: https://cf-installers.waves.com/WavesCentral/Install_Waves_Central.exe
-Prefix: waves
 Launch: C:\Program Files\Waves Central\Waves Central.exe
 LaunchArgs:
   --no-sandbox
   --disable-gpu
 Scheme: waves-central
 Script: waves.sh
-Runner: 9.21
-Sync: fsync
-Winetricks: powershell, allfonts
 Description:
   Install and update Waves plugins, manage Creative Access subscriptions and
   move licences between computers and USB drives. Central also creates and

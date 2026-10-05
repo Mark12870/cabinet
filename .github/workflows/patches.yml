@@ -1,0 +1,26 @@
+name: Patches
+
+# The probes PATCHES.md reads to decide whether a yabridge patch can be retired. They ask about
+# upstream Wine rather than about a commit, so they run only when started by hand.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  runtime:
+    uses: ./.github/workflows/runtime.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    with:
+      suite: patches

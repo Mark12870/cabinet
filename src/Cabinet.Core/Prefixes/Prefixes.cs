@@ -64,12 +64,37 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
     public void MoveToRunner(string name, string runnerName, Action<string>? onOutput = null)
     {
         using var claim = Claim(name, $"give {name} a different Wine");
+        var marker = layout.PrefixRunnerFile(name);
+        var previous = File.Exists(marker) ? File.ReadAllText(marker) : null;
         SetRunner(name, runnerName);
 
-        var updated = Run(name, "wineboot", ["-u"], onOutput);
-        if (!updated.Ok)
+        try
         {
-            throw new InvalidOperationException($"wineboot exited with {updated.ExitCode}");
+            var updated = Run(name, "wineboot", ["-u"], onOutput);
+            if (!updated.Ok)
+            {
+                throw new InvalidOperationException($"wineboot exited with {updated.ExitCode}");
+            }
+        }
+        catch
+        {
+            try
+            {
+                Run(name, "wineserver", ["-k"]);
+            }
+            finally
+            {
+                if (previous is null)
+                {
+                    File.Delete(marker);
+                }
+                else
+                {
+                    File.WriteAllText(marker, previous);
+                }
+            }
+
+            throw;
         }
     }
 

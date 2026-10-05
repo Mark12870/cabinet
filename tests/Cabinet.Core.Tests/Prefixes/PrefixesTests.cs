@@ -232,7 +232,7 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
-    public void AWinebootThatFailsAfterAMoveIsReportedAndTheRunnerStaysRecorded()
+    public void AWinebootThatFailsAfterAMoveStopsItsWineAndRestoresThePreviousRunner()
     {
         Directory.CreateDirectory(Layout.PrefixPath("gadget"));
         File.WriteAllText(Layout.PrefixRunnerFile("gadget"), "wine-9.21");
@@ -242,7 +242,11 @@ public sealed class PrefixesTests : IDisposable
             () => new Prefixes(Layout, recorder).MoveToRunner("gadget", Layout.BundledRunner));
 
         Assert.Equal("wineboot exited with 3", thrown.Message);
-        Assert.False(File.Exists(Layout.PrefixRunnerFile("gadget")));
+        Assert.Equal("wine-9.21", File.ReadAllText(Layout.PrefixRunnerFile("gadget")));
+        var stopped = recorder.Ran.Last();
+        Assert.Equal("wineserver", stopped.File);
+        Assert.Equal(["-k"], stopped.Arguments);
+        Assert.Equal(Layout.Wine, stopped.Environment["WINELOADER"]);
     }
 
     [Fact]

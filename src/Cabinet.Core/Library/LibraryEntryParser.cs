@@ -2,10 +2,18 @@ namespace Cabinet.Core;
 
 internal static class LibraryEntryParser
 {
-    public static LibraryEntry Parse(string id, string text, string vendor)
+    public const string PrefixConfig = "prefix.yml";
+
+    private static readonly string[] PrefixKeys =
+        ["Prefix", "Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop"];
+
+    public static LibraryEntry Parse(string id, string text, string vendor, string? prefixConfig)
     {
         var fields = Fields(text);
         var kind = ParseKind(id, Required(id, fields, "Kind"));
+        var configVersion = kind == PluginKind.Windows && prefixConfig is not null
+            ? Share(id, vendor, fields, Fields(prefixConfig))
+            : null;
         var source = ParseSource(id, Value(fields, "Source") ?? "download");
         var demo = Value(fields, "DemoUrl");
 
@@ -179,7 +187,45 @@ internal static class LibraryEntryParser
             Split(Value(fields, "Formats")),
             Paragraphs(Value(fields, "Description")),
             vendor,
-            Sentence(Value(fields, "InstallInstructions")));
+            Sentence(Value(fields, "InstallInstructions")),
+            configVersion);
+    }
+
+    private static string Share(
+        string id,
+        string vendor,
+        Dictionary<string, string> fields,
+        IReadOnlyDictionary<string, string> config)
+    {
+        if (PrefixKeys.FirstOrDefault(fields.ContainsKey) is { } repeated)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml carries {repeated}, which {vendor}/{PrefixConfig} sets for every entry "
+                + "in its prefix");
+        }
+
+        if (config.Keys.FirstOrDefault(key =>
+                key != "Version" && !PrefixKeys.Contains(key, StringComparer.OrdinalIgnoreCase)) is { } stray)
+        {
+            throw new InvalidOperationException(
+                $"{vendor}/{PrefixConfig} carries {stray} — it holds only the prefix's Version, "
+                + string.Join(", ", PrefixKeys));
+        }
+
+        if (Value(config, "Prefix") is null)
+        {
+            throw new InvalidOperationException($"{vendor}/{PrefixConfig} has no Prefix");
+        }
+
+        var version = Value(config, "Version")
+                      ?? throw new InvalidOperationException($"{vendor}/{PrefixConfig} has no Version");
+
+        foreach (var (key, value) in config.Where(pair => pair.Key != "Version"))
+        {
+            fields[key] = value;
+        }
+
+        return version;
     }
 
     private static string ParsePrefix(string id, string name) =>

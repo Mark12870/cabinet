@@ -32,9 +32,8 @@ public sealed partial class Doctor(Layout layout, IProcessRunner runner)
         checks.AddRange(LeftOpen());
         checks.AddRange(PartialDxvk());
         checks.AddRange(Retired());
-        checks.AddRange(PluginRunners());
-        checks.AddRange(PluginSync());
-        checks.AddRange(PluginEnv());
+        checks.AddRange(PrefixUpdates());
+        checks.AddRange(MixedPrefixes());
         checks.AddRange(EnrolledDaws());
         checks.AddRange(NativeDaw());
         return checks;
@@ -192,94 +191,46 @@ public sealed partial class Doctor(Layout layout, IProcessRunner runner)
             + "is installed in one prefix.");
     }
 
-    private IEnumerable<Check> PluginRunners()
+    private IEnumerable<Check> PrefixUpdates()
     {
-        var library = new Library(layout, runner);
-        var entries = library.Entries().ToDictionary(entry => entry.Id, StringComparer.Ordinal);
+        var pending = new Library(layout, runner).PendingPrefixUpdates();
 
-        var drifted = PrefixesAndRunners()
-            .SelectMany(
-                prefix => library.Recorded(prefix.Prefix),
-                (prefix, id) => (prefix.Prefix, prefix.Runner, Id: id))
-            .Select(held => (held.Prefix, held.Runner,
-                Entry: entries.GetValueOrDefault(held.Id)))
-            .Where(held => held.Entry?.Runner is { } wanted
-                           && !Library.Answers(held.Runner, wanted))
-            .Select(held =>
-                $"{held.Prefix} keeps {held.Runner}, where {held.Entry!.Name} asks for "
-                + $"Wine {held.Entry.Runner}")
-            .ToList();
-
-        if (drifted.Count == 0)
+        if (pending.Count == 0)
         {
             yield break;
         }
 
-        yield return new Check("plugin runners", Status.Warn,
-            string.Join("; ", drifted)
-            + ". A plugin's entry pins the Wine its editor was tried on, and moving a prefix "
-            + "to it needs the DAW closed.");
+        yield return new Check("prefix updates", Status.Warn,
+            string.Join("; ", pending.Select(update =>
+                $"{update.Prefix} has a changed setup for {string.Join(", ", update.Members)}"))
+            + ". `cabinet library update --all`, or Update all under the Library's Prefix updates "
+            + "state, applies it with the DAW closed.");
     }
 
-    private IEnumerable<Check> PluginSync()
+    private IEnumerable<Check> MixedPrefixes()
     {
         var library = new Library(layout, runner);
         var entries = library.Entries().ToDictionary(entry => entry.Id, StringComparer.Ordinal);
-        var settings = new PrefixSettings(layout);
 
-        var drifted = PrefixesAndRunners()
-            .SelectMany(
-                prefix => library.Recorded(prefix.Prefix),
-                (prefix, id) => (prefix.Prefix, Mode: settings.Sync(prefix.Prefix),
-                    Entry: entries.GetValueOrDefault(id)))
-            .Where(held => held.Entry is { Sync: not SyncMode.System } entry
-                           && entry.Sync != held.Mode)
+        var mixed = new Prefixes(layout, runner).Names()
+            .Select(prefix => (Prefix: prefix, Held: library.Recorded(prefix)
+                .Distinct(StringComparer.Ordinal)
+                .Where(entries.ContainsKey)
+                .GroupBy(id => entries[id].Prefix, StringComparer.Ordinal)
+                .ToList()))
+            .Where(held => held.Held.Count > 1)
             .Select(held =>
-                $"{held.Prefix} runs on {PrefixSettings.Word(held.Mode)}, where "
-                + $"{held.Entry!.Name} asks for {PrefixSettings.Word(held.Entry.Sync)}")
-            .Distinct(StringComparer.Ordinal)
+                $"{held.Prefix} holds {string.Join(", ", held.Held.SelectMany(group => group))}")
             .ToList();
 
-        if (drifted.Count == 0)
+        if (mixed.Count == 0)
         {
             yield break;
         }
 
-        yield return new Check("plugin sync", Status.Warn,
-            string.Join("; ", drifted)
-            + ". A prefix that already existed when the plugin was installed keeps the sync "
-            + "mode it was made with, until you change it.");
-    }
-
-    private IEnumerable<Check> PluginEnv()
-    {
-        var library = new Library(layout, runner);
-        var entries = library.Entries().ToDictionary(entry => entry.Id, StringComparer.Ordinal);
-        var settings = new PrefixSettings(layout);
-
-        var missing = PrefixesAndRunners()
-            .SelectMany(
-                prefix => library.Recorded(prefix.Prefix),
-                (prefix, id) => (prefix.Prefix, Held: settings.Variables(prefix.Prefix),
-                    Entry: entries.GetValueOrDefault(id)))
-            .Where(held => held.Entry is not null)
-            .SelectMany(
-                held => held.Entry!.Env.Where(
-                    wanted => held.Held.GetValueOrDefault(wanted.Key) != wanted.Value),
-                (held, wanted) =>
-                    $"{held.Prefix} does not set {wanted.Key}={wanted.Value}, which "
-                    + $"{held.Entry!.Name} asks for")
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-
-        if (missing.Count == 0)
-        {
-            yield break;
-        }
-
-        yield return new Check("plugin env", Status.Warn,
-            string.Join("; ", missing)
-            + ". A prefix that already existed when the plugin was installed keeps the "
-            + "environment it was made with, until you set those variables on it.");
+        yield return new Check("mixed prefixes", Status.Warn,
+            string.Join("; ", mixed)
+            + ". These plugins come with different prefix setups, so an update keeps the "
+            + "prefix's Wine, sync and other shared settings as they are.");
     }
 }

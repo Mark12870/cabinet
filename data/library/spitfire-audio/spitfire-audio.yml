@@ -11,12 +11,8 @@ Formats: VST3, VST2
 Homepage: https://www.spitfireaudio.com/en-eu/pages/spitfire-audio-app
 Source: rolling
 Url: https://www2.spitfireaudio.com/library-manager/download/win/
-Prefix: spitfire-audio
 Launch: C:\Program Files\Spitfire Audio\Spitfire Audio.exe
 Script: spitfire-audio.sh
-Runner: soda-11.0-5
-Dxvk: true
-Sync: system
 Description:
   Not a plugin but the door to Spitfire's catalogue: LABS, the Originals, the
   BBC Symphony Orchestra. You sign in, pick from what your account owns, and

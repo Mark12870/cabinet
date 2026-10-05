@@ -11,10 +11,6 @@ Source: download
 Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/freqecho/ValhallaFreqEchoWin_V1_2_0.zip
 Sha256: c84a455e7efd88c7919bcd9e72ba2542d0099e8b905a4f4a34b0d9fb2537215b
 Script: valhalla.sh
-Prefix: valhalla
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   A frequency shifter after the Bode 735, feeding an echo that shifts again on
   every repeat. Small shifts thicken a sound; larger ones send the tail sliding

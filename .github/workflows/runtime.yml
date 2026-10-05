@@ -1,7 +1,7 @@
 name: Runtime
 
-# Called by ci.yml after a push for the general suite, and by plugins.yml for the daily run of the
-# plugin scenarios. scripts/runtime-ci.sh decides which tests each suite holds.
+# Called by ci.yml after a push for the general suite, by plugins.yml for the daily run of the
+# plugin scenarios, and by patches.yml for the patch probes on demand. scripts/runtime-ci.sh decides which tests each suite holds.
 on:
   workflow_call:
     inputs:
@@ -9,7 +9,7 @@ on:
         type: boolean
         default: false
       suite:
-        description: general, or scenarios
+        description: general, scenarios, or patches
         type: string
         default: general
     secrets:
@@ -92,7 +92,7 @@ jobs:
       # in the image: a cache is readable only by this repository's own workflows.
       - uses: actions/cache/restore@v4
         id: cached
-        if: ${{ !inputs.rebuild_fixtures && inputs.suite == 'general' }}
+        if: ${{ !inputs.rebuild_fixtures && inputs.suite != 'scenarios' }}
         with:
           path: fixtures.tar
           key: ${{ steps.fixtures.outputs.key }}
@@ -135,17 +135,14 @@ jobs:
         run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
 
       # The drag-and-drop probes ask whether a yabridge patch can go, not whether this commit
-      # works, and their prefixes and runners are five gigabytes. They run when the fixtures are
-      # being made -- a rebuild, or the month turning over -- and only in the general suite, and
-      # `clean` keeps them out of the image either way.
+      # works, and their prefixes and runners are five gigabytes. Only the patches suite sets them
+      # up, and `clean` keeps them out of the image either way.
       - name: Decide whether the probes run
         id: probes
         env:
           SUITE: ${{ inputs.suite }}
         run: |
-          if [ "${SUITE}" = general ] &&
-             { [ '${{ inputs.rebuild_fixtures }}' = true ] ||
-               [ '${{ steps.cached.outputs.cache-hit }}' != true ]; }; then
+          if [ "${SUITE}" = patches ]; then
             echo 'value=1' >> "$GITHUB_OUTPUT"
           else
             echo 'value=0' >> "$GITHUB_OUTPUT"
@@ -237,23 +234,6 @@ jobs:
           name: runtime
           path: runtime
           retention-days: 7
-
-      # What the probes measured belongs on the run page. A failure here is a number, and reading
-      # it should not need an artifact download and a token.
-      - name: Report what the editors measured
-        if: always() && inputs.suite == 'general'
-        run: |
-          {
-            echo '### Editors'
-            echo
-            echo '```'
-            for result in runtime/interaction/*/result.txt; do
-              [ -f "${result}" ] || continue
-              printf '%s\n' "$(basename "$(dirname "${result}")")"
-              sed 's/^/  /' "${result}"
-            done
-            echo '```'
-          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Report each plugin scenario against its entry
         if: always() && inputs.suite == 'scenarios'

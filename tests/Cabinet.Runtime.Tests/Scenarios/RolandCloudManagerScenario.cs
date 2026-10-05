@@ -73,7 +73,7 @@ public sealed class RolandCloudManagerScenario(RolandCloudManagerScenario.Instal
                 "the sign-in page",
                 Answering);
 
-            await Harness.OpenLink(SignIn(File.ReadAllText(captured).Trim()), display);
+            await Harness.OpenLink(SignIn(File.ReadAllText(captured).Trim(), Harness.Artefacts), display);
             var window = manager.Window(Signed, Opening);
             Thread.Sleep(Step);
             manager.Click(window, 640, 254);
@@ -88,23 +88,23 @@ public sealed class RolandCloudManagerScenario(RolandCloudManagerScenario.Instal
             await manager.Close();
         }
 
-        private static string SignIn(string url)
+        private static string SignIn(string url, string evidence)
         {
             var credentials = Credentials.Read();
-            using var browser = new Browser();
+            using var browser = new Browser(evidence);
             browser.Go(url);
-            Browser.Until(() => browser.Shows("input[type=email]"), Answering, "the email page");
+            browser.Await(() => browser.Shows("input[type=email]"), Answering, "the email page");
             browser.Script("[...document.querySelectorAll('a')].find(a => /Sign in here/.test(a.innerText)).click()");
-            Browser.Until(
+            browser.Await(
                 () => browser.Shows("input[type=email]") && browser.Shows("input[type=password]"),
                 Answering,
                 "the password page");
             browser.Type("input[type=email]", credentials["EMAIL"]);
             browser.Type("input[type=password]", credentials["PASSWORD"]);
             browser.Press("LOG IN");
-            Browser.Until(() => browser.Path().EndsWith("/verify", StringComparison.Ordinal), Answering, "the account's verification");
+            browser.Await(() => browser.Path().EndsWith("/verify", StringComparison.Ordinal), Answering, "the account's verification");
             browser.Press("START APP");
-            return Browser.Until(
+            return browser.Await(
                 () => browser.Requests().FirstOrDefault(request => request.StartsWith(Scheme, StringComparison.Ordinal)),
                 Answering,
                 "the link back to the manager");

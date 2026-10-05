@@ -11,13 +11,15 @@ internal sealed class Browser : IDisposable
 {
     private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
 
+    private readonly string evidence;
     private readonly Process driver;
     private readonly HttpClient client;
     private readonly string session;
     private readonly string profile = Directory.CreateTempSubdirectory("cabinet-browser-").FullName;
 
-    public Browser()
+    public Browser(string evidence)
     {
+        this.evidence = evidence;
         var port = FreePort();
         driver = Process.Start(new ProcessStartInfo("chromedriver", $"--port={port}")
         {
@@ -80,6 +82,19 @@ internal sealed class Browser : IDisposable
         throw new TimeoutException($"{what} did not happen within {patience}");
     }
 
+    public T Await<T>(Func<T?> found, TimeSpan patience, string what)
+    {
+        try
+        {
+            return Until(found, patience, what);
+        }
+        catch (TimeoutException)
+        {
+            Keep(what);
+            throw;
+        }
+    }
+
     public void Dispose()
     {
         try
@@ -99,6 +114,17 @@ internal sealed class Browser : IDisposable
         driver.WaitForExit();
         driver.Dispose();
         Directory.Delete(profile, recursive: true);
+    }
+
+    private void Keep(string what)
+    {
+        Directory.CreateDirectory(evidence);
+        var shown = Script(
+            "return [document.title, ...[...document.querySelectorAll('h1,h2,[role=alert]')].map(e => e.innerText.trim())]"
+            + ".filter(text => text).join('\\n')")!.GetValue<string>();
+        File.WriteAllText(
+            System.IO.Path.Combine(evidence, "browser.txt"),
+            $"waiting for: {what}\npage: {Path()}\n\n{shown}\n");
     }
 
     private string? Started()

@@ -14,9 +14,6 @@ Source: download
 Url: https://decomposer.de/sitala/releases/Sitala-2.1-Setup.msi
 Sha256: 124f237999e44f7c2b102c540b9f4f162f5e3a017854d60704ee6f0828d75b25
 Script: sitala.sh
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   The sixteen pads laid out four by four with the six knobs beside them, tuning
   that snaps to notes and names them, kits switched over MIDI, and a whole folder

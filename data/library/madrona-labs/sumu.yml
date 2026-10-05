@@ -14,10 +14,6 @@ Source: download
 Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/sumu/SumuInstaller1.3.0.exe
 Sha256: b37fbe1a7fcec02a237b418306ad98cc429aad0a66ead32c3b9d83176f3d8469
 Script: madrona-labs.sh
-Prefix: madrona
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   A sampled sound becomes up to 64 bandwidth-enhanced partials, each with its own
   frequency, loudness and noisiness over time, and every patch cord carries all 64

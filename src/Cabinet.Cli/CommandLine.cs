@@ -8,7 +8,7 @@ internal sealed class CommandLine
     private const string JsonOption = "--json";
 
     private static readonly HashSet<string> Flags =
-        new([JsonOption, "--installed", "--not-installed"], StringComparer.Ordinal);
+        new([JsonOption, "--installed", "--not-installed", "--updates", "--all"], StringComparer.Ordinal);
 
     private static readonly HashSet<string> Valued =
         new(["--prefix", "--search", "--category", "--developer", "--kind"], StringComparer.Ordinal);

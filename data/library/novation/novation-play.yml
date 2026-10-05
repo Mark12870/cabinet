@@ -14,9 +14,6 @@ Source: byo
 Account: https://id.focusritegroup.com/my-software
 InstallInstructions: Choose the complete Windows installer ZIP (Play_1_1_2.zip).
 Script: novation-play.sh
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   An instrument made with Klevgrand, combining sampled synths, keys and drums
   with macro controls, performance effects and Novation controller integration.

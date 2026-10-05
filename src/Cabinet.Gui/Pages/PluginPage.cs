@@ -9,6 +9,7 @@ internal sealed class PluginPage
     private readonly Action<LibraryEntry> remove;
     private readonly Action<LibraryEntry> launch;
     private readonly Action<LibraryEntry> stop;
+    private readonly Action<PrefixUpdate> update;
     private readonly Func<LibraryEntry, string?> log;
     private readonly Gtk.Window window;
     private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
@@ -21,6 +22,7 @@ internal sealed class PluginPage
         Action<LibraryEntry> remove,
         Action<LibraryEntry> launch,
         Action<LibraryEntry> stop,
+        Action<PrefixUpdate> update,
         Func<LibraryEntry, string?> log)
     {
         this.layout = layout;
@@ -29,6 +31,7 @@ internal sealed class PluginPage
         this.remove = remove;
         this.launch = launch;
         this.stop = stop;
+        this.update = update;
         this.log = log;
         Id = entry.Id;
 
@@ -46,7 +49,13 @@ internal sealed class PluginPage
 
     public Adw.NavigationPage Page { get; }
 
-    public void Show(LibraryEntry entry, string? prefix, bool installed, bool running)
+    public void Show(
+        LibraryEntry entry,
+        string? prefix,
+        bool installed,
+        bool running,
+        PrefixUpdate? prefixUpdate = null,
+        bool updateBlocked = false)
     {
         Ui.Clear(body);
 
@@ -65,7 +74,42 @@ internal sealed class PluginPage
         }
 
         body.Append(Details(entry, prefix, installed));
+
+        if (prefixUpdate is { Available: true })
+        {
+            body.Append(PrefixSetup(prefixUpdate, updateBlocked));
+        }
+
         body.Append(Act(entry, installed, running));
+    }
+
+    private Gtk.Widget PrefixSetup(PrefixUpdate plan, bool blocked)
+    {
+        var group = Adw.PreferencesGroup.New();
+        group.SetTitle(plan.Title);
+        group.SetDescription($"Review the setup of prefix {plan.Prefix} before updating it.");
+        Add(group, "Config version", plan.Entry.ConfigVersion);
+        Add(group, "Applied config version", plan.AppliedVersion);
+        Add(group, "Shares this config", plan.Members.Count > 1 ? string.Join(", ", plan.Members) : null);
+        Add(group, "Changes", plan.Changes.Count > 0 ? string.Join("\n", plan.Changes) : null);
+        Add(group, "Kept", plan.Preserved.Count > 0 ? string.Join("\n", plan.Preserved) : null);
+        Add(group, "Other plugins in this prefix", plan.Sharing.Count > 0 ? string.Join(", ", plan.Sharing) : null);
+
+        var action = Adw.ActionRow.New();
+        action.SetTitle("Update prefix");
+        action.SetSubtitle(blocked
+            ? "Close apps using this prefix and wait for ongoing operations to finish."
+            : "Apply the reviewed dependencies and prefix settings.");
+
+        var button = Gtk.Button.NewWithLabel("Update prefix…");
+        button.SetValign(Gtk.Align.Center);
+        button.AddCssClass("suggested-action");
+        button.SetSensitive(!blocked);
+        button.OnClicked += (_, _) => Ui.Guard(() => update(plan));
+        action.AddSuffix(button);
+        action.SetActivatableWidget(button);
+        group.Add(action);
+        return group;
     }
 
     private Gtk.Widget Heading(LibraryEntry entry)
@@ -228,6 +272,7 @@ internal sealed class PluginPage
         }
 
         var row = Adw.ActionRow.New();
+        row.SetUseMarkup(false);
         row.SetTitle(title);
         row.SetSubtitle(value);
         group.Add(row);

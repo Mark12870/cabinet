@@ -11,10 +11,6 @@ Formats: VST3, CLAP
 Homepage: https://www.fabfilter.com/products
 Source: rolling
 Url: https://cdn-b.fabfilter.com/downloads/fftotalbundlex64.exe
-Prefix: fabfilter
-Runner: soda-11.0-5
-Dxvk: true
-Sync: system
 Script: fabfilter.sh
 Description:
   All fourteen FabFilter plugins in one installer: Pro-Q 4, the equaliser other

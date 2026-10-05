@@ -12,11 +12,7 @@ public sealed partial class Library(Layout layout, IProcessRunner runner)
         }
 
         var entries = Directory.EnumerateDirectories(layout.LibraryDir)
-            .SelectMany(vendor => Directory.EnumerateFiles(vendor, "*.yml")
-                .Select(path => LibraryEntry.Parse(
-                    Path.GetFileNameWithoutExtension(path),
-                    File.ReadAllText(path),
-                    Path.GetFileName(vendor))))
+            .SelectMany(vendor => VendorEntries(vendor))
             .OrderBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
@@ -29,6 +25,20 @@ public sealed partial class Library(Layout layout, IProcessRunner runner)
         }
 
         return entries;
+    }
+
+    private static IEnumerable<LibraryEntry> VendorEntries(string vendor)
+    {
+        var config = Path.Combine(vendor, LibraryEntryParser.PrefixConfig);
+        var shared = File.Exists(config) ? File.ReadAllText(config) : null;
+
+        return Directory.EnumerateFiles(vendor, "*.yml")
+            .Where(path => path != config)
+            .Select(path => LibraryEntry.Parse(
+                Path.GetFileNameWithoutExtension(path),
+                File.ReadAllText(path),
+                Path.GetFileName(vendor),
+                shared));
     }
 
     public static IReadOnlyList<string> Categories(IEnumerable<LibraryEntry> entries) =>
@@ -182,8 +192,15 @@ public sealed partial class Library(Layout layout, IProcessRunner runner)
         Write(prefix, kept);
     }
 
-    private void Forget(string prefix, string id) =>
+    private void Forget(string prefix, string id)
+    {
         Write(prefix, Lines(prefix).Where(fields => fields[0] != id));
+
+        if (!Recorded(prefix).Any())
+        {
+            File.Delete(layout.PrefixSetupFile(prefix));
+        }
+    }
 
     private void Write(string prefix, IEnumerable<string[]> lines) =>
         File.WriteAllLines(

@@ -7,6 +7,7 @@ public class WorkflowTests
     private static readonly string[] Ci = Repo.Lines(".github/workflows/ci.yml");
     private static readonly string[] Runtime = Repo.Lines(".github/workflows/runtime.yml");
     private static readonly string[] Plugins = Repo.Lines(".github/workflows/plugins.yml");
+    private static readonly string[] Patches = Repo.Lines(".github/workflows/patches.yml");
     private static readonly string Driver = Repo.Read("scripts/runtime-ci.sh");
     private static readonly string[] Redistributable = ["GPL-3.0", "LGPL-3.0"];
 
@@ -71,11 +72,26 @@ public class WorkflowTests
         Assert.Contains(Plugins, line => line.Trim() == "schedule:");
         Assert.DoesNotContain(Plugins, line => line.Trim() is "push:" or "pull_request:");
         Assert.DoesNotContain(Ci, line => Names(line, "suite"));
-        Assert.Contains($"general) filter=(--filter-not-namespace {scenarios})", Driver, StringComparison.Ordinal);
+        Assert.Contains($"general) filter=(--filter-not-namespace {scenarios}", Driver, StringComparison.Ordinal);
         Assert.Contains($"scenarios) filter=(--filter-namespace {scenarios})", Driver, StringComparison.Ordinal);
         Assert.All(
             Directory.EnumerateFiles(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios"), "*.cs"),
             file => Assert.Contains($"namespace {scenarios};", File.ReadAllText(file), StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void PatchProbesRunOnlyWhenStartedByHand()
+    {
+        const string probes = "Cabinet.Runtime.Tests.Patches";
+
+        Assert.Contains(Patches, line => line.Trim() == "suite: patches");
+        Assert.Contains(Patches, line => line.Trim() == "workflow_dispatch:");
+        Assert.DoesNotContain(Patches, line => line.Trim() is "push:" or "pull_request:" or "schedule:");
+        Assert.Contains($"--filter-not-namespace {probes}) ;;", Driver, StringComparison.Ordinal);
+        Assert.Contains($"patches) filter=(--filter-namespace {probes}) ;;", Driver, StringComparison.Ordinal);
+        Assert.All(
+            Directory.EnumerateFiles(Repo.Path("tests/Cabinet.Runtime.Tests/Patches"), "*.cs"),
+            file => Assert.Contains($"namespace {probes};", File.ReadAllText(file), StringComparison.Ordinal));
     }
 
     [Fact]

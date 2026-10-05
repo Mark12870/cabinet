@@ -38,12 +38,12 @@ over.
 
 ## In CI
 
-`.github/workflows/ci.yml`'s `runtime` job runs this suite on every push to `main`, and on demand,
-against the Flatpak the same run built. `publish` waits for it, so a release needs a green runtime
-run. The drag-and-drop probes are the exception: they say when a yabridge patch can go rather than
-whether this commit works, and their four prefixes and three runner families are five gigabytes
-every push would otherwise pull, so they run when the fixtures are made — a rebuild, or the turn
-of the month — and `clean` keeps them out of the image.
+`.github/workflows/ci.yml`'s `runtime` job runs the plugin matrix on every push to `main`, and on
+demand, against the Flatpak the same run built. `publish` waits for it, so a release needs a green
+runtime run. The patch probes say when a yabridge patch can go rather than whether this commit
+works, so they run only when `.github/workflows/patches.yml` is started by hand; their four
+prefixes and three runner families are five gigabytes, which setup adds only with
+`CABINET_RUNTIME_PROBES=1`, and `clean` keeps them out of the image.
 
 The fixtures cannot be made per run — about 13 GB on a runner that installs all of them, out of
 seven vendor installers, five Wine runners and a serial Carla build — and `actions/cache` holds
@@ -149,22 +149,7 @@ its name carries no version for a vendor update to change.
 ## Wine sessions
 
 `Cabinet.Contract.Tests`, run by `scripts/checks.sh`, drives Core's real `ProcessRunner` through
-the built shim on the DAW path, with scripts standing in for `flatpak` and Wine. A shim running
-inside Cabinet's own sandbox needs the installed `/app/lib/yabridge/cabinet-wine`, so
-`TeardownTests` covers that path here: a job Cabinet starts carries its exit status and its
-session retires, and Cabinet joins a session a DAW started rather than starting a second one.
-
-Ownership is the other half: `OwnershipTests` holds a DAW-side plugin job in a prefix of its own
-and checks that `set desktop on`, `use` and `winetricks` are all refused with the reason, that the
-plugin keeps its Wine, and that the same change goes through once the plugin is gone. It also ends
-Wine from inside a session Cabinet started, which is what a forced `library stop` does.
-
-## Winelib hosts
-
-yabridge's hosts are built against Debian's Wine 8.0 headers and import libraries but run on the
-Wine base, which moves on its own. `WinelibHostTests` starts both `yabridge-host.exe.so` and
-`yabridge-host-32.exe.so` under the bundled Wine in a fresh prefix, and asserts each prints its
-version banner with no `err:module` import failure. No 32-bit plugin is hosted.
+the built shim on the DAW path, with scripts standing in for `flatpak` and Wine.
 
 Run the complete matrix after setup with:
 
@@ -173,7 +158,9 @@ toolbox run --container cabinet-runtime \
   dotnet build tests/Cabinet.Runtime.Tests --nologo \
   -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
 toolbox run --container cabinet-runtime \
-  dotnet test --project tests/Cabinet.Runtime.Tests --no-build
+  dotnet test --project tests/Cabinet.Runtime.Tests --no-build \
+  --filter-not-namespace Cabinet.Runtime.Tests.Scenarios \
+  --filter-not-namespace Cabinet.Runtime.Tests.Patches
 ```
 
 Enter the Toolbox before the test applies its synthetic HOME and XDG paths.
@@ -198,8 +185,6 @@ hand, against a Cabinet built from main through the same `build.yml` and `runtim
 calls. On its run page `scripts/scenario-report.py` puts one row per entry and format, with a
 failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
-The nightly run includes `NovationPlayInstallationTests`; locally, `--filter-class '*NovationPlay*'`
-runs them on their own.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
 owns its expectations. Isolation includes the user database: u-he plugins find their data through
 the passwd home rather than `HOME`, so a probe runs under `nss_wrapper` with a passwd entry whose
@@ -273,11 +258,10 @@ yabridge's own and the VST3 bridge crashes while it loads.
 `scripts/scenario-coverage.sh` lists every entry without a scenario. It cannot say why, so the
 reasons are here:
 
-- **Set aside.** Sitala 2 and Novation Play open an activation dialog over their editors until a
-  licence key is entered. They stay in the Library, and the
-  script's `set_aside` list keeps them out of the count and lists them, with that reason, under
-  "Not tested on purpose". `NovationPlayInstallationTests` still installs Play from the pinned
-  Dropbox ZIP and checks its VST2 and VST3 bridges and factory content.
+- **Licence prompts.** Sitala 2 and Novation Play open an activation dialog over their editors
+  until a licence key is entered, so their scenarios stop at that prompt: the editor opens where
+  Wine says it is and answers input. Novation Play installs from the pinned Dropbox ZIP and also
+  checks its factory content.
 - **Account instruments.** SINEplayer signs in with the test account, downloads Lucent and
   checks its editor and flute playback in VST2 and VST3. Splice INSTRUMENT authorises through
   its browser sign-in, downloads Piano Granular and checks its editor and VST3 playback.
@@ -300,6 +284,11 @@ colour, so an editor check would pass here and fail on CI. Virta, Aalto and Kaiv
 `OPENGL32.dll` but make no `wgl` call, which is why their editors are checked.
 
 ## Patch probes
+
+The patch probes are `Cabinet.Runtime.Tests.Patches`: `DragAndDropTests` and `EditorTests`, each
+read by `PATCHES.md`. Run them on demand, locally after `CABINET_RUNTIME_PROBES=1
+scripts/setup-runtime-tests.sh` with `--filter-namespace Cabinet.Runtime.Tests.Patches`.
+`RuntimeSuiteTests` fails any runtime test that is not the matrix, a plugin scenario or such a probe.
 
 `DragAndDropTests` tells you when `patches/yabridge/yabridge-foreign-drag-drop.patch` is no longer needed
 (see `PATCHES.md`). The Toolbox's `mingw64-gcc` compiles a small Windows probe from
@@ -336,8 +325,8 @@ so a run never puts a plugin window on the user's screen.
 
 ## Editor rendering and interaction
 
-Geometry says where a window is, not whether the user can use what is in it. `InteractionTests`
-answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
+Geometry says where a window is, not whether the user can use what is in it. A plugin scenario's
+editor check answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
 moves up to 24 parameters from the host, one at a time, since a plugin's first parameters are
 often on a page the editor is not showing, and presses and drags wherever the editor redraws one,
 vertically first and then sideways, since Surge XT's macro sliders answer only a horizontal drag;

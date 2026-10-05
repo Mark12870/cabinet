@@ -84,7 +84,8 @@ internal static class Json
     public static string Library(
         IReadOnlyList<LibraryEntry> entries,
         IReadOnlyDictionary<string, string?> installed,
-        IReadOnlySet<string> retired) =>
+        IReadOnlySet<string> retired,
+        IReadOnlyDictionary<string, PrefixUpdate>? updates = null) =>
         Write(writer =>
         {
             writer.WriteStartArray();
@@ -124,6 +125,14 @@ internal static class Json
                 writer.WriteBoolean("installed", installed.ContainsKey(entry.Id));
                 writer.WriteString("installedIn", installed.GetValueOrDefault(entry.Id));
                 writer.WriteBoolean("retired", retired.Contains(entry.Id));
+                var update = updates?.GetValueOrDefault(entry.Id);
+                writer.WriteString("configVersion", entry.Kind == PluginKind.Windows ? entry.ConfigVersion : null);
+                writer.WriteString("prefixUpdate", update is not null ? "available"
+                    : entry.Kind == PluginKind.Windows && installed.ContainsKey(entry.Id)
+                      && !retired.Contains(entry.Id) ? "current" : null);
+                Strings(writer, "updateChanges", update?.Changes ?? []);
+                Strings(writer, "preservedSettings", update?.Preserved ?? []);
+                Strings(writer, "sharingPrefix", update?.Sharing ?? []);
                 writer.WriteEndObject();
             }
 

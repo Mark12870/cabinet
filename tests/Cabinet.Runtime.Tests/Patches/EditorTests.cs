@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Cabinet.Runtime.Tests;
+namespace Cabinet.Runtime.Tests.Patches;
 
 public sealed class EditorTests : IDisposable
 {

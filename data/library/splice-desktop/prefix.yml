@@ -1,0 +1,6 @@
+Prefix: splice-desktop
+Version: 1
+Runner: d2d1-11.0
+Dxvk: true
+Sync: fsync
+Winetricks: corefonts

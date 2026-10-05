@@ -1,0 +1,5 @@
+Prefix: arturia
+Version: 1
+Runner: 9.21
+Dxvk: true
+Sync: fsync

@@ -1,11 +1,15 @@
 namespace Cabinet.Runtime.Tests.Scenarios;
 
-public sealed class NovationPlayInstallationTests(NovationPlayInstallationTests.Installed installed)
-    : IClassFixture<NovationPlayInstallationTests.Installed>
+public sealed class NovationPlayScenario(NovationPlayScenario.Installed installed)
+    : IClassFixture<NovationPlayScenario.Installed>
 {
     private const string Id = "novation-play";
 
     private const string Installer = "Novation/Play_1_1_2.zip";
+
+    private const string DontShare = "496 344";
+
+    private const string ActivationCode = "495 280\tABCD";
 
     private const string InstallerSha256 = "3ea47c9c08d40271beb84eb72acd4e73747b5364a76dd84321134f30fc2ab013";
 
@@ -25,6 +29,18 @@ public sealed class NovationPlayInstallationTests(NovationPlayInstallationTests.
             Bridges.ContainsKey(format),
             $"{Id} declares {format}, which this scenario does not say how to find");
         Assert.True(installed.Harness.Holds(format, Bridges[format]));
+    }
+
+    [Theory]
+    [MemberData(nameof(Formats))]
+    public void OpensItsActivationPrompt(string format)
+    {
+        var editor = installed.Harness.VerifyEditor(
+            installed.Harness.Plugin(format, Bridges[format]), controlsAreParameters: false, press: DontShare, type: ActivationCode);
+
+        Assert.True(
+            editor.Wine != "none" && editor.Wine == editor.Told,
+            $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
     }
 
     [Fact]

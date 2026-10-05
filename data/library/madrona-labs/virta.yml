@@ -14,10 +14,6 @@ Source: download
 Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/virta/VirtaInstaller1.9.3.exe
 Sha256: f8466af69525a3890c1de6807a212c1db54c21f317659e3c1cb217eb72d1ecdb
 Script: madrona-labs.sh
-Prefix: madrona
-Runner: 9.21
-Dxvk: true
-Sync: fsync
 Description:
   Low-latency analysis of whatever you sing or play into it — pitch, envelope, vowel —
   patched onto oscillators, a pitch shifter with a feedback delay and a compressor. Aalto's

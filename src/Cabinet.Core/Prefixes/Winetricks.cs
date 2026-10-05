@@ -12,6 +12,15 @@ public sealed class Winetricks(Layout layout, IProcessRunner runner)
         string prefix, IReadOnlyList<string> verbs, Action<string>? onOutput = null) =>
         Run(prefix, verbs, onOutput);
 
+    public IReadOnlyList<string> Installed(string prefix) =>
+        File.Exists(layout.PrefixWinetricksLog(prefix))
+            ? [.. File.ReadAllLines(layout.PrefixWinetricksLog(prefix))
+                .Select(line => line.Trim().ToLowerInvariant())
+                .Where(verb => verb.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)]
+            : [];
+
     public ProcessResult Open(string prefix, Action<string>? onOutput = null) =>
         Run(prefix, [], onOutput);
 

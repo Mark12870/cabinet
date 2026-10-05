@@ -18,7 +18,7 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
      scripts/setup-runtime-tests.sh
    ```
 
-3. Run the general runtime suite, the build check without the plugin scenarios:
+3. Run the general runtime suite, the plugin matrix alone:
 
    ```sh
    toolbox run --container cabinet-runtime \
@@ -26,7 +26,8 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
      -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
    toolbox run --container cabinet-runtime \
      dotnet test --project tests/Cabinet.Runtime.Tests --no-build \
-     --filter-not-namespace Cabinet.Runtime.Tests.Scenarios
+     --filter-not-namespace Cabinet.Runtime.Tests.Scenarios \
+     --filter-not-namespace Cabinet.Runtime.Tests.Patches
    ```
 
    For one plugin entry, run its scenario alone as the `plugin-scenario` skill describes.
@@ -59,13 +60,17 @@ description: Test Cabinet catalogue entries through an isolated Toolbox and Carl
    helper processes, and launch log all agree that it is usable. Process survival
    alone is insufficient.
 
-7. Remove only temporary prefixes in the isolated runtime after testing. Never
+7. Wrap every command run in the isolated runtime in a short `timeout`: that one step's
+   measured duration plus a small margin (a removal 1 minute, an install 3), never one value
+   shared by a whole script. When one fires, stop the Wine processes it left behind:
+   those whose `/proc/<pid>/environ` names the isolated `WINEPREFIX`.
+
+8. Remove only temporary prefixes in the isolated runtime after testing. Never
    mutate or clean a host prefix during runtime diagnosis.
 
-8. Read the plugin matrix and the unsupported Windows LV2 combination in `docs/TESTS.md`.
+9. Read the plugin matrix and the unsupported Windows LV2 combination in `docs/TESTS.md`.
 
-9. `InteractionTests` opens each editor and drives the pointer over it, so it needs no session
-   display: it starts its own headless `weston` per probe. When a case fails, read the captures
-   and `result.txt` it leaves in `$CABINET_RUNTIME_ROOT/tmp/interaction/<plugin>/` before
-   believing the number in the message. Plugins with a known defect are listed in `docs/TESTS.md` and
-   assert that the defect is still there, so the suite is green until one is fixed.
+10. A scenario's editor check drives the pointer on its own headless `weston`, so it needs no
+   session display. When one fails, read the captures and `result.txt` in
+   `$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/editor/` before believing the number in the
+   message, and copy them aside before any rerun.

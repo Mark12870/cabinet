@@ -61,48 +61,11 @@ public sealed class DoctorTests : IDisposable
     }
 
     [Fact]
-    public void APrefixOnTheRunnerItsPluginAsksForIsNotComplainedAbout()
-    {
-        GiveRunner("soda-11.0-5");
-        GivePrefix("fabfilter", "soda-11.0-5");
-        GiveEntry("fabfilter", "fabfilter-total-bundle", "FabFilter Total Bundle", "soda-11.0-5");
-        GiveRecord("fabfilter", "fabfilter-total-bundle");
-
-        Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
-    }
-
-    [Fact]
-    public void AVersionSpecMatchesTheDirectoryTheRunnerWasUnpackedUnder()
-    {
-        GiveRunner("wine-9.21-staging-tkg");
-        GivePrefix("gadget", "wine-9.21-staging-tkg");
-        GiveEntry("acme", "gadget", "Gadget 2", "9.21");
-        GiveRecord("gadget", "gadget");
-
-        Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
-    }
-
-    [Fact]
-    public void APrefixMovedOffTheRunnerItsPluginAsksForIsWarnedAbout()
-    {
-        GiveRunner("wine-10.8-staging-tkg");
-        GivePrefix("gadget", "wine-10.8-staging-tkg");
-        GiveEntry("acme", "gadget", "Gadget 2", "9.21");
-        GiveRecord("gadget", "gadget");
-
-        var check = Checks().Single(c => c.Name == "plugin runners");
-
-        Assert.Equal(Status.Warn, check.Status);
-        Assert.Contains("gadget keeps wine-10.8-staging-tkg", check.Detail);
-        Assert.Contains("Gadget 2 asks for Wine 9.21", check.Detail);
-    }
-
-    [Fact]
     public void APrefixHoldingNoRecordedPluginIsNobodysBusiness()
     {
         GivePrefix("aalto");
 
-        Assert.DoesNotContain(Checks(), c => c.Name == "plugin runners");
+        Assert.DoesNotContain(Checks(), c => c.Name == "prefix updates");
     }
 
     [Fact]
@@ -134,30 +97,31 @@ public sealed class DoctorTests : IDisposable
     }
 
     [Fact]
-    public void APrefixOnTheSyncModeItsPluginAsksForIsNotComplainedAbout()
+    public void APrefixBehindItsCatalogueSetupIsWarnedAbout()
     {
         GiveRunner("wine-9.21-staging-tkg");
         GivePrefix("gadget", "wine-9.21-staging-tkg");
         GiveEntry("acme", "gadget", "Gadget 2", "9.21", "fsync");
         GiveRecord("gadget", "gadget");
-        File.WriteAllText(Layout.PrefixSyncFile("gadget"), "fsync");
 
-        Assert.DoesNotContain(Checks(), c => c.Name == "plugin sync");
+        var check = Assert.Single(Checks(), c => c.Name == "prefix updates");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.StartsWith("gadget has a changed setup for gadget", check.Detail);
     }
 
     [Fact]
-    public void APrefixThatNeverTookTheSyncModeItsPluginAsksForIsWarnedAbout()
+    public void APrefixHoldingPluginsWithDifferentSetupsIsWarnedAbout()
     {
-        GiveRunner("wine-9.21-staging-tkg");
-        GivePrefix("gadget", "wine-9.21-staging-tkg");
-        GiveEntry("acme", "gadget", "Gadget 2", "9.21", "fsync");
-        GiveRecord("gadget", "gadget");
+        GivePrefix("gadget");
+        GiveEntry("acme", "gadget", "Gadget 2", "9.21");
+        GiveEntry("other", "widget", "Widget", "9.21");
+        File.WriteAllLines(Layout.PrefixPluginsFile("gadget"), ["gadget", "widget"]);
 
-        var check = Checks().Single(c => c.Name == "plugin sync");
+        var check = Assert.Single(Checks(), c => c.Name == "mixed prefixes");
 
         Assert.Equal(Status.Warn, check.Status);
-        Assert.Contains("gadget runs on system", check.Detail);
-        Assert.Contains("Gadget 2 asks for fsync", check.Detail);
+        Assert.StartsWith("gadget holds gadget, widget", check.Detail);
     }
 
     [Fact]

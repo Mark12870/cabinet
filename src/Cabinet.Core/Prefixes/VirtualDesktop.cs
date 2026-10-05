@@ -13,9 +13,14 @@ public sealed class VirtualDesktop(Layout layout, IProcessRunner runner)
     {
         var registry = new PrefixRegistry(layout, runner);
 
-        return registry.Lookup(prefix, ExplorerPath, "Desktop") is { Length: > 0 } named
-            && registry.Lookup(prefix, DesktopsPath, named) is { Length: > 0 };
+        return EnabledIn(prefix, registry);
     }
+
+    public bool SavedEnabledIn(string prefix) => EnabledIn(prefix, new PrefixRegistry(layout));
+
+    private static bool EnabledIn(string prefix, PrefixRegistry registry) =>
+        registry.Lookup(prefix, ExplorerPath, "Desktop") is { Length: > 0 } named
+            && registry.Lookup(prefix, DesktopsPath, named) is { Length: > 0 };
 
     public void Set(string prefix, Action<string>? onOutput)
     {
