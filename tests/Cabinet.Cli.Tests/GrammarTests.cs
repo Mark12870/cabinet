@@ -412,7 +412,7 @@ public sealed partial class GrammarTests : IDisposable
         var shipped = Directory.EnumerateDirectories(Repo.Path("data/library"))
             .Where(vendor => !Directory.EnumerateFiles(vendor, "*.md").Any())
             .SelectMany(vendor => Directory.EnumerateFiles(vendor, "*.yml"))
-            .Where(path => Path.GetFileName(path) != "prefix.yml")
+            .Where(path => !Path.GetFileName(path).StartsWith("prefix", StringComparison.Ordinal))
             .Select(path => Path.GetFileNameWithoutExtension(path))
             .ToHashSet(StringComparer.Ordinal);
 

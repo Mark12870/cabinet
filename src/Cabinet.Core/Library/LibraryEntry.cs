@@ -51,11 +51,17 @@ public sealed record LibraryEntry(
     IReadOnlyList<string> Description,
     string Vendor,
     string? InstallInstructions = null,
-    string? PrefixVersion = null)
+    string? FamilyVersion = null,
+    IReadOnlyList<PrefixConfig>? PrefixConfigs = null)
 {
     public bool Manager => Launch is not null;
 
-    public string? ConfigVersion => PrefixVersion ?? Version;
+    public string? SetupVersion => FamilyVersion ?? Version;
+
+    public IReadOnlyList<PrefixConfig> Configs =>
+        PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Sync, Winetricks, Env, Desktop)];
+
+    public PrefixConfig Config => PrefixConfig.For(Configs, SetupVersion);
 
     public string? LaunchExe => Launch?.Split('\\')[^1];
 
@@ -67,8 +73,12 @@ public sealed record LibraryEntry(
             : $" Winetricks accepts the licences of {string.Join(", ", Winetricks)} as well.");
 
     public static LibraryEntry Parse(
-        string id, string text, string vendor = "", string? prefixConfig = null) =>
-        LibraryEntryParser.Parse(id, text, vendor, prefixConfig);
+        string id,
+        string text,
+        string vendor = "",
+        string? prefixConfig = null,
+        IReadOnlyDictionary<string, string>? configs = null) =>
+        LibraryEntryParser.Parse(id, text, vendor, prefixConfig, configs);
 
     public IReadOnlyList<string> Requirements()
     {

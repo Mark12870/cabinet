@@ -29,16 +29,22 @@ public sealed partial class Library(Layout layout, IProcessRunner runner)
 
     private static IEnumerable<LibraryEntry> VendorEntries(string vendor)
     {
-        var config = Path.Combine(vendor, LibraryEntryParser.PrefixConfig);
+        var config = Path.Combine(vendor, LibraryEntryParser.PrefixFile);
         var shared = File.Exists(config) ? File.ReadAllText(config) : null;
+        var configs = Directory.EnumerateFiles(vendor, PrefixConfig.FilePrefix + "*.yml")
+            .ToDictionary(
+                path => Path.GetFileNameWithoutExtension(path)[PrefixConfig.FilePrefix.Length..],
+                File.ReadAllText,
+                StringComparer.Ordinal);
 
         return Directory.EnumerateFiles(vendor, "*.yml")
-            .Where(path => path != config)
+            .Where(path => path != config && !Path.GetFileName(path).StartsWith(PrefixConfig.FilePrefix, StringComparison.Ordinal))
             .Select(path => LibraryEntry.Parse(
                 Path.GetFileNameWithoutExtension(path),
                 File.ReadAllText(path),
                 Path.GetFileName(vendor),
-                shared));
+                shared,
+                configs));
     }
 
     public static IReadOnlyList<string> Categories(IEnumerable<LibraryEntry> entries) =>

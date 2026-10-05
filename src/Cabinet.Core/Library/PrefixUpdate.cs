@@ -4,7 +4,9 @@ public sealed record PrefixUpdate(
     LibraryEntry Entry,
     string Prefix,
     bool Recorded,
-    string? AppliedVersion,
+    string Config,
+    string? Applied,
+    string? Software,
     IReadOnlyList<string> Changes,
     IReadOnlyList<string> Preserved,
     IReadOnlyList<string> Members,
@@ -16,9 +18,9 @@ public sealed record PrefixUpdate(
     public string Title => Available ? "Prefix update available" : "Prefix setup up to date";
 
     public string Description =>
-        $"Apply the catalogue's prefix config to {Prefix}."
-        + (Entry.ConfigVersion is null ? "" : $" The config is version {Entry.ConfigVersion}.")
-        + (AppliedVersion is null ? "" : $" The prefix has version {AppliedVersion}.")
+        $"Apply prefix config {Config} to {Prefix}."
+        + (Software is null ? "" : $" The installed software is version {Software}.")
+        + (Applied is null ? "" : $" The prefix has config {Applied}.")
         + (Recorded ? "" : " Its earlier config was not recorded, so this compares the prefix itself.")
         + (Members.Count < 2 ? "" : $"\n\nThe prefix holds {string.Join(", ", Members)}, which share this config.")
         + (Changes.Count == 0 ? "" : "\n\n" + string.Join("\n", Changes))

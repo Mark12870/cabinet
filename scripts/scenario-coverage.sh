@@ -10,7 +10,7 @@ missing=()
 
 for entry in data/library/*/*.yml; do
     vendor=$(dirname "$entry")
-    if [ "$(basename "$entry")" = prefix.yml ]; then
+    if [[ "$(basename "$entry")" == prefix*.yml ]]; then
         continue
     fi
     if compgen -G "$vendor/*.md" >/dev/null; then

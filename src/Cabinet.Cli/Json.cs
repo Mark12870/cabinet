@@ -126,7 +126,7 @@ internal static class Json
                 writer.WriteString("installedIn", installed.GetValueOrDefault(entry.Id));
                 writer.WriteBoolean("retired", retired.Contains(entry.Id));
                 var update = updates?.GetValueOrDefault(entry.Id);
-                writer.WriteString("configVersion", entry.Kind == PluginKind.Windows ? entry.ConfigVersion : null);
+                writer.WriteString("prefixConfig", entry.Kind == PluginKind.Windows ? entry.Config.Label : null);
                 writer.WriteString("prefixUpdate", update is not null ? "available"
                     : entry.Kind == PluginKind.Windows && installed.ContainsKey(entry.Id)
                       && !retired.Contains(entry.Id) ? "current" : null);

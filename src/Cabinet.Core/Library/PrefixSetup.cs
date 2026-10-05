@@ -4,7 +4,9 @@ using System.Text.Json;
 namespace Cabinet.Core;
 
 internal sealed record PrefixSetup(
-    string? ConfigVersion,
+    string ConfigVersion,
+    int Revision,
+    string? Software,
     string? Runner,
     bool Dxvk,
     SyncMode Sync,
@@ -12,14 +14,18 @@ internal sealed record PrefixSetup(
     IReadOnlyDictionary<string, string> Env,
     bool Desktop)
 {
-    public static PrefixSetup From(LibraryEntry entry) => new(
-        entry.ConfigVersion,
-        entry.Runner,
-        entry.Dxvk,
-        entry.Sync,
-        [.. entry.Winetricks.Select(verb => verb.ToLowerInvariant()).Order(StringComparer.Ordinal)],
-        entry.Env,
-        entry.Desktop);
+    public string Label => $"{ConfigVersion}, revision {Revision}";
+
+    public static PrefixSetup From(PrefixConfig config, string? software) => new(
+        config.Version,
+        config.Revision,
+        software,
+        config.Runner,
+        config.Dxvk,
+        config.Sync,
+        [.. config.Winetricks.Select(verb => verb.ToLowerInvariant()).Order(StringComparer.Ordinal)],
+        config.Env,
+        config.Desktop);
 
     public string Serialise()
     {
@@ -27,8 +33,10 @@ internal sealed record PrefixSetup(
         using (var writer = new Utf8JsonWriter(stream))
         {
             writer.WriteStartObject();
-            writer.WriteNumber("version", 1);
+            writer.WriteNumber("version", 2);
             writer.WriteString("configVersion", ConfigVersion);
+            writer.WriteNumber("revision", Revision);
+            writer.WriteString("software", Software);
             writer.WriteString("runner", Runner);
             writer.WriteBoolean("dxvk", Dxvk);
             writer.WriteString("sync", PrefixSettings.Word(Sync));
@@ -83,7 +91,7 @@ internal sealed record PrefixSetup(
             using var document = JsonDocument.Parse(File.ReadAllText(path));
             var root = document.RootElement;
 
-            if (root.GetProperty("version").GetInt32() != 1)
+            if (root.GetProperty("version").GetInt32() != 2)
             {
                 return null;
             }
@@ -99,7 +107,9 @@ internal sealed record PrefixSetup(
                 .ToList();
 
             return new PrefixSetup(
-                root.GetProperty("configVersion").GetString(),
+                root.GetProperty("configVersion").GetString() ?? throw new FormatException(),
+                root.GetProperty("revision").GetInt32(),
+                root.GetProperty("software").GetString(),
                 root.GetProperty("runner").GetString(),
                 root.GetProperty("dxvk").GetBoolean(),
                 PrefixSettings.ParseSync(root.GetProperty("sync").GetString() ?? throw new FormatException()),

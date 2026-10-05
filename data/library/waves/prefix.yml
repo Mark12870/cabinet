@@ -1,5 +1,1 @@
 Prefix: waves
-Version: 1
-Runner: 9.21
-Sync: fsync
-Winetricks: powershell, allfonts

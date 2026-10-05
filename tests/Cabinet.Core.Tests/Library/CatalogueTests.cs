@@ -326,7 +326,7 @@ public class CatalogueTests
     public void EveryWindowsVendorSetsItsPrefixInOnePrefixConfig()
     {
         var unset = Shipped
-            .Where(entry => entry.Kind == PluginKind.Windows && entry.PrefixVersion is null)
+            .Where(entry => entry.Kind == PluginKind.Windows && entry.PrefixConfigs is null)
             .Select(entry => entry.Id);
 
         Assert.Empty(unset);

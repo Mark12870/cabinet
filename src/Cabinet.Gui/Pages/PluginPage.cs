@@ -88,8 +88,9 @@ internal sealed class PluginPage
         var group = Adw.PreferencesGroup.New();
         group.SetTitle(plan.Title);
         group.SetDescription($"Review the setup of prefix {plan.Prefix} before updating it.");
-        Add(group, "Config version", plan.Entry.ConfigVersion);
-        Add(group, "Applied config version", plan.AppliedVersion);
+        Add(group, "Installed version", plan.Software);
+        Add(group, "Config", plan.Config);
+        Add(group, "Applied config", plan.Applied);
         Add(group, "Shares this config", plan.Members.Count > 1 ? string.Join(", ", plan.Members) : null);
         Add(group, "Changes", plan.Changes.Count > 0 ? string.Join("\n", plan.Changes) : null);
         Add(group, "Kept", plan.Preserved.Count > 0 ? string.Join("\n", plan.Preserved) : null);

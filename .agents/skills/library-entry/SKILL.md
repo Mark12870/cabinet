@@ -14,7 +14,8 @@ data/library/u-he/podolski.yml      the entry
 data/library/u-he/podolski.jpg      screenshot, ≤1000px
 data/library/u-he/podolski.png      icon, 192×192
 data/library/u-he/u-he.sh           the install script its entries name
-data/library/<vendor>/prefix.yml    Windows only: the prefix config every entry beside it shares
+data/library/<vendor>/prefix.yml    Windows only: the prefix name, and a family's Version
+data/library/<vendor>/prefix-2.1.yml Windows only: the prefix settings for software version 2.1
 data/library/u-he/logo.png          the vendor's mark, 192×192, shown on every page of theirs
 ```
 
@@ -94,10 +95,12 @@ versions, no rendering APIs.
 
 **5. Decide the four fields that are judgements.** Everything above is a lookup; these are
 decisions, and getting one wrong shows up much later as a plugin that installs and then cannot
-be used. For a Windows entry they go in the vendor's `prefix.yml`, never in the entry, which may
-carry none of them. Create it with the first Windows entry of a vendor, holding `Prefix: <name>`
-(unique across vendors) and `Version: 1`. Raise `Version` whenever a value in it changes; that
-is what offers installed prefixes the update.
+be used. For a Windows entry they go in the vendor's `prefix-<version>.yml`, never in the entry,
+which may carry none of them. `prefix.yml` holds `Prefix: <name>` (unique across vendors), plus
+`Version:` when several entries share the prefix. Name each `prefix-<version>.yml` after the
+version the installed software reports as `DisplayVersion` in its prefix's uninstall registry
+key, and start it at `Revision: 1`. Raise `Revision` when you edit that file; add a new
+`prefix-<version>.yml` when newer software needs other settings.
 
 - **`Runner: 9.21`** for anything with a plugin editor. From Wine 9.22 on, clicks land offset by
   the window's distance from the screen origin — yabridge#382, acknowledged upstream and
@@ -174,7 +177,7 @@ verification from here stops at what the disk shows.
 ### An account-gated download
 
 Anything behind a login is `Source: byo`.
-The vendor's `prefix.yml` still carries the prefix, runner, DXVK and sync knowledge — that is most of its value —
+The vendor's `prefix-<version>.yml` still carries the prefix, runner, DXVK and sync knowledge — that is most of its value —
 and only the file comes from the user. **Do not try to script a login.** Omit `Url` and `Sha256`;
 the error `Library.Install` raises already tells the user exactly what to pass.
 

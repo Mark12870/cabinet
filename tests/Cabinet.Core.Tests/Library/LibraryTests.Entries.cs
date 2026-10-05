@@ -110,34 +110,73 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void APrefixConfigSetsThePrefixOfEveryWindowsEntryBesideIt()
+    public void AnEntryTakesTheConfigForItsVersionFromItsVendorsPrefixFiles()
     {
         var entry = LibraryEntry.Parse(
             "gadget",
-            "Name: Gadget\nKind: windows\nSource: byo\nVersion: 2.0\n",
+            "Name: Gadget\nKind: windows\nSource: byo\nVersion: 2.1\n",
             "a-vendor",
-            "Prefix: family\nVersion: 3\nRunner: 9.21\nDxvk: true\nSync: fsync\nWinetricks: corefonts\n");
+            "Prefix: family\n",
+            new Dictionary<string, string>
+            {
+                ["1.0"] = "Revision: 1\nRunner: 9.10\n",
+                ["2.0"] = "Revision: 3\nRunner: 9.21\nDxvk: true\nSync: fsync\nWinetricks: corefonts\n",
+                ["3.0"] = "Revision: 1\nRunner: 10.0\n",
+            });
 
         Assert.Equal("family", entry.Prefix);
         Assert.Equal("9.21", entry.Runner);
         Assert.True(entry.Dxvk);
         Assert.Equal(SyncMode.Fsync, entry.Sync);
         Assert.Equal(["corefonts"], entry.Winetricks);
-        Assert.Equal("2.0", entry.Version);
-        Assert.Equal("3", entry.ConfigVersion);
+        Assert.Equal("2.0, revision 3", entry.Config.Label);
+        Assert.Equal(3, entry.Configs.Count);
     }
 
     [Theory]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\nRunner: 9.21\n", "Prefix: family\nVersion: 1\n", "Runner")]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\n", "Version")]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Version: 1\n", "Prefix")]
-    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\nVersion: 1\nScript: a.sh\n", "Script")]
-    public void APrefixConfigAloneSetsThePrefix(string text, string config, string named)
+    [InlineData("0.5", "1.0")]
+    [InlineData("1.0.9", "1.0")]
+    [InlineData("5.04.02006", "5.4.2")]
+    [InlineData("9", "5.4.2")]
+    public void AVersionGetsTheHighestConfigAtOrBelowIt(string version, string chosen)
+    {
+        Assert.Equal(chosen, PrefixConfig.For(TwoConfigs, version).Version);
+    }
+
+    [Fact]
+    public void NoKnownVersionGetsTheNewestConfig()
+    {
+        Assert.Equal("5.4.2", PrefixConfig.For(TwoConfigs, null).Version);
+    }
+
+    private static readonly IReadOnlyList<PrefixConfig> TwoConfigs =
+    [
+        new("5.4.2", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), false),
+        new("1.0", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), false),
+    ];
+
+    [Theory]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\nRunner: 9.21\n", "Prefix: family\n", "Revision: 1\n", "Runner")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\nRunner: 9.21\n", "Revision: 1\n", "Runner")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Version: 1\n", "Revision: 1\n", "Prefix")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\n", "Runner: 9.21\n", "Revision")]
+    [InlineData("Name: Gadget\nKind: windows\nSource: byo\n", "Prefix: family\n", "Revision: 1\nScript: a.sh\n", "Script")]
+    public void PrefixFilesAloneSetThePrefix(string text, string prefix, string config, string named)
     {
         var thrown = Assert.Throws<InvalidOperationException>(
-            () => LibraryEntry.Parse("gadget", text, "a-vendor", config));
+            () => LibraryEntry.Parse("gadget", text, "a-vendor", prefix, new Dictionary<string, string> { ["1"] = config }));
 
         Assert.Contains(named, thrown.Message);
+    }
+
+    [Fact]
+    public void APrefixWithoutAConfigFileIsRefused()
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "gadget", "Name: Gadget\nKind: windows\nSource: byo\n", "a-vendor", "Prefix: family\n"));
+
+        Assert.Contains("prefix-<version>.yml", thrown.Message);
     }
 
     [Theory]

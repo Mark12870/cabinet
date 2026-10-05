@@ -2,7 +2,7 @@ using System.Text;
 
 namespace Cabinet.Core;
 
-public sealed record UninstallEntry(string Key, string Name, string Command);
+public sealed record UninstallEntry(string Key, string Name, string Command, string? Version = null);
 
 public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
 {
@@ -207,7 +207,8 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
             : new UninstallEntry(
                 $@"{root}\{key}",
                 Present(values, "DisplayName") ?? key[(key.LastIndexOf('\\') + 1)..],
-                command);
+                command,
+                Present(values, "DisplayVersion"));
     }
 
     private static string? Present(IReadOnlyDictionary<string, string> values, string name) =>

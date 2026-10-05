@@ -177,11 +177,14 @@ public sealed partial class Library
 
     private SetupUpdate PlanPrefixUpdate(LibraryEntry entry, string prefix)
     {
-        var desired = PrefixSetup.From(entry);
+        var software = InstalledVersion(entry, prefix);
+        var desired = PrefixSetup.From(PrefixConfig.For(entry.Configs, software), software);
         var settings = new PrefixSettings(layout);
         var dxvkVersion = new Dxvk(layout, runner).InstalledIn(prefix);
         var actual = new PrefixSetup(
-            null,
+            "",
+            0,
+            software,
             new Prefixes(layout, runner).RunnerOf(prefix),
             dxvkVersion is not null,
             settings.Sync(prefix),
@@ -204,7 +207,11 @@ public sealed partial class Library
 
         if (previous is not null && previous.ConfigVersion != desired.ConfigVersion)
         {
-            changes.Add($"Prefix config version: {previous.ConfigVersion ?? "unversioned"} → {desired.ConfigVersion ?? "unversioned"}.");
+            changes.Add($"Config for version {desired.ConfigVersion}, replacing the one for {previous.ConfigVersion}.");
+        }
+        else if (previous is not null && previous.Revision != desired.Revision)
+        {
+            changes.Add($"Config {desired.ConfigVersion}: revision {previous.Revision} → {desired.Revision}.");
         }
 
         if (previous is null
@@ -314,8 +321,8 @@ public sealed partial class Library
             desired.Serialise(), actual.Serialise(), dxvkVersion ?? "",
             string.Join('\n', members), string.Join('\n', foreign));
         var stamp = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
-        var review = new PrefixUpdate(entry, prefix, previous is not null, previous?.ConfigVersion,
-            changes, kept, members, foreign, stamp);
+        var review = new PrefixUpdate(entry, prefix, previous is not null, desired.Label, previous?.Label,
+            software, changes, kept, members, foreign, stamp);
         return new SetupUpdate(review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, verbs);
     }
 
@@ -325,8 +332,24 @@ public sealed partial class Library
 
         if (Foreign(prefix, entry).Count == 0 && (created || PrefixSetup.Read(receipt) is null))
         {
-            PrefixSetup.From(entry).Save(receipt);
+            PrefixSetup.From(entry.Config, InstalledVersion(entry, prefix)).Save(receipt);
         }
+    }
+
+    private string? InstalledVersion(LibraryEntry entry, string prefix)
+    {
+        if (entry.FamilyVersion is { } family)
+        {
+            return family;
+        }
+
+        var keys = RecordedKeys(prefix, entry.Id).ToHashSet(StringComparer.Ordinal);
+
+        return new PrefixRegistry(layout).Uninstallers(prefix)
+                   .Where(one => keys.Contains(one.Key) && one.Version is not null && Names(one.Name, entry.Name))
+                   .Select(one => one.Version)
+                   .FirstOrDefault()
+               ?? entry.Version;
     }
 
     private static bool RunnerMatches(string actual, string? wanted) =>

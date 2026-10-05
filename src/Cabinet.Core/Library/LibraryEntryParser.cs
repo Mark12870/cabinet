@@ -2,18 +2,24 @@ namespace Cabinet.Core;
 
 internal static class LibraryEntryParser
 {
-    public const string PrefixConfig = "prefix.yml";
+    public const string PrefixFile = "prefix.yml";
 
-    private static readonly string[] PrefixKeys =
-        ["Prefix", "Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop"];
+    private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop"];
 
-    public static LibraryEntry Parse(string id, string text, string vendor, string? prefixConfig)
+    private static readonly string[] PrefixKeys = ["Prefix", .. SettingKeys];
+
+    public static LibraryEntry Parse(
+        string id,
+        string text,
+        string vendor,
+        string? prefixConfig,
+        IReadOnlyDictionary<string, string>? configs)
     {
         var fields = Fields(text);
         var kind = ParseKind(id, Required(id, fields, "Kind"));
-        var configVersion = kind == PluginKind.Windows && prefixConfig is not null
-            ? Share(id, vendor, fields, Fields(prefixConfig))
-            : null;
+        var (family, shared) = kind == PluginKind.Windows && prefixConfig is not null
+            ? Share(id, vendor, fields, Fields(prefixConfig), configs ?? new Dictionary<string, string>())
+            : (null, null);
         var source = ParseSource(id, Value(fields, "Source") ?? "download");
         var demo = Value(fields, "DemoUrl");
 
@@ -188,44 +194,81 @@ internal static class LibraryEntryParser
             Paragraphs(Value(fields, "Description")),
             vendor,
             Sentence(Value(fields, "InstallInstructions")),
-            configVersion);
+            family,
+            shared);
     }
 
-    private static string Share(
+    private static (string? Family, IReadOnlyList<PrefixConfig> Configs) Share(
         string id,
         string vendor,
         Dictionary<string, string> fields,
-        IReadOnlyDictionary<string, string> config)
+        IReadOnlyDictionary<string, string> prefix,
+        IReadOnlyDictionary<string, string> configs)
     {
         if (PrefixKeys.FirstOrDefault(fields.ContainsKey) is { } repeated)
         {
             throw new InvalidOperationException(
-                $"{id}.yml carries {repeated}, which {vendor}/{PrefixConfig} sets for every entry "
-                + "in its prefix");
+                $"{id}.yml carries {repeated}, which {vendor}'s prefix files set for every entry in its prefix");
         }
 
-        if (config.Keys.FirstOrDefault(key =>
-                key != "Version" && !PrefixKeys.Contains(key, StringComparer.OrdinalIgnoreCase)) is { } stray)
+        if (prefix.Keys.FirstOrDefault(key => key is not ("Prefix" or "Version")) is { } stray)
         {
             throw new InvalidOperationException(
-                $"{vendor}/{PrefixConfig} carries {stray} — it holds only the prefix's Version, "
-                + string.Join(", ", PrefixKeys));
+                $"{vendor}/{PrefixFile} carries {stray} — it holds only Prefix and a family's Version; "
+                + $"settings go in {PrefixConfig.FilePrefix}<version>.yml");
         }
 
-        if (Value(config, "Prefix") is null)
+        var name = Value(prefix, "Prefix")
+                   ?? throw new InvalidOperationException($"{vendor}/{PrefixFile} has no Prefix");
+        var family = Value(prefix, "Version");
+        var parsed = configs.ToDictionary(
+            pair => pair.Key,
+            pair => Fields(pair.Value),
+            StringComparer.Ordinal);
+
+        if (parsed.Count == 0)
         {
-            throw new InvalidOperationException($"{vendor}/{PrefixConfig} has no Prefix");
+            throw new InvalidOperationException(
+                $"{vendor} has {PrefixFile} but no {PrefixConfig.FilePrefix}<version>.yml to set its prefix up");
         }
 
-        var version = Value(config, "Version")
-                      ?? throw new InvalidOperationException($"{vendor}/{PrefixConfig} has no Version");
+        var all = parsed.Select(pair => Config($"{vendor}/{PrefixConfig.FilePrefix}{pair.Key}", pair.Key, pair.Value))
+            .ToList();
+        var current = PrefixConfig.For(all, family ?? Value(fields, "Version"));
 
-        foreach (var (key, value) in config.Where(pair => pair.Key != "Version"))
+        fields["Prefix"] = name;
+
+        foreach (var (key, value) in parsed[current.Version].Where(pair => pair.Key != "Revision"))
         {
             fields[key] = value;
         }
 
-        return version;
+        return (family, all);
+    }
+
+    private static PrefixConfig Config(string file, string version, IReadOnlyDictionary<string, string> fields)
+    {
+        if (fields.Keys.FirstOrDefault(key =>
+                key != "Revision" && !SettingKeys.Contains(key, StringComparer.OrdinalIgnoreCase)) is { } stray)
+        {
+            throw new InvalidOperationException(
+                $"{file}.yml carries {stray} — it holds Revision and {string.Join(", ", SettingKeys)}");
+        }
+
+        if (!int.TryParse(Value(fields, "Revision"), out var revision) || revision < 1)
+        {
+            throw new InvalidOperationException($"{file}.yml needs a Revision: a whole number from 1 up");
+        }
+
+        return new PrefixConfig(
+            version,
+            revision,
+            Value(fields, "Runner"),
+            Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
+            Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
+            ParseWinetricks(file, Value(fields, "Winetricks")),
+            ParseEnv(file, Value(fields, "Env")),
+            Value(fields, "Desktop") is { } desktop && bool.Parse(desktop));
     }
 
     private static string ParsePrefix(string id, string name) =>

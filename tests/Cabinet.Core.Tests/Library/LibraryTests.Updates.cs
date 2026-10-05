@@ -452,7 +452,7 @@ public partial class LibraryTests
             File.ReadAllText(layout.PrefixSetupFile("chosen")));
 
         Assert.Equal("1.2.3", receipt.RootElement.GetProperty("configVersion").GetString());
-        Assert.Equal("1.2.3", library.PrefixUpdateOf(library.Find("thing"))!.AppliedVersion);
+        Assert.Equal("1.2.3, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
         Assert.Empty(library.PrefixUpdates());
     }
 
@@ -467,13 +467,13 @@ public partial class LibraryTests
         var update = library.PrefixUpdateOf(library.Find("thing"))!;
 
         Assert.True(update.Available);
-        Assert.Equal("1.2.3", update.AppliedVersion);
+        Assert.Equal("1.2.3, revision 1", update.Applied);
         Assert.Contains("1.3.0", string.Join("\n", update.Changes));
 
         library.UpdatePrefix(update);
 
         Assert.Empty(recorder.Ran);
-        Assert.Equal("1.3.0", library.PrefixUpdateOf(library.Find("thing"))!.AppliedVersion);
+        Assert.Equal("1.3.0, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
         Assert.Empty(library.PrefixUpdates());
     }
 
@@ -488,13 +488,13 @@ public partial class LibraryTests
         var update = library.PrefixUpdateOf(library.Find("thing"))!;
 
         Assert.True(update.Available);
-        Assert.Equal("1.2.3", update.AppliedVersion);
+        Assert.Equal("1.2.3, revision 1", update.Applied);
 
         library.UpdatePrefix(update);
 
         Assert.Equal(["--unattended", "allfonts"],
             Assert.Single(recorder.Ran, call => call.File == Core.Layout.Winetricks).Arguments);
-        Assert.Equal("1.2.3", library.PrefixUpdateOf(library.Find("thing"))!.AppliedVersion);
+        Assert.Equal("1.2.3, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
         Assert.Empty(library.PrefixUpdates());
     }
 
@@ -538,10 +538,39 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void ThePrefixConfigFollowsTheVersionTheInstalledSoftwareReports()
+    {
+        Catalogue(
+            ("thing", "Name: Thing\nKind: windows\nSource: byo\nVersion: 2.0\n"),
+            ("prefix", "Prefix: chosen\n"),
+            ("prefix-1.0", "Revision: 1\nWinetricks: corefonts\n"),
+            ("prefix-2.0", "Revision: 1\nWinetricks: allfonts\n"));
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("chosen"), "dosdevices"));
+        File.WriteAllText(
+            layout.PrefixPluginsFile("chosen"),
+            "thing\tHKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Thing\n");
+        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), "corefonts\n");
+        var library = new Library(layout, new UnusedRunner());
+
+        InstalledThingReports(layout, "1.5");
+        var older = library.PrefixUpdateOf(library.Find("thing"))!;
+        InstalledThingReports(layout, "2.1");
+        var newer = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal("1.5", older.Software);
+        Assert.Equal("1.0, revision 1", older.Config);
+        Assert.Empty(older.Changes);
+        Assert.Equal("2.1", newer.Software);
+        Assert.Equal("2.0, revision 1", newer.Config);
+        Assert.Equal(["Winetricks: allfonts."], newer.Changes);
+    }
+
+    [Fact]
     public void AFamilySharesOneUpdateAcrossItsMembers()
     {
         var layout = InstallFamily();
-        Catalogue(("prefix", FamilyConfig.Replace("Version: 1", "Version: 2").Replace("corefonts", "allfonts")));
+        Catalogue(("prefix-1", FamilyConfig.Replace("Revision: 1", "Revision: 2").Replace("corefonts", "allfonts")));
         var recorder = new RecordingRunner();
         var library = new Library(layout, recorder);
 
@@ -549,7 +578,8 @@ public partial class LibraryTests
         var update = Assert.Single(library.PendingPrefixUpdates());
         Assert.Equal(["one", "two"], update.Members);
         Assert.Empty(update.Sharing);
-        Assert.Equal("1", update.AppliedVersion);
+        Assert.Equal("1, revision 1", update.Applied);
+        Assert.Contains("Config 1: revision 1 → 2.", update.Changes);
 
         library.UpdatePrefix(update);
 
@@ -579,7 +609,8 @@ public partial class LibraryTests
     public void AFamilyMemberSkipsASiblingsPrefixThatHoldsAnotherSetup()
     {
         Catalogue(
-            ("prefix", FamilyConfig),
+            ("prefix", FamilyPrefix),
+            ("prefix-1", FamilyConfig),
             ("one", "Name: One\nKind: windows\nSource: byo\n"),
             ("two", "Name: Two\nKind: windows\nSource: byo\n"));
         var layout = Layout();
@@ -639,12 +670,15 @@ public partial class LibraryTests
 
     private const string SetupInstaller = "synthetic-setup.exe";
 
-    private const string FamilyConfig = "Prefix: family\nVersion: 1\nWinetricks: corefonts\n";
+    private const string FamilyPrefix = "Prefix: family\nVersion: 1\n";
+
+    private const string FamilyConfig = "Revision: 1\nWinetricks: corefonts\n";
 
     private Layout InstallFamily()
     {
         Catalogue(
-            ("prefix", FamilyConfig),
+            ("prefix", FamilyPrefix),
+            ("prefix-1", FamilyConfig),
             ("one", "Name: One\nKind: windows\nSource: byo\n"),
             ("two", "Name: Two\nKind: windows\nSource: byo\n"));
         var layout = Layout();
@@ -680,6 +714,16 @@ public partial class LibraryTests
         File.WriteAllText(layout.PrefixWinetricksLog("chosen"), verbs);
         return layout;
     }
+
+    private static void InstalledThingReports(Layout layout, string version) =>
+        File.WriteAllText(layout.PrefixSystemReg("chosen"), $$"""
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Thing] 1787344290
+            "DisplayName"="Thing version {{version}}"
+            "DisplayVersion"="{{version}}"
+            "UninstallString"="C:\\uninstall.exe"
+            """);
 
     private Library RemovableThing(Layout layout)
     {
