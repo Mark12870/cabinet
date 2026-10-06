@@ -46,6 +46,20 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.24.0" date="2026-10-06">
+      <description>
+        <p>Prefix updates show what they change and let you keep your own settings</p>
+        <ul>
+          <li>Prefixes set up before Cabinet kept a record of their setup are recorded on their first setup, without changing anything in them</li>
+          <li>An update lists each setting with its current and new value, and when it would replace settings you changed yourself, you choose between the full setup (recommended) and keeping your changes; on the command line, pass --keep-changes</li>
+          <li>Winetricks components missing from a prefix are offered as an update in the Library</li>
+          <li>A plugin's page has a Prefix section showing where it is installed, with a link to that prefix, the installed version and whether its setup is up to date, has an update or differs from Cabinet's setup</li>
+          <li>Installed plugins carry an Installed tag on their page, and the page lists their category and account</li>
+          <li>cabinet library show prints the same Prefix section</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.23.0" date="2026-10-05">
       <description>
         <p>Prefix updates keep each plugin's prefix in step with Cabinet's setup</p>
