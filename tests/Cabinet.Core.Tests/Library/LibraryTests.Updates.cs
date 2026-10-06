@@ -500,6 +500,99 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void RestoringPutsEveryEditedSettingBackToTheConfig()
+    {
+        var recipe = SetupRecipe + "\nRunner: 9.21\nSync: fsync\nEnv:\n  CHANGED=old\n  REMOVED=gone\n";
+        var layout = InstallSetup(recipe, before: prepared =>
+        {
+            OnRunner("9.21")(prepared);
+            new PrefixSettings(prepared).SetSync("chosen", SyncMode.Fsync);
+        });
+        var receipt = File.ReadAllText(layout.PrefixSetupFile("chosen"));
+        OnRunner("10.0")(layout);
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        settings.SetVariable("chosen", "CHANGED", "mine");
+        settings.SetVariable("chosen", "REMOVED", null);
+        settings.SetVariable("chosen", "UNRELATED", "kept");
+        File.WriteAllText(layout.PrefixDxvkFile("chosen"), Dxvk.Version + "\n");
+        File.WriteAllText(layout.PrefixUserReg("chosen"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Wine\\Explorer] 1787567817
+            "Desktop"="Default"
+
+            [Software\\Wine\\Explorer\\Desktops] 1787567817
+            "Default"="1920x1080"
+            """);
+        var recorder = new RecordingRunner();
+        var library = new Library(layout, recorder);
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+        var output = new List<string>();
+
+        library.RestorePrefix(review, output.Add);
+
+        Assert.Equal(6, review.Edits.Count);
+        Assert.Equal("9.21", File.ReadAllText(layout.PrefixRunnerFile("chosen")).Trim());
+        Assert.Equal(SyncMode.Fsync, settings.Sync("chosen"));
+        Assert.Equal("old", settings.Variables("chosen")["CHANGED"]);
+        Assert.Equal("gone", settings.Variables("chosen")["REMOVED"]);
+        Assert.Equal("kept", settings.Variables("chosen")["UNRELATED"]);
+        Assert.False(File.Exists(layout.PrefixDxvkFile("chosen")));
+        Assert.Contains(recorder.Ran, call => call.Arguments.Contains("reg") && call.Arguments.Contains("delete"));
+        Assert.DoesNotContain(recorder.Ran, call => call.File == Core.Layout.Winetricks);
+        Assert.Equal(receipt, File.ReadAllText(layout.PrefixSetupFile("chosen")));
+        Assert.Contains("Thing's prefix matches its config again.", output);
+    }
+
+    [Fact]
+    public void RestoringReturnsToBundledWineAndTurnsTheDesktopBackOn()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nDesktop: true\n");
+        File.WriteAllText(layout.PrefixUserReg("chosen"), "WINE REGISTRY Version 2\n");
+        OnRunner("9.21")(layout);
+        var recorder = new RecordingRunner();
+        var library = new Library(layout, recorder);
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        library.RestorePrefix(review);
+
+        Assert.Equal(["Wine 9.21 instead of bundled.", "Virtual desktop off instead of on."], review.Edits);
+        Assert.False(File.Exists(layout.PrefixRunnerFile("chosen")));
+        Assert.Contains(recorder.Ran, call => call.Arguments.Contains("reg") && call.Arguments.Contains("add"));
+        Assert.DoesNotContain(recorder.Ran, call => call.File == Core.Layout.Winetricks);
+    }
+
+    [Fact]
+    public void RestoringAPrefixThatMatchesItsConfigDoesNothing()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        var library = new Library(layout, new UnusedRunner());
+        var output = new List<string>();
+
+        library.RestorePrefix(library.PrefixUpdateOf(library.Find("thing"))!, output.Add);
+
+        Assert.Equal(["Thing's prefix already matches its config."], output);
+    }
+
+    [Fact]
+    public void ARestoreAfterTheSettingsChangedAgainIsRefused()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nSync: fsync\n", before: prepared =>
+            new PrefixSettings(prepared).SetSync("chosen", SyncMode.Fsync));
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        var library = new Library(layout, new UnusedRunner());
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+        settings.SetSync("chosen", SyncMode.Esync);
+
+        var refused = Assert.Throws<InvalidOperationException>(() => library.RestorePrefix(review));
+
+        Assert.Contains("review the prefix again", refused.Message);
+        Assert.Equal(SyncMode.Esync, settings.Sync("chosen"));
+    }
+
+    [Fact]
     public void AnUnchangedSetupLeavesSettingsChangedByHand()
     {
         var recipe = SetupRecipe + "\nSync: fsync\nEnv: MANAGED=recommended\n";

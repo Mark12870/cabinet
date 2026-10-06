@@ -32,6 +32,7 @@ internal static partial class Program
                                                install one; demo entries download without a file
           cabinet library update <id>|--all [--keep-changes]
                                                review and apply a changed prefix config
+          cabinet library restore <id>         put a prefix's edited settings back to its config
           cabinet library remove <id>          uninstall one; asks before taking its prefix
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library stop <id>            close a manager Cabinet opened

@@ -11,6 +11,7 @@ internal static partial class Program
             "show" => ShowFromLibrary(line, layout, runner),
             "install" => InstallFromLibrary(line, layout, runner),
             "update" => UpdateFromLibrary(line, layout, runner),
+            "restore" => One(line, "a plugin id", id => RestoreFromLibrary(layout, runner, id)),
             "remove" => One(line, "a plugin id", id => RemoveFromLibrary(layout, runner, id)),
             "launch" => One(line, "a plugin id", id => LaunchFromLibrary(layout, runner, id)),
             "stop" => One(line, "a plugin id", id => StopFromLibrary(layout, runner, id)),
@@ -392,6 +393,50 @@ internal static partial class Program
 
         library.UpdatePrefix(update, Console.WriteLine, keepCustom: keepChanges);
         Console.WriteLine($"{entry.Name}'s prefix setup is up to date.");
+        return Exit.Ok;
+    }
+
+    private static int RestoreFromLibrary(Layout layout, IProcessRunner runner, string id)
+    {
+        var library = new Library(layout, runner);
+        var entry = library.Find(id);
+
+        if (entry.Kind == PluginKind.Native)
+        {
+            throw new InvalidOperationException($"{entry.Name} is a Linux plugin, so it has no Wine prefix to restore");
+        }
+
+        var review = library.PrefixUpdateOf(entry)
+                     ?? throw new KeyNotFoundException($"{entry.Name} is not installed");
+
+        if (review.Applied is null)
+        {
+            Console.WriteLine($"{review.Prefix} also holds {string.Join(", ", review.Sharing)}, so it has no config of its own to restore.");
+            return Exit.Ok;
+        }
+
+        if (review.Available)
+        {
+            Console.WriteLine($"{entry.Name}'s prefix has an update; `cabinet library update {id}` reviews and applies it.");
+            return Exit.Ok;
+        }
+
+        if (review.Edits.Count == 0)
+        {
+            Console.WriteLine($"{entry.Name}'s prefix already matches its config.");
+            return Exit.Ok;
+        }
+
+        Console.WriteLine($"{PrefixUpdate.DiffersFromConfig} {review.Applied}:");
+        Console.WriteLine(string.Join(Environment.NewLine, review.Edits.Select(edit => Wrapped($"- {edit}"))));
+        Console.WriteLine();
+
+        if (!Confirmed($"Restore prefix '{review.Prefix}' to its config? [y/N] "))
+        {
+            return LeftAlone();
+        }
+
+        library.RestorePrefix(review, Console.WriteLine);
         return Exit.Ok;
     }
 

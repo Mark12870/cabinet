@@ -312,6 +312,7 @@ internal sealed partial class LibraryPage
             Launch,
             Stop,
             ConfirmUpdate,
+            ConfirmRestore,
             openPrefix,
             one => LaunchLog(one)());
         page.Show(entry, here, Running(entry.Id), reviews.GetValueOrDefault(entry.Id),

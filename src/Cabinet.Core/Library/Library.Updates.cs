@@ -46,25 +46,42 @@ public sealed partial class Library
         PrefixUpdate reviewed,
         Action<string>? onOutput = null,
         Action<double>? onProgress = null,
-        bool keepCustom = false)
+        bool keepCustom = false) =>
+        ChangePrefix(reviewed, restoring: false, keepCustom, onOutput, onProgress);
+
+    public void RestorePrefix(
+        PrefixUpdate reviewed,
+        Action<string>? onOutput = null,
+        Action<double>? onProgress = null) =>
+        ChangePrefix(reviewed, restoring: true, keepCustom: false, onOutput, onProgress);
+
+    private void ChangePrefix(
+        PrefixUpdate reviewed,
+        bool restoring,
+        bool keepCustom,
+        Action<string>? onOutput,
+        Action<double>? onProgress)
     {
         var prefixes = new Prefixes(layout, runner);
-        using var claim = prefixes.Claim(reviewed.Prefix, $"update {reviewed.Entry.Name}'s prefix setup");
+        using var claim = prefixes.Claim(
+            reviewed.Prefix, $"{(restoring ? "restore" : "update")} {reviewed.Entry.Name}'s prefix setup");
         var entry = Find(reviewed.Entry.Id);
         var prefix = Where(entry);
         var planned = PlanPrefixUpdate(entry, prefix);
-        var plan = keepCustom ? planned.KeepingCustom() : planned;
+        var plan = restoring ? planned.Restoring() : keepCustom ? planned.KeepingCustom() : planned;
 
         if (prefix != reviewed.Prefix || plan.Review.Stamp != reviewed.Stamp)
         {
             throw new InvalidOperationException(
                 $"{entry.Name}'s catalogue setup or prefix changed since you reviewed it — "
-                + "review the prefix update again");
+                + $"review the prefix {(restoring ? "again" : "update again")}");
         }
 
-        if (!plan.Review.Available)
+        if (restoring ? plan.Review.Edits.Count == 0 : !plan.Review.Available)
         {
-            onOutput?.Invoke($"{entry.Name}'s prefix setup is already up to date.");
+            onOutput?.Invoke(restoring
+                ? $"{entry.Name}'s prefix already matches its config."
+                : $"{entry.Name}'s prefix setup is already up to date.");
             return;
         }
 
@@ -81,7 +98,7 @@ public sealed partial class Library
             onOutput?.Invoke(line);
         }
 
-        Say($"Updating {entry.Name}'s prefix setup in {prefix}.");
+        Say($"{(restoring ? "Restoring" : "Updating")} {entry.Name}'s prefix setup in {prefix}.");
 
         var hasWork = plan.Runner is not null || plan.Sync is not null
                       || plan.Dxvk is not null || plan.Desktop is not null
@@ -107,7 +124,9 @@ public sealed partial class Library
         {
             plan.Desired.Save(layout.PrefixSetupFile(prefix));
         }
-        Say($"{entry.Name}'s prefix setup is up to date.");
+        Say(restoring
+            ? $"{entry.Name}'s prefix matches its config again."
+            : $"{entry.Name}'s prefix setup is up to date.");
     }
 
     private void ApplyPrefixSetup(
@@ -291,7 +310,8 @@ public sealed partial class Library
         var stamp = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
         var review = new PrefixUpdate(entry, prefix, desired.ConfigVersion, desired.Revision, previous?.Label,
             software, revised, changes, resets, edits, present, dropped, members, foreign, verbs, stamp);
-        return new SetupUpdate(review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, verbs, custom);
+        return new SetupUpdate(
+            review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, verbs, custom, previous, actual);
     }
 
     private void RecordSetup(LibraryEntry entry, string prefix, bool created)
@@ -413,8 +433,24 @@ public sealed partial class Library
         bool? Desktop,
         IReadOnlyDictionary<string, string?> Env,
         IReadOnlyList<string> Winetricks,
-        IReadOnlySet<string> Custom)
+        IReadOnlySet<string> Custom,
+        PrefixSetup? Applied,
+        PrefixSetup Actual)
     {
+        public SetupUpdate Restoring() => Applied is not { } applied
+            ? this
+            : this with
+            {
+                Desired = applied,
+                Runner = RunnerMatches(Actual.Runner!, applied.Runner) ? null : applied.Runner ?? Layout.BundledRunner,
+                Sync = Actual.Sync == applied.Sync ? null : applied.Sync,
+                Dxvk = Actual.Dxvk == applied.Dxvk ? null : applied.Dxvk,
+                Desktop = Actual.Desktop == applied.Desktop ? null : applied.Desktop,
+                Env = applied.Env.Where(pair => Actual.Env.GetValueOrDefault(pair.Key) != pair.Value)
+                    .ToDictionary(pair => pair.Key, string? (pair) => pair.Value, StringComparer.Ordinal),
+                Winetricks = [],
+            };
+
         public SetupUpdate KeepingCustom() => this with
         {
             Runner = Custom.Contains(RunnerSetting) ? null : Runner,

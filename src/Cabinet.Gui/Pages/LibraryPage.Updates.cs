@@ -30,6 +30,30 @@ internal sealed partial class LibraryPage
         dialog.SetPreferWideLayout(true);
     }
 
+    private void ConfirmRestore(PrefixUpdate review)
+    {
+        if (UpdateBlocked(review))
+        {
+            toast($"{review.Prefix} is in use; close its apps and wait for ongoing operations to finish.");
+            return;
+        }
+
+        var edits = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+        Section(edits, PrefixUpdate.DiffersFromConfig, review.Edits, null);
+
+        var dialog = Ui.Confirm(
+            window,
+            $"Restore the {review.Prefix} prefix?",
+            $"Its settings go back to Cabinet's setup for {review.Entry.Name} {review.Applied}.",
+            "Restore config",
+            () => operations.Run(
+                $"Restoring prefix {review.Prefix}",
+                (output, progress) => new Library(layout, runner).RestorePrefix(review, output, progress),
+                changed),
+            extra: edits);
+        dialog.SetPreferWideLayout(true);
+    }
+
     public void UpdateAll() =>
         Task.Run(() => new Library(layout, runner).PendingPrefixUpdates()).ContinueWith(found =>
             Ui.OnMainLoop(() =>

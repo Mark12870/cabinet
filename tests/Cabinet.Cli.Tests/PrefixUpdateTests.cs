@@ -246,6 +246,72 @@ public sealed class PrefixUpdateTests : IDisposable
     }
 
     [Fact]
+    public void RestoringPutsAnEditedVariableBack()
+    {
+        Installed(Plugin + "Env: TEST_OPTION=enabled\n");
+        File.WriteAllText(cli.Layout.PrefixSetupFile("thing"),
+            "{\"version\":2,\"configVersion\":\"\",\"revision\":1,\"software\":null,\"runner\":null,"
+            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{\"TEST_OPTION\":\"enabled\"},\"desktop\":false}");
+        var settings = new PrefixSettings(cli.Layout);
+        settings.SetVariable("thing", "TEST_OPTION", "personal");
+
+        var declined = cli.Answer("n\n", "library", "restore", "thing");
+        var restored = cli.Answer("y\n", "library", "restore", "thing");
+        var again = cli.Run("library", "restore", "thing");
+
+        Assert.Equal(3, declined.Exit);
+        Assert.Contains("- TEST_OPTION personal instead of enabled.", declined.Out);
+        Assert.Contains("Restore prefix 'thing' to its config?", declined.Error);
+        Assert.Equal(0, restored.Exit);
+        Assert.Equal("enabled", settings.Variables("thing")["TEST_OPTION"]);
+        Assert.Contains("Thing's prefix matches its config again.", restored.Out);
+        Assert.Equal("Thing's prefix already matches its config.\n", again.Out);
+    }
+
+    [Fact]
+    public void RestoringPointsToAPendingUpdate()
+    {
+        Installed(Plugin);
+        new PrefixSettings(cli.Layout).SetVariable("thing", "TEST_OPTION", "personal");
+        cli.Catalogue("thing", Plugin + "Env: TEST_OPTION=enabled\n");
+
+        var outcome = cli.Run("library", "restore", "thing");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.Equal("Thing's prefix has an update; `cabinet library update thing` reviews and applies it.\n", outcome.Out);
+        Assert.Equal("personal", new PrefixSettings(cli.Layout).Variables("thing")["TEST_OPTION"]);
+    }
+
+    [Fact]
+    public void RestoringAPrefixSharedWithAnotherVendorSaysItHasNoConfig()
+    {
+        Installed(Plugin);
+        cli.Catalogue("other", "Name: Other\nKind: windows\nSource: byo\nDeveloper: Other Vendor\n");
+        File.AppendAllText(cli.Layout.PrefixPluginsFile("thing"), "other\n");
+
+        var outcome = cli.Run("library", "restore", "thing");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.Equal("thing also holds other, so it has no config of its own to restore.\n", outcome.Out);
+    }
+
+    [Fact]
+    public void RestoringNeedsAnInstalledWindowsPlugin()
+    {
+        cli.Catalogue("thing", Plugin);
+        cli.Catalogue("synth", "Name: Synth\nKind: native\nSource: byo\n");
+        Directory.CreateDirectory(cli.Layout.NativePath("synth"));
+
+        var absent = cli.Run("library", "restore", "thing");
+        var native = cli.Run("library", "restore", "synth");
+
+        Assert.Equal(4, absent.Exit);
+        Assert.Equal("cabinet: Thing is not installed\n", absent.Error);
+        Assert.Equal(1, native.Exit);
+        Assert.Contains("has no Wine prefix to restore", native.Error);
+    }
+
+    [Fact]
     public void AnUpdateRefusesAPrefixInUseByADaw()
     {
         Installed(Plugin + "Winetricks: corefonts\n");

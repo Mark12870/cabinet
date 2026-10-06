@@ -10,6 +10,7 @@ internal sealed class PluginPage
     private readonly Action<LibraryEntry> launch;
     private readonly Action<LibraryEntry> stop;
     private readonly Action<PrefixUpdate> update;
+    private readonly Action<PrefixUpdate> restore;
     private readonly Action<string> openPrefix;
     private readonly Func<LibraryEntry, string?> log;
     private readonly Gtk.Window window;
@@ -24,6 +25,7 @@ internal sealed class PluginPage
         Action<LibraryEntry> launch,
         Action<LibraryEntry> stop,
         Action<PrefixUpdate> update,
+        Action<PrefixUpdate> restore,
         Action<string> openPrefix,
         Func<LibraryEntry, string?> log)
     {
@@ -34,6 +36,7 @@ internal sealed class PluginPage
         this.launch = launch;
         this.stop = stop;
         this.update = update;
+        this.restore = restore;
         this.openPrefix = openPrefix;
         this.log = log;
         Id = entry.Id;
@@ -109,19 +112,18 @@ internal sealed class PluginPage
 
         var state = Ui.Tag(plan.State, plan.Available || plan.Edits.Count > 0 ? "warning" : "success");
         state.SetValign(Gtk.Align.Center);
+        state.SetMarginEnd(6);
         config.AddSuffix(state);
 
         if (plan.Available)
         {
-            var button = Gtk.Button.NewWithLabel("Update prefix…");
-            button.SetValign(Gtk.Align.Center);
-            button.SetSensitive(!blocked);
-            button.SetTooltipText(blocked
-                ? "Close apps using this prefix and wait for ongoing operations to finish."
-                : "Apply the reviewed dependencies and prefix settings.");
-            button.OnClicked += (_, _) => Ui.Guard(() => update(plan));
-            config.AddSuffix(button);
-            config.SetActivatableWidget(button);
+            config.AddSuffix(ConfigButton(
+                "Update prefix…", "Apply the reviewed dependencies and prefix settings.", blocked, () => update(plan)));
+        }
+        else if (plan.Edits.Count > 0)
+        {
+            config.AddSuffix(ConfigButton(
+                "Restore config…", "Put the edited settings back to this config.", blocked, () => restore(plan)));
         }
 
         group.Add(config);
@@ -132,6 +134,18 @@ internal sealed class PluginPage
         Add(group, PrefixUpdate.ReplacesYours, plan.Resets.Count > 0 ? string.Join("\n", plan.Resets) : null);
         Add(group, "Other plugins in this prefix", plan.Sharing.Count > 0 ? string.Join(", ", plan.Sharing) : null);
         return group;
+    }
+
+    private static Gtk.Button ConfigButton(string label, string tooltip, bool blocked, Action clicked)
+    {
+        var button = Gtk.Button.NewWithLabel(label);
+        button.SetValign(Gtk.Align.Center);
+        button.SetSensitive(!blocked);
+        button.SetTooltipText(blocked
+            ? "Close apps using this prefix and wait for ongoing operations to finish."
+            : tooltip);
+        button.OnClicked += (_, _) => Ui.Guard(clicked);
+        return button;
     }
 
     private Gtk.Widget Heading(LibraryEntry entry, bool installed)
