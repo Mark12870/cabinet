@@ -588,12 +588,12 @@ def main():
             )
             loop.turn(10)
             shown = look(window, f"type-{x}-{y}", loop)
-            answered = difference(untyped, shown) if untyped and shown else 0.0
+            change = difference(untyped, shown) if untyped and shown else 0.0
             for frame in (untyped, shown):
                 if frame:
                     os.remove(frame)
-            note(f"typed at {x} {y} answered {answered:.6f}")
-            typed = max(typed, answered)
+            note(f"typed at {x} {y} answered {change:.6f}")
+            typed = max(typed, change)
 
         for x, y in zip(CLICK[::2], CLICK[1::2]):
             before = capture(window, "unpressed")
