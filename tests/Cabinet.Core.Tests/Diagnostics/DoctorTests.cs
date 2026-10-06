@@ -104,6 +104,8 @@ public sealed class DoctorTests : IDisposable
         GiveEntry("acme", "gadget", "Gadget 2", "9.21");
         File.AppendAllText(Path.Combine(root, "library", "acme", "gadget.yml"), "Env: GADGET_MODE=on\n");
         GiveRecord("gadget", "gadget");
+        PrefixSetup.From(new PrefixConfig("", 1, "9.21", false, SyncMode.System, [],
+            new Dictionary<string, string>(), false), null).Save(Layout.PrefixSetupFile("gadget"));
 
         var check = Assert.Single(Checks(), c => c.Name == "prefix updates");
 

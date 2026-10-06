@@ -12,23 +12,26 @@ public sealed partial class Library
             ? PlanPrefixUpdate(entry, prefix).Review
             : null;
 
-    public IReadOnlyDictionary<string, PrefixUpdate> PrefixUpdates()
+    public IReadOnlyDictionary<string, PrefixUpdate> PrefixUpdates() =>
+        PrefixReviews().Where(pair => pair.Value.Available)
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+
+    public IReadOnlyDictionary<string, PrefixUpdate> PrefixReviews()
     {
         var installed = Installed();
-        var updates = new Dictionary<string, PrefixUpdate>(StringComparer.Ordinal);
+        var reviews = new Dictionary<string, PrefixUpdate>(StringComparer.Ordinal);
 
         foreach (var entry in Entries())
         {
             if (entry.Kind == PluginKind.Windows
                 && installed.TryGetValue(entry.Id, out var prefix)
-                && prefix is not null
-                && PlanPrefixUpdate(entry, prefix).Review is { Available: true } update)
+                && prefix is not null)
             {
-                updates.Add(entry.Id, update);
+                reviews.Add(entry.Id, PlanPrefixUpdate(entry, prefix).Review);
             }
         }
 
-        return updates;
+        return reviews;
     }
 
     public IReadOnlyList<PrefixUpdate> PendingPrefixUpdates() => PerPrefix(PrefixUpdates().Values);
@@ -42,13 +45,15 @@ public sealed partial class Library
     public void UpdatePrefix(
         PrefixUpdate reviewed,
         Action<string>? onOutput = null,
-        Action<double>? onProgress = null)
+        Action<double>? onProgress = null,
+        bool keepCustom = false)
     {
         var prefixes = new Prefixes(layout, runner);
         using var claim = prefixes.Claim(reviewed.Prefix, $"update {reviewed.Entry.Name}'s prefix setup");
         var entry = Find(reviewed.Entry.Id);
         var prefix = Where(entry);
-        var plan = PlanPrefixUpdate(entry, prefix);
+        var planned = PlanPrefixUpdate(entry, prefix);
+        var plan = keepCustom ? planned.KeepingCustom() : planned;
 
         if (prefix != reviewed.Prefix || plan.Review.Stamp != reviewed.Stamp)
         {
@@ -77,11 +82,6 @@ public sealed partial class Library
         }
 
         Say($"Updating {entry.Name}'s prefix setup in {prefix}.");
-
-        foreach (var kept in plan.Review.Preserved)
-        {
-            Say(kept);
-        }
 
         var hasWork = plan.Runner is not null || plan.Sync is not null
                       || plan.Dxvk is not null || plan.Desktop is not null
@@ -196,123 +196,7 @@ public sealed partial class Library
             .Order(StringComparer.Ordinal).ToList();
         var foreign = Foreign(prefix, entry).Order(StringComparer.Ordinal).ToList();
         var free = foreign.Count == 0;
-        var previous = free ? PrefixSetup.Read(layout.PrefixSetupFile(prefix)) : null;
-        var changes = new List<string>();
-        var kept = new List<string>();
-        string? runnerChange = null;
-        SyncMode? syncChange = null;
-        bool? dxvkChange = null;
-        bool? desktopChange = null;
-        var env = new Dictionary<string, string?>(StringComparer.Ordinal);
-
-        if (previous is null
-                ? free && !RunnerMatches(actual.Runner!, desired.Runner)
-                : previous.Runner != desired.Runner)
-        {
-            if (!RunnerMatches(actual.Runner!, desired.Runner))
-            {
-                if (previous is not null && RunnerMatches(actual.Runner!, previous.Runner) && free)
-                {
-                    runnerChange = desired.Runner ?? Layout.BundledRunner;
-                    changes.Add($"Switch to Wine {RunnerWord(desired.Runner)}.");
-                }
-                else
-                {
-                    kept.Add($"Keeps Wine {actual.Runner} instead of the recommended {RunnerWord(desired.Runner)}.");
-                }
-            }
-        }
-
-        if (previous is null ? free && actual.Sync != desired.Sync : previous.Sync != desired.Sync)
-        {
-            if (actual.Sync != desired.Sync)
-            {
-                if (previous is not null && actual.Sync == previous.Sync && free)
-                {
-                    syncChange = desired.Sync;
-                    changes.Add($"Switch the sync mode to {PrefixSettings.Word(desired.Sync)}.");
-                }
-                else
-                {
-                    kept.Add($"Keeps the {PrefixSettings.Word(actual.Sync)} sync mode instead of the recommended {PrefixSettings.Word(desired.Sync)}.");
-                }
-            }
-        }
-
-        if (previous is null ? free && desired.Dxvk && !actual.Dxvk : previous.Dxvk != desired.Dxvk)
-        {
-            if (actual.Dxvk != desired.Dxvk)
-            {
-                if ((previous is null || actual.Dxvk == previous.Dxvk) && free)
-                {
-                    dxvkChange = desired.Dxvk;
-                    changes.Add(desired.Dxvk ? "Turn on DXVK for Direct3D." : "Turn off DXVK and use Wine's own Direct3D.");
-                }
-                else
-                {
-                    kept.Add(desired.Dxvk
-                        ? "Keeps DXVK off instead of the recommended on."
-                        : "Keeps DXVK on instead of the recommended off.");
-                }
-            }
-        }
-
-        if (previous is null ? free && desired.Desktop && !actual.Desktop : previous.Desktop != desired.Desktop)
-        {
-            if (actual.Desktop != desired.Desktop)
-            {
-                if ((previous is null || actual.Desktop == previous.Desktop) && free)
-                {
-                    desktopChange = desired.Desktop;
-                    changes.Add(desired.Desktop ? "Turn on the Wine virtual desktop." : "Turn off the Wine virtual desktop.");
-                }
-                else
-                {
-                    kept.Add(desired.Desktop
-                        ? "Keeps the virtual desktop off instead of the recommended on."
-                        : "Keeps the virtual desktop on instead of the recommended off.");
-                }
-            }
-        }
-
-        foreach (var key in desired.Env.Keys.Concat(previous?.Env.Keys ?? [])
-                     .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
-        {
-            var wanted = desired.Env.GetValueOrDefault(key);
-            var before = previous?.Env.GetValueOrDefault(key);
-            var current = actual.Env.GetValueOrDefault(key);
-
-            if (!free || (previous is null ? current == wanted : wanted == before))
-            {
-                continue;
-            }
-
-            if (current != wanted)
-            {
-                if (current is null && before is null || previous is not null && current == before)
-                {
-                    env[key] = wanted;
-                    changes.Add(wanted is null ? $"Remove the variable {key}." : $"Set {key} to {wanted}.");
-                }
-                else
-                {
-                    kept.Add($"Keeps {key} as it is instead of the recommended value.");
-                }
-            }
-        }
-
-        var verbs = desired.Winetricks
-            .Except((previous ?? actual).Winetricks, StringComparer.Ordinal)
-            .Except(actual.Winetricks, StringComparer.Ordinal)
-            .ToList();
-        changes.AddRange(verbs.Select(verb => $"Install {verb} with Winetricks."));
-        var present = previous is null
-            ? []
-            : desired.Winetricks.Except(previous.Winetricks, StringComparer.Ordinal)
-                .Intersect(actual.Winetricks, StringComparer.Ordinal).ToList();
-        var dropped = previous is null
-            ? []
-            : previous.Winetricks.Except(desired.Winetricks, StringComparer.Ordinal).ToList();
+        var previous = free ? Receipt(entry, prefix, software) : null;
         var revised = previous is null
             ? null
             : previous.ConfigVersion != desired.ConfigVersion
@@ -324,24 +208,132 @@ public sealed partial class Library
                     : (previous with { Software = null }).Serialise() != (desired with { Software = null }).Serialise()
                         ? $"Cabinet's setup for {entry.Name} {desired.ConfigVersion} has changed."
                         : null;
+        var changes = new List<string>();
+        var resets = new List<string>();
+        var custom = new HashSet<string>(StringComparer.Ordinal);
+        string? runnerChange = null;
+        SyncMode? syncChange = null;
+        bool? dxvkChange = null;
+        bool? desktopChange = null;
+        var env = new Dictionary<string, string?>(StringComparer.Ordinal);
+
+        void Offer(string setting, bool own, string change)
+        {
+            (own ? resets : changes).Add(change);
+
+            if (own)
+            {
+                custom.Add(setting);
+            }
+        }
+
+        if (previous is not null && revised is not null)
+        {
+            if (!RunnerMatches(actual.Runner!, desired.Runner))
+            {
+                runnerChange = desired.Runner ?? Layout.BundledRunner;
+                Offer(RunnerSetting, !RunnerMatches(actual.Runner!, previous.Runner),
+                    $"Switch Wine from {actual.Runner} to {RunnerWord(desired.Runner)}.");
+            }
+
+            if (actual.Sync != desired.Sync)
+            {
+                syncChange = desired.Sync;
+                Offer(SyncSetting, actual.Sync != previous.Sync,
+                    $"Switch the sync mode from {PrefixSettings.Word(actual.Sync)} to {PrefixSettings.Word(desired.Sync)}.");
+            }
+
+            if (actual.Dxvk != desired.Dxvk)
+            {
+                dxvkChange = desired.Dxvk;
+                Offer(DxvkSetting, actual.Dxvk != previous.Dxvk,
+                    desired.Dxvk ? "Turn on DXVK for Direct3D." : "Turn off DXVK and use Wine's own Direct3D.");
+            }
+
+            if (actual.Desktop != desired.Desktop)
+            {
+                desktopChange = desired.Desktop;
+                Offer(DesktopSetting, actual.Desktop != previous.Desktop,
+                    desired.Desktop ? "Turn on the Wine virtual desktop." : "Turn off the Wine virtual desktop.");
+            }
+
+            foreach (var key in desired.Env.Keys.Concat(previous.Env.Keys)
+                         .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+            {
+                var wanted = desired.Env.GetValueOrDefault(key);
+                var current = actual.Env.GetValueOrDefault(key);
+
+                if (current != wanted)
+                {
+                    env[key] = wanted;
+                    Offer(EnvSetting + key, current != previous.Env.GetValueOrDefault(key),
+                        wanted is null ? $"Remove the variable {key} (now {current})."
+                        : current is null ? $"Set {key} to {wanted}."
+                        : $"Change {key} from {current} to {wanted}.");
+                }
+            }
+        }
+
+        var edits = previous is null ? [] : Edits(previous, actual);
+        var verbs = desired.Winetricks.Except(actual.Winetricks, StringComparer.Ordinal).ToList();
+        changes.AddRange(verbs.Select(verb => $"Install {verb} with Winetricks."));
+        var present = previous is null
+            ? []
+            : desired.Winetricks.Except(previous.Winetricks, StringComparer.Ordinal)
+                .Intersect(actual.Winetricks, StringComparer.Ordinal).ToList();
+        var dropped = previous is null
+            ? []
+            : previous.Winetricks.Except(desired.Winetricks, StringComparer.Ordinal).ToList();
 
         var state = string.Join('\n', entry.Id, prefix, previous?.Serialise() ?? "",
             desired.Serialise(), actual.Serialise(), dxvkVersion ?? "",
             string.Join('\n', members), string.Join('\n', foreign));
         var stamp = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
-        var review = new PrefixUpdate(entry, prefix, previous is not null, desired.ConfigVersion, desired.Revision, previous?.Label,
-            software, revised, changes, present, dropped, kept, members, foreign, verbs, stamp);
-        return new SetupUpdate(review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, verbs);
+        var review = new PrefixUpdate(entry, prefix, desired.ConfigVersion, desired.Revision, previous?.Label,
+            software, revised, changes, resets, edits, present, dropped, members, foreign, verbs, stamp);
+        return new SetupUpdate(review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, verbs, custom);
     }
 
     private void RecordSetup(LibraryEntry entry, string prefix, bool created)
     {
-        var receipt = layout.PrefixSetupFile(prefix);
-
-        if (Foreign(prefix, entry).Count == 0 && (created || PrefixSetup.Read(receipt) is null))
+        if (Foreign(prefix, entry).Count > 0)
         {
-            PrefixSetup.From(entry.Config, InstalledVersion(entry, prefix)).Save(receipt);
+            return;
         }
+
+        if (created)
+        {
+            PrefixSetup.From(entry.Config, InstalledVersion(entry, prefix)).Save(layout.PrefixSetupFile(prefix));
+        }
+        else
+        {
+            Receipt(entry, prefix, InstalledVersion(entry, prefix));
+        }
+    }
+
+    private PrefixSetup Receipt(LibraryEntry entry, string prefix, string? software)
+    {
+        var file = layout.PrefixSetupFile(prefix);
+
+        if (PrefixSetup.Read(file) is { } recorded)
+        {
+            return recorded;
+        }
+
+        var first = PrefixSetup.From(PrefixConfig.First(entry.Configs), software);
+
+        if (Directory.Exists(layout.PrefixPath(prefix)))
+        {
+            try
+            {
+                first.Save(file);
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            {
+            }
+        }
+
+        return first;
     }
 
     private string? InstalledVersion(LibraryEntry entry, string prefix)
@@ -360,10 +352,57 @@ public sealed partial class Library
                ?? entry.Version;
     }
 
+    private static List<string> Edits(PrefixSetup applied, PrefixSetup actual)
+    {
+        var edits = new List<string>();
+
+        if (!RunnerMatches(actual.Runner!, applied.Runner))
+        {
+            edits.Add($"Wine {actual.Runner} instead of {RunnerWord(applied.Runner)}.");
+        }
+
+        if (actual.Sync != applied.Sync)
+        {
+            edits.Add($"Sync mode {PrefixSettings.Word(actual.Sync)} instead of {PrefixSettings.Word(applied.Sync)}.");
+        }
+
+        if (actual.Dxvk != applied.Dxvk)
+        {
+            edits.Add(actual.Dxvk ? "DXVK on instead of off." : "DXVK off instead of on.");
+        }
+
+        if (actual.Desktop != applied.Desktop)
+        {
+            edits.Add(actual.Desktop ? "Virtual desktop on instead of off." : "Virtual desktop off instead of on.");
+        }
+
+        foreach (var (key, value) in applied.Env.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            var current = actual.Env.GetValueOrDefault(key);
+
+            if (current != value)
+            {
+                edits.Add(current is null ? $"{key} removed instead of {value}." : $"{key} {current} instead of {value}.");
+            }
+        }
+
+        return edits;
+    }
+
     private static bool RunnerMatches(string actual, string? wanted) =>
         wanted is null ? actual == Layout.BundledRunner : Answers(actual, wanted);
 
     private static string RunnerWord(string? wanted) => wanted ?? Layout.BundledRunner;
+
+    private const string RunnerSetting = "runner";
+
+    private const string SyncSetting = "sync";
+
+    private const string DxvkSetting = "dxvk";
+
+    private const string DesktopSetting = "desktop";
+
+    private const string EnvSetting = "env:";
 
     private sealed record SetupUpdate(
         PrefixUpdate Review,
@@ -373,5 +412,17 @@ public sealed partial class Library
         bool? Dxvk,
         bool? Desktop,
         IReadOnlyDictionary<string, string?> Env,
-        IReadOnlyList<string> Winetricks);
+        IReadOnlyList<string> Winetricks,
+        IReadOnlySet<string> Custom)
+    {
+        public SetupUpdate KeepingCustom() => this with
+        {
+            Runner = Custom.Contains(RunnerSetting) ? null : Runner,
+            Sync = Custom.Contains(SyncSetting) ? null : Sync,
+            Dxvk = Custom.Contains(DxvkSetting) ? null : Dxvk,
+            Desktop = Custom.Contains(DesktopSetting) ? null : Desktop,
+            Env = Env.Where(pair => !Custom.Contains(EnvSetting + pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),
+        };
+    }
 }

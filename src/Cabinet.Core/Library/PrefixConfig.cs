@@ -24,6 +24,9 @@ public sealed record PrefixConfig(
               ?? ordered[0];
     }
 
+    public static PrefixConfig First(IReadOnlyList<PrefixConfig> configs) =>
+        configs.OrderBy(config => config.Version, VersionOrder.Instance).First();
+
     private sealed class VersionOrder : IComparer<string?>
     {
         public static readonly VersionOrder Instance = new();

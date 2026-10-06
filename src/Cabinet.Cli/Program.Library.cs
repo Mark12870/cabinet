@@ -58,7 +58,8 @@ internal static partial class Program
         var library = new Library(layout, runner);
         var all = library.Entries();
         var installed = library.Installed();
-        var updates = library.PrefixUpdates();
+        var reviews = library.PrefixReviews();
+        var updates = reviews.Where(pair => pair.Value.Available).ToDictionary(pair => pair.Key, pair => pair.Value);
 
         var entries = all
             .Where(entry => filter.Matches(entry, installed.ContainsKey(entry.Id)))
@@ -73,7 +74,7 @@ internal static partial class Program
             Console.WriteLine(Json.Library(
                 [.. entries, .. retired],
                 installed,
-                retired.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal), updates));
+                retired.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal), reviews));
             return Exit.Ok;
         }
 
@@ -142,6 +143,8 @@ internal static partial class Program
         return line.Then(json => ShowFromLibrary(layout, runner, id, json));
     }
 
+    private const int SetupWidth = 28;
+
     private static int ShowFromLibrary(
         Layout layout, IProcessRunner runner, string id, bool json)
     {
@@ -151,7 +154,7 @@ internal static partial class Program
 
         if (json)
         {
-            Console.WriteLine(Json.Library([entry], installed, new HashSet<string>(), library.PrefixUpdates()));
+            Console.WriteLine(Json.Library([entry], installed, new HashSet<string>(), library.PrefixReviews()));
             return Exit.Ok;
         }
 
@@ -177,15 +180,28 @@ internal static partial class Program
         Field("Presets", entry.Data is { } data ? "~/" + data : null);
         Field("Website", entry.Homepage);
         Field("Installed", installed.TryGetValue(id, out var where)
-            ? where is null ? "yes" : $"in prefix {where}"
+            ? where is null ? "yes" : null
             : "no");
 
-        if (library.PrefixUpdateOf(entry) is { Available: true } update)
+        if (library.PrefixUpdateOf(entry) is { } review)
         {
             Console.WriteLine();
-            Console.WriteLine(update.Title);
-            Console.WriteLine(WrappedUpdate(update));
-            Console.WriteLine($"`cabinet library update {id}` reviews and applies this setup.");
+            Console.WriteLine("Prefix");
+            Field("Installed in", $"{review.Prefix}  (`cabinet show {review.Prefix}`)", SetupWidth);
+            Field("Installed version", review.Software, SetupWidth);
+            Field("Config", $"{review.ConfigState} ({review.State.ToLowerInvariant()})", SetupWidth);
+            Field(PrefixUpdate.DiffersFromConfig, review.Edits.Count > 0 ? string.Join("; ", review.Edits) : null, SetupWidth);
+            Field("Shares this config", review.Members.Count > 1 ? string.Join(", ", review.Members) : null, SetupWidth);
+            Field("Other plugins in this prefix", review.Sharing.Count > 0 ? string.Join(", ", review.Sharing) : null,
+                SetupWidth);
+
+            if (review.Available)
+            {
+                Console.WriteLine();
+                Console.WriteLine(review.Title);
+                Console.WriteLine(WrappedUpdate(review));
+                Console.WriteLine($"`cabinet library update {id}` reviews and applies this setup.");
+            }
         }
 
         if (entry.Licensing is { } licensing)
@@ -206,11 +222,11 @@ internal static partial class Program
             : $"`{Command(entry)}` installs it."));
         return Exit.Ok;
 
-        static void Field(string name, string? value)
+        static void Field(string name, string? value, int width = 10)
         {
             if (value is not null)
             {
-                Console.WriteLine($"  {name,-10}  {value}");
+                Console.WriteLine($"  {name.PadRight(width)}  {value}");
             }
         }
     }
@@ -285,6 +301,7 @@ internal static partial class Program
     private static Func<int> UpdateFromLibrary(CommandLine line, Layout layout, IProcessRunner runner)
     {
         var all = line.Flag("--all");
+        var keepChanges = line.Flag("--keep-changes");
         var id = line.OptionalWord();
 
         if (all == (id is not null))
@@ -293,11 +310,22 @@ internal static partial class Program
         }
 
         return line.Then(() => id is null
-            ? UpdateEveryPrefix(layout, runner)
-            : UpdateFromLibrary(layout, runner, id));
+            ? UpdateEveryPrefix(layout, runner, keepChanges)
+            : UpdateFromLibrary(layout, runner, id, keepChanges));
     }
 
-    private static int UpdateEveryPrefix(Layout layout, IProcessRunner runner)
+    private static void KeepChangesHint(IReadOnlyList<PrefixUpdate> pending, bool keepChanges)
+    {
+        if (pending.Any(update => update.Resets.Count > 0))
+        {
+            Console.WriteLine(keepChanges
+                ? "--keep-changes leaves your own changes as they are."
+                : "The full config change is recommended; pass --keep-changes to leave your own changes as they are.");
+            Console.WriteLine();
+        }
+    }
+
+    private static int UpdateEveryPrefix(Layout layout, IProcessRunner runner, bool keepChanges)
     {
         var library = new Library(layout, runner);
         var pending = library.PendingPrefixUpdates();
@@ -316,6 +344,8 @@ internal static partial class Program
             Console.WriteLine();
         }
 
+        KeepChangesHint(pending, keepChanges);
+
         if (!Confirmed($"Apply {pending.Count} prefix update(s)? [y/N] "))
         {
             return LeftAlone();
@@ -323,14 +353,14 @@ internal static partial class Program
 
         foreach (var update in pending)
         {
-            library.UpdatePrefix(update, Console.WriteLine);
+            library.UpdatePrefix(update, Console.WriteLine, keepCustom: keepChanges);
         }
 
         Console.WriteLine("Every prefix setup is up to date.");
         return Exit.Ok;
     }
 
-    private static int UpdateFromLibrary(Layout layout, IProcessRunner runner, string id)
+    private static int UpdateFromLibrary(Layout layout, IProcessRunner runner, string id, bool keepChanges)
     {
         var library = new Library(layout, runner);
         var entry = library.Find(id);
@@ -353,13 +383,14 @@ internal static partial class Program
         Console.WriteLine();
         Console.WriteLine(WrappedUpdate(update));
         Console.WriteLine();
+        KeepChangesHint([update], keepChanges);
 
         if (!Confirmed($"Apply this setup to prefix '{update.Prefix}'? [y/N] "))
         {
             return LeftAlone();
         }
 
-        library.UpdatePrefix(update, Console.WriteLine);
+        library.UpdatePrefix(update, Console.WriteLine, keepCustom: keepChanges);
         Console.WriteLine($"{entry.Name}'s prefix setup is up to date.");
         return Exit.Ok;
     }

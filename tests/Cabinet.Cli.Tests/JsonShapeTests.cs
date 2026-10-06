@@ -12,7 +12,7 @@ public sealed class JsonShapeTests : IDisposable
         "prefix", "runner", "dxvk", "sync", "winetricks", "desktop", "env", "script", "manager",
         "launchService", "launchHelper", "launchArgs", "scheme", "data", "developer", "version",
         "licence", "licensing", "formats", "description", "installed", "installedIn",
-        "retired", "prefixConfig", "prefixUpdate", "updateChanges", "preservedSettings", "sharingPrefix",
+        "retired", "prefixConfig", "prefixUpdate", "updateChanges", "updateResets", "prefixEdits", "sharingPrefix",
     ];
 
     private readonly Cli cli = new();

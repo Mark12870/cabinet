@@ -14,6 +14,7 @@ internal sealed partial class LibraryPage
     private readonly Action hold;
     private readonly Action release;
     private readonly Func<string, bool> prefixIsChanging;
+    private readonly Action<string> openPrefix;
     private readonly Operation operations;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
     private readonly Gtk.Box filters = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
@@ -35,7 +36,7 @@ internal sealed partial class LibraryPage
     private IReadOnlyDictionary<string, string?> installed =
         new Dictionary<string, string?>(StringComparer.Ordinal);
 
-    private IReadOnlyDictionary<string, PrefixUpdate> updates =
+    private IReadOnlyDictionary<string, PrefixUpdate> reviews =
         new Dictionary<string, PrefixUpdate>(StringComparer.Ordinal);
 
     private PluginPage? open;
@@ -53,6 +54,7 @@ internal sealed partial class LibraryPage
         Action hold,
         Action release,
         Func<string, bool> prefixIsChanging,
+        Action<string> openPrefix,
         Operation operations)
     {
         this.layout = layout;
@@ -65,9 +67,16 @@ internal sealed partial class LibraryPage
         this.hold = hold;
         this.release = release;
         this.prefixIsChanging = prefixIsChanging;
+        this.openPrefix = openPrefix;
         this.operations = operations;
 
-        navigation.OnPopped += (_, _) => Ui.Guard(() => open = null);
+        navigation.OnPopped += (_, args) => Ui.Guard(() =>
+        {
+            if (open?.Page == args.Page)
+            {
+                open = null;
+            }
+        });
 
         var page = Ui.Page();
         page.Append(Filters());
@@ -86,7 +95,7 @@ internal sealed partial class LibraryPage
             var library = new Library(layout, runner);
             return new Snapshot(
                 library.Entries(), library.Installed(), library.Retired(), library.Opened(),
-                library.PrefixUpdates());
+                library.PrefixReviews());
         }).ContinueWith(task => Ui.OnMainLoop(() =>
         {
             if (!generation.IsCurrent(current))
@@ -104,7 +113,7 @@ internal sealed partial class LibraryPage
             installed = task.Result.Installed;
             retired = task.Result.Retired;
             opened = task.Result.Opened;
-            updates = task.Result.Updates;
+            reviews = task.Result.Reviews;
             stopping.RemoveWhere(id => !Running(id));
             fillingFilters = true;
 
@@ -226,7 +235,7 @@ internal sealed partial class LibraryPage
         var filter = Filter();
         var matching = entries
             .Where(entry => filter.Matches(entry, installed.ContainsKey(entry.Id)))
-            .Where(entry => states.GetSelected() != 3 || updates.ContainsKey(entry.Id))
+            .Where(entry => states.GetSelected() != 3 || HasUpdate(entry.Id))
             .ToList();
 
         var managers = matching
@@ -286,14 +295,13 @@ internal sealed partial class LibraryPage
 
         open.Show(
             still,
-            installed.GetValueOrDefault(still.Id),
             installed.ContainsKey(still.Id),
             Running(still.Id),
-            updates.GetValueOrDefault(still.Id),
-            UpdateBlocked(updates.GetValueOrDefault(still.Id)));
+            reviews.GetValueOrDefault(still.Id),
+            UpdateBlocked(reviews.GetValueOrDefault(still.Id)));
     }
 
-    private void Open(LibraryEntry entry, string? prefix, bool here)
+    private void Open(LibraryEntry entry, bool here)
     {
         var page = new PluginPage(
             layout,
@@ -304,9 +312,10 @@ internal sealed partial class LibraryPage
             Launch,
             Stop,
             ConfirmUpdate,
+            openPrefix,
             one => LaunchLog(one)());
-        page.Show(entry, prefix, here, Running(entry.Id), updates.GetValueOrDefault(entry.Id),
-            UpdateBlocked(updates.GetValueOrDefault(entry.Id)));
+        page.Show(entry, here, Running(entry.Id), reviews.GetValueOrDefault(entry.Id),
+            UpdateBlocked(reviews.GetValueOrDefault(entry.Id)));
 
         open = page;
         navigation.Push(page.Page);
@@ -404,7 +413,7 @@ internal sealed partial class LibraryPage
         }
 
         var enter = Ui.RowButton(Icons.Forward, $"About {entry.Name}");
-        enter.OnClicked += (_, _) => Ui.Guard(() => Open(entry, prefix, here));
+        enter.OnClicked += (_, _) => Ui.Guard(() => Open(entry, here));
         row.AddSuffix(enter);
         row.SetActivatableWidget(enter);
 
@@ -458,7 +467,7 @@ internal sealed partial class LibraryPage
             tags.Append(Ui.Tag(obtained));
         }
 
-        if (updates.ContainsKey(entry.Id))
+        if (HasUpdate(entry.Id))
         {
             tags.Append(Ui.Tag("Update", "warning"));
         }
@@ -487,5 +496,5 @@ internal sealed partial class LibraryPage
         IReadOnlyDictionary<string, string?> Installed,
         IReadOnlyList<LibraryEntry> Retired,
         IReadOnlySet<string> Opened,
-        IReadOnlyDictionary<string, PrefixUpdate> Updates);
+        IReadOnlyDictionary<string, PrefixUpdate> Reviews);
 }

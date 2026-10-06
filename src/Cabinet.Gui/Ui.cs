@@ -177,7 +177,8 @@ internal static class Ui
         string action,
         Action accepted,
         Adw.ResponseAppearance appearance = Adw.ResponseAppearance.Suggested,
-        Gtk.Widget? extra = null)
+        Gtk.Widget? extra = null,
+        (string Action, Action Accepted)? alternative = null)
     {
         var dialog = Adw.AlertDialog.New(heading, body);
 
@@ -190,6 +191,12 @@ internal static class Ui
         var destructive = appearance == Adw.ResponseAppearance.Destructive;
 
         dialog.AddResponse("cancel", "Cancel");
+
+        if (alternative is not null)
+        {
+            dialog.AddResponse("alternative", alternative.Value.Action);
+        }
+
         dialog.AddResponse("ok", action);
         dialog.SetResponseAppearance("ok", appearance);
         dialog.SetDefaultResponse(destructive ? "cancel" : "ok");
@@ -200,6 +207,10 @@ internal static class Ui
             if (args.Response == "ok")
             {
                 Guard(accepted);
+            }
+            else if (args.Response == "alternative")
+            {
+                Guard(alternative!.Value.Accepted);
             }
         };
 

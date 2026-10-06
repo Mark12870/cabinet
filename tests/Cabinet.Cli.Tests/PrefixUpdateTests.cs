@@ -38,7 +38,7 @@ public sealed class PrefixUpdateTests : IDisposable
     }
 
     [Fact]
-    public void DecliningPreviewsThePrefixAndLeavesItsSetupUnrecorded()
+    public void DecliningPreviewsThePrefixAndLeavesItUnchanged()
     {
         Installed(Plugin + "Winetricks: corefonts\n");
         var markers = Directory.GetFiles(cli.Layout.PrefixPath("thing")).Order(StringComparer.Ordinal).ToList();
@@ -85,6 +85,7 @@ public sealed class PrefixUpdateTests : IDisposable
         Assert.Contains("cabinet library update <id>", listed.Out);
         Assert.Contains("Prefix update available", shown.Out);
         Assert.Contains("corefonts", shown.Out);
+        Assert.Contains("  Config                        , revision 1 (update available)\n", shown.Out);
         Assert.Contains("cabinet library update thing", shown.Out);
         Assert.Equal("available", entry.GetProperty("prefixUpdate").GetString());
         Assert.NotEmpty(entry.GetProperty("updateChanges").EnumerateArray());
@@ -142,6 +143,109 @@ public sealed class PrefixUpdateTests : IDisposable
     }
 
     [Fact]
+    public void ACurrentPrefixShowsItsConfigWithoutAnUpdate()
+    {
+        cli.Catalogue("thing", Plugin + "Version: 1.0\n");
+        cli.Prefix("thing", "thing");
+        Directory.CreateDirectory(Path.Combine(cli.Layout.PrefixPath("thing"), "dosdevices"));
+
+        var shown = cli.Run("library", "show", "thing");
+
+        Assert.Contains("\nPrefix\n  Installed in                  thing  (`cabinet show thing`)\n"
+            + "  Installed version             1.0\n", shown.Out);
+        Assert.DoesNotContain("  Installed   ", shown.Out);
+        Assert.Contains("  Config                        1.0, revision 1 (up to date)\n", shown.Out);
+        Assert.DoesNotContain("Prefix update available", shown.Out);
+    }
+
+    [Fact]
+    public void KeepingChangesLeavesAVariableTheUserChanged()
+    {
+        Installed(Plugin);
+        var settings = new PrefixSettings(cli.Layout);
+        settings.SetVariable("thing", "TEST_OPTION", "personal");
+        cli.Catalogue("thing", Plugin + "Env: TEST_OPTION=enabled\n");
+
+        var asked = cli.Answer("n\n", "library", "update", "thing");
+        var kept = cli.Answer("y\n", "library", "update", "thing", "--keep-changes");
+
+        Assert.Contains("pass --keep-changes to leave your own changes as they are", asked.Out);
+        Assert.Contains("Change TEST_OPTION from personal to enabled.", asked.Out);
+        Assert.Equal(0, kept.Exit);
+        Assert.Equal("personal", settings.Variables("thing")["TEST_OPTION"]);
+        Assert.Contains("prefix setup is up to date", cli.Run("library", "update", "thing").Out);
+    }
+
+    [Fact]
+    public void ResetsOfOwnChangesAreListedInJson()
+    {
+        Installed(Plugin);
+        new PrefixSettings(cli.Layout).SetVariable("thing", "TEST_OPTION", "personal");
+        cli.Catalogue("thing", Plugin + "Env: TEST_OPTION=enabled\n");
+
+        var entry = Assert.Single(Parsed.Objects(cli.Run("library", "show", "thing", "--json").Out));
+
+        Assert.Empty(entry.GetProperty("updateChanges").EnumerateArray());
+        Assert.Equal(["Change TEST_OPTION from personal to enabled."],
+            entry.GetProperty("updateResets").EnumerateArray().Select(reset => reset.GetString()));
+    }
+
+    [Fact]
+    public void AnUpdateWithoutOwnChangesNeedsNoChoice()
+    {
+        Installed(Plugin + "Env: TEST_OPTION=enabled\n");
+
+        var outcome = cli.Answer("n\n", "library", "update", "thing");
+
+        Assert.DoesNotContain("--keep-changes", outcome.Out);
+        Assert.DoesNotContain("override your own changes", outcome.Out);
+    }
+
+    [Fact]
+    public void UpdatingAllCanKeepOwnChanges()
+    {
+        Installed(Plugin);
+        var settings = new PrefixSettings(cli.Layout);
+        settings.SetVariable("thing", "TEST_OPTION", "personal");
+        cli.Catalogue("thing", Plugin + "Env:\n  TEST_OPTION=enabled\n  ADDED=new\n");
+
+        var outcome = cli.Answer("y\n", "library", "update", "--all", "--keep-changes");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.Contains("--keep-changes leaves your own changes as they are.", outcome.Out);
+        Assert.Equal("personal", settings.Variables("thing")["TEST_OPTION"]);
+        Assert.Equal("new", settings.Variables("thing")["ADDED"]);
+    }
+
+    [Fact]
+    public void ANativePluginShowsNoPrefixSection()
+    {
+        cli.Catalogue("synth", "Name: Synth\nKind: native\nSource: byo\n");
+        Directory.CreateDirectory(cli.Layout.NativePath("synth"));
+
+        Assert.DoesNotContain("\nPrefix\n", cli.Run("library", "show", "synth").Out);
+    }
+
+    [Fact]
+    public void AnEditedPrefixShowsWhatDiffersFromItsConfig()
+    {
+        Installed(Plugin + "Env: TEST_OPTION=enabled\n");
+        File.WriteAllText(cli.Layout.PrefixSetupFile("thing"),
+            "{\"version\":2,\"configVersion\":\"\",\"revision\":1,\"software\":null,\"runner\":null,"
+            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{\"TEST_OPTION\":\"enabled\"},\"desktop\":false}");
+        new PrefixSettings(cli.Layout).SetVariable("thing", "TEST_OPTION", "personal");
+
+        var shown = cli.Run("library", "show", "thing");
+        var entry = Assert.Single(Parsed.Objects(cli.Run("library", "--json").Out));
+
+        Assert.Contains("  Config                        , revision 1 (edited)\n", shown.Out);
+        Assert.Contains("  Differs from the config       TEST_OPTION personal instead of enabled.\n", shown.Out);
+        Assert.Equal("current", entry.GetProperty("prefixUpdate").GetString());
+        Assert.Equal(["TEST_OPTION personal instead of enabled."],
+            entry.GetProperty("prefixEdits").EnumerateArray().Select(edit => edit.GetString()));
+    }
+
+    [Fact]
     public void AnUpdateRefusesAPrefixInUseByADaw()
     {
         Installed(Plugin + "Winetricks: corefonts\n");
@@ -171,12 +275,15 @@ public sealed class PrefixUpdateTests : IDisposable
         cli.Catalogue("other", "Name: Other\nKind: windows\nSource: byo\nWinetricks: vcrun2022\n");
         cli.Prefix("other", "other");
         Directory.CreateDirectory(Path.Combine(cli.Layout.PrefixPath("other"), "dosdevices"));
+        RecordedBareSetup("other");
 
         var outcome = cli.Answer("y\n", "library", "update", "--all");
 
         Assert.Equal(0, outcome.Exit);
         Assert.Contains("Apply 2 prefix update(s)?", outcome.Error);
         Assert.Equal(2, cli.Runner.Ran.Count(call => call.File == Core.Layout.Winetricks));
+        File.WriteAllText(cli.Layout.PrefixWinetricksLog("thing"), "corefonts\n");
+        File.WriteAllText(cli.Layout.PrefixWinetricksLog("other"), "vcrun2022\n");
         Assert.Contains("Every prefix setup is up to date.", cli.Run("library", "update", "--all").Out);
     }
 
@@ -185,5 +292,11 @@ public sealed class PrefixUpdateTests : IDisposable
         cli.Catalogue("thing", text);
         cli.Prefix("thing", "thing");
         Directory.CreateDirectory(Path.Combine(cli.Layout.PrefixPath("thing"), "dosdevices"));
+        RecordedBareSetup("thing");
     }
+
+    private void RecordedBareSetup(string prefix) =>
+        File.WriteAllText(cli.Layout.PrefixSetupFile(prefix),
+            "{\"version\":2,\"configVersion\":\"\",\"revision\":1,\"software\":null,\"runner\":null,"
+            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{},\"desktop\":false}");
 }

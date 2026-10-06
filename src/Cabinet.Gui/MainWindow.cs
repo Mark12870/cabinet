@@ -44,6 +44,7 @@ internal sealed class MainWindow
             Hold,
             Release,
             prefixes.IsChanging,
+            prefixes.Open,
             operations);
         runners = new RunnersPage(layout, runner, window, RefreshRunners, operations);
         doctor = new DoctorPage(layout, runner, window, RefreshDoctor, RefreshAll, operations, library.UpdateAll);

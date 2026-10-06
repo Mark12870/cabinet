@@ -30,7 +30,8 @@ internal static partial class Program
           cabinet library show <id>            what a plugin is, and what installing costs
           cabinet library install <id> [--prefix <name>] [file]
                                                install one; demo entries download without a file
-          cabinet library update <id>|--all    review and apply a changed prefix config
+          cabinet library update <id>|--all [--keep-changes]
+                                               review and apply a changed prefix config
           cabinet library remove <id>          uninstall one; asks before taking its prefix
           cabinet library launch <id>          open a manager, bridging what it installs
           cabinet library stop <id>            close a manager Cabinet opened

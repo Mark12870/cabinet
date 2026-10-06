@@ -5,6 +5,8 @@ namespace Cabinet.Gui;
 
 internal sealed partial class LibraryPage
 {
+    private bool HasUpdate(string id) => reviews.GetValueOrDefault(id) is { Available: true };
+
     private bool UpdateBlocked(PrefixUpdate? update) => update is not null
         && (prefixIsChanging(update.Prefix)
             || installed.Any(pair => pair.Value == update.Prefix && Running(pair.Key)));
@@ -21,9 +23,10 @@ internal sealed partial class LibraryPage
             window,
             $"Update the {update.Prefix} prefix?",
             update.Summary,
-            "Update prefix",
-            () => Update(update),
-            extra: Details([update], headed: false));
+            update.Resets.Count == 0 ? "Update prefix" : FullConfig,
+            () => Update(update, keepCustom: false),
+            extra: Details([update], headed: false),
+            alternative: update.Resets.Count == 0 ? null : (KeepChanges, () => Update(update, keepCustom: true)));
         dialog.SetPreferWideLayout(true);
     }
 
@@ -54,23 +57,27 @@ internal sealed partial class LibraryPage
             return;
         }
 
+        void UpdateEvery(bool keepCustom) => operations.Run(
+            "Updating prefixes",
+            (output, progress) =>
+            {
+                var library = new Library(layout, runner);
+                foreach (var update in pending)
+                {
+                    library.UpdatePrefix(update, output, progress, keepCustom);
+                }
+            },
+            changed);
+
+        var resets = pending.Any(update => update.Resets.Count > 0);
         var dialog = Ui.Confirm(
             window,
             pending.Count == 1 ? $"Update the {pending[0].Prefix} prefix?" : $"Update {pending.Count} prefixes?",
             pending.Count == 1 ? pending[0].Summary : "Each prefix gets Cabinet's settings for the software installed in it.",
-            pending.Count == 1 ? "Update prefix" : "Update all",
-            () => operations.Run(
-                "Updating prefixes",
-                (output, progress) =>
-                {
-                    var library = new Library(layout, runner);
-                    foreach (var update in pending)
-                    {
-                        library.UpdatePrefix(update, output, progress);
-                    }
-                },
-                changed),
-            extra: Details(pending, headed: pending.Count > 1));
+            resets ? FullConfig : pending.Count == 1 ? "Update prefix" : "Update all",
+            () => UpdateEvery(keepCustom: false),
+            extra: Details(pending, headed: pending.Count > 1),
+            alternative: resets ? (KeepChanges, () => UpdateEvery(keepCustom: true)) : null);
         dialog.SetPreferWideLayout(true);
     }
 
@@ -94,19 +101,17 @@ internal sealed partial class LibraryPage
             }
 
             Section(details, PrefixUpdate.WillChange, update.Changes, null);
+            Section(details, PrefixUpdate.ReplacesYours, update.Resets, null);
             Section(details, PrefixUpdate.AlreadyInPlace, OneLine(update.Present), null);
             Section(details, PrefixUpdate.NoLongerInSetup, OneLine(update.Dropped), "Stays installed");
-            Section(details, PrefixUpdate.KeptAsSet, update.Preserved, null);
         }
 
-        var notes = pending.Select(update => update.NothingToInstall).OfType<string>().Distinct().ToList();
+        var notes = pending.SelectMany(update => new[] { update.NothingToInstall, update.Overrides })
+            .OfType<string>().Distinct().ToList();
         notes.Add(
             pending.Count == 1
                 ? "Close any apps or DAWs using this prefix first."
                 : "Close any apps or DAWs using these prefixes first.");
-        notes.AddRange(pending
-            .Where(update => update.Unrecorded is not null)
-            .Select(update => PrefixUpdate.NotUpdatedBefore($"<b>{SecurityElement.Escape(update.Prefix)}</b>")));
         var verbs = pending.SelectMany(update => update.Winetricks).Distinct(StringComparer.Ordinal).ToList();
 
         if (verbs.Count > 0)
@@ -173,7 +178,11 @@ internal sealed partial class LibraryPage
         return row;
     }
 
-    private void Update(PrefixUpdate update)
+    private const string FullConfig = "Apply full config (Recommended)";
+
+    private const string KeepChanges = "Keep my changes";
+
+    private void Update(PrefixUpdate update, bool keepCustom)
     {
         if (UpdateBlocked(update))
         {
@@ -183,7 +192,7 @@ internal sealed partial class LibraryPage
 
         operations.Run(
             $"Updating prefix {update.Prefix}",
-            (output, progress) => new Library(layout, runner).UpdatePrefix(update, output, progress),
+            (output, progress) => new Library(layout, runner).UpdatePrefix(update, output, progress, keepCustom),
             changed);
     }
 }

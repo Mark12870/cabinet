@@ -34,7 +34,13 @@ internal sealed class PrefixesPage
         this.toast = toast;
         this.operations = operations;
 
-        navigation.OnPopped += (_, _) => Ui.Guard(() => open = null);
+        navigation.OnPopped += (_, args) => Ui.Guard(() =>
+        {
+            if (open?.Page == args.Page)
+            {
+                open = null;
+            }
+        });
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -44,6 +50,26 @@ internal sealed class PrefixesPage
     public Gtk.Widget Widget { get; }
 
     public bool IsChanging(string name) => changing.Contains(name);
+
+    public void Open(string name) =>
+        Task.Run(() => new Snapshot(
+            new Prefixes(layout, runner).List(),
+            new Runners(layout, runner).List().Select(found => found.Name).ToList()))
+            .ContinueWith(task => Ui.OnMainLoop(() =>
+            {
+                if (task.IsFaulted)
+                {
+                    toast(task.Exception!.InnerException!.Message);
+                }
+                else if (task.Result.Prefixes.FirstOrDefault(prefix => prefix.Name == name) is { } found)
+                {
+                    Open(found, task.Result.RunnerNames);
+                }
+                else
+                {
+                    toast($"Prefix {name} no longer exists.");
+                }
+            }));
 
     public void Refresh()
     {

@@ -10,6 +10,7 @@ internal sealed class PluginPage
     private readonly Action<LibraryEntry> launch;
     private readonly Action<LibraryEntry> stop;
     private readonly Action<PrefixUpdate> update;
+    private readonly Action<string> openPrefix;
     private readonly Func<LibraryEntry, string?> log;
     private readonly Gtk.Window window;
     private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
@@ -23,6 +24,7 @@ internal sealed class PluginPage
         Action<LibraryEntry> launch,
         Action<LibraryEntry> stop,
         Action<PrefixUpdate> update,
+        Action<string> openPrefix,
         Func<LibraryEntry, string?> log)
     {
         this.layout = layout;
@@ -32,6 +34,7 @@ internal sealed class PluginPage
         this.launch = launch;
         this.stop = stop;
         this.update = update;
+        this.openPrefix = openPrefix;
         this.log = log;
         Id = entry.Id;
 
@@ -51,7 +54,6 @@ internal sealed class PluginPage
 
     public void Show(
         LibraryEntry entry,
-        string? prefix,
         bool installed,
         bool running,
         PrefixUpdate? prefixUpdate = null,
@@ -59,7 +61,7 @@ internal sealed class PluginPage
     {
         Ui.Clear(body);
 
-        body.Append(Heading(entry));
+        body.Append(Heading(entry, installed));
 
         if (layout.LibraryScreenshot(entry.Vendor, entry.Id) is { } screenshot)
         {
@@ -73,9 +75,9 @@ internal sealed class PluginPage
             body.Append(Paragraph(paragraph));
         }
 
-        body.Append(Details(entry, prefix, installed));
+        body.Append(Details(entry));
 
-        if (prefixUpdate is { Available: true })
+        if (prefixUpdate is not null)
         {
             body.Append(PrefixSetup(prefixUpdate, updateBlocked));
         }
@@ -86,34 +88,53 @@ internal sealed class PluginPage
     private Gtk.Widget PrefixSetup(PrefixUpdate plan, bool blocked)
     {
         var group = Adw.PreferencesGroup.New();
-        group.SetTitle(plan.Title);
+        group.SetTitle("Prefix");
+
+        var where = Adw.ActionRow.New();
+        where.SetUseMarkup(false);
+        where.SetTitle("Installed in");
+        where.SetSubtitle(plan.Prefix);
+        var enter = Ui.RowButton(Icons.Forward, $"Open prefix {plan.Prefix}");
+        enter.OnClicked += (_, _) => Ui.Guard(() => openPrefix(plan.Prefix));
+        where.AddSuffix(enter);
+        where.SetActivatableWidget(enter);
+        group.Add(where);
+
         Add(group, "Installed version", plan.Software);
 
         var config = Adw.ActionRow.New();
         config.SetUseMarkup(false);
         config.SetTitle("Config");
-        config.SetSubtitle(plan.Config);
+        config.SetSubtitle(plan.ConfigState);
 
-        var button = Gtk.Button.NewWithLabel("Update prefix…");
-        button.SetValign(Gtk.Align.Center);
-        button.SetSensitive(!blocked);
-        button.SetTooltipText(blocked
-            ? "Close apps using this prefix and wait for ongoing operations to finish."
-            : "Apply the reviewed dependencies and prefix settings.");
-        button.OnClicked += (_, _) => Ui.Guard(() => update(plan));
-        config.AddSuffix(button);
-        config.SetActivatableWidget(button);
+        var state = Ui.Tag(plan.State, plan.Available || plan.Edits.Count > 0 ? "warning" : "success");
+        state.SetValign(Gtk.Align.Center);
+        config.AddSuffix(state);
+
+        if (plan.Available)
+        {
+            var button = Gtk.Button.NewWithLabel("Update prefix…");
+            button.SetValign(Gtk.Align.Center);
+            button.SetSensitive(!blocked);
+            button.SetTooltipText(blocked
+                ? "Close apps using this prefix and wait for ongoing operations to finish."
+                : "Apply the reviewed dependencies and prefix settings.");
+            button.OnClicked += (_, _) => Ui.Guard(() => update(plan));
+            config.AddSuffix(button);
+            config.SetActivatableWidget(button);
+        }
+
         group.Add(config);
 
-        Add(group, "Applied config", plan.Applied);
+        Add(group, PrefixUpdate.DiffersFromConfig, plan.Edits.Count > 0 ? string.Join("\n", plan.Edits) : null);
         Add(group, "Shares this config", plan.Members.Count > 1 ? string.Join(", ", plan.Members) : null);
         Add(group, "Changes", plan.Changes.Count > 0 ? string.Join("\n", plan.Changes) : null);
-        Add(group, "Kept", plan.Preserved.Count > 0 ? string.Join("\n", plan.Preserved) : null);
+        Add(group, PrefixUpdate.ReplacesYours, plan.Resets.Count > 0 ? string.Join("\n", plan.Resets) : null);
         Add(group, "Other plugins in this prefix", plan.Sharing.Count > 0 ? string.Join(", ", plan.Sharing) : null);
         return group;
     }
 
-    private Gtk.Widget Heading(LibraryEntry entry)
+    private Gtk.Widget Heading(LibraryEntry entry, bool installed)
     {
         var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 18);
         row.Append(Icon(entry));
@@ -131,6 +152,13 @@ internal sealed class PluginPage
         under.SetXalign(0);
         under.SetWrap(true);
         titles.Append(under);
+
+        if (installed)
+        {
+            var tag = Ui.Tag("Installed", "success");
+            tag.SetHalign(Gtk.Align.Start);
+            titles.Append(tag);
+        }
 
         row.Append(titles);
         return row;
@@ -175,19 +203,20 @@ internal sealed class PluginPage
         return label;
     }
 
-    private Gtk.Widget Details(LibraryEntry entry, string? prefix, bool installed)
+    private Gtk.Widget Details(LibraryEntry entry)
     {
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Details");
 
         Add(group, "Developer", entry.Developer);
         Add(group, "Version", entry.Version);
+        Add(group, "Category", entry.Category);
         Add(group, "Licence", entry.Licence);
         Add(group, "Licensing", entry.Licensing);
+        Add(group, "Account", entry.Account);
         Add(group, "Formats", entry.Formats.Count > 0 ? string.Join(", ", entry.Formats) : null);
         Add(group, "Runs", entry.Kind == PluginKind.Native ? "Natively on Linux" : Bridged(entry));
         Add(group, "Presets", entry.Data is { } data ? "~/" + data : null);
-        Add(group, "Installed", installed ? prefix is null ? "Yes" : $"In prefix {prefix}" : null);
 
         if (entry.Homepage is { } homepage)
         {

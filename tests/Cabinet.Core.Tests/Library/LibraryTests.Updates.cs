@@ -18,11 +18,10 @@ public partial class LibraryTests
     {
         var layout = InstallSetup(SetupRecipe, "chosen");
         Catalogue(("thing", SetupRecipe.Replace("corefonts", "allfonts")));
-        var recorder = new RecordingRunner();
+        var recorder = Winetricked(layout);
         var library = new Library(layout, recorder);
         var update = Assert.IsType<PrefixUpdate>(library.PrefixUpdateOf(library.Find("thing")));
 
-        Assert.True(update.Recorded);
         Assert.True(update.Available);
         Assert.Equal("chosen", update.Prefix);
         Assert.Contains("allfonts", string.Join("\n", update.Changes));
@@ -56,70 +55,76 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void AnOlderInstallationMatchingTheCatalogueOffersNothing()
+    public void AnInstallationWithoutAReceiptIsRecordedOnTheFirstConfig()
     {
-        var layout = OlderInstallation(SetupRecipe, "corefonts\n");
-        File.WriteAllText(layout.PrefixEnvFile("chosen"), "CUSTOM=value\n");
+        var layout = OlderInstallation();
         var library = new Library(layout, new UnusedRunner());
 
         var update = Assert.IsType<PrefixUpdate>(library.PrefixUpdateOf(library.Find("thing")));
 
-        Assert.False(update.Recorded);
-        Assert.False(update.Available);
-        Assert.Empty(library.PrefixUpdates());
-        Assert.False(File.Exists(layout.PrefixSetupFile("chosen")));
-    }
-
-    [Fact]
-    public void AnOlderInstallationMissingAVerbOffersOnlyThatVerb()
-    {
-        var layout = OlderInstallation(SetupRecipe.Replace("corefonts", "corefonts, vcrun2022"), "corefonts\n");
-        var recorder = new RecordingRunner();
-        var library = new Library(layout, recorder);
-        var update = library.PrefixUpdateOf(library.Find("thing"))!;
-
-        Assert.Equal(["Install vcrun2022 with Winetricks."], update.Changes);
-        Assert.Equal(["vcrun2022"], update.Winetricks);
-
-        library.UpdatePrefix(update);
-
-        Assert.Equal(["--unattended", "vcrun2022"],
-            Assert.Single(recorder.Ran, call => call.File == Core.Layout.Winetricks).Arguments);
-        Assert.True(File.Exists(layout.PrefixSetupFile("chosen")));
-        Assert.Empty(library.PrefixUpdates());
-    }
-
-    [Fact]
-    public void AnOlderInstallationOnAnotherRunnerKeepsItWithoutOfferingAnUpdate()
-    {
-        var layout = OlderInstallation(SetupRecipe + "\nRunner: 9.21\n", "corefonts\n");
-        var library = new Library(layout, new UnusedRunner());
-        var update = library.PrefixUpdateOf(library.Find("thing"))!;
-
-        Assert.Empty(update.Changes);
-        Assert.Contains("Keeps Wine bundled", string.Join("\n", update.Preserved));
-        Assert.Empty(library.PrefixUpdates());
+        Assert.Equal("1.0, revision 1", update.Applied);
+        Assert.Equal("2.0, revision 1", update.Config);
+        Assert.Contains("Previously version 1.0", update.Summary);
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
+        using var receipt = JsonDocument.Parse(File.ReadAllText(layout.PrefixSetupFile("chosen")));
+        Assert.Equal("1.0", receipt.RootElement.GetProperty("configVersion").GetString());
     }
 
     [Theory]
     [InlineData("not json")]
     [InlineData("{}")]
     [InlineData("{\"version\":2}")]
-    public void AnUnreadableReceiptComparesThePrefixItself(string receipt)
+    [InlineData("{\"version\":1,\"configVersion\":\"2.0\",\"runner\":null,\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[\"allfonts\"],\"env\":{},\"desktop\":false}")]
+    public void AnUnreadableReceiptIsReplacedByTheFirstConfig(string receipt)
     {
-        var layout = InstallSetup(SetupRecipe);
+        var layout = OlderInstallation();
         File.WriteAllText(layout.PrefixSetupFile("chosen"), receipt);
         var library = new Library(layout, new UnusedRunner());
 
         var update = Assert.IsType<PrefixUpdate>(library.PrefixUpdateOf(library.Find("thing")));
 
-        Assert.False(update.Recorded);
-        Assert.Equal(["Install corefonts with Winetricks."], update.Changes);
-        Assert.Equal(receipt, File.ReadAllText(layout.PrefixSetupFile("chosen")));
+        Assert.Equal("1.0, revision 1", update.Applied);
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
+        Assert.NotEqual(receipt, File.ReadAllText(layout.PrefixSetupFile("chosen")));
+        Assert.Equal("1.0, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
     }
 
     [Fact]
-    public void AnEnvironmentUpdateChangesOnlyValuesStillMatchingTheEarlierRecipe()
+    public void UpdatingAnInstallationWithoutAReceiptAdjustsEveryManagedSetting()
+    {
+        var layout = OlderInstallation();
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        settings.SetVariable("chosen", "CUSTOM", "value");
+        var recorder = Winetricked(layout);
+        var library = new Library(layout, recorder);
+
+        library.UpdatePrefix(library.PrefixUpdateOf(library.Find("thing"))!);
+
+        Assert.Equal(SyncMode.System, settings.Sync("chosen"));
+        Assert.Equal("value", settings.Variables("chosen")["CUSTOM"]);
+        Assert.Equal(["--unattended", "allfonts"],
+            Assert.Single(recorder.Ran, call => call.File == Core.Layout.Winetricks).Arguments);
+        Assert.Equal("2.0, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void ReinstallingIntoAPrefixWithoutAReceiptRecordsTheFirstConfig()
+    {
+        var layout = OlderInstallation();
+        var installer = Path.Combine(root, SetupInstaller);
+        File.WriteAllText(installer, "");
+        var library = new Library(layout, new RecordingRunner());
+
+        library.Install(library.Find("thing"), "chosen", installer);
+
+        Assert.Equal("1.0, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
+        Assert.Single(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void AnEnvironmentUpdateSetsEveryVariableTheConfigNames()
     {
         var recipe = SetupRecipe + "\nEnv:\n  MATCH=old\n  CUSTOM=old\n  REMOVE=old\n";
         var layout = InstallSetup(recipe);
@@ -135,16 +140,15 @@ public partial class LibraryTests
 
         var variables = settings.Variables("chosen");
         Assert.Equal("new", variables["MATCH"]);
-        Assert.Equal("personal-choice", variables["CUSTOM"]);
+        Assert.Equal("new", variables["CUSTOM"]);
         Assert.Equal("new", variables["ADDED"]);
         Assert.Equal("kept", variables["UNRELATED"]);
         Assert.False(variables.ContainsKey("REMOVE"));
-        Assert.Contains("CUSTOM", string.Join("\n", update.Preserved));
         Assert.Empty(library.PrefixUpdates());
     }
 
     [Fact]
-    public void AnEnvironmentUpdatePreservesAVariableTheUserRemoved()
+    public void AnEnvironmentUpdateRestoresAVariableTheUserRemoved()
     {
         var recipe = SetupRecipe + "\nEnv: MANAGED=old\n";
         var layout = InstallSetup(recipe);
@@ -156,8 +160,7 @@ public partial class LibraryTests
 
         library.UpdatePrefix(update);
 
-        Assert.False(settings.Variables("chosen").ContainsKey("MANAGED"));
-        Assert.Contains("MANAGED", string.Join("\n", update.Preserved));
+        Assert.Equal("new", settings.Variables("chosen")["MANAGED"]);
         Assert.Empty(library.PrefixUpdates());
     }
 
@@ -181,6 +184,7 @@ public partial class LibraryTests
         library.UpdatePrefix(update);
 
         Assert.Equal(["another"], update.Sharing);
+        Assert.Null(update.Overrides);
         Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
         Assert.Equal(SyncMode.Fsync, settings.Sync("chosen"));
         Assert.Equal("old", settings.Variables("chosen")["MATCH"]);
@@ -192,7 +196,344 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void AChangedSyncRecipePreservesACustomSyncMode()
+    public void AChangedSetupResetsEverySettingChangedByHand()
+    {
+        var recipe = SetupRecipe + "\nRunner: 9.21\nSync: fsync\nEnv: MANAGED=recommended\n";
+        var layout = InstallSetup(recipe, before: OnRunner("9.21"));
+        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), "corefonts\n");
+        OnRunner("10.0")(layout);
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        settings.SetVariable("chosen", "MANAGED", "personal");
+        File.WriteAllText(layout.PrefixDxvkFile("chosen"), Dxvk.Version + "\n");
+        File.WriteAllText(layout.PrefixUserReg("chosen"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Wine\\Explorer] 1787567817
+            "Desktop"="Default"
+
+            [Software\\Wine\\Explorer\\Desktops] 1787567817
+            "Default"="1920x1080"
+            """);
+        Catalogue(("thing", recipe.Replace("corefonts", "allfonts")));
+        var library = new Library(layout, new RecordingRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
+        Assert.Equal(
+            [
+                "Switch Wine from 10.0 to 9.21.",
+                "Switch the sync mode from ntsync to fsync.",
+                "Turn off DXVK and use Wine's own Direct3D.",
+                "Turn off the Wine virtual desktop.",
+                "Change MANAGED from personal to recommended.",
+            ],
+            update.Resets);
+        Assert.Contains("It may override your own changes to the prefix config.", update.Description);
+
+        library.UpdatePrefix(update);
+
+        Assert.Equal("9.21", File.ReadAllText(layout.PrefixRunnerFile("chosen")).Trim());
+        Assert.Equal(SyncMode.Fsync, settings.Sync("chosen"));
+        Assert.Equal("recommended", settings.Variables("chosen")["MANAGED"]);
+        Assert.False(File.Exists(layout.PrefixDxvkFile("chosen")));
+    }
+
+    [Fact]
+    public void KeepingCustomChangesAppliesOnlyTheRestAndRecordsTheNewSetup()
+    {
+        var recipe = SetupRecipe + "\nSync: fsync\nEnv:\n  MANAGED=recommended\n  FOLLOWED=old\n";
+        var layout = InstallSetup(recipe);
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        settings.SetVariable("chosen", "MANAGED", "personal");
+        Catalogue(("thing", recipe.Replace("fsync", "esync").Replace("recommended", "newer")
+            .Replace("FOLLOWED=old", "FOLLOWED=new")));
+        var library = new Library(layout, Winetricked(layout));
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        library.UpdatePrefix(update, keepCustom: true);
+
+        Assert.Equal(["Change FOLLOWED from old to new."], update.Changes);
+        Assert.Equal(SyncMode.Ntsync, settings.Sync("chosen"));
+        Assert.Equal("personal", settings.Variables("chosen")["MANAGED"]);
+        Assert.Equal("new", settings.Variables("chosen")["FOLLOWED"]);
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void AMissingComponentIsOfferedWithoutAConfigChange()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), "");
+        var library = new Library(layout, Winetricked(layout));
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.True(update.Available);
+        Assert.Null(update.Revised);
+        Assert.Equal(["Install corefonts with Winetricks."], update.Changes);
+        Assert.Empty(update.Resets);
+
+        library.UpdatePrefix(update);
+
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void TheConfigStateShowsTheAppliedAndTheNewConfigInOneLine()
+    {
+        var layout = OlderInstallation();
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal("1.0, revision 1 → 2.0, revision 1",
+            library.PrefixUpdateOf(library.Find("thing"))!.ConfigState);
+    }
+
+    [Fact]
+    public void SettingsStillOnTheOldConfigAreChangesNotResets()
+    {
+        var recipe = SetupRecipe + "\nRunner: 9.21\nSync: fsync\nEnv:\n  KEPT=same\n  CHANGED=old\n  REMOVED=gone\n";
+        var layout = InstallSetup(recipe, before: prepared =>
+        {
+            OnRunner("9.21")(prepared);
+            new PrefixSettings(prepared).SetSync("chosen", SyncMode.Fsync);
+        });
+        Catalogue(("thing", SetupRecipe
+            + "\nRunner: 10.0\nSync: esync\nDxvk: true\nDesktop: true\nEnv:\n  KEPT=same\n  CHANGED=new\n  ADDED=new\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal(
+            [
+                "Switch Wine from 9.21 to 10.0.",
+                "Switch the sync mode from fsync to esync.",
+                "Turn on DXVK for Direct3D.",
+                "Turn on the Wine virtual desktop.",
+                "Set ADDED to new.",
+                "Change CHANGED from old to new.",
+                "Remove the variable REMOVED (now gone).",
+            ],
+            update.Changes);
+        Assert.Empty(update.Resets);
+        Assert.Null(update.Overrides);
+        Assert.DoesNotContain(PrefixUpdate.ReplacesYours, update.Description);
+    }
+
+    [Fact]
+    public void KeepingCustomChangesLeavesEveryHandChangedSetting()
+    {
+        var recipe = SetupRecipe + "\nRunner: 9.21\nSync: fsync\nEnv: MANAGED=recommended\n";
+        var layout = InstallSetup(recipe, before: OnRunner("9.21"));
+        OnRunner("10.0")(layout);
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        settings.SetVariable("chosen", "MANAGED", "personal");
+        File.WriteAllText(layout.PrefixDxvkFile("chosen"), Dxvk.Version + "\n");
+        File.WriteAllText(layout.PrefixUserReg("chosen"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Wine\\Explorer] 1787567817
+            "Desktop"="Default"
+
+            [Software\\Wine\\Explorer\\Desktops] 1787567817
+            "Default"="1920x1080"
+            """);
+        Catalogue(("thing", recipe.Replace("corefonts", "allfonts")));
+        var recorder = Winetricked(layout);
+        var library = new Library(layout, recorder);
+
+        library.UpdatePrefix(library.PrefixUpdateOf(library.Find("thing"))!, keepCustom: true);
+
+        Assert.Equal("10.0", File.ReadAllText(layout.PrefixRunnerFile("chosen")).Trim());
+        Assert.Equal(SyncMode.Ntsync, settings.Sync("chosen"));
+        Assert.Equal("personal", settings.Variables("chosen")["MANAGED"]);
+        Assert.True(File.Exists(layout.PrefixDxvkFile("chosen")));
+        Assert.DoesNotContain(recorder.Ran, call => call.Arguments.Contains("reg"));
+        Assert.Equal(["--unattended", "allfonts"],
+            Assert.Single(recorder.Ran, call => call.File == Core.Layout.Winetricks).Arguments);
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void AnUpToDatePrefixShowsOnlyItsConfig()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nVersion: 1.0\n");
+        var library = new Library(layout, new UnusedRunner());
+
+        var review = Assert.Single(library.PrefixReviews()).Value;
+
+        Assert.False(review.Available);
+        Assert.Equal("1.0, revision 1", review.ConfigState);
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void AMissingComponentShowsOnlyTheConfigItIsOn()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nVersion: 1.0\n");
+        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), "");
+        var library = new Library(layout, new UnusedRunner());
+
+        var review = Assert.Single(library.PrefixReviews()).Value;
+
+        Assert.True(review.Available);
+        Assert.Equal("1.0, revision 1", review.ConfigState);
+        Assert.Equal(["thing"], library.PrefixUpdates().Keys);
+    }
+
+    [Fact]
+    public void APrefixSharedWithAnotherSetupGetsNoReceiptOfItsOwn()
+    {
+        var layout = OlderInstallation();
+        AnotherSetupIn("chosen");
+        var library = new Library(layout, new UnusedRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Null(update.Applied);
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
+        Assert.False(File.Exists(layout.PrefixSetupFile("chosen")));
+    }
+
+    [Fact]
+    public void ARecordedReceiptIsNotRewrittenByAReview()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        var receipt = File.ReadAllText(layout.PrefixSetupFile("chosen"));
+        Catalogue(("thing", SetupRecipe.Replace("corefonts", "allfonts")));
+        var library = new Library(layout, new UnusedRunner());
+
+        library.PrefixUpdateOf(library.Find("thing"));
+
+        Assert.Equal(receipt, File.ReadAllText(layout.PrefixSetupFile("chosen")));
+    }
+
+    [Fact]
+    public void AReviewDoesNotRecreateAPrefixThatIsGone()
+    {
+        var layout = OlderInstallation();
+        Directory.Delete(layout.PrefixPath("chosen"), recursive: true);
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Null(library.PrefixUpdateOf(library.Find("thing")));
+        Assert.Empty(library.PrefixReviews());
+        Assert.False(Directory.Exists(layout.PrefixPath("chosen")));
+    }
+
+    [Fact]
+    public void APrefixThatDiffersFromItsConfigIsEditedWithoutAnUpdate()
+    {
+        var recipe = SetupRecipe + "\nSync: fsync\nEnv:\n  CHANGED=old\n  REMOVED=gone\n";
+        var layout = InstallSetup(recipe, before: prepared =>
+            new PrefixSettings(prepared).SetSync("chosen", SyncMode.Fsync));
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        settings.SetVariable("chosen", "CHANGED", "mine");
+        settings.SetVariable("chosen", "REMOVED", null);
+        settings.SetVariable("chosen", "UNRELATED", "kept");
+        File.WriteAllText(layout.PrefixDxvkFile("chosen"), Dxvk.Version + "\n");
+        File.WriteAllText(layout.PrefixUserReg("chosen"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Wine\\Explorer] 1787567817
+            "Desktop"="Default"
+
+            [Software\\Wine\\Explorer\\Desktops] 1787567817
+            "Default"="1920x1080"
+            """);
+        var library = new Library(layout, new UnusedRunner());
+
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.False(review.Available);
+        Assert.Equal("Edited", review.State);
+        Assert.Equal(
+            [
+                "Sync mode ntsync instead of fsync.",
+                "DXVK on instead of off.",
+                "Virtual desktop on instead of off.",
+                "CHANGED mine instead of old.",
+                "REMOVED removed instead of gone.",
+            ],
+            review.Edits);
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void APrefixOnAnotherWineThanItsConfigIsEdited()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nRunner: 9.21\n", before: OnRunner("9.21"));
+        OnRunner("10.0")(layout);
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal(["Wine 10.0 instead of 9.21."], library.PrefixUpdateOf(library.Find("thing"))!.Edits);
+    }
+
+    [Fact]
+    public void APrefixMatchingItsConfigIsUpToDate()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        var library = new Library(layout, new UnusedRunner());
+
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal("Up to date", review.State);
+        Assert.Empty(review.Edits);
+    }
+
+    [Fact]
+    public void AnUpdateTakesPrecedenceOverEdits()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nSync: fsync\n", before: prepared =>
+            new PrefixSettings(prepared).SetSync("chosen", SyncMode.Fsync));
+        new PrefixSettings(layout).SetSync("chosen", SyncMode.Ntsync);
+        Catalogue(("thing", SetupRecipe + "\nSync: esync\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal("Update available", review.State);
+        Assert.Equal(["Sync mode ntsync instead of fsync."], review.Edits);
+    }
+
+    [Fact]
+    public void AnUnchangedSetupLeavesSettingsChangedByHand()
+    {
+        var recipe = SetupRecipe + "\nSync: fsync\nEnv: MANAGED=recommended\n";
+        var layout = InstallSetup(recipe);
+        var settings = new PrefixSettings(layout);
+        settings.SetSync("chosen", SyncMode.Ntsync);
+        settings.SetVariable("chosen", "MANAGED", "personal");
+        var library = new Library(layout, new UnusedRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.False(update.Available);
+        Assert.Empty(update.Changes);
+    }
+
+    [Fact]
+    public void AFamilyWithoutAReceiptIsOnItsFirstConfig()
+    {
+        var layout = InstallFamily();
+        File.Delete(layout.PrefixSetupFile("custom"));
+        File.WriteAllText(layout.PrefixWinetricksLog("custom"), "corefonts\n");
+        Catalogue(("prefix-2", "Revision: 1\nWinetricks: allfonts\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("one"))!;
+
+        Assert.Equal("1, revision 1", update.Applied);
+        Assert.Equal("2, revision 1", update.Config);
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
+        Assert.Equal(["corefonts"], update.Dropped);
+    }
+
+    [Fact]
+    public void AChangedSyncRecipeReplacesACustomSyncMode()
     {
         var recipe = SetupRecipe + "\nSync: fsync\n";
         var layout = InstallSetup(recipe);
@@ -204,8 +545,7 @@ public partial class LibraryTests
 
         library.UpdatePrefix(update);
 
-        Assert.Equal(SyncMode.Ntsync, settings.Sync("chosen"));
-        Assert.NotEmpty(update.Preserved);
+        Assert.Equal(SyncMode.Esync, settings.Sync("chosen"));
         Assert.Empty(library.PrefixUpdates());
     }
 
@@ -287,30 +627,6 @@ public partial class LibraryTests
         Assert.All(registry, call => Assert.Equal(layout.PrefixPath("chosen"),
             call.Environment["WINEPREFIX"]));
         Assert.Contains(registry, call => call.Arguments.Contains("1920x1080"));
-        Assert.Empty(library.PrefixUpdates());
-    }
-
-    [Fact]
-    public void ReviewingAnOlderInstallationAddsDependenciesAndKeepsExistingPreferences()
-    {
-        var layout = InstallSetup(SetupRecipe + "\nEnv: EXISTING=old\n");
-        File.Delete(layout.PrefixSetupFile("chosen"));
-        var settings = new PrefixSettings(layout);
-        settings.SetSync("chosen", SyncMode.Ntsync);
-        settings.SetVariable("chosen", "EXISTING", "custom");
-        Catalogue(("thing", SetupRecipe.Replace("corefonts", "allfonts")
-            + "\nSync: fsync\nEnv:\n  EXISTING=new\n  MISSING=added\n"));
-        var recorder = new RecordingRunner();
-        var library = new Library(layout, recorder);
-
-        library.UpdatePrefix(library.PrefixUpdateOf(library.Find("thing"))!);
-
-        Assert.Equal(SyncMode.Ntsync, settings.Sync("chosen"));
-        Assert.Equal("custom", settings.Variables("chosen")["EXISTING"]);
-        Assert.Equal("added", settings.Variables("chosen")["MISSING"]);
-        Assert.Equal(["--unattended", "allfonts"],
-            Assert.Single(recorder.Ran, call => call.File == Core.Layout.Winetricks).Arguments);
-        Assert.True(File.Exists(layout.PrefixSetupFile("chosen")));
         Assert.Empty(library.PrefixUpdates());
     }
 
@@ -453,7 +769,8 @@ public partial class LibraryTests
     public void ANewConfigVersionIsOfferedEvenWithNothingToInstall()
     {
         var recipe = SetupRecipe + "\nVersion: 1.2.3\n";
-        var layout = InstallSetup(recipe);
+        var layout = InstallSetup(recipe, before: prepared =>
+            File.WriteAllText(prepared.PrefixWinetricksLog("chosen"), "corefonts\n"));
         Catalogue(("thing", recipe.Replace("1.2.3", "1.3.0")));
         var recorder = new RecordingRunner();
         var library = new Library(layout, recorder);
@@ -493,7 +810,7 @@ public partial class LibraryTests
         var recipe = SetupRecipe + "\nVersion: 1.2.3\n";
         var layout = InstallSetup(recipe);
         Catalogue(("thing", recipe.Replace("corefonts", "allfonts")));
-        var recorder = new RecordingRunner();
+        var recorder = Winetricked(layout);
         var library = new Library(layout, recorder);
         var update = library.PrefixUpdateOf(library.Find("thing"))!;
 
@@ -594,7 +911,7 @@ public partial class LibraryTests
     {
         var layout = InstallFamily();
         Catalogue(("prefix-1", FamilyConfig.Replace("Revision: 1", "Revision: 2").Replace("corefonts", "allfonts")));
-        var recorder = new RecordingRunner();
+        var recorder = Winetricked(layout, "custom");
         var library = new Library(layout, recorder);
 
         Assert.Equal(["one", "two"], library.PrefixUpdates().Keys.Order(StringComparer.Ordinal));
@@ -653,8 +970,15 @@ public partial class LibraryTests
         File.WriteAllText(Path.Combine(layout.PrefixPath("chosen"), "stray"), "");
         var installer = Path.Combine(root, SetupInstaller);
         File.WriteAllText(installer, "");
-        var library = new Library(layout, new RecordingRunner(_ =>
-            Directory.CreateDirectory(Path.Combine(layout.PrefixPath("chosen"), "dosdevices"))));
+        var library = new Library(layout, new RecordingRunner(arguments =>
+        {
+            Directory.CreateDirectory(Path.Combine(layout.PrefixPath("chosen"), "dosdevices"));
+
+            if (arguments.FirstOrDefault() == "--unattended")
+            {
+                File.AppendAllLines(layout.PrefixWinetricksLog("chosen"), arguments.Skip(1));
+            }
+        }));
 
         library.Install(library.Find("thing"), "chosen", installer);
 
@@ -704,7 +1028,7 @@ public partial class LibraryTests
         Directory.CreateDirectory(Path.Combine(layout.PrefixPath("custom"), "dosdevices"));
         var installer = Path.Combine(root, SetupInstaller);
         File.WriteAllText(installer, "");
-        var library = new Library(layout, new RecordingRunner());
+        var library = new Library(layout, Winetricked(layout, "custom"));
         library.Install(library.Find("one"), "custom", installer);
         library.Install(library.Find("two"), installer: installer);
         return layout;
@@ -724,13 +1048,15 @@ public partial class LibraryTests
         File.WriteAllText(prepared.PrefixRunnerFile("chosen"), name + "\n");
     };
 
-    private Layout OlderInstallation(string recipe, string verbs)
+    private Layout OlderInstallation()
     {
-        Catalogue(("thing", recipe));
+        Catalogue(
+            ("thing", "Name: Thing\nKind: windows\nSource: byo\nVersion: 2.0\n"),
+            ("prefix-1.0", "Revision: 1\nWinetricks: corefonts\n"),
+            ("prefix-2.0", "Revision: 1\nWinetricks: allfonts\n"));
         var layout = Layout();
         Directory.CreateDirectory(Path.Combine(layout.PrefixPath("chosen"), "dosdevices"));
         File.WriteAllText(layout.PrefixPluginsFile("chosen"), "thing\n");
-        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), verbs);
         return layout;
     }
 
@@ -766,8 +1092,17 @@ public partial class LibraryTests
         before?.Invoke(layout);
         var installer = Path.Combine(root, SetupInstaller);
         File.WriteAllText(installer, "");
-        var library = new Library(layout, new RecordingRunner());
+        var library = new Library(layout, Winetricked(layout, prefix));
         library.Install(library.Find("thing"), prefix, installer);
         return layout;
     }
+
+    private static RecordingRunner Winetricked(Layout layout, string prefix = "chosen", Func<IReadOnlyList<string>, int>? exits = null) =>
+        new(arguments =>
+        {
+            if (arguments.FirstOrDefault() == "--unattended")
+            {
+                File.AppendAllLines(layout.PrefixWinetricksLog(prefix), arguments.Skip(1));
+            }
+        }, exits);
 }
