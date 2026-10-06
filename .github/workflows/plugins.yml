@@ -76,7 +76,8 @@ jobs:
         run: |
           run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           {
-            echo "The plugin scenarios failed in [run ${GITHUB_RUN_ID}](${run})."
+            echo "The plugin scenarios failed in [run ${GITHUB_RUN_ID}](${run}) at commit ${GITHUB_SHA::7}."
+            echo "Its \`runtime\` artifact holds every log and capture until $(date -u -d '+7 days' +%F)."
             echo
             scripts/scenario-diagnosis.py runtime
           } > diagnosis.md
