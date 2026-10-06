@@ -28,5 +28,4 @@ opencode.json
 
 # Other
 TODO.md
-/credentials.env
-/groq.env
+/secrets.env

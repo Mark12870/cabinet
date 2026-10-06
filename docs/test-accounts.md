@@ -3,7 +3,7 @@
 Scenarios for entries behind a vendor account sign in with a shared test account, or restore a
 session it saved.
 
-Helix Native is tested through a Line 6 test account. `credentials.env` at the repository root,
+Helix Native is tested through a Line 6 test account. `secrets.env` at the repository root,
 gitignored, holds its `EMAIL` and `PASSWORD`; the Plugins workflow writes the same file inside the
 container from the repository secrets of those names, owned by the test user and readable by no
 one else, and a push never sees them. The scenario signs in to line6.com, takes the Windows
@@ -49,7 +49,7 @@ Native Access signs in through a browser, and Native Instruments' login page ref
 driven by WebDriver, so its scenario does not sign in; it restores a session instead. Native
 Access keeps that session in Wine's Credential Manager, as `NTKDaemon/session_data` under
 `HKCU\Software\Wine\Credential Manager` beside the `EncryptionKey` that decrypts it, and the entry
-holds in a fresh prefix and does not change with use. `NATIVE_ACCESS` in `credentials.env` and the
+holds in a fresh prefix and does not change with use. `NATIVE_ACCESS` in `secrets.env` and the
 secrets holds those two `user.reg` sections base64-encoded. To renew it, sign
 in by hand in a scenario install and encode the same two sections again. Raum's editor is not
 checked: it draws through DXVK's Direct3D 9, whose swapchain throws on the test display, and Wine's
@@ -80,7 +80,7 @@ display, so the prefix runs on lavapipe.
 Waves Central signs in through a browser too, and Waves' login page answers a WebDriver-driven
 sign-in with "Incorrect captcha code", so its scenario restores a session instead. Central keeps it
 in `AppData\Roaming\Waves Audio\Preferences\Waves Central.json`, as `SessionData` beside the
-`UserSettings.systemId` it belongs to. `WAVES` in `credentials.env` and the secrets holds those two
+`UserSettings.systemId` it belongs to. `WAVES` in `secrets.env` and the secrets holds those two
 fields base64-encoded as JSON, and the scenario writes them into a fresh prefix with the welcome tour
 already answered. Central rewrites `SessionData` on every launch, but an earlier copy still signs
 in. To renew it, sign in by hand in a scenario install and encode the same two fields again. The
