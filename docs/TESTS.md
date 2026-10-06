@@ -185,6 +185,10 @@ hand, against a Cabinet built from main through the same `build.yml` and `runtim
 calls. On its run page `scripts/scenario-report.py` puts one row per entry and format, with a
 failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
+A failed run sends each failed entry's redacted logs to Groq through `scripts/scenario-diagnosis.py`
+and posts the answer on the open "Plugin scenarios are failing" issue, which GitHub emails to the
+repository's watchers. The `GROQ_API_KEY` secret reaches only that job; locally it sits in the
+gitignored `secrets.env` with the account secrets, one line per GitHub secret.
 `ScenarioHarness` owns isolation, process supervision, Carla and artefact collection; the scenario
 owns its expectations. Isolation includes the user database: u-he plugins find their data through
 the passwd home rather than `HOME`, so a probe runs under `nss_wrapper` with a passwd entry whose

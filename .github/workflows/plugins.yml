@@ -44,3 +44,53 @@ jobs:
       USERNAME: ${{ secrets.USERNAME }}
       NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
       WAVES: ${{ secrets.WAVES }}
+
+  # A failed run asks a model what went wrong and posts its answer on one open issue, which GitHub
+  # mails to whoever watches the repository. The key reaches this job alone and never the runtime
+  # job, where vendor installers run; the account secrets come along only to be redacted.
+  diagnose:
+    needs: runtime
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: runtime
+          path: runtime
+
+      - name: Diagnose the failed scenarios
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          DROPBOX: ${{ secrets.DROPBOX }}
+          USERNAME: ${{ secrets.USERNAME }}
+          NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
+          WAVES: ${{ secrets.WAVES }}
+        run: |
+          run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          {
+            echo "The plugin scenarios failed in [run ${GITHUB_RUN_ID}](${run})."
+            echo
+            scripts/scenario-diagnosis.py runtime
+          } > diagnosis.md
+          cat diagnosis.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Post the diagnosis
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TITLE: Plugin scenarios are failing
+        run: |
+          number=$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open \
+            --search "in:title \"${TITLE}\"" --json number --jq '.[0].number // empty')
+          if [ -n "${number}" ]; then
+            gh issue comment "${number}" --repo "${GITHUB_REPOSITORY}" --body-file diagnosis.md
+          else
+            gh issue create --repo "${GITHUB_REPOSITORY}" --title "${TITLE}" --body-file diagnosis.md
+          fi

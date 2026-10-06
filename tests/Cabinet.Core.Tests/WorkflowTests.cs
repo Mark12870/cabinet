@@ -80,6 +80,18 @@ public class WorkflowTests
     }
 
     [Fact]
+    public void OnlyAFailedPluginRunsDiagnosisHoldsTheModelKey()
+    {
+        var diagnose = Job(Plugins, "diagnose");
+
+        Assert.Contains(diagnose, line => line.Trim() == "if: failure()");
+        Assert.Single(Plugins, line => line.Contains("secrets.GROQ_API_KEY", StringComparison.Ordinal));
+        Assert.Contains(diagnose, line => line.Contains("secrets.GROQ_API_KEY", StringComparison.Ordinal));
+        Assert.DoesNotContain(Runtime, line => line.Contains("GROQ", StringComparison.Ordinal));
+        Assert.DoesNotContain("GROQ", Driver, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PatchProbesRunOnlyWhenStartedByHand()
     {
         const string probes = "Cabinet.Runtime.Tests.Patches";
