@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.25.0" date="2026-10-06">
+      <description>
+        <p>Put a prefix you changed back to Cabinet's setup</p>
+        <ul>
+          <li>When a prefix's settings differ from Cabinet's setup, its plugin page offers Restore config, which puts its Wine version, sync mode, DXVK, virtual desktop and the setup's variables back after you confirm</li>
+          <li>Restoring installs nothing and keeps variables the setup does not name</li>
+          <li>On the command line, cabinet library restore does the same</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.24.0" date="2026-10-06">
       <description>
         <p>Prefix updates show what they change and let you keep your own settings</p>
