@@ -19,17 +19,17 @@ def formatted(diagnosis: str) -> str:
         "p": "margin:12px 0;",
         "ul": "padding-left:24px;",
         "li": "margin:8px 0;",
-        "blockquote": "margin:16px 0;padding:0 16px;border-left:4px solid #8fa58c;",
-        "pre": "padding:16px;background:#e8d6bd;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;",
+        "blockquote": "margin:16px 0;padding:0 16px;border-left:4px solid #dddddd;",
+        "pre": "padding:16px;background:#f5f5f5;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;",
         "code": "font-family:monospace;font-size:13px;",
         "table": "border-collapse:collapse;width:100%;",
-        "th": "padding:8px;text-align:left;border:1px solid #e8d6bd;",
-        "td": "padding:8px;border:1px solid #e8d6bd;",
+        "th": "padding:8px;text-align:left;border:1px solid #dddddd;",
+        "td": "padding:8px;border:1px solid #dddddd;",
     }
     for tag, style in styles.items():
         rendered = rendered.replace(f"<{tag}>", f'<{tag} style="{style}">')
     rendered = rendered.replace('<a ', '<a style="color:#227d66;" ')
-    return ('<!doctype html><html><body style="margin:0;background:#fff8eb;color:#211814;">'
+    return ('<!doctype html><html><body style="margin:0;">'
             '<div style="max-width:720px;margin:auto;padding:24px;font-family:Arial,sans-serif;font-size:16px;line-height:1.6;">'
             + rendered + '</div></body></html>')
 
@@ -38,7 +38,7 @@ def main() -> int:
     required = ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TO")
     missing = [name for name in required if not os.environ.get(name)]
     if missing:
-        print("::error::Configure these GitHub Actions secrets for diagnosis email: " + ", ".join(missing))
+        print("::error::Configure these diagnosis email settings: " + ", ".join(missing))
         return 1
 
     try:

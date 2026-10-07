@@ -44,8 +44,9 @@ runtime run. Patch probes run locally on demand (see Patch probes). Their fixtur
 only with `CABINET_RUNTIME_PROBES=1`, and `clean` keeps them out of the image.
 
 Failed Plugins runs put the full AI diagnosis in the run summary and email it without creating
-issues. Set Actions secrets `SMTP_HOST`, `SMTP_USERNAME` (sender address), `SMTP_PASSWORD` and
-`SMTP_TO`; `SMTP_PORT` defaults to 465 (TLS), or use 587 (STARTTLS).
+issues. Set Actions secrets `SMTP_USERNAME` (sender address) and `SMTP_PASSWORD`, plus variable
+`SMTP_TO` (recipient), or a secret of that name to keep it private. Variables `SMTP_HOST` and
+`SMTP_PORT` default to `smtp.agentmail.to` and 465 (TLS); other providers can use 587 (STARTTLS).
 
 The fixtures cannot be made per run — about 13 GB on a runner that installs all of them, out of
 seven vendor installers, five Wine runners and a serial Carla build — and `actions/cache` holds

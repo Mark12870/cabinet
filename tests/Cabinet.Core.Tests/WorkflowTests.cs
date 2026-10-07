@@ -104,17 +104,18 @@ public class WorkflowTests
     }
 
     [Theory]
-    [InlineData("SMTP_HOST")]
-    [InlineData("SMTP_PORT")]
-    [InlineData("SMTP_USERNAME")]
-    [InlineData("SMTP_PASSWORD")]
-    [InlineData("SMTP_TO")]
-    public void OnlyTheDiagnosisEmailStepReceivesMailConfiguration(string name)
+    [InlineData("SMTP_HOST", "vars.SMTP_HOST || 'smtp.agentmail.to'")]
+    [InlineData("SMTP_PORT", "vars.SMTP_PORT || '465'")]
+    [InlineData("SMTP_USERNAME", "secrets.SMTP_USERNAME")]
+    [InlineData("SMTP_PASSWORD", "secrets.SMTP_PASSWORD")]
+    [InlineData("SMTP_TO", "secrets.SMTP_TO || vars.SMTP_TO")]
+    public void OnlyTheDiagnosisEmailStepReceivesMailConfiguration(string name, string value)
     {
         var steps = string.Join('\n', Job(Plugins, "diagnose")).Split("\n      - ", StringSplitOptions.None);
 
-        var email = Assert.Single(steps, step => step.Contains($"secrets.{name}", StringComparison.Ordinal));
+        var email = Assert.Single(steps, step => step.Contains($"{name}:", StringComparison.Ordinal));
         Assert.Contains("name: Email the full diagnosis", email, StringComparison.Ordinal);
+        Assert.Contains($"{name}: ${{{{ {value} }}}}", email, StringComparison.Ordinal);
         Assert.DoesNotContain(Runtime, line => line.Contains(name, StringComparison.Ordinal));
         Assert.DoesNotContain(name, Driver, StringComparison.Ordinal);
     }

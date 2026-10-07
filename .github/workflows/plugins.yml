@@ -87,9 +87,9 @@ jobs:
       - name: Email the full diagnosis
         env:
           PYTHONPATH: ${{ runner.temp }}/diagnosis-email
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_HOST: ${{ vars.SMTP_HOST || 'smtp.agentmail.to' }}
+          SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
-          SMTP_TO: ${{ secrets.SMTP_TO }}
+          SMTP_TO: ${{ secrets.SMTP_TO || vars.SMTP_TO }}
         run: python3 scripts/email-diagnosis.py diagnosis.md
