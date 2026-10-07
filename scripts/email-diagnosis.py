@@ -7,6 +7,32 @@ import sys
 from email.message import EmailMessage
 from pathlib import Path
 
+from markdown_it import MarkdownIt
+
+
+def formatted(diagnosis: str) -> str:
+    readable = diagnosis.replace("<details><summary>As recorded</summary>", "### As recorded").replace("</details>", "")
+    rendered = MarkdownIt("commonmark", {"html": False}).enable("table").disable("image").render(readable)
+    styles = {
+        "h2": "font-size:24px;margin:0 0 20px;",
+        "h3": "font-size:18px;margin:28px 0 12px;",
+        "p": "margin:12px 0;",
+        "ul": "padding-left:24px;",
+        "li": "margin:8px 0;",
+        "blockquote": "margin:16px 0;padding:0 16px;border-left:4px solid #8fa58c;",
+        "pre": "padding:16px;background:#e8d6bd;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere;",
+        "code": "font-family:monospace;font-size:13px;",
+        "table": "border-collapse:collapse;width:100%;",
+        "th": "padding:8px;text-align:left;border:1px solid #e8d6bd;",
+        "td": "padding:8px;border:1px solid #e8d6bd;",
+    }
+    for tag, style in styles.items():
+        rendered = rendered.replace(f"<{tag}>", f'<{tag} style="{style}">')
+    rendered = rendered.replace('<a ', '<a style="color:#227d66;" ')
+    return ('<!doctype html><html><body style="margin:0;background:#fff8eb;color:#211814;">'
+            '<div style="max-width:720px;margin:auto;padding:24px;font-family:Arial,sans-serif;font-size:16px;line-height:1.6;">'
+            + rendered + '</div></body></html>')
+
 
 def main() -> int:
     required = ("SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_TO")
@@ -21,7 +47,9 @@ def main() -> int:
         message["From"] = os.environ["SMTP_USERNAME"]
         message["To"] = os.environ["SMTP_TO"]
         message["Subject"] = f"Cabinet Plugins AI diagnosis — run {os.environ['GITHUB_RUN_ID']}"
-        message.set_content(Path(sys.argv[1]).read_text(encoding="utf-8"))
+        diagnosis = Path(sys.argv[1]).read_text(encoding="utf-8")
+        message.set_content(diagnosis)
+        message.add_alternative(formatted(diagnosis), subtype="html")
 
         context = ssl.create_default_context()
         host = os.environ["SMTP_HOST"]

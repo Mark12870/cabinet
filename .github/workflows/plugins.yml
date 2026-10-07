@@ -81,8 +81,12 @@ jobs:
           } > diagnosis.md
           cat diagnosis.md >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: Install the email renderer
+        run: python3 -m pip install --disable-pip-version-check --target "${RUNNER_TEMP}/diagnosis-email" --requirement scripts/email-diagnosis-requirements.txt
+
       - name: Email the full diagnosis
         env:
+          PYTHONPATH: ${{ runner.temp }}/diagnosis-email
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}

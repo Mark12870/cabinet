@@ -97,6 +97,7 @@ public class WorkflowTests
 
         Assert.Contains("echo '## AI summary'", diagnose, StringComparison.Ordinal);
         Assert.Contains("cat diagnosis.md >> \"${GITHUB_STEP_SUMMARY}\"", diagnose, StringComparison.Ordinal);
+        Assert.Contains("--requirement scripts/email-diagnosis-requirements.txt", diagnose, StringComparison.Ordinal);
         Assert.Contains("python3 scripts/email-diagnosis.py diagnosis.md", diagnose, StringComparison.Ordinal);
         Assert.DoesNotContain(Plugins, line => line.Contains("gh issue", StringComparison.Ordinal));
         Assert.DoesNotContain(Plugins, line => line.Trim() == "issues: write");
