@@ -92,6 +92,18 @@ public class WorkflowTests
     }
 
     [Fact]
+    public void ThePluginDiagnosisMentionsTheWorkflowRecipientInBothIssuePaths()
+    {
+        var diagnose = string.Join('\n', Job(Plugins, "diagnose"));
+
+        Assert.Contains("NOTIFY_USER: ${{ github.actor }}", diagnose, StringComparison.Ordinal);
+        Assert.Contains("echo \"@${NOTIFY_USER}\"", diagnose, StringComparison.Ordinal);
+        Assert.Contains("echo '## AI summary'", diagnose, StringComparison.Ordinal);
+        Assert.Contains("gh issue comment \"${number}\" --repo \"${GITHUB_REPOSITORY}\" --body-file diagnosis.md", diagnose, StringComparison.Ordinal);
+        Assert.Contains("gh issue create --repo \"${GITHUB_REPOSITORY}\" --title \"${TITLE}\" --body-file diagnosis.md", diagnose, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PatchProbesRunOnlyWhenStartedByHand()
     {
         const string probes = "Cabinet.Runtime.Tests.Patches";
