@@ -7,7 +7,6 @@ public class WorkflowTests
     private static readonly string[] Ci = Repo.Lines(".github/workflows/ci.yml");
     private static readonly string[] Runtime = Repo.Lines(".github/workflows/runtime.yml");
     private static readonly string[] Plugins = Repo.Lines(".github/workflows/plugins.yml");
-    private static readonly string[] Patches = Repo.Lines(".github/workflows/patches.yml");
     private static readonly string Driver = Repo.Read("scripts/runtime-ci.sh");
     private static readonly string[] Redistributable = ["GPL-3.0", "LGPL-3.0"];
 
@@ -92,27 +91,46 @@ public class WorkflowTests
     }
 
     [Fact]
-    public void ThePluginDiagnosisMentionsTheWorkflowRecipientInBothIssuePaths()
+    public void ThePluginDiagnosisGoesToTheWorkflowSummaryAndEmailWithoutIssues()
     {
         var diagnose = string.Join('\n', Job(Plugins, "diagnose"));
 
-        Assert.Contains("NOTIFY_USER: ${{ github.actor }}", diagnose, StringComparison.Ordinal);
-        Assert.Contains("echo \"@${NOTIFY_USER}\"", diagnose, StringComparison.Ordinal);
         Assert.Contains("echo '## AI summary'", diagnose, StringComparison.Ordinal);
-        Assert.Contains("gh issue comment \"${number}\" --repo \"${GITHUB_REPOSITORY}\" --body-file diagnosis.md", diagnose, StringComparison.Ordinal);
-        Assert.Contains("gh issue create --repo \"${GITHUB_REPOSITORY}\" --title \"${TITLE}\" --body-file diagnosis.md", diagnose, StringComparison.Ordinal);
+        Assert.Contains("cat diagnosis.md >> \"${GITHUB_STEP_SUMMARY}\"", diagnose, StringComparison.Ordinal);
+        Assert.Contains("python3 scripts/email-diagnosis.py diagnosis.md", diagnose, StringComparison.Ordinal);
+        Assert.DoesNotContain(Plugins, line => line.Contains("gh issue", StringComparison.Ordinal));
+        Assert.DoesNotContain(Plugins, line => line.Trim() == "issues: write");
+    }
+
+    [Theory]
+    [InlineData("SMTP_HOST")]
+    [InlineData("SMTP_PORT")]
+    [InlineData("SMTP_USERNAME")]
+    [InlineData("SMTP_PASSWORD")]
+    [InlineData("SMTP_TO")]
+    public void OnlyTheDiagnosisEmailStepReceivesMailConfiguration(string name)
+    {
+        var steps = string.Join('\n', Job(Plugins, "diagnose")).Split("\n      - ", StringSplitOptions.None);
+
+        var email = Assert.Single(steps, step => step.Contains($"secrets.{name}", StringComparison.Ordinal));
+        Assert.Contains("name: Email the full diagnosis", email, StringComparison.Ordinal);
+        Assert.DoesNotContain(Runtime, line => line.Contains(name, StringComparison.Ordinal));
+        Assert.DoesNotContain(name, Driver, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void PatchProbesRunOnlyWhenStartedByHand()
+    public void PatchProbesRemainLocalAndOutsideTheCiSuites()
     {
         const string probes = "Cabinet.Runtime.Tests.Patches";
 
-        Assert.Contains(Patches, line => line.Trim() == "suite: patches");
-        Assert.Contains(Patches, line => line.Trim() == "workflow_dispatch:");
-        Assert.DoesNotContain(Patches, line => line.Trim() is "push:" or "pull_request:" or "schedule:");
+        var workflows = Directory.EnumerateFiles(Repo.Path(".github/workflows"), "*.yml")
+            .SelectMany(File.ReadLines);
+
+        Assert.False(File.Exists(Repo.Path(".github/workflows/patches.yml")));
+        Assert.DoesNotContain(workflows, line => line.Trim() == "suite: patches");
+        Assert.DoesNotContain(Runtime, line => line.Contains("CABINET_RUNTIME_PROBES", StringComparison.Ordinal));
         Assert.Contains($"--filter-not-namespace {probes}) ;;", Driver, StringComparison.Ordinal);
-        Assert.Contains($"patches) filter=(--filter-namespace {probes}) ;;", Driver, StringComparison.Ordinal);
+        Assert.DoesNotContain($"--filter-namespace {probes}", Driver, StringComparison.Ordinal);
         Assert.All(
             Directory.EnumerateFiles(Repo.Path("tests/Cabinet.Runtime.Tests/Patches"), "*.cs"),
             file => Assert.Contains($"namespace {probes};", File.ReadAllText(file), StringComparison.Ordinal));

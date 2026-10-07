@@ -1,7 +1,5 @@
 name: Runtime
 
-# Called by ci.yml after a push for the general suite, by plugins.yml for the daily run of the
-# plugin scenarios, and by patches.yml for the patch probes on demand. scripts/runtime-ci.sh decides which tests each suite holds.
 on:
   workflow_call:
     inputs:
@@ -9,7 +7,7 @@ on:
         type: boolean
         default: false
       suite:
-        description: general, scenarios, or patches
+        description: general or scenarios
         type: string
         default: general
     secrets:
@@ -134,20 +132,6 @@ jobs:
       - name: Install the tools
         run: docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
 
-      # The drag-and-drop probes ask whether a yabridge patch can go, not whether this commit
-      # works, and their prefixes and runners are five gigabytes. Only the patches suite sets them
-      # up, and `clean` keeps them out of the image either way.
-      - name: Decide whether the probes run
-        id: probes
-        env:
-          SUITE: ${{ inputs.suite }}
-        run: |
-          if [ "${SUITE}" = patches ]; then
-            echo 'value=1' >> "$GITHUB_OUTPUT"
-          else
-            echo 'value=0' >> "$GITHUB_OUTPUT"
-          fi
-
       # The one thing here that the build gates. Everything above it -- the pull, the disk, the
       # cache, the container -- needs nothing from the build, so this job no longer waits on it
       # to start; it waits here, where the artifact is actually wanted.
@@ -197,7 +181,6 @@ jobs:
       - name: Put the built Cabinet and the cached fixtures in place
         id: setup
         env:
-          PROBES: ${{ steps.probes.outputs.value }}
           SUITE: ${{ inputs.suite }}
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
@@ -205,12 +188,11 @@ jobs:
             docker cp fixtures.tar "${CONTAINER}:/tmp/fixtures.tar"
             docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restore /tmp/fixtures.tar
           fi
-          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
+          docker exec --env CABINET_RUNTIME_SUITE="${SUITE}" \
             "${CONTAINER}" /src/scripts/runtime-ci.sh setup
 
       - name: Runtime tests
         env:
-          PROBES: ${{ steps.probes.outputs.value }}
           SUITE: ${{ inputs.suite }}
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
@@ -219,7 +201,7 @@ jobs:
           NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
           WAVES: ${{ secrets.WAVES }}
         run: |
-          docker exec --env CABINET_RUNTIME_PROBES="${PROBES}" --env CABINET_RUNTIME_SUITE="${SUITE}" \
+          docker exec --env CABINET_RUNTIME_SUITE="${SUITE}" \
             --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME --env NATIVE_ACCESS --env WAVES "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs

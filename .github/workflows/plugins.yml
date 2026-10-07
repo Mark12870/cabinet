@@ -51,7 +51,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      issues: write
     steps:
       - uses: actions/checkout@v7
 
@@ -63,7 +62,6 @@ jobs:
 
       - name: Diagnose the failed scenarios
         env:
-          NOTIFY_USER: ${{ github.actor }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
@@ -74,8 +72,6 @@ jobs:
         run: |
           run="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           {
-            echo "@${NOTIFY_USER}"
-            echo
             echo '## AI summary'
             echo
             echo "The plugin scenarios failed in [run ${GITHUB_RUN_ID}](${run}) at commit ${GITHUB_SHA::7}."
@@ -85,15 +81,11 @@ jobs:
           } > diagnosis.md
           cat diagnosis.md >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Post the diagnosis
+      - name: Email the full diagnosis
         env:
-          GH_TOKEN: ${{ github.token }}
-          TITLE: Plugin scenarios are failing
-        run: |
-          number=$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open \
-            --search "in:title \"${TITLE}\"" --json number --jq '.[0].number // empty')
-          if [ -n "${number}" ]; then
-            gh issue comment "${number}" --repo "${GITHUB_REPOSITORY}" --body-file diagnosis.md
-          else
-            gh issue create --repo "${GITHUB_REPOSITORY}" --title "${TITLE}" --body-file diagnosis.md
-          fi
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_TO: ${{ secrets.SMTP_TO }}
+        run: python3 scripts/email-diagnosis.py diagnosis.md

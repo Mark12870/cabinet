@@ -21,12 +21,7 @@
 #   scripts/runtime-ci.sh save tar       pack the private fixtures for the cache
 #   scripts/runtime-ci.sh clean          leave only what the image may carry
 #
-# CABINET_RUNTIME_PROBES=1 adds the drag-and-drop fixtures, which only the patch probes use.
 # CABINET_RUNTIME_SUITE=general, the default, is the plugin matrix; a push runs it.
-# CABINET_RUNTIME_SUITE=patches is the probes PATCHES.md reads to retire a yabridge patch, run on
-# demand. CABINET_RUNTIME_SUITE=scenarios is only the plugin scenarios, which run daily on a schedule;
-# each installs its own entry, three at a time, so its setup leaves out the DAW and the entries,
-# and it has no use for the private fixtures.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
 # stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user with
@@ -92,7 +87,6 @@ as_owner() {
         CABINET_RUNTIME_ROOT="$ROOT" \
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$SOURCE/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
-        CABINET_RUNTIME_PROBES="${CABINET_RUNTIME_PROBES:-0}" \
         CABINET_RUNTIME_SUITE="${CABINET_RUNTIME_SUITE:-general}" \
         CABINET_RUNTIME_FILTER_CLASS="${CABINET_RUNTIME_FILTER_CLASS:-}" \
         bash "$0" "$@"
@@ -255,7 +249,6 @@ run_test() {
     case "${CABINET_RUNTIME_SUITE:-general}" in
         general) filter=(--filter-not-namespace Cabinet.Runtime.Tests.Scenarios
             --filter-not-namespace Cabinet.Runtime.Tests.Patches) ;;
-        patches) filter=(--filter-namespace Cabinet.Runtime.Tests.Patches) ;;
         scenarios) filter=(--filter-namespace Cabinet.Runtime.Tests.Scenarios)
             parallel=(--parallel collections)
             if [ -n "${CABINET_RUNTIME_FILTER_CLASS:-}" ]; then

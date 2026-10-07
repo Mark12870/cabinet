@@ -40,10 +40,12 @@ over.
 
 `.github/workflows/ci.yml`'s `runtime` job runs the plugin matrix on every push to `main`, and on
 demand, against the Flatpak the same run built. `publish` waits for it, so a release needs a green
-runtime run. The patch probes say when a yabridge patch can go rather than whether this commit
-works, so they run only when `.github/workflows/patches.yml` is started by hand; their four
-prefixes and three runner families are five gigabytes, which setup adds only with
-`CABINET_RUNTIME_PROBES=1`, and `clean` keeps them out of the image.
+runtime run. Patch probes run locally on demand (see Patch probes). Their fixtures are added
+only with `CABINET_RUNTIME_PROBES=1`, and `clean` keeps them out of the image.
+
+Failed Plugins runs put the full AI diagnosis in the run summary and email it without creating
+issues. Set Actions secrets `SMTP_HOST`, `SMTP_USERNAME` (sender address), `SMTP_PASSWORD` and
+`SMTP_TO`; `SMTP_PORT` defaults to 465 (TLS), or use 587 (STARTTLS).
 
 The fixtures cannot be made per run — about 13 GB on a runner that installs all of them, out of
 seven vendor installers, five Wine runners and a serial Carla build — and `actions/cache` holds
