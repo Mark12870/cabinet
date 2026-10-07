@@ -1,4 +1,5 @@
-Revision: 1
+Revision: 2
 Runner: 9.21
 Sync: fsync
+Winetricks: gdiplus
 Env: WINEDLLOVERRIDES=*wbemprox,*wbemcomn=n
