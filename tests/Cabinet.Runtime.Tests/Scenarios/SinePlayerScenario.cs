@@ -63,9 +63,9 @@ public sealed class SinePlayerScenario(SinePlayerScenario.Installed installed)
 
         private const string LogInHeading = "612,315 769,341";
 
-        private const string GettingStartedPage = References + "sine-getting-started.png";
+        private const string TutorialPage = References + "sine-tutorial-close.png";
 
-        private const string GettingStarted = "490,395 865,455";
+        private const string TutorialClose = "1028,234 1052,258";
 
         private const string LicencesPage = References + "sine-berlin-free-orchestra.png";
 
@@ -98,7 +98,7 @@ public sealed class SinePlayerScenario(SinePlayerScenario.Installed installed)
             manager.Type(window, 690, 454, credentials["PASSWORD"]);
             manager.Click(window, 690, 552);
             manager.Until(
-                () => manager.Shows(window, GettingStartedPage, GettingStarted),
+                () => manager.Shows(window, TutorialPage, TutorialClose),
                 window, "the signed-in tutorial", Answering, "550,374 830,474");
             await Harness.SendText(display, Title, 1040, 246, "");
             manager.Until(
