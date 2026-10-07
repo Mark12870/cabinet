@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.25.1" date="2026-10-07">
+      <description>
+        <p>Updated graphics setup for Helix Native</p>
+        <ul>
+          <li>Helix Native now uses native Windows GDI+ for its editor</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.25.0" date="2026-10-06">
       <description>
         <p>Put a prefix you changed back to Cabinet's setup</p>
