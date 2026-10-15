@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.26.1" date="2026-10-15">
+      <description>
+        <p>IK Product Manager installs its current version</p>
+        <ul>
+          <li>IK Product Manager installs version 1.1.16, so it no longer stops to update itself before showing your products</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.26.0" date="2026-10-15">
       <description>
         <p>Spitfire Audio App joins the Library</p>
