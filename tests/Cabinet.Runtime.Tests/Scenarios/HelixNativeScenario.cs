@@ -5,9 +5,7 @@ public sealed class HelixNativeScenario(HelixNativeScenario.Installed installed)
 {
     private const string Id = "helix-native";
 
-    private const string SignInThenStartTrial = "516 457 516 424";
-
-    private const int SetlistLoaded = 15;
+    private const string SignIn = "516 457";
 
     private static readonly Dictionary<string, string> Bridges = new()
     {
@@ -18,15 +16,14 @@ public sealed class HelixNativeScenario(HelixNativeScenario.Installed installed)
 
     [Theory]
     [MemberData(nameof(Formats))]
-    public async Task SignsInStartsItsTrialAndShapesAudio(string format)
+    public async Task SignsInAndPassesAudioUnshapedOnceItsTrialHasExpired(string format)
     {
         Assert.True(
             Bridges.ContainsKey(format),
             $"{Id} declares {format}, which this scenario does not say how to find");
         var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
-        var editor = installed.Harness.VerifyEditor(
-            bridge, controlsAreParameters: false, type: Account(), click: SignInThenStartTrial, still: SetlistLoaded);
+        var editor = installed.Harness.VerifyEditor(bridge, controlsAreParameters: false, type: Account(), click: SignIn);
         Assert.True(
             editor.Wine != "none" && editor.Wine == editor.Told,
             $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
@@ -34,7 +31,7 @@ public sealed class HelixNativeScenario(HelixNativeScenario.Installed installed)
 
         Assert.True(audio.Parameters > 0, $"{installed.Entry.Name} exposed no parameters");
         Assert.InRange(audio.Before, 0, 0.0001);
-        Assert.InRange(audio.Tail, 0.00005, 1);
+        Assert.InRange(audio.Tail, 0, 0.00001);
         Assert.InRange(audio.Peak, 0.024, 1);
     }
 

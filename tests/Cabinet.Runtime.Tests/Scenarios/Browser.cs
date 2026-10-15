@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace Cabinet.Runtime.Tests.Scenarios;
 
@@ -119,9 +120,10 @@ internal sealed class Browser : IDisposable
     private void Keep(string what)
     {
         Directory.CreateDirectory(evidence);
-        var shown = Script(
-            "return [document.title, ...[...document.querySelectorAll('h1,h2,[role=alert]')].map(e => e.innerText.trim())]"
-            + ".filter(text => text).join('\\n')")!.GetValue<string>();
+        var shown = Regex.Replace(
+            Script("return [document.title, document.body.innerText.trim()].join('\\n\\n')")!.GetValue<string>(),
+            @"\S+@\S+",
+            "<email>");
         File.WriteAllText(
             System.IO.Path.Combine(evidence, "browser.txt"),
             $"waiting for: {what}\npage: {Path()}\n\n{shown}\n");
