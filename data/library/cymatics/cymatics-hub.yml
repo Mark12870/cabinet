@@ -1,0 +1,25 @@
+Name: Cymatics Hub
+Kind: windows
+Category: Manager
+Summary: Cymatics' app for downloading and installing its plugins and samples.
+Developer: Cymatics
+Licence: Freeware
+Licensing:
+  The app is free and signs in to a Cymatics account. Free products, purchases
+  and subscription content available to that account can be installed through it.
+Formats: VST3
+Homepage: https://cymatics.fm/pages/cymatics-hub-download-1
+Source: rolling
+Url: https://downloads.cymatics.fm/free/Hub/CymaticsHubSetup.exe
+Launch: C:\Program Files\Cymatics Hub\CymaticsHub.exe
+LaunchArgs:
+  --no-sandbox
+  --disable-gpu
+Scheme: cymaticshub
+Script: cymatics.sh
+Description:
+  Browse Cymatics' plugins and sample packs, preview products and install the
+  ones attached to your account from a single app.
+
+  Installing the Hub does not install a plugin by itself. Sign in with the code
+  sent to your email address, then choose a product from your library.

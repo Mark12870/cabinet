@@ -6,6 +6,8 @@ public class RuntimeSuiteTests
 
     private const string Matrix = "CarlaTests.cs";
 
+    private const string HelperTests = "Scenarios/ImapOtpTests.cs";
+
     private static readonly IReadOnlyList<string> Classes = Directory
         .EnumerateFiles(Repo.Path(Project), "*.cs", SearchOption.AllDirectories)
         .Select(path => Path.GetRelativePath(Repo.Path(Project), path))
@@ -21,6 +23,7 @@ public class RuntimeSuiteTests
     {
         var elsewhere = Classes.Where(path =>
             path != Matrix
+            && path != HelperTests
             && !(path.StartsWith("Scenarios/", StringComparison.Ordinal)
                  && path.EndsWith("Scenario.cs", StringComparison.Ordinal))
             && !path.StartsWith("Patches/", StringComparison.Ordinal));

@@ -23,6 +23,10 @@ on:
         required: false
       WAVES:
         required: false
+      EMAIL_IMAP_HOST:
+        required: false
+      EMAIL_IMAP_PASSWORD:
+        required: false
 
 jobs:
   # docs/TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
@@ -200,9 +204,13 @@ jobs:
           USERNAME: ${{ secrets.USERNAME }}
           NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
           WAVES: ${{ secrets.WAVES }}
+          EMAIL_IMAP_HOST: ${{ secrets.EMAIL_IMAP_HOST }}
+          EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
         run: |
           docker exec --env CABINET_RUNTIME_SUITE="${SUITE}" \
-            --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME --env NATIVE_ACCESS --env WAVES "${CONTAINER}" /src/scripts/runtime-ci.sh test
+            --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME --env NATIVE_ACCESS --env WAVES \
+            --env EMAIL_IMAP_HOST --env EMAIL_IMAP_PASSWORD \
+            "${CONTAINER}" /src/scripts/runtime-ci.sh test
 
       - name: Collect the captures and the logs
         if: always()

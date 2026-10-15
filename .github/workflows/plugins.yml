@@ -44,6 +44,8 @@ jobs:
       USERNAME: ${{ secrets.USERNAME }}
       NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
       WAVES: ${{ secrets.WAVES }}
+      EMAIL_IMAP_HOST: ${{ secrets.EMAIL_IMAP_HOST }}
+      EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
 
   diagnose:
     needs: runtime

@@ -151,6 +151,18 @@ public class WorkflowTests
         Assert.Contains("parallel=(--parallel none)", scenarios, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("EMAIL_IMAP_HOST")]
+    [InlineData("EMAIL_IMAP_PASSWORD")]
+    public void TheRuntimeMailboxSettingsReachTheScenarioCredentialsFile(string name)
+    {
+        Assert.Contains(Runtime, line => line.Trim() == $"{name}:");
+        Assert.Contains(Runtime, line => line.Contains($"{name}: ${{{{ secrets.{name} }}}}", StringComparison.Ordinal));
+        Assert.Contains(Runtime, line => line.Contains($"--env {name}", StringComparison.Ordinal));
+        Assert.Contains(Plugins, line => line.Contains($"{name}: ${{{{ secrets.{name} }}}}", StringComparison.Ordinal));
+        Assert.Contains($"{name}=%s", Driver, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void NoFixtureAVendorOwnsRidesInThePublishedImage()
     {

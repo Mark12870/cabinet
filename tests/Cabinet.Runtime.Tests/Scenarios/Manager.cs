@@ -55,6 +55,13 @@ internal sealed class Manager(
     public void HoldClick(string window, int x, int y) =>
         Xdotool("windowfocus", window, "mousemove", "--window", window, $"{x}", $"{y}", "mousedown", "1", "sleep", "0.2", "mouseup", "1", "mousemove", "restore");
 
+    public void HoverClick(string window, int x, int y)
+    {
+        Xdotool("mousemove", "--window", window, $"{x}", $"{y}");
+        Thread.Sleep(Beat);
+        HoldClick(window, x, y);
+    }
+
     public void Resize(string window, int width, int height) =>
         Xdotool("windowsize", window, $"{width}", $"{height}");
 

@@ -88,3 +88,11 @@ scenario installs the whole Free Plugin Pack; a fresh prefix already lists its l
 on device `C`, and the side panel's button reads Install or Install & Activate accordingly, so the
 scenario presses it without reading its label. Carla takes the first plugin of the pack's one
 WaveShell VST3, Magma Lil Tube: its pinned build loads only a bundle's first class.
+
+Cymatics Hub signs in with a code mailed to `EMAIL`. Its scenario runs the Hub's own PKCE browser
+flow in headless Chromium, reads the code over IMAP (`EMAIL_IMAP_HOST`, port 993,
+`EMAIL_IMAP_PASSWORD` as a Gmail app password) and writes the credentials the Hub saves after a
+sign-in. Cymatics sends no new code while one is valid (15 minutes) and throttles retries for
+longer, so the helper takes the newest code from the sender received in that window and deletes that
+message once the sign-in is saved; its `imap.log` records UIDs and times, never contents. Then the
+scenario cancels the Hub's welcome tour, filters the plugins by Free and installs Diablo Lite.
