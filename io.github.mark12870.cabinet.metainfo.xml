@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.26.0" date="2026-10-15">
+      <description>
+        <p>Spitfire Audio App joins the Library</p>
+        <ul>
+          <li>Spitfire Audio App installs into its own prefix and bridges its VST3 plugins</li>
+          <li>Plugins with long names, such as BBC Symphony Orchestra, no longer freeze the DAW when loaded</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.25.1" date="2026-10-07">
       <description>
         <p>Updated graphics setup for Helix Native</p>
