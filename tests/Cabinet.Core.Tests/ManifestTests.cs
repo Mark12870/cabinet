@@ -296,6 +296,23 @@ public class ManifestTests
     }
 
     [Fact]
+    public void ALongPluginNameIsCutToKeepItsSocketsWithinTheLimit()
+    {
+        const string patch = "patches/yabridge/yabridge-short-socket-names.patch";
+        var state = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "path: patches/yabridge/yabridge-state-per-interface.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+        var shortening = File.ReadAllText(Repo.Path(patch));
+
+        Assert.True(state >= 0);
+        Assert.Equal(state + 2, applied);
+        Assert.Contains("+    \"plugin_host_audio_thread_callback_0000.sock\";", shortening, StringComparison.Ordinal);
+        Assert.Contains("+constexpr size_t max_socket_path_length = sizeof(sockaddr_un::sun_path) - 1;", shortening, StringComparison.Ordinal);
+        Assert.Contains("+        socket_name << \"yabridge-\" << truncated_plugin_name << \"-\"", shortening, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheSocketsLandWhereTheSandboxCanReachThem()
     {
         Assert.Contains("--filesystem=xdg-run/yabridge:create", FinishArgs);

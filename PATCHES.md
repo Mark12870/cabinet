@@ -147,6 +147,24 @@ they reopened with the instrument in REAPER, and Carla, which always does this, 
 
 **When it can go.** When upstream yabridge tells the two interfaces apart.
 
+## yabridge-short-socket-names.patch
+
+[yabridge#387](https://github.com/robbert-vdh/yabridge/issues/387)
+
+**Failure.** yabridge names each plugin's socket directory `yabridge-<plugin name>-<8 random
+characters>` inside `YABRIDGE_TEMP_DIR`, which Cabinet sets to `/run/user/<uid>/yabridge`. A Unix
+socket path holds at most 107 bytes, so a name over about 21 characters can push the longest socket
+past it. `BBC Symphony Orchestra (64 Bit)` reached 108: the Wine host died with `File name too
+long` before creating its audio processor socket, and REAPER froze waiting for it.
+
+**Patch.** The name is only a label, so it is cut to whatever length keeps the longest socket
+yabridge creates, `plugin_host_audio_thread_callback_<four digits>.sock`, within the limit for the
+actual temporary directory, without splitting a UTF-8 character; the random characters still keep
+each directory unique. Shorter names are unchanged. The Spitfire Audio scenario, whose socket
+directory is two bytes longer than a DAW's, loads, plays and edits BBC Symphony Orchestra with it.
+
+**When it can go.** When upstream yabridge keeps its socket paths within the limit.
+
 # The yabridge Cabinet builds
 
 The manifest pins one yabridge commit, and `ManifestTests` requires that commit to be named

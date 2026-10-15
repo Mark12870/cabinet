@@ -1,0 +1,71 @@
+diff --git a/src/common/communication/common.cpp b/src/common/communication/common.cpp
+index 30d80b4..2d1d0db 100644
+--- a/src/common/communication/common.cpp
++++ b/src/common/communication/common.cpp
+@@ -16,8 +16,12 @@
+ 
+ #include "common.h"
+ 
++#include <sys/un.h>
++
++#include <algorithm>
+ #include <random>
+ #include <sstream>
++#include <string_view>
+ 
+ #include "../utils.h"
+ 
+@@ -29,9 +33,43 @@ namespace fs = ghc::filesystem;
+ constexpr char alphanumeric_characters[] =
+     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+ 
++/**
++ * The longest socket name we create inside of an endpoint base directory,
++ * leaving room for four digit instance IDs.
++ */
++constexpr std::string_view longest_socket_name =
++    "plugin_host_audio_thread_callback_0000.sock";
++
++/**
++ * Unix domain socket paths can be at most this long, excluding the null
++ * terminator.
++ */
++constexpr size_t max_socket_path_length = sizeof(sockaddr_un::sun_path) - 1;
++
+ ghc::filesystem::path generate_endpoint_base(const std::string& plugin_name) {
+     fs::path temp_directory = get_temporary_directory();
+ 
++    // The plugin name is only a visual indication, so we'll truncate it when it
++    // would push the sockets in this directory past the socket path length
++    // limit. Otherwise connecting to those sockets fails with `File name too
++    // long`, and the plugin will hang while waiting for the Wine host. The cut
++    // never splits a UTF-8 sequence, since the path is passed to the Wine host
++    // as a command line argument.
++    constexpr std::string_view endpoint_base_affixes = "/yabridge--XXXXXXXX/";
++    const size_t fixed_length = temp_directory.string().size() +
++                                endpoint_base_affixes.size() +
++                                longest_socket_name.size();
++    size_t name_length = std::min(
++        plugin_name.size(), max_socket_path_length -
++                                std::min(fixed_length, max_socket_path_length));
++    while (name_length > 0 && name_length < plugin_name.size() &&
++           (static_cast<unsigned char>(plugin_name[name_length]) & 0xc0) ==
++               0x80) {
++        name_length--;
++    }
++    const std::string truncated_plugin_name =
++        plugin_name.substr(0, name_length);
++
+     std::random_device random_device;
+     std::mt19937 rng(random_device());
+     fs::path candidate_endpoint;
+@@ -46,7 +84,8 @@ ghc::filesystem::path generate_endpoint_base(const std::string& plugin_name) {
+         // sockets, so putting them inside of a subdirectory would only leave
+         // behind an empty directory
+         std::ostringstream socket_name;
+-        socket_name << "yabridge-" << plugin_name << "-" << random_id;
++        socket_name << "yabridge-" << truncated_plugin_name << "-"
++                    << random_id;
+ 
+         candidate_endpoint = temp_directory / socket_name.str();
+     } while (fs::exists(candidate_endpoint));
