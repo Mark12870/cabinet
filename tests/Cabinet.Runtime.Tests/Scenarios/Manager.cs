@@ -45,6 +45,13 @@ internal sealed class Manager(
     public void Click(string window, int x, int y) =>
         Xdotool("mousemove", "--window", window, $"{x}", $"{y}", "click", "1", "mousemove", "restore");
 
+    public void Choose(string window, int x, int y)
+    {
+        Xdotool("mousemove", "--window", window, $"{x}", $"{y}");
+        Thread.Sleep(Beat);
+        Click(window, x, y);
+    }
+
     public void HoldClick(string window, int x, int y) =>
         Xdotool("windowfocus", window, "mousemove", "--window", window, $"{x}", $"{y}", "mousedown", "1", "sleep", "0.2", "mouseup", "1", "mousemove", "restore");
 
@@ -59,6 +66,8 @@ internal sealed class Manager(
     }
 
     public void Press(string key) => Xdotool("key", key);
+
+    public void Press(string window, string key) => Xdotool("key", "--window", window, key);
 
     public void ScrollDown(string window, int x, int y, int steps) =>
         Xdotool("mousemove", "--window", window, $"{x}", $"{y}", "click", "--repeat", $"{steps}", "--delay", "100", "5");

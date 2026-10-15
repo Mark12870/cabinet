@@ -270,8 +270,7 @@ dependency changes.
   manifest installs the directory to `/app/share/cabinet/library/<vendor>/`. Entry IDs are global. Keep artwork
   provenance in `SOURCES.md`.
 - A vendor directory that holds any `.md` stays in the tree and under test, the manifest's install loop leaves it out of
-  the build, and the `.md` says why (`data/library/spitfire-audio/SPITFIRE.md`). `CatalogueTests`
-  guards the pairing.
+  the build, and the `.md` says why. `CatalogueTests` guards the pairing.
 - Prefer a working native entry. Windows entries use a tagged, SHA-256-pinned download; a `rolling` source carries only
   a URL, and `byo` takes the file the user fetched from the vendor's page. Library scripts may only operate in the
   directories Cabinet passes them; Cabinet owns linking, recording, and removal.
