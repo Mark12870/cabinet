@@ -124,9 +124,13 @@ internal sealed class Browser : IDisposable
             Script("return [document.title, document.body.innerText.trim()].join('\\n\\n')")!.GetValue<string>(),
             @"\S+@\S+",
             "<email>");
+        var loaded = Requests()
+            .Where(url => url.StartsWith("http", StringComparison.Ordinal))
+            .Select(url => url.Split('?', '#')[0])
+            .Distinct();
         File.WriteAllText(
             System.IO.Path.Combine(evidence, "browser.txt"),
-            $"waiting for: {what}\npage: {Path()}\n\n{shown}\n");
+            $"waiting for: {what}\npage: {Path()}\n\n{shown}\n\nloaded:\n{string.Join('\n', loaded)}\n");
     }
 
     private string? Started()
