@@ -210,6 +210,14 @@ jobs:
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh collect /tmp/runtime
           docker cp "${CONTAINER}:/tmp/runtime" runtime
 
+      - name: Drop the captures of the scenarios that passed
+        if: always() && inputs.suite == 'scenarios'
+        run: |
+          scripts/scenario-report.py --passed runtime/TestResults/runtime.trx | while read -r id; do
+            [ -d "runtime/scenarios/${id}" ] || continue
+            find "runtime/scenarios/${id}" \( -name '*.png' -o -name '*.wav' \) -delete
+          done
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:

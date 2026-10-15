@@ -14,7 +14,11 @@ A failed test runs once more (scripts/runtime-ci.sh), and the .trx beside the on
 then holds only that last attempt, while every attempt keeps its own under Retries/. A test that
 failed and then passed reads "Passed on rerun", so a vendor that stalled stays visible.
 
+With --passed it prints instead the id of each entry that passed every format on its first
+attempt, whose captures the runtime job leaves out of its artifact.
+
     scripts/scenario-report.py runtime/TestResults/runtime.trx
+    scripts/scenario-report.py --passed runtime/TestResults/runtime.trx
 """
 
 from __future__ import annotations
@@ -147,7 +151,22 @@ def timings(trx: Path, named: dict[str, Path]) -> list[str]:
     return lines
 
 
+def passed(trx: Path, named: dict[str, Path]) -> list[str]:
+    outcomes = merged(trx)
+    return [
+        entry.stem
+        for scenario, entry in named.items()
+        if (formats := [value for (name, _), value in outcomes.items() if name == scenario])
+        and all(outcome == "Passed" for outcome in formats)
+    ]
+
+
 def main() -> int:
+    if sys.argv[1] == "--passed":
+        for entry in passed(Path(sys.argv[2]), entries()):
+            print(entry)
+        return 0
+
     trx = Path(sys.argv[1])
     named = entries()
     outcomes = merged(trx)
