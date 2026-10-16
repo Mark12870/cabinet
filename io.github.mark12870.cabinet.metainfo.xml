@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.28.0" date="2026-10-16">
+      <description>
+        <p>Prefix updates now carry registry settings</p>
+        <ul>
+          <li>Cymatics CL-2A shows its preset names again</li>
+          <li>Registry settings a plugin needs are part of its prefix setup, so a prefix update applies them to plugins that are already installed</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.27.1" date="2026-10-16">
       <description>
         <p>Native Access installs again</p>
