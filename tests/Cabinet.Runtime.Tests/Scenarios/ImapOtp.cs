@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace Cabinet.Runtime.Tests.Scenarios;
 
-internal sealed class ImapOtp(string sender, string evidence)
+internal sealed class ImapOtp(string sender, string evidence, IReadOnlyDictionary<string, string> credentials)
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan PollLimit = TimeSpan.FromSeconds(30);
@@ -18,8 +18,6 @@ internal sealed class ImapOtp(string sender, string evidence)
     private static readonly Regex InternalDate = new(
         "INTERNALDATE \" ?(?<time>[^\"]+) (?<zone>[+-][0-9]{2})(?<minutes>[0-9]{2})\"", RegexOptions.CultureInvariant);
     private static readonly Regex SixDigits = new(@"(?<![\d#])\d{6}(?!\d)", RegexOptions.CultureInvariant);
-
-    private readonly IReadOnlyDictionary<string, string> credentials = Credentials.Read();
 
     public async Task<(string Code, uint Uid)> WaitForCodeAsync(
         TimeSpan validity,

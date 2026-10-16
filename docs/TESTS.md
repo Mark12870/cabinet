@@ -270,8 +270,9 @@ reasons are here:
   Wine says it is and answers input. Novation Play installs from the pinned Dropbox ZIP and also
   checks its factory content.
 - **Account instruments.** SINEplayer signs in with the test account, downloads Lucent and
-  checks its editor and flute playback in VST2 and VST3. Splice INSTRUMENT authorises through
-  its browser sign-in, downloads Piano Granular and checks its editor and VST3 playback.
+  checks its editor and flute playback in VST2 and VST3. Splice INSTRUMENT stops at its sign-in:
+  Splice's login page challenges a WebDriver browser and a saved session lasts one run, so the
+  scenario checks its welcome page, the browser link it hands out and its editor.
 - **Managers.** Klevgrand Helper, Arturia Software Center, IK Product Manager, Native Access,
   Roland Cloud Manager, Spitfire Audio App and Waves Central have scenarios that sign in with the
   test account, install FreeAMP, Piano V3, MODO BASS 2 CS, Raum with Kontakt 8 Player, ZENOLOGY

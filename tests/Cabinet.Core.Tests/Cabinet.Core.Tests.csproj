@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <Compile Include="../../src/Cabinet.Gui/RefreshGeneration.cs" Link="RefreshGeneration.cs" />
+    <Compile Include="../Cabinet.Runtime.Tests/Scenarios/Credentials.cs" Link="Credentials.cs" />
   </ItemGroup>
 
   <ItemGroup>

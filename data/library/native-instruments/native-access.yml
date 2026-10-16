@@ -10,7 +10,7 @@ Licensing:
 Formats: VST3
 Homepage: https://www.native-instruments.com/en/pages/native-access/
 Source: rolling
-Url: https://storage.googleapis.com/ni-assets/downloads/Native-Access_2.exe
+Url: https://assets.native-instruments.com/downloads/Native-Access_2.exe
 Launch: C:\Program Files\Native Instruments\Native Access\Native Access.exe
 LaunchService: NTKDaemonService
 LaunchArgs:

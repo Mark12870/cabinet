@@ -5,10 +5,6 @@ public sealed class SpliceInstrumentScenario(SpliceInstrumentScenario.Installed 
 {
     private const string Id = "splice-instrument";
 
-    private const int Note = 60;
-
-    private const string Volume = "1 1230 42";
-
     private const string Window = "Splice INSTRUMENT";
 
     private static readonly Dictionary<string, string> Bridges = new()
@@ -20,34 +16,18 @@ public sealed class SpliceInstrumentScenario(SpliceInstrumentScenario.Installed 
 
     [Theory]
     [MemberData(nameof(Formats))]
-    public void OpensPianoGranularMovesItsVolumeAndBrowsesPresets(string format)
+    public void OpensItsSignedOutEditor(string format)
     {
         Assert.True(
             Bridges.ContainsKey(format),
             $"{Id} declares {format}, which this scenario does not say how to find");
         var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
-        var editor = installed.Harness.VerifyEditor(bridge, control: Volume, press: "827 42", still: 12);
+        var editor = installed.Harness.VerifyEditor(bridge, controlsAreParameters: false, still: 12);
 
         Assert.True(
             editor.Wine != "none" && editor.Wine == editor.Told,
             $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
-    }
-
-    [Theory]
-    [MemberData(nameof(Formats))]
-    public void PlaysPianoGranular(string format)
-    {
-        Assert.True(
-            Bridges.ContainsKey(format),
-            $"{Id} declares {format}, which this scenario does not say how to find");
-        var bridge = installed.Harness.Plugin(format, Bridges[format]);
-
-        var audio = installed.Harness.PlayThroughEditor(bridge, Note, "wait 15", Window);
-
-        Assert.InRange(audio.Before, 0, 0.00001);
-        Assert.InRange(audio.Held, 0.004, 1);
-        Assert.InRange(audio.After, 0.003, 1);
     }
 
     public sealed class Installed() : InstalledEntry(Id)
@@ -58,23 +38,11 @@ public sealed class SpliceInstrumentScenario(SpliceInstrumentScenario.Installed 
 
         private const string WelcomeHeading = "514,380 817,400";
 
-        private const string PresetPage = References + "splice-select-preset.png";
-
-        private const string Selection = "569,353 760,375";
-
-        private const string UsagePage = References + "splice-usage-statistics.png";
-
-        private const string UsageHeading = "592,408 737,433";
-
-        private const string LoadedPage = References + "splice-piano-granular.png";
-
-        private const string PresetName = "940,160 1070,217";
+        private const string SignInPage = "https://auth.splice.com/activate";
 
         private static readonly TimeSpan Opening = TimeSpan.FromMinutes(3);
 
         private static readonly TimeSpan Answering = TimeSpan.FromMinutes(1);
-
-        private static readonly TimeSpan Downloading = TimeSpan.FromMinutes(10);
 
         private protected override async Task Install(Display display)
         {
@@ -90,30 +58,8 @@ public sealed class SpliceInstrumentScenario(SpliceInstrumentScenario.Installed 
             manager.Until(() => manager.Shows(window, WelcomePage, WelcomeHeading), window, "Splice's welcome page", Opening);
             await Harness.SendText(display, Window, 665, 555, "");
             manager.Until(() => File.Exists(captured), window, "Splice's browser sign-in link", Answering);
-            SignIn(File.ReadAllText(captured).Trim(), Harness.Artefacts);
-            File.Delete(captured);
-            manager.Until(() => manager.Shows(window, PresetPage, Selection), window, "the signed-in preset selection", Opening);
-
-            await Harness.SendText(display, Window, 480, 624, "");
-            manager.Until(() => manager.Shows(window, UsagePage, UsageHeading), window, "the usage statistics question", Downloading);
-            await Harness.SendText(display, Window, 560, 563, "");
-            manager.Until(() => manager.Shows(window, LoadedPage, PresetName), window, "Piano Granular downloaded and loaded", Downloading);
-            manager.Capture(window, "loaded");
+            Assert.StartsWith(SignInPage, File.ReadAllText(captured).Trim(), StringComparison.Ordinal);
             await manager.Close();
-        }
-
-        private static void SignIn(string url, string evidence)
-        {
-            var credentials = Credentials.Read();
-            using var browser = new Browser(evidence);
-            browser.Go(url);
-            browser.Await(() => browser.Shows("button[name=action]"), Answering, "Splice's device confirmation");
-            browser.Press("Confirm");
-            browser.Await(() => browser.Shows("#username") && browser.Shows("#password"), Answering, "Splice's password page");
-            browser.Type("#username", credentials["EMAIL"]);
-            browser.Type("#password", credentials["PASSWORD"]);
-            browser.Press("Continue");
-            browser.Await(() => browser.Path() == "auth.splice.com/device/success", Answering, "Splice authorising INSTRUMENT");
         }
     }
 }

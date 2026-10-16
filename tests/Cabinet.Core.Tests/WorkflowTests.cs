@@ -152,14 +152,14 @@ public class WorkflowTests
     }
 
     [Theory]
-    [InlineData("EMAIL_IMAP_HOST")]
-    [InlineData("EMAIL_IMAP_PASSWORD")]
-    public void TheRuntimeMailboxSettingsReachTheScenarioCredentialsFile(string name)
+    [InlineData("EMAIL_IMAP_HOST", "vars.EMAIL_IMAP_HOST")]
+    [InlineData("EMAIL_IMAP_PASSWORD", "secrets.EMAIL_IMAP_PASSWORD")]
+    public void TheRuntimeMailboxSettingsReachTheScenarioCredentialsFile(string name, string source)
     {
         Assert.Contains(Runtime, line => line.Trim() == $"{name}:");
         Assert.Contains(Runtime, line => line.Contains($"{name}: ${{{{ secrets.{name} }}}}", StringComparison.Ordinal));
         Assert.Contains(Runtime, line => line.Contains($"--env {name}", StringComparison.Ordinal));
-        Assert.Contains(Plugins, line => line.Contains($"{name}: ${{{{ secrets.{name} }}}}", StringComparison.Ordinal));
+        Assert.Contains(Plugins, line => line.Contains($"{name}: ${{{{ {source} }}}}", StringComparison.Ordinal));
         Assert.Contains($"{name}=%s", Driver, StringComparison.Ordinal);
     }
 

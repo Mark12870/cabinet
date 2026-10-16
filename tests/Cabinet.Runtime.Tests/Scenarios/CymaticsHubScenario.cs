@@ -103,6 +103,7 @@ public sealed class CymaticsHubScenario(CymaticsHubScenario.Installed installed)
 
         private async Task SignIn(string evidence)
         {
+            var credentials = Credentials.Read("EMAIL_IMAP_HOST", "EMAIL", "EMAIL_IMAP_PASSWORD");
             var codeVerifier = Hex(32);
             var handoffVerifier = Hex(32);
             var hubNonce = Hex(16);
@@ -125,13 +126,13 @@ public sealed class CymaticsHubScenario(CymaticsHubScenario.Installed installed)
             using var browser = new Browser(evidence);
             browser.Go(url);
             browser.Await(() => browser.Shows("input[type=email]"), Opening, "the Cymatics email page");
-            browser.Type("input[type=email]", Credentials.Read()["EMAIL"]);
+            browser.Type("input[type=email]", credentials["EMAIL"]);
             browser.Press("Submit");
             browser.Await(
                 () => browser.Shows("input[autocomplete=one-time-code]"),
                 Opening,
                 "the Cymatics verification page");
-            var mailbox = new ImapOtp("Cymatics", evidence);
+            var mailbox = new ImapOtp("Cymatics", evidence, credentials);
             var (code, message) = await mailbox.WaitForCodeAsync(CodeLifetime, Opening, TestContext.Current.CancellationToken);
             browser.Type("input[autocomplete=one-time-code]", code);
             var link = browser.Await(
