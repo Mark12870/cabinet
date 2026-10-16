@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.27.1" date="2026-10-16">
+      <description>
+        <p>Native Access installs again</p>
+        <ul>
+          <li>Native Access downloads from Native Instruments' new address instead of failing</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.27.0" date="2026-10-15">
       <description>
         <p>Cymatics Hub joins the Library</p>
