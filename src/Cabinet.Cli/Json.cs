@@ -109,6 +109,7 @@ internal static class Json
                 Strings(writer, "winetricks", entry.Winetricks);
                 writer.WriteBoolean("desktop", entry.Desktop);
                 Pairs(writer, "env", entry.Env);
+                Pairs(writer, "registry", entry.Registry);
                 writer.WriteString("script", entry.Script);
                 writer.WriteBoolean("manager", entry.Manager);
                 writer.WriteString("launchService", entry.LaunchService);

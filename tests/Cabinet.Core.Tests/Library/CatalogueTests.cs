@@ -114,8 +114,42 @@ public class CatalogueTests
                     .Where(line => line.Contains(
                         @"HKCU\Software\Policies\Microsoft\Edge\WebView2", StringComparison.OrdinalIgnoreCase)),
                 (entry, _) => $"{entry.Vendor}/{entry.Script} sets WebView2 policy under HKCU, not HKLM");
+        var configured = Shipped
+            .SelectMany(
+                entry => entry.Registry.Keys.Where(path => path.StartsWith(
+                    @"HKCU\Software\Policies\Microsoft\Edge\WebView2", StringComparison.OrdinalIgnoreCase)),
+                (entry, path) => $"{entry.Id} sets {path}, a WebView2 policy under HKCU, not HKLM");
 
-        Assert.Empty(declared.Concat(scripted));
+        Assert.Empty(declared.Concat(scripted).Concat(configured));
+    }
+
+    [Theory]
+    [InlineData("splice-instrument", "Splice INSTRUMENT.exe")]
+    [InlineData("sine-player", "SINE Player.exe")]
+    public void AWebView2HostGetsItsFlagsThroughTheMachinePolicy(string id, string app)
+    {
+        var registry = Shipped.Single(entry => entry.Id == id).Registry;
+
+        foreach (var host in new[] { "yabridge-host.exe", app })
+        {
+            Assert.Equal(
+                "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
+                registry[$@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\{host}"]);
+        }
+    }
+
+    [Fact]
+    public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
+    {
+        var writing = Directory
+            .EnumerateFiles(Repo.Path("data/library"), "*.sh", SearchOption.AllDirectories)
+            .Where(script => File.ReadAllText(script) is var text
+                             && (text.Contains("reg add", StringComparison.Ordinal)
+                                 || text.Contains("winecfg", StringComparison.Ordinal)))
+            .Select(script => Path.GetFileName(script))
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(["kontakt-8.sh"], writing);
     }
 
     [Fact]

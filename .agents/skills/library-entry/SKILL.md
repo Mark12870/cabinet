@@ -116,6 +116,9 @@ key, and start it at `Revision: 1`. Raise `Revision` when you edit that file; ad
   line under a bare `Env:` for several. Cabinet sets it on the prefix before the installer runs,
   so it reaches the install too. Prefer it to a script writing
   `HKCU\Software\Wine\DllOverrides`.
+- Put whatever the prefix should hold in a config key rather than the script: `library update`
+  re-applies a changed key to installed prefixes, and a script never runs again. A script keeps
+  only the steps that depend on what its install did.
 - Always use **`Runner: wine-d2d1-11.0`** when the plugin uses the JUCE-8 framework. More info here: https://github.com/mklnln/wine-d2d1-dcomp
 
 `Kind: native` refuses every one of those outright: a Linux plugin is loaded by the DAW

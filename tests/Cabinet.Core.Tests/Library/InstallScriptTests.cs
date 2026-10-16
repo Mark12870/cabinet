@@ -38,40 +38,6 @@ public sealed class InstallScriptTests : IDisposable
     }
 
     [Fact]
-    public void SpliceInstrumentHandsWebView2ItsFlagsThroughTheMachinePolicy()
-    {
-        var calls = Path.Combine(root, "calls");
-
-        RunSpliceInstrument($"""printf '%s|' "$@" >>"{calls}"; echo >>"{calls}" """);
-
-        foreach (var host in new[] { "yabridge-host.exe", "Splice INSTRUMENT.exe" })
-        {
-            Assert.Contains(
-                "reg|add|HKLM\\Software\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments|"
-                + $"/v|{host}|/d|--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing "
-                + "--in-process-gpu|/f|",
-                File.ReadAllLines(calls));
-        }
-    }
-
-    [Fact]
-    public void SinePlayerHandsWebView2ItsFlagsThroughTheMachinePolicy()
-    {
-        var calls = Path.Combine(root, "calls");
-
-        RunSinePlayer($"""printf '%s|' "$@" >>"{calls}"; echo >>"{calls}" """);
-
-        foreach (var host in new[] { "yabridge-host.exe", "SINE Player.exe" })
-        {
-            Assert.Contains(
-                "reg|add|HKLM\\Software\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments|"
-                + $"/v|{host}|/d|--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing "
-                + "--in-process-gpu|/f|",
-                File.ReadAllLines(calls));
-        }
-    }
-
-    [Fact]
     public void SpliceInstrumentFailsWhenTheInstallerLeavesNoApplication()
     {
         Assert.Throws<InvalidOperationException>(() => RunSpliceInstrument(
@@ -269,20 +235,6 @@ public sealed class InstallScriptTests : IDisposable
         mkdir -p "$CABINET_PREFIX/drive_c/Program Files/Common Files/VST3/Splice/Splice INSTRUMENT.vst3" \
             "$CABINET_PREFIX/drive_c/Program Files/Splice/Splice INSTRUMENT"
         touch "$CABINET_PREFIX/drive_c/Program Files/Splice/Splice INSTRUMENT/Splice INSTRUMENT.exe"
-        """,
-        record);
-
-    private string RunSinePlayer(string record) => RunScript(
-        "sine-player",
-        "orchestral-tools",
-        "Name: SINEplayer\nKind: windows\nSource: rolling\n"
-        + "Url: https://example.invalid/installer.exe\nScript: sine-player.sh\n",
-        """
-        drive="$CABINET_PREFIX/drive_c/Program Files"
-        mkdir -p "$drive/Common Files/VST3/SINE Player.vst3/Contents/x86_64-win" "$drive/VstPlugins" \
-            "$drive/SINE Player"
-        touch "$drive/Common Files/VST3/SINE Player.vst3/Contents/x86_64-win/SINE Player.vst3" \
-            "$drive/VstPlugins/SINE Player.dll" "$drive/SINE Player/SINE Player.exe"
         """,
         record);
 

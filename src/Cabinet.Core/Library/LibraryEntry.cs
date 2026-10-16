@@ -32,6 +32,7 @@ public sealed record LibraryEntry(
     SyncMode Sync,
     IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,
+    IReadOnlyDictionary<string, string> Registry,
     IReadOnlyDictionary<string, string> Relink,
     bool Desktop,
     string? Script,
@@ -59,7 +60,7 @@ public sealed record LibraryEntry(
     public string? SetupVersion => Family ? null : Version;
 
     public IReadOnlyList<PrefixConfig> Configs =>
-        PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Sync, Winetricks, Env, Desktop)];
+        PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Sync, Winetricks, Env, Registry, Desktop)];
 
     public PrefixConfig Config => PrefixConfig.For(Configs, SetupVersion);
 
@@ -102,6 +103,11 @@ public sealed record LibraryEntry(
         if (Env.Count > 0)
         {
             costs.Add(string.Join(", ", Env.Keys));
+        }
+
+        if (Registry.Count > 0)
+        {
+            costs.Add($"registry values {string.Join(", ", Registry.Keys.Select(path => path[(path.LastIndexOf('\\') + 1)..]))}");
         }
 
         if (Winetricks.Count > 0)

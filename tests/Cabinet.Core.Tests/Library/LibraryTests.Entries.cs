@@ -162,8 +162,8 @@ public partial class LibraryTests
 
     private static readonly IReadOnlyList<PrefixConfig> TwoConfigs =
     [
-        new("5.4.2", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), false),
-        new("1.0", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), false),
+        new("5.4.2", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), new Dictionary<string, string>(), false),
+        new("1.0", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), new Dictionary<string, string>(), false),
     ];
 
     [Theory]
@@ -669,6 +669,52 @@ public partial class LibraryTests
 
             Assert.Contains($"sets {owned}, which Cabinet sets itself", refused.Message);
         }
+    }
+
+    [Fact]
+    public void ARegistryBlockCarriesAValueALine()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n"
+            + "Registry:\n  HKCU\\Software\\Wine\\Fonts\\Replacements\\Helvetica, Arial=Arial\n"
+            + "  HKLM\\System\\Services\\thing\\Start=dword:4\n");
+
+        Assert.Equal(
+            new Dictionary<string, string>
+            {
+                [@"HKCU\Software\Wine\Fonts\Replacements\Helvetica, Arial"] = "Arial",
+                [@"HKLM\System\Services\thing\Start"] = "dword:4",
+            },
+            entry.Registry);
+    }
+
+    [Fact]
+    public void ARegistryLineCabinetCannotWriteIsRefused()
+    {
+        foreach (var wrong in new[]
+                 {
+                     @"HKCU\Software\Wine", @"HKCR\Thing\Name=x", @"HKCU\Name=x", @"HKCU\Software\Wine\=x",
+                     @"HKLM\Services\thing\Start=dword:four",
+                 })
+        {
+            var refused = Assert.Throws<InvalidOperationException>(
+                () => LibraryEntry.Parse("thing", $"Name: Thing\nKind: windows\nSource: byo\nRegistry: {wrong}\n"));
+
+            Assert.Contains(@"one HKCU or HKLM KEY\NAME=DATA a line", refused.Message);
+        }
+    }
+
+    [Fact]
+    public void ARegistryValueSetTwiceIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "thing",
+                "Name: Thing\nKind: windows\nSource: byo\n"
+                + "Registry:\n  HKCU\\Software\\Thing\\Mode=on\n  HKCU\\software\\thing\\mode=off\n"));
+
+        Assert.Contains("sets the registry value", refused.Message);
     }
 
     [Fact]

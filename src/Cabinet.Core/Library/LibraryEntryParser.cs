@@ -2,7 +2,7 @@ namespace Cabinet.Core;
 
 internal static class LibraryEntryParser
 {
-    private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop"];
+    private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Sync", "Winetricks", "Env", "Registry", "Desktop"];
 
     private static readonly string[] PrefixKeys = ["Prefix", .. SettingKeys];
 
@@ -90,7 +90,7 @@ internal static class LibraryEntryParser
         if (kind == PluginKind.Native
             && new[]
             {
-                "Prefix", "Runner", "Dxvk", "Sync", "Winetricks", "Env", "Desktop",
+                "Prefix", "Runner", "Dxvk", "Sync", "Winetricks", "Env", "Registry", "Desktop",
                 "Launch", "LaunchService", "LaunchHelper", "LaunchArgs", "Scheme", "Keep",
                 "Recover",
             }
@@ -173,6 +173,7 @@ internal static class LibraryEntryParser
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
             ParseWinetricks(id, Value(fields, "Winetricks")),
             ParseEnv(id, Value(fields, "Env")),
+            ParseRegistry(id, Value(fields, "Registry")),
             ParseRelink(id, Value(fields, "Relink")),
             Value(fields, "Desktop") is { } desktop && bool.Parse(desktop),
             Value(fields, "Script") is { } script ? ParseScript(id, script) : null,
@@ -248,6 +249,7 @@ internal static class LibraryEntryParser
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
             ParseWinetricks(file, Value(fields, "Winetricks")),
             ParseEnv(file, Value(fields, "Env")),
+            ParseRegistry(file, Value(fields, "Registry")),
             Value(fields, "Desktop") is { } desktop && bool.Parse(desktop));
     }
 
@@ -365,6 +367,32 @@ internal static class LibraryEntryParser
             }
 
             found[key] = line[(at + 1)..];
+        }
+
+        return found;
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseRegistry(string id, string? text)
+    {
+        var found = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var line in (text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var at = line.IndexOf('=');
+            var path = line[..Math.Max(at, 0)].Trim();
+            var data = line[(at + 1)..];
+
+            if (at < 0 || !PrefixRegistry.Writable(path) || !PrefixRegistry.Holds(data))
+            {
+                throw new InvalidOperationException(
+                    $"{id}.yml has Registry: {line.Trim()} — one HKCU or HKLM KEY\\NAME=DATA a line, "
+                    + @"such as HKCU\Software\Wine\Version=win10, with dword:<number> for a DWORD");
+            }
+
+            if (!found.TryAdd(path, data))
+            {
+                throw new InvalidOperationException($"{id}.yml sets the registry value {path} twice");
+            }
         }
 
         return found;

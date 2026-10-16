@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Cabinet.Core;
@@ -60,6 +61,37 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
 
         return null;
     }
+
+    public static bool Writable(string path) =>
+        (path.StartsWith(@"HKCU\", StringComparison.Ordinal) || path.StartsWith(@"HKLM\", StringComparison.Ordinal))
+        && path.LastIndexOf('\\') is var last && last > @"HKCU\".Length && last < path.Length - 1;
+
+    public static bool Holds(string data) =>
+        !data.StartsWith(Dword, StringComparison.Ordinal)
+        || uint.TryParse(data[Dword.Length..], NumberStyles.None, CultureInfo.InvariantCulture, out _);
+
+    public void Set(string prefix, string path, string data)
+    {
+        var typed = data.StartsWith(Dword, StringComparison.Ordinal)
+            ? (IReadOnlyList<string>)["/t", "REG_DWORD", "/d", data[Dword.Length..]]
+            : ["/d", data];
+
+        if (!Change(prefix, ["add", .. Located(path), .. typed, "/f"]).Ok)
+        {
+            throw new InvalidOperationException($"could not set the registry value {path} in '{prefix}'");
+        }
+    }
+
+    public void Remove(string prefix, string path) => Change(prefix, ["delete", .. Located(path), "/f"]);
+
+    private const string Dword = "dword:";
+
+    private static IReadOnlyList<string> Located(string path) =>
+        [path[..path.LastIndexOf('\\')], "/v", path[(path.LastIndexOf('\\') + 1)..]];
+
+    private ProcessResult Change(string prefix, IReadOnlyList<string> arguments) =>
+        new Prefixes(layout, runner ?? throw new InvalidOperationException("a registry change needs Wine"))
+            .RunJoined(prefix, ["reg", .. arguments]);
 
     private Prefixes? Live(string prefix)
     {

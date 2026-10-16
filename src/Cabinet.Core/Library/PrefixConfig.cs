@@ -8,6 +8,7 @@ public sealed record PrefixConfig(
     SyncMode Sync,
     IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,
+    IReadOnlyDictionary<string, string> Registry,
     bool Desktop)
 {
     public const string FilePrefix = "prefix-";

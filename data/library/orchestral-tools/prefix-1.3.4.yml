@@ -1,4 +1,9 @@
-Revision: 1
+Revision: 2
 Runner: 9.21
 Dxvk: true
 Sync: fsync
+Registry:
+  HKCU\Software\Wine\AppDefaults\msedgewebview2.exe\Version=win7
+  HKCU\Software\Wine\Version=win7
+  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\yabridge-host.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu
+  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\SINE Player.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu

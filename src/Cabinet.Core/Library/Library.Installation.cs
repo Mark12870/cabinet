@@ -221,6 +221,18 @@ public sealed partial class Library
             underway.Note(pending.ToString());
         }
 
+        if (entry.Registry.Count > 0)
+        {
+            var registry = new PrefixRegistry(layout, runner);
+
+            foreach (var (path, data) in entry.Registry)
+            {
+                registry.Set(prefix, path, data);
+            }
+
+            onOutput?.Invoke($"Set {string.Join(", ", entry.Registry.Keys)}.");
+        }
+
         var dxvk = new Dxvk(layout, runner);
 
         if (entry.Dxvk && dxvk.InstalledIn(prefix) is null)

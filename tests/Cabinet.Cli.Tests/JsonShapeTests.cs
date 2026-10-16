@@ -9,7 +9,7 @@ public sealed class JsonShapeTests : IDisposable
     [
         "id", "name", "kind", "category", "summary", "homepage", "source", "demo", "account",
         "installInstructions",
-        "prefix", "runner", "dxvk", "sync", "winetricks", "desktop", "env", "script", "manager",
+        "prefix", "runner", "dxvk", "sync", "winetricks", "desktop", "env", "registry", "script", "manager",
         "launchService", "launchHelper", "launchArgs", "scheme", "data", "developer", "version",
         "licence", "licensing", "formats", "description", "installed", "installedIn",
         "retired", "prefixConfig", "prefixUpdate", "updateChanges", "updateResets", "prefixEdits", "sharingPrefix",

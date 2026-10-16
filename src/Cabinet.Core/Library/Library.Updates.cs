@@ -102,7 +102,7 @@ public sealed partial class Library
 
         var hasWork = plan.Runner is not null || plan.Sync is not null
                       || plan.Dxvk is not null || plan.Desktop is not null
-                      || plan.Env.Count > 0 || plan.Winetricks.Count > 0;
+                      || plan.Env.Count > 0 || plan.Registry.Count > 0 || plan.Winetricks.Count > 0;
 
         if (hasWork)
         {
@@ -167,6 +167,21 @@ public sealed partial class Library
             }
         }
 
+        var registry = new PrefixRegistry(layout, runner);
+        foreach (var (path, data) in plan.Registry)
+        {
+            if (data is null)
+            {
+                registry.Remove(prefix, path);
+            }
+            else
+            {
+                registry.Set(prefix, path, data);
+            }
+
+            output(data is null ? $"Removed {path}." : $"Set {path}.");
+        }
+
         if (plan.Dxvk is { } dxvk)
         {
             var operation = new Dxvk(layout, runner);
@@ -209,6 +224,7 @@ public sealed partial class Library
             settings.Sync(prefix),
             new Winetricks(layout, runner).Installed(prefix),
             settings.Variables(prefix),
+            new Dictionary<string, string>(StringComparer.Ordinal),
             new VirtualDesktop(layout, runner).SavedEnabledIn(prefix));
         var family = FamilyOf(entry);
         var members = Recorded(prefix).Where(family.Contains).Distinct(StringComparer.Ordinal)
@@ -235,6 +251,7 @@ public sealed partial class Library
         bool? dxvkChange = null;
         bool? desktopChange = null;
         var env = new Dictionary<string, string?>(StringComparer.Ordinal);
+        var registry = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         void Offer(string setting, bool own, string change)
         {
@@ -291,6 +308,21 @@ public sealed partial class Library
                         : $"Change {key} from {current} to {wanted}.");
                 }
             }
+
+            foreach (var path in desired.Registry.Keys.Concat(previous.Registry.Keys)
+                         .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal))
+            {
+                var wanted = desired.Registry.GetValueOrDefault(path);
+                var recorded = previous.Registry.GetValueOrDefault(path);
+
+                if (recorded != wanted)
+                {
+                    registry[path] = wanted;
+                    changes.Add(wanted is null
+                        ? $"Remove the registry value {path}."
+                        : $"Set the registry value {path} to {wanted}.");
+                }
+            }
         }
 
         var edits = previous is null ? [] : Edits(previous, actual);
@@ -311,7 +343,8 @@ public sealed partial class Library
         var review = new PrefixUpdate(entry, prefix, desired.ConfigVersion, desired.Revision, previous?.Label,
             software, revised, changes, resets, edits, present, dropped, members, foreign, verbs, stamp);
         return new SetupUpdate(
-            review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, verbs, custom, previous, actual);
+            review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, registry, verbs, custom, previous,
+            actual);
     }
 
     private void RecordSetup(LibraryEntry entry, string prefix, bool created)
@@ -432,6 +465,7 @@ public sealed partial class Library
         bool? Dxvk,
         bool? Desktop,
         IReadOnlyDictionary<string, string?> Env,
+        IReadOnlyDictionary<string, string?> Registry,
         IReadOnlyList<string> Winetricks,
         IReadOnlySet<string> Custom,
         PrefixSetup? Applied,
@@ -448,6 +482,7 @@ public sealed partial class Library
                 Desktop = Actual.Desktop == applied.Desktop ? null : applied.Desktop,
                 Env = applied.Env.Where(pair => Actual.Env.GetValueOrDefault(pair.Key) != pair.Value)
                     .ToDictionary(pair => pair.Key, string? (pair) => pair.Value, StringComparer.Ordinal),
+                Registry = new Dictionary<string, string?>(StringComparer.Ordinal),
                 Winetricks = [],
             };
 

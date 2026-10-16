@@ -263,6 +263,92 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void AReceiptFromBeforeRegistryValuesIsOfferedThemAndUpdatingWritesThem()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        var receipt = layout.PrefixSetupFile("chosen");
+        File.WriteAllText(receipt, File.ReadAllText(receipt).Replace(",\"registry\":{}", ""));
+        Catalogue(("thing", SetupRecipe
+            + "\nRegistry:\n  HKLM\\System\\Services\\thing\\Start=dword:4\n  HKCU\\Software\\Thing\\Mode=on\n"));
+        var recorder = Winetricked(layout);
+        var library = new Library(layout, recorder);
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal(
+            [
+                @"Set the registry value HKCU\Software\Thing\Mode to on.",
+                @"Set the registry value HKLM\System\Services\thing\Start to dword:4.",
+            ],
+            update.Changes);
+
+        library.UpdatePrefix(update);
+
+        Assert.Equal(
+            [
+                $@"{Prefixes.JoinMode} reg add HKCU\Software\Thing /v Mode /d on /f",
+                $@"{Prefixes.JoinMode} reg add HKLM\System\Services\thing /v Start /t REG_DWORD /d 4 /f",
+            ],
+            recorder.Ran.Where(call => call.Arguments is [_, "reg", "add" or "delete", ..])
+                .Select(call => string.Join(" ", call.Arguments)));
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void ARegistryValueDroppedFromTheConfigIsRemoved()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nRegistry: HKCU\\Software\\Thing\\Mode=on\n");
+        Catalogue(("thing", SetupRecipe));
+        var recorder = Winetricked(layout);
+        var library = new Library(layout, recorder);
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal([@"Remove the registry value HKCU\Software\Thing\Mode."], update.Changes);
+
+        library.UpdatePrefix(update);
+
+        Assert.Equal(
+            [$@"{Prefixes.JoinMode} reg delete HKCU\Software\Thing /v Mode /f"],
+            recorder.Ran.Where(call => call.Arguments is [_, "reg", "add" or "delete", ..])
+                .Select(call => string.Join(" ", call.Arguments)));
+    }
+
+    [Fact]
+    public void ARegistryPathThatOnlyChangesCaseIsTheSameValue()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nRegistry: HKCU\\Software\\Thing\\Mode=on\n");
+        Catalogue(("thing", SetupRecipe + "\nRegistry: HKCU\\SOFTWARE\\Thing\\Mode=on\n"));
+        var recorder = Winetricked(layout);
+        var library = new Library(layout, recorder);
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Empty(update.Changes);
+
+        library.UpdatePrefix(update);
+
+        Assert.DoesNotContain(recorder.Ran, call => call.Arguments is [_, "reg", "add" or "delete", ..]);
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
+    public void RegistryValuesAreWrittenOnceTheInstallerHasRun()
+    {
+        Catalogue(("thing", SetupRecipe + "\nRegistry: HKCU\\Software\\Thing\\Mode=on\n"));
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("chosen"), "dosdevices"));
+        var installer = Path.Combine(root, SetupInstaller);
+        File.WriteAllText(installer, "");
+        var recorder = Winetricked(layout);
+        var library = new Library(layout, recorder);
+
+        library.Install(library.Find("thing"), "chosen", installer);
+
+        var calls = recorder.Ran.Select(call => string.Join(" ", call.Arguments)).ToList();
+        var written = calls.IndexOf($@"{Prefixes.JoinMode} reg add HKCU\Software\Thing /v Mode /d on /f");
+        Assert.InRange(calls.FindIndex(call => call.Contains(SetupInstaller, StringComparison.Ordinal)), 0, written - 1);
+        Assert.Empty(library.PrefixUpdates());
+    }
+
+    [Fact]
     public void AMissingComponentIsOfferedWithoutAConfigChange()
     {
         var layout = InstallSetup(SetupRecipe);

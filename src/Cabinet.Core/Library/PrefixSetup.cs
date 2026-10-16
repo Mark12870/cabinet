@@ -12,6 +12,7 @@ internal sealed record PrefixSetup(
     SyncMode Sync,
     IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,
+    IReadOnlyDictionary<string, string> Registry,
     bool Desktop)
 {
     public string Label => $"{ConfigVersion}, revision {Revision}";
@@ -25,6 +26,7 @@ internal sealed record PrefixSetup(
         config.Sync,
         [.. config.Winetricks.Select(verb => verb.ToLowerInvariant()).Order(StringComparer.Ordinal)],
         config.Env,
+        config.Registry,
         config.Desktop);
 
     public string Serialise()
@@ -53,6 +55,14 @@ internal sealed record PrefixSetup(
             foreach (var (key, value) in Env.OrderBy(pair => pair.Key, StringComparer.Ordinal))
             {
                 writer.WriteString(key, value);
+            }
+
+            writer.WriteEndObject();
+            writer.WriteStartObject("registry");
+
+            foreach (var (path, data) in Registry.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+            {
+                writer.WriteString(path, data);
             }
 
             writer.WriteEndObject();
@@ -96,10 +106,10 @@ internal sealed record PrefixSetup(
                 return null;
             }
 
-            var env = root.GetProperty("env").EnumerateObject().ToDictionary(
-                property => property.Name,
-                property => property.Value.GetString() ?? throw new FormatException(),
-                StringComparer.Ordinal);
+            var env = Pairs(root.GetProperty("env"), StringComparer.Ordinal);
+            var registry = root.TryGetProperty("registry", out var values)
+                ? Pairs(values, StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var verbs = root.GetProperty("winetricks").EnumerateArray()
                 .Select(verb => verb.GetString() ?? throw new FormatException())
                 .Select(verb => verb.ToLowerInvariant())
@@ -115,6 +125,7 @@ internal sealed record PrefixSetup(
                 PrefixSettings.ParseSync(root.GetProperty("sync").GetString() ?? throw new FormatException()),
                 verbs,
                 env,
+                registry,
                 root.GetProperty("desktop").GetBoolean());
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException
@@ -123,4 +134,10 @@ internal sealed record PrefixSetup(
             return null;
         }
     }
+
+    private static Dictionary<string, string> Pairs(JsonElement element, StringComparer comparer) =>
+        element.EnumerateObject().ToDictionary(
+            property => property.Name,
+            property => property.Value.GetString() ?? throw new FormatException(),
+            comparer);
 }

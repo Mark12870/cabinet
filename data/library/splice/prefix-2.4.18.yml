@@ -1,3 +1,8 @@
-Revision: 1
+Revision: 2
 Runner: d2d1-11.0
 Sync: fsync
+Registry:
+  HKCU\Software\Wine\AppDefaults\msedgewebview2.exe\Version=win7
+  HKLM\System\CurrentControlSet\Services\edgeupdate\Start=dword:4
+  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\yabridge-host.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu
+  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\Splice INSTRUMENT.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu

@@ -1,4 +1,7 @@
-Revision: 1
+Revision: 2
 Runner: d2d1-11.0
 Sync: fsync
 Winetricks: corefonts
+Registry:
+  HKCU\Software\Wine\Fonts\Replacements\Helvetica, Arial, sans-serif=Arial
+  HKCU\Software\Wine\Fonts\Replacements\Inter=Arial

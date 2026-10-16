@@ -1,10 +1,3 @@
-"$WINE" winecfg -v win10
-
-"$WINE" reg add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' \
-    /v EnableLUA /t REG_DWORD /d 0 /f
-"$WINE" reg add 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' \
-    /v ConsentPromptBehaviorAdmin /t REG_DWORD /d 0 /f
-
 "$WINE" "$CABINET_ARCHIVE" /S
 
 app="$CABINET_PREFIX/drive_c/Program Files/Native Instruments/Native Access/Native Access.exe"
@@ -16,9 +9,6 @@ fi
 
 downloads="$CABINET_PREFIX/drive_c/users/Public/Documents/Native Instruments/Downloads"
 mkdir -p "$downloads"
-
-"$WINE" reg add 'HKCU\Software\Native Instruments\Native Access' \
-    /v DownloadLocation /d 'C:\users\Public\Documents\Native Instruments\Downloads' /f
 
 daemon_dir="$CABINET_PREFIX/drive_c/Program Files/Native Instruments/Native Access/resources/daemon/win"
 daemon=$(find "$daemon_dir" -maxdepth 1 -type f -name 'NTKDaemon*Setup PC.exe' | sort | tail -n 1)

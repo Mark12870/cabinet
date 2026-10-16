@@ -1,5 +1,10 @@
-Revision: 1
+Revision: 2
 Runner: d2d1-11.0
 Dxvk: true
 Sync: fsync
 Winetricks: powershell, corefonts, vcrun2022
+Registry:
+  HKCU\Software\Wine\Version=win10
+  HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\EnableLUA=dword:0
+  HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\ConsentPromptBehaviorAdmin=dword:0
+  HKCU\Software\Native Instruments\Native Access\DownloadLocation=C:\users\Public\Documents\Native Instruments\Downloads
