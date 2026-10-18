@@ -23,6 +23,7 @@ const BRIDGE: &str = "io.github.mark12870.cabinet.Bridge";
 const NO_SESSION: i32 = 1;
 const SESSION_LIVE: &str = "live";
 const SOCKET_DIR: &str = "yabridge";
+const SOCKETS_PREFIX: &str = "yabridge-";
 
 const FORWARD: &[&str] = &[
     "WINEPREFIX",
@@ -391,6 +392,86 @@ where
     PathBuf::from(canonicalize(given.as_os_str(), canon))
 }
 
+struct Relocation {
+    index: usize,
+    from: PathBuf,
+    to: PathBuf,
+}
+
+fn relocation<E, C>(job: &[OsString], getenv: &E, canon: &C, directory: &Path) -> Option<Relocation>
+where
+    E: Fn(&str) -> Option<OsString>,
+    C: Fn(&Path) -> Option<PathBuf>,
+{
+    let yabridge_temp = getenv("XDG_RUNTIME_DIR")
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| OsString::from("/tmp"));
+    let yabridge_temp = PathBuf::from(canonicalize(&yabridge_temp, canon));
+
+    if getenv("YABRIDGE_TEMP_DIR").is_some_and(|given| !given.is_empty())
+        || !session::hosts_plugin(job)
+    {
+        return None;
+    }
+
+    job.iter().enumerate().find_map(|(index, arg)| {
+        let from = Path::new(arg);
+        let name = from.file_name()?.to_str()?;
+        let (_, id) = name.strip_prefix(SOCKETS_PREFIX)?.rsplit_once('-')?;
+        let to = directory.join(format!("{SOCKETS_PREFIX}{id}"));
+
+        (from.parent() == Some(yabridge_temp.as_path()) && is_relocated(to.as_os_str())).then(
+            || Relocation {
+                index,
+                from: from.to_path_buf(),
+                to,
+            },
+        )
+    })
+}
+
+fn is_relocated(arg: &OsStr) -> bool {
+    let path = Path::new(arg);
+
+    path.parent().and_then(Path::file_name) == Some(OsStr::new(SOCKET_DIR))
+        && path
+            .file_name()
+            .and_then(OsStr::to_str)
+            .and_then(|name| name.strip_prefix(SOCKETS_PREFIX))
+            .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_alphanumeric()))
+}
+
+fn release_relocated(argv: &[OsString], directory: &Path) {
+    if !session::hosts_plugin(argv) {
+        return;
+    }
+
+    for relocated in argv
+        .iter()
+        .filter(|arg| is_relocated(arg) && Path::new(arg).parent() == Some(directory))
+    {
+        let _ = std::fs::remove_dir_all(relocated);
+    }
+}
+
+fn relocate(relocation: &Relocation) -> bool {
+    let is_directory = std::fs::symlink_metadata(&relocation.from).is_ok_and(|meta| meta.is_dir());
+
+    if !is_directory
+        || std::fs::symlink_metadata(&relocation.to).is_ok()
+        || std::fs::rename(&relocation.from, &relocation.to).is_err()
+    {
+        return false;
+    }
+
+    if std::os::unix::fs::symlink(&relocation.to, &relocation.from).is_ok() {
+        return true;
+    }
+
+    let _ = std::fs::rename(&relocation.to, &relocation.from);
+    false
+}
+
 fn main() {
     let getenv = |key: &str| env::var_os(key);
     let canon = |path: &Path| std::fs::canonicalize(path).ok();
@@ -431,7 +512,7 @@ fn main() {
         &args[..]
     };
 
-    let job = job_args(rest, &canon);
+    let mut job = job_args(rest, &canon);
     let prefix = getenv("WINEPREFIX").map(|value| canonicalize(&value, &canon));
     let seed = prefix
         .clone()
@@ -489,6 +570,10 @@ fn main() {
         }
     };
 
+    if let Some(relocated) = relocation(&job, &getenv, &canon, &directory).filter(relocate) {
+        job[relocated.index] = relocated.to.into_os_string();
+    }
+
     let in_sandbox = Path::new("/.flatpak-info").exists();
     let argv = if in_cabinet {
         inner_argv(socket.as_os_str(), wine_command(prefix.as_deref(), &read))
@@ -526,6 +611,7 @@ fn main() {
         Ok(status) => std::process::exit(status),
         Err(error) => {
             eprintln!("cabinet-wine: cannot reach the Wine session {socket:?}: {error}");
+            release_relocated(&job, &directory);
             std::process::exit(127);
         }
     }
@@ -956,6 +1042,121 @@ mod tests {
             argv.iter().any(|a| a == "--filesystem=/run/user/1000"),
             "{argv:?}"
         );
+    }
+
+    fn native_daw(var: &str) -> Option<OsString> {
+        (var == "XDG_RUNTIME_DIR").then(|| OsString::from("/run/user/1000"))
+    }
+
+    fn host_job(sockets: &str) -> Vec<OsString> {
+        [
+            "/app/yabridge-host.exe.so",
+            "VST3",
+            "/p/Plugin.vst3",
+            sockets,
+            "4242",
+        ]
+        .map(OsString::from)
+        .into()
+    }
+
+    #[test]
+    fn a_native_daws_sockets_move_where_every_session_can_reach_them() {
+        let job = host_job("/run/user/1000/yabridge-Some Plugin-18ORVeir");
+        let moved = relocation(
+            &job,
+            &native_daw,
+            &fake_canon,
+            Path::new("/run/user/1000/yabridge"),
+        )
+        .expect("relocated");
+
+        assert_eq!(moved.index, 3);
+        assert_eq!(
+            moved.from,
+            Path::new("/run/user/1000/yabridge-Some Plugin-18ORVeir")
+        );
+        assert_eq!(
+            moved.to,
+            Path::new("/run/user/1000/yabridge/yabridge-18ORVeir")
+        );
+    }
+
+    #[test]
+    fn sockets_already_in_the_session_directory_stay_put() {
+        let job = host_job("/run/user/1000/yabridge/yabridge-Some Plugin-18ORVeir");
+        let given = |var: &str| match var {
+            "XDG_RUNTIME_DIR" => Some(OsString::from("/run/user/1000")),
+            "YABRIDGE_TEMP_DIR" => Some(OsString::from("/run/user/1000/yabridge")),
+            _ => None,
+        };
+
+        assert!(relocation(
+            &job,
+            &given,
+            &fake_canon,
+            Path::new("/run/user/1000/yabridge")
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn only_a_plugin_hosts_sockets_are_relocated() {
+        let job: Vec<OsString> = ["cmd", "/c", "/run/user/1000/yabridge-Some Plugin-18ORVeir"]
+            .map(OsString::from)
+            .into();
+
+        assert!(relocation(
+            &job,
+            &native_daw,
+            &fake_canon,
+            Path::new("/run/user/1000/yabridge")
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn relocated_sockets_stay_reachable_by_their_old_path_until_released() {
+        let root = std::env::temp_dir().join(format!("cabinet-relocate-{}", std::process::id()));
+        let session = root.join("yabridge");
+        let from = root.join("yabridge-Some Plugin-18ORVeir");
+        std::fs::create_dir_all(&session).unwrap();
+        std::fs::create_dir_all(&from).unwrap();
+        std::fs::write(from.join("host_plugin_control.sock"), "").unwrap();
+        let moved = Relocation {
+            index: 0,
+            from: from.clone(),
+            to: session.join("yabridge-18ORVeir"),
+        };
+
+        assert!(relocate(&moved));
+        assert!(moved.to.join("host_plugin_control.sock").exists());
+        assert!(from.join("host_plugin_control.sock").exists());
+
+        let elsewhere = root
+            .join("other")
+            .join("yabridge")
+            .join("yabridge-18ORVeir");
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        release_relocated(&host_job(moved.to.to_str().unwrap()), &session);
+        release_relocated(&host_job(elsewhere.to_str().unwrap()), &session);
+        let left = (moved.to.exists(), elsewhere.exists());
+        std::fs::remove_dir_all(&root).unwrap();
+        assert_eq!(left, (false, true));
+    }
+
+    #[test]
+    fn only_relocated_sockets_are_released() {
+        let relocated = |path: &str| is_relocated(OsStr::new(path));
+
+        assert!(relocated("/run/user/1000/yabridge/yabridge-18ORVeir"));
+        assert!(!relocated(
+            "/run/user/1000/yabridge/yabridge-Some Plugin-18ORVeir"
+        ));
+        assert!(!relocated("/run/user/1000/yabridge-18ORVeir"));
+        assert!(!relocated(
+            "/run/user/1000/yabridge/cabinet-0123456789abcdef.sock"
+        ));
     }
 
     #[test]

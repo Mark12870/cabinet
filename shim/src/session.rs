@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::ptr;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, Once, PoisonError};
+use std::sync::{Arc, Mutex, Once, OnceLock, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -454,6 +454,9 @@ pub fn run_broker(args: &[OsString]) -> i32 {
         return 127;
     };
     let socket = PathBuf::from(socket);
+    if let Some(directory) = socket.parent() {
+        let _ = DIRECTORY.set(directory.to_path_buf());
+    }
     let lock = socket.with_extension("lock");
     let record = socket.with_extension("session");
     let lock_file = match File::options()
@@ -820,6 +823,10 @@ fn serve(
         }
     };
 
+    if let Some(directory) = DIRECTORY.get() {
+        crate::release_relocated(&argv, directory);
+    }
+
     if let Some(log) = log.as_deref() {
         record(
             log,
@@ -843,7 +850,9 @@ impl Ended {
 
 static ROTATED: Once = Once::new();
 
-fn hosts_plugin(argv: &[OsString]) -> bool {
+static DIRECTORY: OnceLock<PathBuf> = OnceLock::new();
+
+pub fn hosts_plugin(argv: &[OsString]) -> bool {
     argv.first()
         .and_then(|host| expected_process_name(host))
         .is_some_and(|name| name.starts_with(YABRIDGE_HOST))
