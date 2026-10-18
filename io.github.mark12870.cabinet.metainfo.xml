@@ -46,6 +46,19 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.29.0" date="2026-10-18">
+      <description>
+        <p>UVI Portal joins the Library, with iLok licensing</p>
+        <ul>
+          <li>UVI Portal installs from the Library, and UVI Player and the soundbanks it installs are bridged to your DAW</li>
+          <li>Prefixes can carry iLok License Manager: install it with cabinet ilok &lt;name&gt; or the prefix page, and remove it with cabinet set &lt;name&gt; ilok off</li>
+          <li>Plugins drawn through DXVK no longer see every GPU twice, which crashed UVI Player when it loaded a preset</li>
+          <li>Wine 11.17 is available as a runner</li>
+          <li>The Library's Managers section is now called Managers &amp; players</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.28.0" date="2026-10-16">
       <description>
         <p>Prefix updates now carry registry settings</p>
