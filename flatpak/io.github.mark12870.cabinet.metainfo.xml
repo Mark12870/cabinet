@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.30.1" date="2026-10-18">
+      <description>
+        <p>Restore release builds for the latest Cabinet improvements</p>
+        <ul>
+          <li>Include the Windows helpers needed to verify plugin behaviour before publishing updates</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.30.0" date="2026-10-18">
       <description>
         <p>Pages show a loading screen while Cabinet reads what is installed</p>
