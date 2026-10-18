@@ -107,7 +107,7 @@ internal sealed class Operation(
         private readonly Adw.Dialog dialog = Adw.Dialog.New();
         private readonly Gtk.Label status = Gtk.Label.New(null);
         private readonly Gtk.ProgressBar bar = Gtk.ProgressBar.New();
-        private readonly Gtk.TextView log = Gtk.TextView.New();
+        private readonly Gtk.TextView log = Ui.LogView();
         private readonly Gtk.Button stop = Gtk.Button.NewWithLabel("Stop");
         private readonly Gtk.Button cancel = Gtk.Button.NewWithLabel("Cancel");
         private readonly Gtk.Button close = Gtk.Button.NewWithLabel("Close");
@@ -136,10 +136,6 @@ internal sealed class Operation(
             status.AddCssClass("heading");
 
             bar.Pulse();
-
-            log.SetMonospace(true);
-            log.SetEditable(false);
-            log.AddCssClass("card");
 
             stop.SetVisible(false);
             stop.AddCssClass("destructive-action");

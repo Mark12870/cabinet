@@ -92,6 +92,19 @@ internal static class Ui
         return scrolled;
     }
 
+    public static Gtk.TextView LogView()
+    {
+        var view = Gtk.TextView.New();
+        view.SetMonospace(true);
+        view.SetEditable(false);
+        view.SetLeftMargin(12);
+        view.SetRightMargin(12);
+        view.SetTopMargin(12);
+        view.SetBottomMargin(12);
+        view.AddCssClass("card");
+        return view;
+    }
+
     public static Gtk.Button IconButton(string iconName, string tooltip)
     {
         var button = Gtk.Button.NewFromIconName(iconName);
@@ -298,10 +311,7 @@ internal static class Ui
         dialog.SetContentWidth(720);
         dialog.SetContentHeight(480);
 
-        var view = Gtk.TextView.New();
-        view.SetMonospace(true);
-        view.SetEditable(false);
-        view.AddCssClass("card");
+        var view = LogView();
         view.GetBuffer().SetText(text, -1);
 
         var body = Page();
