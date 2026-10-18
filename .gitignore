@@ -10,6 +10,7 @@
 
 # dotnet
 [Bb]in/
+!/tools/wine-probes/src/bin/
 [Oo]bj/
 TestResults/
 
