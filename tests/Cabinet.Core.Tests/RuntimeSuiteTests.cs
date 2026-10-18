@@ -32,6 +32,12 @@ public class RuntimeSuiteTests
     }
 
     [Fact]
+    public void RuntimeDisplaysKeepInputAvailableDuringLongInstalls()
+    {
+        Assert.Contains("\"--idle-time=0\"", Repo.Read($"{Project}/Display.cs"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EveryPatchProbeIsOnePatchesMdReads()
     {
         var patches = Repo.Read("PATCHES.md");

@@ -59,6 +59,7 @@ internal sealed class PrefixPage
         settings.Add(RunnerRow(prefix, runnerNames));
         settings.Add(SyncRow(prefix));
         settings.Add(DxvkRow(prefix));
+        settings.Add(IlokRow(prefix));
         settings.Add(DesktopRow(prefix));
 
         var actions = Adw.PreferencesGroup.New();
@@ -174,6 +175,23 @@ internal sealed class PrefixPage
                 else
                 {
                     new Dxvk(layout, runner).Remove(Name, output);
+                }
+            });
+
+    private Adw.ActionRow IlokRow(Prefix prefix) =>
+        ToggleRow(
+            "iLok License Manager",
+            prefix.Ilok is null ? "not installed" : prefix.Ilok,
+            prefix.Ilok is not null,
+            (enabled, output, progress) =>
+            {
+                if (enabled)
+                {
+                    new Ilok(layout, runner).Install(Name, output, progress);
+                }
+                else
+                {
+                    new Ilok(layout, runner).Remove(Name, output);
                 }
             });
 

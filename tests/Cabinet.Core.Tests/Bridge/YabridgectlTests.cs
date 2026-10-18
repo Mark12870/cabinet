@@ -52,7 +52,7 @@ public sealed class YabridgectlTests : IDisposable
             outputs: args => args.SequenceEqual(["list"]) ? pluginDirectory + "/.\n" : "");
         var prefix = new Prefix(
             "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, false);
+            null, null, SyncMode.System, false);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
 
@@ -80,7 +80,7 @@ public sealed class YabridgectlTests : IDisposable
             exits: args => args.SequenceEqual(["add", pluginDirectory]) ? 1 : 0);
         var prefix = new Prefix(
             "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, false);
+            null, null, SyncMode.System, false);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
 
@@ -99,7 +99,7 @@ public sealed class YabridgectlTests : IDisposable
             outputs: args => args.SequenceEqual(["list"]) ? stale + "\n" : "");
         var prefix = new Prefix(
             "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, false);
+            null, null, SyncMode.System, false);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
 
@@ -129,9 +129,9 @@ public sealed class YabridgectlTests : IDisposable
         var prefixes = new[]
         {
             new Prefix("first", layout.PrefixPath("first"), true, Cabinet.Core.Layout.BundledRunner,
-                null, SyncMode.System, false),
+                null, null, SyncMode.System, false),
             new Prefix("second", layout.PrefixPath("second"), true, Cabinet.Core.Layout.BundledRunner,
-                null, SyncMode.System, false),
+                null, null, SyncMode.System, false),
         };
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes(prefixes);
@@ -158,7 +158,7 @@ public sealed class YabridgectlTests : IDisposable
             exits: args => args.SequenceEqual(["list"]) ? 1 : 0);
         var prefix = new Prefix(
             "gadget", layout.PrefixPath("gadget"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, false);
+            null, null, SyncMode.System, false);
 
         var result = new Yabridgectl(layout, runner).SyncPrefixes([prefix]);
 
@@ -255,7 +255,7 @@ public sealed class YabridgectlTests : IDisposable
         });
         var prefix = new Prefix(
             "broken", layout.PrefixPath("broken"), true, Cabinet.Core.Layout.BundledRunner,
-            null, SyncMode.System, false);
+            null, null, SyncMode.System, false);
         var said = new List<string>();
 
         var failure = Assert.Throws<InvalidOperationException>(

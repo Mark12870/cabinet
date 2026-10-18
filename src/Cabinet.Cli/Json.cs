@@ -73,6 +73,7 @@ internal static class Json
                 writer.WriteBoolean("initialised", prefix.Initialised);
                 writer.WriteString("runner", prefix.Runner);
                 writer.WriteString("dxvk", prefix.Dxvk);
+                writer.WriteString("ilok", prefix.Ilok);
                 writer.WriteString("sync", PrefixSettings.Word(prefix.Sync));
                 writer.WriteBoolean("desktop", prefix.Desktop);
                 writer.WriteEndObject();
@@ -105,6 +106,7 @@ internal static class Json
                 writer.WriteString("prefix", entry.Kind == PluginKind.Native ? null : entry.Prefix);
                 writer.WriteString("runner", entry.Runner);
                 writer.WriteBoolean("dxvk", entry.Dxvk);
+                writer.WriteBoolean("ilok", entry.Ilok);
                 writer.WriteString("sync", PrefixSettings.Word(entry.Sync));
                 Strings(writer, "winetricks", entry.Winetricks);
                 writer.WriteBoolean("desktop", entry.Desktop);

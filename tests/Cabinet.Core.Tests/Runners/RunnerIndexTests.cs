@@ -139,7 +139,7 @@ public sealed class RunnerIndexTests : IDisposable
     {
         var available = Answering("200", Index).Available(TestContext.Current.CancellationToken);
 
-        Assert.Equal(5, available.Count);
+        Assert.Equal(6, available.Count);
         Assert.Equal("wine-9.21-staging-tkg", Answering("200", Index).Find("9.21").Name);
     }
 
@@ -183,9 +183,9 @@ public sealed class RunnerIndexTests : IDisposable
     {
         var available = Answering("200", Index).Available(TestContext.Current.CancellationToken);
 
-        Assert.Equal(5, available.Count);
+        Assert.Equal(6, available.Count);
         Assert.Equal(
-            ["soda-11.0-5", "wine-9.21-staging-tkg", "wine-d2d1-11.0"],
+            ["soda-11.0-5", "wine-11.17-staging-tkg", "wine-9.21-staging-tkg", "wine-d2d1-11.0"],
             available.Where(RunnerIndex.IsPinned).Select(release => release.Name).Order(StringComparer.Ordinal));
         Assert.All(available.Where(RunnerIndex.IsPinned), release => Assert.Empty(release.ManifestUrl));
     }

@@ -8,6 +8,20 @@ is [yabridge](https://github.com/robbert-vdh/yabridge), with a few Cabinet patch
 
 ![Cabinet application preview](site/screenshots/cabinet.png)
 
+## Managers & players
+
+- Arturia Software Center
+- Cymatics Hub
+- IK Product Manager
+- Klevgrand Helper
+- Native Access
+- Roland Cloud Manager
+- SINEplayer
+- Spitfire Audio App
+- Splice INSTRUMENT
+- UVI Portal
+- Waves Central
+
 ## Yabridge patches
 
 [PATCHES.md](PATCHES.md) explains each patch in more detail.

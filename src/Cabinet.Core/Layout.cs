@@ -28,6 +28,8 @@ public sealed class Layout
 
     public const string DxvkBackupDir = ".cabinet-dxvk-backup";
 
+    public const string IlokMarker = ".cabinet-ilok";
+
     public const string SyncMarker = ".cabinet-sync";
 
     public const string EnvMarker = ".cabinet-env";
@@ -248,6 +250,9 @@ public sealed class Layout
 
     public string PrefixDxvkBackup(string name, string windowsDir) =>
         Path.Combine(PrefixDxvkBackupDir(name), windowsDir);
+
+    public string PrefixIlokFile(string name) =>
+        Path.Combine(PrefixPath(name), IlokMarker);
 
     public string PrefixSyncFile(string name) =>
         Path.Combine(PrefixPath(name), SyncMarker);

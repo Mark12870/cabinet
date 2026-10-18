@@ -68,6 +68,13 @@ finish-args:
   # NOT include /dev/shm -- verified: a sandbox without this sees an empty one.
   - --device=shm
   - --allow=multiarch                      # 32-bit plugin hosts
+  # Wine sets a thread's debug registers through ptrace, which the default seccomp filter
+  # refuses; PACE's iLok licence service crashes at every start without them.
+  - --allow=devel
+  # The runtime's Vulkan loader finds every GL extension driver twice, through
+  # /usr/share/vulkan/icd.d and its symlink target; DXVK then reports two identical
+  # GPUs, and JUCE 8's vblank thread calls freed listeners when both claim a monitor.
+  - --env=VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d:/usr/lib/i386-linux-gnu/GL/vulkan/icd.d
   # yabridgectl's output, where a DAW scans for plugins.
   - --filesystem=~/.vst3:create
   - --filesystem=~/.vst:create

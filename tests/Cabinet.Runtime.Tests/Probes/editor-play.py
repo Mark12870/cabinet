@@ -82,9 +82,22 @@ def window():
     return ""
 
 
+def position(host):
+    for _ in range(20):
+        geometry = subprocess.run(
+            ["xdotool", "getwindowgeometry", window()], capture_output=True, text=True, check=False).stdout
+        found = re.search(r"Position:\s*(-?\d+),(-?\d+)", geometry)
+        if found:
+            return found
+        idle(host, 0.5)
+    raise RuntimeError("the editor window could not be found to click in")
+
+
 def capture(name):
     raw = os.path.join(SHOTS, name + ".xwd")
-    subprocess.run(["xwd", "-id", window(), "-silent", "-out", raw], check=False)
+    if subprocess.run(["xwd", "-id", window(), "-silent", "-out", raw], check=False).returncode != 0:
+        print(f"capture {name} failed", file=sys.stderr, flush=True)
+        return
     subprocess.run(["magick", raw, os.path.join(SHOTS, name + ".png")], check=False)
     os.remove(raw)
 
@@ -126,9 +139,7 @@ def main():
         if step[0] == "wait":
             idle(host, float(step[1]))
             continue
-        geometry = subprocess.run(
-            ["xdotool", "getwindowgeometry", window()], capture_output=True, text=True, check=True).stdout
-        origin = re.search(r"Position:\s*(-?\d+),(-?\d+)", geometry)
+        origin = position(host)
         x11.XWarpPointer(display, 0, root, 0, 0, 0, 0,
                          int(origin[1]) + int(step[1]), int(origin[2]) + int(step[2]))
         x11.XSync(display, 0)

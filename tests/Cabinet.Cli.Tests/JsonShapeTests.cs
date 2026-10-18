@@ -9,7 +9,7 @@ public sealed class JsonShapeTests : IDisposable
     [
         "id", "name", "kind", "category", "summary", "homepage", "source", "demo", "account",
         "installInstructions",
-        "prefix", "runner", "dxvk", "sync", "winetricks", "desktop", "env", "registry", "script", "manager",
+        "prefix", "runner", "dxvk", "ilok", "sync", "winetricks", "desktop", "env", "registry", "script", "manager",
         "launchService", "launchHelper", "launchArgs", "scheme", "data", "developer", "version",
         "licence", "licensing", "formats", "description", "installed", "installedIn",
         "retired", "prefixConfig", "prefixUpdate", "updateChanges", "updateResets", "prefixEdits", "sharingPrefix",
@@ -27,10 +27,11 @@ public sealed class JsonShapeTests : IDisposable
         var prefix = Assert.Single(Parsed.Objects(cli.Run("list", "--json").Out));
 
         Assert.Equal(
-            ["name", "path", "initialised", "runner", "dxvk", "sync", "desktop"],
+            ["name", "path", "initialised", "runner", "dxvk", "ilok", "sync", "desktop"],
             Parsed.Keys(prefix));
         Assert.Equal(JsonValueKind.False, prefix.GetProperty("initialised").ValueKind);
         Assert.Equal(JsonValueKind.Null, prefix.GetProperty("dxvk").ValueKind);
+        Assert.Equal(JsonValueKind.Null, prefix.GetProperty("ilok").ValueKind);
     }
 
     [Fact]

@@ -27,8 +27,7 @@ after the destructor and leaves the half-destroyed object in memory.
 
 **When it can go.** Only when the plugins stop faulting in teardown. A runner can't retire it: with
 the dispatcher fixed, the same fault is unhandled and still ends the host. No deterministic test
-can show this, because the fault is a race inside the plugin. Check by removing the plugin
-repeatedly in Carla and watching the host's output for "crashed while being torn down".
+can show this, because the fault is a race inside the plugin.
 
 ## yabridge-foreign-drag-drop.patch
 
@@ -52,9 +51,8 @@ process's window and calls the real function otherwise.
 each runner family: the bundled Wine, mklnln's d2d1 build, Kron4ek and Soda. It asserts that each
 still crashes. A failing case names the release that has the fix.
 
-Once every entry that needs a fixed runner has moved to one, delete this patch, its manifest line
-and its `ManifestTests` fact. WebView2 editors that render only on d2d1, such as Splice
-INSTRUMENT, need a d2d1 release.
+WebView2 editors that render only on d2d1, such as Splice INSTRUMENT, need the fix in a d2d1
+release.
 
 The d2d1 fork's source has had the fix since commit fafb443f85 (2026-07-23), but mklnln's only
 build, v11.0, predates it. Upstream Wine had not fixed this as of 2026-09.
@@ -179,8 +177,7 @@ here with a reason. Cabinet used to ship yabridge's prebuilt `5.1.1` release; `3
 was chosen deliberately: `5.1.1` (Nov 2024) predates Wine 9.22's editor-embedding changes, and on
 it a bridged editor drew but received absolute screen coordinates where it expected
 client-relative ones, so clicks landed offset by the window's distance from the screen origin.
-Cabinet's runners are Wine 9.21-tkg and 11.0. **Do not revert this pin to chase the defect below**
-— that trades a blank VST2 editor for every bridged editor mis-routing its clicks.
+Cabinet's runners are Wine 9.21-tkg, 11.0 and 11.17-tkg.
 
 **Defect found and fixed on 2026-09-16**, by
 `patches/yabridge/yabridge-editor-window-origin.patch` above. Every bridged editor was placed one monitor
@@ -196,9 +193,8 @@ window's size but never its position. `EditorTests` covers both halves and both 
 This is the same embedding problem the branch set out to fix, not a separate one and not
 something Cabinet owns: the coordinate is still wrong, it now misplaces the window rather than
 the clicks, and VST3 hides it. Aalto's editor drew on `5.1.1` on 2026-08-17, so what changed is
-which symptom shows. Fixing it belongs upstream in #409; before bumping this pin, re-run the
-editor coverage in `docs/TESTS.md` and expect those cases to go green when it is fixed. Neither patch
-above applies to the `5.1.1` tree.
+which symptom shows. Fixing it belongs upstream in #409, and the editor coverage in
+`docs/TESTS.md` goes green once it is. Neither patch above applies to the `5.1.1` tree.
 
 # Carla patches
 

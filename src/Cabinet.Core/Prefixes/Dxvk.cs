@@ -75,7 +75,7 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
         if (!complete)
         {
             onOutput?.Invoke("Some had no backup — asking Wine to put its own back.");
-            var result = prefixes.Run(prefix, "wineboot", ["-u"], onOutput);
+            var result = prefixes.Update(prefix, onOutput);
 
             if (!result.Ok)
             {

@@ -2,7 +2,7 @@ namespace Cabinet.Core;
 
 internal static class LibraryEntryParser
 {
-    private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Sync", "Winetricks", "Env", "Registry", "Desktop"];
+    private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Ilok", "Sync", "Winetricks", "Env", "Registry", "Desktop"];
 
     private static readonly string[] PrefixKeys = ["Prefix", .. SettingKeys];
 
@@ -90,7 +90,7 @@ internal static class LibraryEntryParser
         if (kind == PluginKind.Native
             && new[]
             {
-                "Prefix", "Runner", "Dxvk", "Sync", "Winetricks", "Env", "Registry", "Desktop",
+                "Prefix", "Runner", "Dxvk", "Ilok", "Sync", "Winetricks", "Env", "Registry", "Desktop",
                 "Launch", "LaunchService", "LaunchHelper", "LaunchArgs", "Scheme", "Keep",
                 "Recover",
             }
@@ -170,6 +170,7 @@ internal static class LibraryEntryParser
             Value(fields, "Prefix") is { } prefix ? ParsePrefix(id, prefix) : id,
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
+            Value(fields, "Ilok") is { } ilok && bool.Parse(ilok),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
             ParseWinetricks(id, Value(fields, "Winetricks")),
             ParseEnv(id, Value(fields, "Env")),
@@ -246,6 +247,7 @@ internal static class LibraryEntryParser
             revision,
             Value(fields, "Runner"),
             Value(fields, "Dxvk") is { } dxvk && bool.Parse(dxvk),
+            Value(fields, "Ilok") is { } ilok && bool.Parse(ilok),
             Value(fields, "Sync") is { } sync ? PrefixSettings.ParseSync(sync) : SyncMode.System,
             ParseWinetricks(file, Value(fields, "Winetricks")),
             ParseEnv(file, Value(fields, "Env")),

@@ -5,6 +5,7 @@ public sealed record PrefixConfig(
     int Revision,
     string? Runner,
     bool Dxvk,
+    bool Ilok,
     SyncMode Sync,
     IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,

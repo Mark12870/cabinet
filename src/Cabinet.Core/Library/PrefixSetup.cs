@@ -9,6 +9,7 @@ internal sealed record PrefixSetup(
     string? Software,
     string? Runner,
     bool Dxvk,
+    bool Ilok,
     SyncMode Sync,
     IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,
@@ -23,6 +24,7 @@ internal sealed record PrefixSetup(
         software,
         config.Runner,
         config.Dxvk,
+        config.Ilok,
         config.Sync,
         [.. config.Winetricks.Select(verb => verb.ToLowerInvariant()).Order(StringComparer.Ordinal)],
         config.Env,
@@ -41,6 +43,7 @@ internal sealed record PrefixSetup(
             writer.WriteString("software", Software);
             writer.WriteString("runner", Runner);
             writer.WriteBoolean("dxvk", Dxvk);
+            writer.WriteBoolean("ilok", Ilok);
             writer.WriteString("sync", PrefixSettings.Word(Sync));
             writer.WriteStartArray("winetricks");
 
@@ -122,6 +125,7 @@ internal sealed record PrefixSetup(
                 root.GetProperty("software").GetString(),
                 root.GetProperty("runner").GetString(),
                 root.GetProperty("dxvk").GetBoolean(),
+                root.TryGetProperty("ilok", out var ilok) && ilok.GetBoolean(),
                 PrefixSettings.ParseSync(root.GetProperty("sync").GetString() ?? throw new FormatException()),
                 verbs,
                 env,

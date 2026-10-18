@@ -70,6 +70,19 @@ public sealed class PrefixOwnershipTests : IDisposable
     }
 
     [Fact]
+    public void ADawsPluginsKeepIlokInTheirPrefix()
+    {
+        var runner = new RecordingRunner();
+        File.WriteAllText(Layout.PrefixIlokFile("gadget"), IlokDownload.Version + "\n");
+        using var plugin = SessionFiles.HeldByAPlugin(Busy);
+
+        Assert.Throws<PrefixInUseException>(() => new Ilok(Layout, runner).Remove("gadget"));
+        Assert.Throws<PrefixInUseException>(() => new Ilok(Layout, runner).Install("gadget"));
+        Assert.Empty(runner.Ran);
+        Assert.Equal(IlokDownload.Version, new Ilok(Layout, runner).InstalledIn("gadget"));
+    }
+
+    [Fact]
     public void ADawsPluginsKeepAnInstallerOutOfTheirPrefix()
     {
         var installer = Path.Combine(root, "setup.exe");

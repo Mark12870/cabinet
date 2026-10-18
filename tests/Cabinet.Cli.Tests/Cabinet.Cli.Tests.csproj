@@ -16,6 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="../Cabinet.Core.Tests/Prefixes/IlokDownload.cs" Link="IlokDownload.cs" />
+    <Compile Include="../Cabinet.Core.Tests/Prefixes/SetupStreamWriter.cs" Link="SetupStreamWriter.cs" />
     <Compile Include="../Cabinet.Core.Tests/Repo.cs" Link="Repo.cs" />
     <Compile Include="../Cabinet.Core.Tests/RecordingRunner.cs" Link="RecordingRunner.cs" />
     <Compile Include="../Cabinet.Core.Tests/SessionFiles.cs" Link="SessionFiles.cs" />

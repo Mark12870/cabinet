@@ -29,6 +29,7 @@ public sealed record LibraryEntry(
     string Prefix,
     string? Runner,
     bool Dxvk,
+    bool Ilok,
     SyncMode Sync,
     IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,
@@ -60,7 +61,7 @@ public sealed record LibraryEntry(
     public string? SetupVersion => Family ? null : Version;
 
     public IReadOnlyList<PrefixConfig> Configs =>
-        PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Sync, Winetricks, Env, Registry, Desktop)];
+        PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Ilok, Sync, Winetricks, Env, Registry, Desktop)];
 
     public PrefixConfig Config => PrefixConfig.For(Configs, SetupVersion);
 
@@ -93,6 +94,11 @@ public sealed record LibraryEntry(
         if (Dxvk)
         {
             costs.Add("DXVK");
+        }
+
+        if (Ilok)
+        {
+            costs.Add("iLok License Manager");
         }
 
         if (Sync != SyncMode.System)

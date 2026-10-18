@@ -127,7 +127,7 @@ public sealed class PrefixesTests : IDisposable
             + "[Software\\\\Wine\\\\Explorer\\\\Desktops]\n\"Default\"=\"1280x720\"\n");
 
         var expected = new Prefix(
-            "gadget", path, true, Layout.BundledRunner, "2.7.1", SyncMode.Fsync, true);
+            "gadget", path, true, Layout.BundledRunner, "2.7.1", null, SyncMode.Fsync, true);
 
         Assert.Equal(expected, Subject.Prepare("gadget", null, null));
         Assert.Equal(expected, Assert.Single(Subject.List()));
@@ -228,6 +228,7 @@ public sealed class PrefixesTests : IDisposable
         var updated = Assert.Single(recorder.Ran);
         Assert.Equal(Layout.RunnerWine("wine-9.21"), updated.File);
         Assert.Equal(["wineboot", "-u"], updated.Arguments);
+        Assert.Equal("mscoree=d;mshtml=d", updated.Environment["WINEDLLOVERRIDES"]);
         Assert.Equal(["wine-9.21"], recordedFirst);
     }
 

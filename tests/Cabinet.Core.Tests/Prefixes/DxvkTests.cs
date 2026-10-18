@@ -80,6 +80,7 @@ public sealed class DxvkTests : IDisposable
 
         Assert.False(File.Exists(system32));
         Assert.Equal(["wineboot", "-u"], recorder.LastArguments);
+        Assert.Equal("mscoree=d;mshtml=d", recorder.Environment["WINEDLLOVERRIDES"]);
     }
 
     [Fact]

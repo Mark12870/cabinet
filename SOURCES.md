@@ -12,6 +12,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 
 | Entry | Source |
 | --- | --- |
+| uvi-portal | UVI's official Portal page, `cdn.uvi.net/PORTAL_Uvi_portal/medias/page/conversions/1766483808_GUI_PORTAL-responsive-webp-retina.webp`, cropped to the interface; its icon is `cdn.uvi.net/medias/order-confirmation/conversions/1765381467_Logo_Portal_rounded-responsive-webp-retina.webp` |
 | waves-central | Waves' official `assets.wavescdn.com/pdf/central/waves-central.pdf` guide, the interface image on page 2; its icon is `res/images/central-logo.svg` from the Waves Central installer |
 | novation-play | Novation's official Play announcement, `novationmusic.com/product_images/uploaded_images/novation-play-news-story-image-2-2400x1350.jpg`, cropped to the interface |
 | melodyne | Celemony's Melodyne 5 studio Quick Start in the official Help Center, `helpcenter.celemony.com/M5/doc/melodyneStudio5/en/M5tour_QuickStart_studio` — `Tour-Intro-Bild_studio_quickstart2` |
@@ -46,6 +47,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 
 | Vendor | Logo |
 | --- | --- |
+| uvi | UVI's official site header, the white UVI mark at `uvi.net/uvi-portal` |
 | waves | Waves Central's bundled `res/images/logo/light/waves-logo.svg`, recoloured white for contrast |
 | novation | Novation's official white wordmark, `cdn11.bigcommerce.com/s-itgb7ssiy1/images/stencil/original/novation_logo_web_1746028470__81805.original.png` |
 | celemony | Celemony's official wordmark, `celemony.com/WebObjects/CMSApp.woa/Contents/WebServerResources/img/celemony_logo.png`, recoloured white for contrast |

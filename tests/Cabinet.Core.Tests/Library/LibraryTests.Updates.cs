@@ -559,6 +559,26 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void AConfigThatNowWantsIlokOffersToInstallIt()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        Catalogue(("thing", SetupRecipe + "\nIlok: true\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal(["Install iLok License Manager."], library.PrefixUpdateOf(library.Find("thing"))!.Changes);
+    }
+
+    [Fact]
+    public void IlokPutInByHandIsAnEdit()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        File.WriteAllText(layout.PrefixIlokFile("chosen"), "5.10.5\n");
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal(["iLok on instead of off."], library.PrefixUpdateOf(library.Find("thing"))!.Edits);
+    }
+
+    [Fact]
     public void APrefixMatchingItsConfigIsUpToDate()
     {
         var layout = InstallSetup(SetupRecipe);

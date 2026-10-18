@@ -26,6 +26,20 @@ public class ManifestTests
     }
 
     [Fact]
+    public void WineCanSetTheDebugRegistersIlokChecks()
+    {
+        Assert.Contains("--allow=devel", FinishArgs);
+    }
+
+    [Fact]
+    public void DxvkSeesEachGpuOnce()
+    {
+        Assert.Contains(
+            "--env=VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d:/usr/lib/i386-linux-gnu/GL/vulkan/icd.d",
+            FinishArgs);
+    }
+
+    [Fact]
     public void ASandboxedDawCanActivateTheBridge()
     {
         var service = $"{Layout.BridgeBusName}.service";

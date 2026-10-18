@@ -45,6 +45,18 @@ internal static partial class Program
         return Exit.Ok;
     }
 
+    private static int InstallIlok(Layout layout, IProcessRunner runner, string name)
+    {
+        new Ilok(layout, runner).Install(name, Console.WriteLine);
+        return Exit.Ok;
+    }
+
+    private static int RemoveIlok(Layout layout, IProcessRunner runner, string name)
+    {
+        new Ilok(layout, runner).Remove(name, Console.WriteLine);
+        return Exit.Ok;
+    }
+
     private static Func<int> Set(CommandLine line, Layout layout, IProcessRunner runner)
     {
         var name = line.Word("a prefix name");
@@ -55,9 +67,12 @@ internal static partial class Program
             "dxvk" => One(line, "on or off", word => OnOff(word)
                 ? InstallDxvk(layout, runner, name)
                 : RemoveDxvk(layout, runner, name)),
+            "ilok" => One(line, "on or off", word => OnOff(word)
+                ? InstallIlok(layout, runner, name)
+                : RemoveIlok(layout, runner, name)),
             "env" => One(line, "KEY=VALUE", assignment => SetVariable(layout, name, Assignment(assignment))),
             "desktop" => One(line, "on or off", word => SetDesktop(layout, runner, name, OnOff(word))),
-            null => throw new UsageException("expected sync, dxvk, env or desktop"),
+            null => throw new UsageException("expected sync, dxvk, ilok, env or desktop"),
             var unknown => throw line.Unknown($"set {name} {unknown}"),
         };
     }
@@ -158,6 +173,7 @@ internal static partial class Program
         Console.WriteLine($"{"state",-16}  {(prefix.Initialised ? "initialised" : "bare")}");
         Console.WriteLine($"{"runner",-16}  {prefix.Runner}");
         Console.WriteLine($"{"dxvk",-16}  {prefix.Dxvk ?? "off"}");
+        Console.WriteLine($"{"ilok",-16}  {prefix.Ilok ?? "off"}");
         Console.WriteLine($"{"sync",-16}  {PrefixSettings.Word(prefix.Sync)}");
         Console.WriteLine($"{"desktop",-16}  {(prefix.Desktop ? "on" : "off")}");
 
@@ -247,6 +263,7 @@ internal static partial class Program
             Console.WriteLine(
                 $"{(prefix.Initialised ? "ok  " : "bare")}  {prefix.Name,-20}  "
                 + $"{prefix.Runner,-24}  {(prefix.Dxvk is null ? "" : "dxvk " + prefix.Dxvk),-11}"
+                + $"  {(prefix.Ilok is null ? "" : "ilok " + prefix.Ilok),-11}"
                 + $"  {(prefix.Desktop ? "desktop" : ""),-9}"
                 + $"  {prefix.Path}");
         }

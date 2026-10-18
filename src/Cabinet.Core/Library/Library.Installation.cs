@@ -240,6 +240,13 @@ public sealed partial class Library
             dxvk.Install(prefix, onOutput, onProgress);
         }
 
+        var ilok = new Ilok(layout, runner);
+
+        if (entry.Ilok && ilok.InstalledIn(prefix) is null)
+        {
+            ilok.Install(prefix, onOutput, onProgress);
+        }
+
         var desktop = new VirtualDesktop(layout, runner);
 
         if (entry.Desktop && !desktop.EnabledIn(prefix))

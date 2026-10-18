@@ -162,8 +162,8 @@ public partial class LibraryTests
 
     private static readonly IReadOnlyList<PrefixConfig> TwoConfigs =
     [
-        new("5.4.2", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), new Dictionary<string, string>(), false),
-        new("1.0", 1, null, false, SyncMode.System, [], new Dictionary<string, string>(), new Dictionary<string, string>(), false),
+        new("5.4.2", 1, null, false, false, SyncMode.System, [], new Dictionary<string, string>(), new Dictionary<string, string>(), false),
+        new("1.0", 1, null, false, false, SyncMode.System, [], new Dictionary<string, string>(), new Dictionary<string, string>(), false),
     ];
 
     [Theory]
@@ -394,6 +394,36 @@ public partial class LibraryTests
             """));
 
         Assert.Contains("carries Winetricks", refused.Message);
+    }
+
+    [Fact]
+    public void ANativeEntryCannotCarryIlok()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: native\nSource: byo\nIlok: true\n"));
+
+        Assert.Contains("carries Ilok", refused.Message);
+    }
+
+    [Fact]
+    public void AnEntryTakesIlokFromItsVendorsPrefixConfig()
+    {
+        var entry = LibraryEntry.Parse(
+            "gadget",
+            "Name: Gadget\nKind: windows\nSource: byo\n",
+            "a-vendor",
+            new Dictionary<string, string> { ["1.0"] = "Revision: 1\nIlok: true\n" });
+
+        Assert.True(entry.Ilok);
+        Assert.Contains("iLok License Manager", entry.Requirements());
+    }
+
+    [Fact]
+    public void AnEntryWithNoIlokLeavesItOut()
+    {
+        var entry = LibraryEntry.Parse("gadget", "Name: Gadget\nKind: windows\nSource: byo\n");
+
+        Assert.False(entry.Ilok);
     }
 
     [Theory]

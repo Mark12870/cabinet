@@ -306,6 +306,40 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void AnEntryThatAsksForIlokHasItInstalledInItsPrefix()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nIlok: true\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("thing"), "dosdevices"));
+        var recorder = new RecordingRunner(IlokDownload.Serving, outputs: IlokDownload.Answering());
+        var library = new Library(layout, recorder);
+
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.Single(recorder.Ran, call => call.Arguments is ["msiexec", "/i", _, "/qn", "NODRIVER=1"]);
+        Assert.Equal(IlokDownload.Version, new Ilok(layout, recorder).InstalledIn("thing"));
+    }
+
+    [Fact]
+    public void AnIlokThePrefixAlreadyHasIsNotInstalledAgain()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nIlok: true\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("thing"), "dosdevices"));
+        File.WriteAllText(layout.PrefixIlokFile("thing"), IlokDownload.Version + "\n");
+        var recorder = new RecordingRunner();
+        var library = new Library(layout, recorder);
+
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.DoesNotContain(recorder.Ran, call => call.Arguments is ["msiexec", ..]);
+    }
+
+    [Fact]
     public void InstallingAgainGoesToThePrefixThePluginIsRecordedIn()
     {
         Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));

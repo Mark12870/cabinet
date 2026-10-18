@@ -244,7 +244,7 @@ internal sealed partial class LibraryPage
 
         var pinned = managers.Select(entry => entry.Id).ToHashSet(StringComparer.Ordinal);
 
-        Section("Managers", managers);
+        Section("Managers &amp; players", managers);
 
         Section(
             "Windows plugins",

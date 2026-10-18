@@ -75,6 +75,10 @@ public sealed class RunnerIndex(IProcessRunner runner)
             "https://github.com/Kron4ek/Wine-Builds/releases/download/9.21/",
             "a9aaf78cc4453269e130edb299679d5fbf4756ebb5f0e75136e8e69e51a6bc11"),
         Pinned(
+            RunnerFamily.Kron4ek, "11.17",
+            "https://github.com/Kron4ek/Wine-Builds/releases/download/11.17/",
+            "eac9b877cc8453583b59f64422ebc65a95014728fa28c0260230521f42a64bed"),
+        Pinned(
             RunnerFamily.Soda, "11.0-5",
             "https://github.com/bottlesdevs/wine/releases/download/soda-11.0-5/",
             "63dfa05aee8be3a95bab4875a5dd69f432670ecb828491453bfc5e238e6f1595"),

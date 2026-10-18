@@ -217,7 +217,12 @@ internal sealed class PrefixesPage
             state += $"  ·  {PrefixSettings.Word(prefix.Sync)}";
         }
 
-        return prefix.Dxvk is null ? state : $"{state}  ·  DXVK {prefix.Dxvk}";
+        if (prefix.Dxvk is not null)
+        {
+            state += $"  ·  DXVK {prefix.Dxvk}";
+        }
+
+        return prefix.Ilok is null ? state : $"{state}  ·  iLok {prefix.Ilok}";
     }
 
     private void NewPrefix()

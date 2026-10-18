@@ -101,7 +101,7 @@ public sealed partial class Library
         Say($"{(restoring ? "Restoring" : "Updating")} {entry.Name}'s prefix setup in {prefix}.");
 
         var hasWork = plan.Runner is not null || plan.Sync is not null
-                      || plan.Dxvk is not null || plan.Desktop is not null
+                      || plan.Dxvk is not null || plan.Ilok is not null || plan.Desktop is not null
                       || plan.Env.Count > 0 || plan.Registry.Count > 0 || plan.Winetricks.Count > 0;
 
         if (hasWork)
@@ -195,6 +195,19 @@ public sealed partial class Library
             }
         }
 
+        if (plan.Ilok is { } ilok)
+        {
+            var operation = new Ilok(layout, runner);
+            if (ilok)
+            {
+                operation.Install(prefix, output, onProgress);
+            }
+            else
+            {
+                operation.Remove(prefix, output);
+            }
+        }
+
         if (plan.Desktop is { } desktop)
         {
             var operation = new VirtualDesktop(layout, runner);
@@ -215,12 +228,14 @@ public sealed partial class Library
         var desired = PrefixSetup.From(PrefixConfig.For(entry.Configs, software), software);
         var settings = new PrefixSettings(layout);
         var dxvkVersion = new Dxvk(layout, runner).InstalledIn(prefix);
+        var ilokVersion = new Ilok(layout, runner).InstalledIn(prefix);
         var actual = new PrefixSetup(
             "",
             0,
             software,
             new Prefixes(layout, runner).RunnerOf(prefix),
             dxvkVersion is not null,
+            ilokVersion is not null,
             settings.Sync(prefix),
             new Winetricks(layout, runner).Installed(prefix),
             settings.Variables(prefix),
@@ -249,6 +264,7 @@ public sealed partial class Library
         string? runnerChange = null;
         SyncMode? syncChange = null;
         bool? dxvkChange = null;
+        bool? ilokChange = null;
         bool? desktopChange = null;
         var env = new Dictionary<string, string?>(StringComparer.Ordinal);
         var registry = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -284,6 +300,13 @@ public sealed partial class Library
                 dxvkChange = desired.Dxvk;
                 Offer(DxvkSetting, actual.Dxvk != previous.Dxvk,
                     desired.Dxvk ? "Turn on DXVK for Direct3D." : "Turn off DXVK and use Wine's own Direct3D.");
+            }
+
+            if (actual.Ilok != desired.Ilok)
+            {
+                ilokChange = desired.Ilok;
+                Offer(IlokSetting, actual.Ilok != previous.Ilok,
+                    desired.Ilok ? "Install iLok License Manager." : "Take iLok License Manager out.");
             }
 
             if (actual.Desktop != desired.Desktop)
@@ -337,13 +360,13 @@ public sealed partial class Library
             : previous.Winetricks.Except(desired.Winetricks, StringComparer.Ordinal).ToList();
 
         var state = string.Join('\n', entry.Id, prefix, previous?.Serialise() ?? "",
-            desired.Serialise(), actual.Serialise(), dxvkVersion ?? "",
+            desired.Serialise(), actual.Serialise(), dxvkVersion ?? "", ilokVersion ?? "",
             string.Join('\n', members), string.Join('\n', foreign));
         var stamp = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(state)));
         var review = new PrefixUpdate(entry, prefix, desired.ConfigVersion, desired.Revision, previous?.Label,
             software, revised, changes, resets, edits, present, dropped, members, foreign, verbs, stamp);
         return new SetupUpdate(
-            review, desired, runnerChange, syncChange, dxvkChange, desktopChange, env, registry, verbs, custom, previous,
+            review, desired, runnerChange, syncChange, dxvkChange, ilokChange, desktopChange, env, registry, verbs, custom, previous,
             actual);
     }
 
@@ -424,6 +447,11 @@ public sealed partial class Library
             edits.Add(actual.Dxvk ? "DXVK on instead of off." : "DXVK off instead of on.");
         }
 
+        if (actual.Ilok != applied.Ilok)
+        {
+            edits.Add(actual.Ilok ? "iLok on instead of off." : "iLok off instead of on.");
+        }
+
         if (actual.Desktop != applied.Desktop)
         {
             edits.Add(actual.Desktop ? "Virtual desktop on instead of off." : "Virtual desktop off instead of on.");
@@ -453,6 +481,8 @@ public sealed partial class Library
 
     private const string DxvkSetting = "dxvk";
 
+    private const string IlokSetting = "ilok";
+
     private const string DesktopSetting = "desktop";
 
     private const string EnvSetting = "env:";
@@ -463,6 +493,7 @@ public sealed partial class Library
         string? Runner,
         SyncMode? Sync,
         bool? Dxvk,
+        bool? Ilok,
         bool? Desktop,
         IReadOnlyDictionary<string, string?> Env,
         IReadOnlyDictionary<string, string?> Registry,
@@ -479,6 +510,7 @@ public sealed partial class Library
                 Runner = RunnerMatches(Actual.Runner!, applied.Runner) ? null : applied.Runner ?? Layout.BundledRunner,
                 Sync = Actual.Sync == applied.Sync ? null : applied.Sync,
                 Dxvk = Actual.Dxvk == applied.Dxvk ? null : applied.Dxvk,
+                Ilok = Actual.Ilok == applied.Ilok ? null : applied.Ilok,
                 Desktop = Actual.Desktop == applied.Desktop ? null : applied.Desktop,
                 Env = applied.Env.Where(pair => Actual.Env.GetValueOrDefault(pair.Key) != pair.Value)
                     .ToDictionary(pair => pair.Key, string? (pair) => pair.Value, StringComparer.Ordinal),
@@ -491,6 +523,7 @@ public sealed partial class Library
             Runner = Custom.Contains(RunnerSetting) ? null : Runner,
             Sync = Custom.Contains(SyncSetting) ? null : Sync,
             Dxvk = Custom.Contains(DxvkSetting) ? null : Dxvk,
+            Ilok = Custom.Contains(IlokSetting) ? null : Ilok,
             Desktop = Custom.Contains(DesktopSetting) ? null : Desktop,
             Env = Env.Where(pair => !Custom.Contains(EnvSetting + pair.Key))
                 .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal),

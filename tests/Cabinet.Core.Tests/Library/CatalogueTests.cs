@@ -139,6 +139,16 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void AWebView2ManagerGetsItsFlagsThroughTheMachinePolicy()
+    {
+        var registry = Shipped.Single(entry => entry.Id == "uvi-portal").Registry;
+
+        Assert.Equal(
+            "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
+            registry[@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\UVI Portal.exe"]);
+    }
+
+    [Fact]
     public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
     {
         var writing = Directory

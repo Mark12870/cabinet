@@ -20,9 +20,11 @@ internal static partial class Program
           cabinet list                         list prefixes
           cabinet use <name> <runner>          move a prefix to a runner and update it
           cabinet dxvk <name>                  install DXVK, the Direct3D some editors want
+          cabinet ilok <name>                  install iLok License Manager for PACE-licensed plugins
           cabinet show <name>                  everything a prefix is set to
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
+          cabinet set <name> ilok <on|off>     install iLok License Manager, or uninstall it
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
           cabinet set <name> desktop <on|off>  enable or disable a Wine desktop of its own
           cabinet winetricks <name> [verb...]  open Winetricks, or install the verbs given
@@ -124,6 +126,7 @@ internal static partial class Program
             "runners" => Runners(line, layout, runner),
             "use" => Use(line, layout, runner),
             "dxvk" => One(line, "a prefix name", name => InstallDxvk(layout, runner, name)),
+            "ilok" => One(line, "a prefix name", name => InstallIlok(layout, runner, name)),
             "show" => One(line, "a prefix name", name => Show(layout, runner, name)),
             "set" => Set(line, layout, runner),
             "winetricks" => RunWinetricks(line, layout, runner),
