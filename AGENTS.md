@@ -33,15 +33,20 @@ the name or the structure instead. Anything that genuinely will not fit there is
 
 ## Boundaries
 
-- `Cabinet.slnx` is a .NET 10 solution. `src/Cabinet.Core` owns operations; `Cabinet.Cli` only parses and renders the
-  command line, and `Cabinet.Gui` only wires GTK4/libadwaita through GirCore. The CLI is NativeAOT; the GUI is trimmed
-  and self-contained. Keep Core AOT-safe, and put new behaviour there.
-- Rust is limited to the dependency-free `shim/` (`cabinet-wine`); application code and tests are C#. The shim is Rust
-  because it runs on the plugin-load path inside foreign sandboxes.
+- `Cabinet.slnx` is a .NET 10 solution. `src/Cabinet.Core` owns prefixes, runners, the bridge and the sandbox;
+  `src/Cabinet.Library` the catalogue, installs and prefix setups; `src/Cabinet.Doctor` diagnosis and About, over both.
+  Dependencies point one way: Core ← Library ← Doctor ← Cli, Gui. `Cabinet.Cli` only parses and renders the command
+  line, and `Cabinet.Gui` only wires GTK4/libadwaita through GirCore. The CLI is NativeAOT; the GUI is trimmed and
+  self-contained. Keep all three operation projects AOT-safe, and put new behaviour in the lowest one that can own it.
+- The languages are C#, Rust and Bash. Rust is limited to the dependency-free `shim/` (`cabinet-wine`), which runs on
+  the plugin-load path inside foreign sandboxes, and `tools/wine-probes`, Windows programs the runtime tests run in a
+  prefix. `msi-shim/` is the only C. Application code and tests are C#.
+- `tools/` (`Tools.slnx`) holds what never ships: `Cabinet.Ci` for the CI reports, `Cabinet.Probes` for the runtime
+  tests' Carla and lock probes, and `wine-probes`. Nothing in it reaches the Flatpak.
 - `msi-shim/` is a 32-bit C DLL built with the SDK's LLVM (clang, lld-link), with no C runtime. It stands in for
   Wine's msi.dll only in Kontakt 8's installer, whose Windows Installer call wedges under Wine, and forwards everything
   else to the runner's own msi.dll. Keep it that narrow.
-- All three source projects set `TreatWarningsAsErrors`; a warning fails the build.
+- Every project sets `TreatWarningsAsErrors`; a warning fails the build.
 - **A yabridge patch is the last resort, never the first fix.** Every patch in `patches/` is a build Cabinet has to
   carry, rebase and retire by hand. Exhaust what Cabinet already owns first: a prefix runner, DXVK, a Wine virtual
   desktop (`set <name> desktop`), a per-prefix variable (`set <name> env`), a `yabridge.toml` option beside the plugin,
@@ -49,8 +54,8 @@ the name or the structure instead. Anything that genuinely will not fit there is
   and ask before writing one.
 - Identifiers and user-facing text use British spelling: `Enrolment`, `Licence`, `catalogue`.
   `enroll` exists only as a CLI alias for `enrol`.
-- `data/io.github.mark12870.cabinet.svg` is the recoloured Phosphor dresser icon; retain
-  `data/LICENSE.phosphor` and the README credit if it changes.
+- `flatpak/io.github.mark12870.cabinet.svg` is the recoloured Phosphor dresser icon; retain
+  `flatpak/LICENSE.phosphor` and the README credit if it changes.
 - `scripts/`, `site/` and `.github/workflows/` own packaging and publishing; `.claude/skills/`
   holds one procedural skill per repository procedure. Skills should contain only the steps to produce the skill.
 
@@ -127,17 +132,18 @@ the name or the structure instead. Anything that genuinely will not fit there is
   arbitrary writes in `$HOME`.
 - The manifest grants no `home`: Wine maps `Z:` to `/`, so every installer and plugin would read all of `$HOME`. A
   new path Cabinet reads or writes needs its own grant; a new Library `Data:` root needs a matching
-  `--filesystem=~/<root>:create` grant in `io.github.mark12870.cabinet.yml`. Files the user picks come through the
+  `--filesystem=~/<root>:create` grant in `flatpak/io.github.mark12870.cabinet.yml`. Files the user picks come through the
   FileChooser portal, which exposes only the chosen file, so an installer that needs the `.bin` or `.cab` files beside
   it needs a `flatpak override --filesystem=<dir>:ro` for its folder.
 
 ## Writing code
 
-- A Core operation is `sealed class X(Layout layout, IProcessRunner runner)`. Every path, marker name and bundled
+- An operation is `sealed class X(Layout layout, IProcessRunner runner)`. Every path, marker name and bundled
   location comes from a `Layout` member; every subprocess goes through the injected `IProcessRunner`. Only each front
   end's `Program` constructs a real `ProcessRunner`, which keeps Core testable; do not call `Process.Start` or write a
   path literal in an operation.
-- Tests are xunit. `Repo` walks up to `Cabinet.slnx`, so `CatalogueTests`, `ManifestTests` and
+- Tests are xunit, one project per source project, sharing helpers from `tests/Cabinet.Testing`. `Repo` walks up to
+  `Cabinet.slnx`, so `CatalogueTests`, `ManifestTests` and
   `ShimParityTests` read the real tree. Substitute a runner with
   `StubRunner`, `RecordingRunner` or `StreamingRunner` instead of a mocking library.
 - Tests must be always deterministic. No conditions are allowed in them.
@@ -163,14 +169,13 @@ Run the complete CI-equivalent check from the repository root:
 scripts/checks.sh
 ```
 
-It enters `org.gnome.Sdk//50` itself and runs formatting, both front-end builds, Core tests, AppStream validation, and
-shim fmt/clippy/tests. The GUI build needs
-`-p:UseSharedCompilation=false`; Core tests compile only Core.
+It enters `org.gnome.Sdk//50` itself and runs formatting, both front-end builds, the unit tests, AppStream validation,
+and shim fmt/clippy/tests. The GUI build needs `-p:UseSharedCompilation=false`; no test project compiles a front end.
 
-A focused Core test runs against host `dotnet 10`:
+A focused test runs against host `dotnet 10`:
 
 ```sh
-dotnet test --project tests/Cabinet.Core.Tests --filter-class '*CatalogueTests'
+dotnet test --project tests/Cabinet.Library.Tests --filter-class '*CatalogueTests'
 ```
 
 On the intended Silverblue host, `cargo` comes from the `rust-stable` SDK extension. Run a focused shim test in the same
@@ -199,7 +204,7 @@ For a local Flatpak build, use `--disable-rofiles-fuse` and update the installed
 
 ```sh
 flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
-  --default-branch=stable build io.github.mark12870.cabinet.yml
+  --default-branch=stable build flatpak/io.github.mark12870.cabinet.yml
 flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://$PWD/repo"
 flatpak install --user -y --or-update cabinet-local io.github.mark12870.cabinet
 ```
@@ -212,7 +217,7 @@ GUI changes need visual confirmation against the installed Flatpak:
 `scripts/gui-shot.sh About about.png` (or `Prefixes/<row>`); its header and the `gui-shot` skill describe the required
 toolbox.
 
-`nuget-sources.json` feeds the Flatpak's offline build and is generated by
+`flatpak/nuget-sources.json` feeds the Flatpak's offline build and is generated by
 `flatpak-dotnet-generator.py`. NativeAOT pulls ILCompiler from NuGet, so every build needs it; regenerate it whenever a
 dependency changes.
 
@@ -281,8 +286,8 @@ dependency changes.
 
 ## Releases
 
-The newest `<release>` in `io.github.mark12870.cabinet.metainfo.xml` is Cabinet's only version; do not put a product
-version in a project file. `scripts/update-yabridge.py` updates the manifest URL and hash.
+The newest `<release>` in `flatpak/io.github.mark12870.cabinet.metainfo.xml` is Cabinet's only version; do not put a product
+version in a project file. `scripts/update-yabridge.sh` updates the manifest URL and hash.
 
 Publishing is automatic and irreversible: every push to `main` runs `ci.yml`, which, once its checks pass, builds, signs
 and deploys to Pages only when that newest `<release>` differs from the version already published, keeping ten commits

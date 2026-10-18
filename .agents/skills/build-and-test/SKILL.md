@@ -34,7 +34,7 @@ The two formatters are the half that is easy to forget — `dotnet format` faile
 four-space overhang no test could catch.
 
 **3. Compile both front ends.** Neither is reached by anything else in the list: `dotnet test`
-reaches only `Cabinet.Core`, and `dotnet format` does not fail on a broken build. A CLI that
+reaches no front end, and `dotnet format` does not fail on a broken build. A CLI that
 would not compile once passed every check and died in the flatpak build twenty minutes later.
 That is what the two `dotnet build` steps in the script are for.
 
@@ -64,7 +64,7 @@ its normal user data for catalogue or runtime tests.
 
 ```sh
 flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
-  --default-branch=stable build io.github.mark12870.cabinet.yml
+  --default-branch=stable build flatpak/io.github.mark12870.cabinet.yml
 BUILD_EXIT=$?
 printf 'BUILD_EXIT=%s\n' "$BUILD_EXIT"
 if [ "$BUILD_EXIT" -ne 0 ]; then exit "$BUILD_EXIT"; fi

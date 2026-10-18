@@ -46,7 +46,7 @@ jobs:
           path: ~/.nuget/packages
           key: >-
             nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Build.props',
-            'nuget-sources.json') }}
+            'flatpak/nuget-sources.json') }}
           restore-keys: nuget-
 
       - name: Install the SDK and the toolchains checks.sh enters
@@ -311,7 +311,7 @@ jobs:
         env:
           BASE: ${{ steps.pages.outputs.base_url }}
         run: |
-          python3 scripts/render-site.py \
+          scripts/render-site.sh \
             --repo _site/repo \
             --out _site \
             --base-url "${BASE}" \

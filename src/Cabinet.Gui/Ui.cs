@@ -1,3 +1,5 @@
+using Cabinet.Core;
+
 namespace Cabinet.Gui;
 
 internal static class Ui
@@ -90,6 +92,20 @@ internal static class Ui
         scrolled.SetVexpand(true);
         scrolled.SetChild(child);
         return scrolled;
+    }
+
+    public static Adw.StatusPage Loading(string title)
+    {
+        var spinner = Adw.Spinner.New();
+        spinner.SetSizeRequest(32, 32);
+        spinner.SetHalign(Gtk.Align.Center);
+
+        var page = Adw.StatusPage.New();
+        page.SetIconName(Layout.AppId);
+        page.SetTitle(title);
+        page.SetChild(spinner);
+        page.SetVexpand(true);
+        return page;
     }
 
     public static Gtk.TextView LogView()

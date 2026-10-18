@@ -44,6 +44,7 @@ internal sealed class PrefixesPage
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
+        list.Append(Ui.Loading("Reading prefixes…"));
         Widget = page;
     }
 

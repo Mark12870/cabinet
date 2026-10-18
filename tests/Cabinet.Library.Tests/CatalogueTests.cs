@@ -1,0 +1,523 @@
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
+
+using Cabinet.Core;
+
+namespace Cabinet.Core.Tests;
+
+public class CatalogueTests
+{
+    private static readonly IReadOnlyList<LibraryEntry> Shipped = Catalogue.Entries();
+
+    private static readonly string[] Manifest =
+        Repo.Lines("flatpak/io.github.mark12870.cabinet.yml");
+
+    [Fact]
+    public void EveryShippedEntryParsesAndNoTwoVendorsClaimAnId()
+    {
+        Assert.NotEmpty(Shipped);
+    }
+
+    [Fact]
+    public void EveryRunnerAnEntryNamesIsPinnedByCabinet()
+    {
+        var unpinned = Shipped
+            .Where(entry => entry.Runner is { } spec && !RunnerIndex.IsPinned(spec))
+            .Select(entry => $"{entry.Id} -> {entry.Runner}");
+
+        Assert.Empty(unpinned);
+    }
+
+    [Fact]
+    public void EveryScriptAnEntryNamesIsShippedBesideIt()
+    {
+        var layout = Catalogue.Layout();
+
+        var missing = Shipped
+            .Where(entry => entry.Script is not null)
+            .Where(entry => !File.Exists(layout.LibraryScript(entry.Vendor, entry.Script!)))
+            .Select(entry => $"{entry.Id} -> {entry.Vendor}/{entry.Script}");
+
+        Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void EveryRecoverScriptAnEntryNamesIsShippedBesideIt()
+    {
+        var layout = Catalogue.Layout();
+
+        var missing = Shipped
+            .Where(entry => entry.Recover is not null)
+            .Where(entry => !File.Exists(layout.LibraryScript(entry.Vendor, entry.Recover!)))
+            .Select(entry => $"{entry.Id} -> {entry.Vendor}/{entry.Recover}");
+
+        Assert.Empty(missing);
+    }
+
+    [Fact]
+    public void EveryWindowsEntryNamesAnInstallScript()
+    {
+        var interactive = Shipped
+            .Where(entry => entry.Kind == PluginKind.Windows && entry.Script is null)
+            .Select(entry => entry.Id);
+
+        Assert.Empty(interactive);
+    }
+
+    [Fact]
+    public void NoInstallScriptSetsAnEnvironmentAnEntryCouldDeclare()
+    {
+        var layout = Catalogue.Layout();
+
+        var poking = Shipped
+            .Where(entry => entry.Script is not null)
+            .SelectMany(
+                entry => File.ReadAllLines(layout.LibraryScript(entry.Vendor, entry.Script!))
+                    .Select(line => line.Trim())
+                    .Where(line => line.StartsWith("export ", StringComparison.Ordinal)
+                                   || line.Contains(@"Wine\\DllOverrides", StringComparison.Ordinal)),
+                (entry, line) => $"{entry.Vendor}/{entry.Script} has {line} — that is Env:");
+
+        Assert.Empty(poking);
+    }
+
+    [Fact]
+    public void MsiexecIsGivenAShortWindowsPathNeverTheArchivesUnixPath()
+    {
+        var layout = Catalogue.Layout();
+
+        var unixPaths = Shipped
+            .Where(entry => entry.Script is not null)
+            .SelectMany(
+                entry => File.ReadAllLines(layout.LibraryScript(entry.Vendor, entry.Script!))
+                    .Where(line => line.Contains("msiexec", StringComparison.Ordinal)
+                                   && !line.Contains(@"'C:\", StringComparison.Ordinal)),
+                (entry, line) => $"{entry.Vendor}/{entry.Script}: {line.Trim()}");
+
+        Assert.Empty(unixPaths);
+    }
+
+    [Fact]
+    public void WebView2FlagsGoWhereAnElevatedWineHostReadsThem()
+    {
+        var layout = Catalogue.Layout();
+
+        var declared = Shipped
+            .SelectMany(
+                entry => entry.Env.Keys.Where(key => key.StartsWith("WEBVIEW2_", StringComparison.Ordinal)),
+                (entry, key) => $"{entry.Id} declares {key}, which WebView2 ignores in an elevated host");
+        var scripted = Shipped
+            .Where(entry => entry.Script is not null)
+            .SelectMany(
+                entry => File.ReadAllLines(layout.LibraryScript(entry.Vendor, entry.Script!))
+                    .Where(line => line.Contains(
+                        @"HKCU\Software\Policies\Microsoft\Edge\WebView2", StringComparison.OrdinalIgnoreCase)),
+                (entry, _) => $"{entry.Vendor}/{entry.Script} sets WebView2 policy under HKCU, not HKLM");
+        var configured = Shipped
+            .SelectMany(
+                entry => entry.Registry.Keys.Where(path => path.StartsWith(
+                    @"HKCU\Software\Policies\Microsoft\Edge\WebView2", StringComparison.OrdinalIgnoreCase)),
+                (entry, path) => $"{entry.Id} sets {path}, a WebView2 policy under HKCU, not HKLM");
+
+        Assert.Empty(declared.Concat(scripted).Concat(configured));
+    }
+
+    [Theory]
+    [InlineData("splice-instrument", "Splice INSTRUMENT.exe")]
+    [InlineData("sine-player", "SINE Player.exe")]
+    public void AWebView2HostGetsItsFlagsThroughTheMachinePolicy(string id, string app)
+    {
+        var registry = Shipped.Single(entry => entry.Id == id).Registry;
+
+        foreach (var host in new[] { "yabridge-host.exe", app })
+        {
+            Assert.Equal(
+                "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
+                registry[$@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\{host}"]);
+        }
+    }
+
+    [Fact]
+    public void AWebView2ManagerGetsItsFlagsThroughTheMachinePolicy()
+    {
+        var registry = Shipped.Single(entry => entry.Id == "uvi-portal").Registry;
+
+        Assert.Equal(
+            "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
+            registry[@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\UVI Portal.exe"]);
+    }
+
+    [Fact]
+    public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
+    {
+        var writing = Directory
+            .EnumerateFiles(Repo.Path("data/library"), "*.sh", SearchOption.AllDirectories)
+            .Where(script => File.ReadAllText(script) is var text
+                             && (text.Contains("reg add", StringComparison.Ordinal)
+                                 || text.Contains("winecfg", StringComparison.Ordinal)))
+            .Select(script => Path.GetFileName(script))
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(["kontakt-8.sh"], writing);
+    }
+
+    [Fact]
+    public void AQtVariableIsDeclaredUnderTheNameWinePassesToWindows()
+    {
+        var dropped = Shipped
+            .SelectMany(
+                entry => entry.Env.Keys.Where(key => key.StartsWith("QT_", StringComparison.Ordinal)),
+                (entry, key) => $"{entry.Id} declares {key}, which Wine keeps from Windows; WINE{key} reaches it");
+
+        Assert.Empty(dropped);
+    }
+
+    [Fact]
+    public void NoShippedScriptEndsWineItself()
+    {
+        var ending = Directory
+            .EnumerateFiles(Repo.Path("data/library"), "*.sh", SearchOption.AllDirectories)
+            .Where(script => File.ReadAllText(script).Contains("wineserver", StringComparison.Ordinal))
+            .Select(script => Path.GetFileName(script))
+            .Order(StringComparer.Ordinal);
+
+        Assert.Empty(ending);
+    }
+
+    [Fact]
+    public void TheLinkHandlerClaimsTheSchemesTheCatalogueDoes()
+    {
+        var claimed = Repo.Lines("flatpak/io.github.mark12870.cabinet.Links.desktop")
+            .Single(line => line.StartsWith("MimeType=", StringComparison.Ordinal))["MimeType=".Length..]
+            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .Select(type => type.Replace("x-scheme-handler/", "", StringComparison.Ordinal))
+            .Order(StringComparer.Ordinal);
+        var registered = Shipped
+            .Where(entry => !Directory
+                .EnumerateFiles(Repo.Path($"data/library/{entry.Vendor}"), "*.md")
+                .Any())
+            .Select(entry => entry.Scheme)
+            .OfType<string>()
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(registered, claimed);
+    }
+
+    [Fact]
+    public void NoTwoEntriesClaimOneScheme()
+    {
+        var shared = Shipped
+            .Select(entry => entry.Scheme)
+            .OfType<string>()
+            .GroupBy(scheme => scheme, StringComparer.Ordinal)
+            .Where(same => same.Count() > 1)
+            .Select(same => same.Key);
+
+        Assert.Empty(shared);
+    }
+
+    [Fact]
+    public void NoInstallScriptRunsWinetricksInsteadOfDeclaringItsDependencies()
+    {
+        var layout = Catalogue.Layout();
+
+        var hidden = Shipped
+            .Where(entry => entry.Script is not null)
+            .Where(entry => File.ReadAllText(layout.LibraryScript(entry.Vendor, entry.Script!))
+                .Contains("winetricks", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Vendor}/{entry.Script}");
+
+        Assert.Empty(hidden);
+    }
+
+    [Fact]
+    public void NoScriptSpellsAPrefixPluginDirectoryTheWayTheCreatedOneIsNot()
+    {
+        var layout = Catalogue.Layout();
+
+        var created = layout.PrefixPluginDirs("any")
+            .SelectMany(path => path.Split(Path.DirectorySeparatorChar)
+                .SkipWhile(part => part != "drive_c")
+                .Skip(1))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var wrong = Shipped
+            .Where(entry => entry.Kind == PluginKind.Windows)
+            .SelectMany(entry => new[] { entry.Script, entry.Recover }
+                .OfType<string>()
+                .Select(name => (entry.Vendor, Name: name)))
+            .Distinct()
+            .SelectMany(
+                script => Misspelt(
+                    File.ReadAllText(layout.LibraryScript(script.Vendor, script.Name)),
+                    created),
+                (script, found) =>
+                    $"{script.Vendor}/{script.Name} looks in {found.Written}, "
+                    + $"but a prefix only has {found.Created}");
+
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
+    public void EveryRelinkIsANativeEntryWritingAShorterSonameOverALongerOne()
+    {
+        var wrong = Shipped
+            .Where(entry => entry.Relink.Count > 0)
+            .SelectMany(
+                entry => entry.Relink.Where(
+                    one => entry.Kind != PluginKind.Native || one.Value.Length > one.Key.Length),
+                (entry, one) => $"{entry.Id} relinks {one.Key} to {one.Value}");
+
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
+    public void EveryDataDirectoryAnEntryClaimsIsGrantedByTheManifest()
+    {
+        var granted = Manifest
+            .Select(line => line.Trim())
+            .Where(line => line.StartsWith("- --filesystem=~/", StringComparison.Ordinal))
+            .Select(line => line["- --filesystem=~/".Length..].Split(':')[0])
+            .ToHashSet(StringComparer.Ordinal);
+
+        var ungranted = Shipped
+            .Where(entry => entry.Data is not null)
+            .Select(entry => (entry.Id, Dir: entry.Data!.Split('/')[0]))
+            .Where(claim => !granted.Contains(claim.Dir))
+            .Select(claim => $"{claim.Id} writes ~/{claim.Dir} with no --filesystem grant");
+
+        Assert.Empty(ungranted);
+    }
+
+    [Fact]
+    public void ARollingEntryPinsNothingAndADownloadPinsEverything()
+    {
+        Assert.Empty(Shipped
+            .Where(entry => entry.Source == PluginSource.Rolling)
+            .Where(entry => entry.Sha256 is not null || entry.Version is not null)
+            .Select(entry => entry.Id));
+
+        Assert.Empty(Shipped
+            .Where(entry => entry.Source == PluginSource.Download)
+            .Where(entry => entry.Sha256 is null || entry.Url is null)
+            .Select(entry => entry.Id));
+    }
+
+    [Fact]
+    public void AnEntryCabinetCannotDownloadNamesThePageToGetItFrom()
+    {
+        Assert.Empty(Shipped
+            .Where(entry => entry.Source == PluginSource.Byo)
+            .Where(entry => entry.Url is not null)
+            .Select(entry => entry.Id));
+    }
+
+    [Fact]
+    public void AByoDemoIsADownloadWithAChecksum()
+    {
+        var demos = Shipped.Where(entry => entry.DemoUrl is not null).ToList();
+
+        Assert.NotEmpty(demos);
+        Assert.All(demos, entry =>
+        {
+            Assert.Equal(PluginSource.Byo, entry.Source);
+            Assert.NotNull(entry.DemoSha256);
+        });
+    }
+
+    [Fact]
+    public void EveryEntryCarriesWhatBothFrontEndsRender()
+    {
+        var bare = Shipped
+            .Where(entry => entry.Summary.Length == 0
+                            || entry.Developer is null
+                            || entry.Licence is null
+                            || entry.Formats.Count == 0
+                            || entry.Description.Count == 0)
+            .Select(entry => entry.Id);
+
+        Assert.Empty(bare);
+    }
+
+    [Fact]
+    public void EveryAppCabinetOpensIsAWindowsOneAndSaysWhereItLands()
+    {
+        var wrong = Shipped
+            .Where(entry => entry.Launch is not null)
+            .Where(entry => entry.Kind != PluginKind.Windows
+                            || entry.Launch is not [var drive, ':', '\\', ..]
+                            || !char.IsAsciiLetter(drive))
+            .Select(entry => $"{entry.Id} -> {entry.Launch}");
+
+        Assert.Empty(wrong);
+    }
+
+    [Fact]
+    public void EveryAppCabinetOpensCanBeStoppedByName()
+    {
+        var nameless = Shipped
+            .Where(entry => entry.Manager)
+            .Where(entry => entry.LaunchExe is not { Length: > 0 } exe
+                            || !exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+            .Select(entry => $"{entry.Id} -> {entry.Launch}");
+
+        Assert.Empty(nameless);
+    }
+
+    [Fact]
+    public void EveryWindowsVendorSetsItsPrefixInOnePrefixConfig()
+    {
+        var unset = Shipped
+            .Where(entry => entry.Kind == PluginKind.Windows && entry.PrefixConfigs is null)
+            .Select(entry => entry.Id);
+
+        Assert.Empty(unset);
+    }
+
+    [Fact]
+    public void AVendorTheManifestHoldsBackSaysWhyBesideItsEntries()
+    {
+        var held = Shipped
+            .Select(entry => entry.Vendor)
+            .Distinct(StringComparer.Ordinal)
+            .Where(vendor => Directory
+                .EnumerateFiles(Repo.Path($"data/library/{vendor}"), "*.md")
+                .Any());
+
+        var installs = Manifest.Any(line =>
+            line.Contains("\"$vendor\"*.md", StringComparison.Ordinal)
+            && line.Contains("continue", StringComparison.Ordinal));
+
+        Assert.True(
+            !held.Any() || installs,
+            $"{string.Join(", ", held)} carries a .md but the manifest installs every vendor");
+    }
+
+    [Fact]
+    public void EveryRuntimeScenarioNamesItsOwnShippedEntry()
+    {
+        var claimed = Directory
+            .EnumerateFiles(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios"), "*Scenario.cs")
+            .Select(scenario => (
+                Scenario: Path.GetFileName(scenario),
+                Id: Regex.Match(File.ReadAllText(scenario), @"const string Id = ""([^""]+)"";").Groups[1].Value))
+            .ToList();
+
+        Assert.NotEmpty(claimed);
+        Assert.Empty(claimed
+            .Where(scenario => !Shipped.Any(entry => entry.Id == scenario.Id))
+            .Select(scenario => $"{scenario.Scenario} names '{scenario.Id}', which no shipped entry is"));
+        Assert.Empty(claimed
+            .GroupBy(scenario => scenario.Id, StringComparer.Ordinal)
+            .Where(same => same.Count() > 1)
+            .Select(same => $"{string.Join(" and ", same.Select(scenario => scenario.Scenario))} both claim {same.Key}"));
+    }
+
+    [Fact]
+    public void AVersionIsPinnedInTheUrlThatFetchesIt()
+    {
+        var drifting = Shipped
+            .Where(entry => entry.Url is not null)
+            .Where(entry => entry.Url!.Contains("/latest/", StringComparison.Ordinal))
+            .Select(entry => entry.Id);
+
+        Assert.Empty(drifting);
+    }
+
+    [Fact]
+    public void TheKlevgrandHelperShipsAValidArchiveRuntime()
+    {
+        var path = Repo.Path("data/library/klevgrand/klevgrand-helper-runtime.zip");
+        Assert.True(File.Exists(path));
+        var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+        const string expectedHash =
+            "50faa6b30310fbe8cd5807405153fcdf61a020321fb58428cc74a98bf2e39790";
+
+        Assert.Equal(expectedHash, hash);
+        Assert.Contains(expectedHash, Repo.Read("SOURCES.md"), StringComparison.Ordinal);
+
+        using var archive = ZipFile.OpenRead(path);
+        var files = archive.Entries
+            .Where(entry => entry.Length > 0)
+            .ToDictionary(entry => entry.FullName, StringComparer.Ordinal);
+
+        string[] required =
+        [
+            "tar.exe",
+            "libarchive-13.dll",
+            "libb2-1.dll",
+            "libbz2-1.dll",
+            "libexpat-1.dll",
+            "libiconv-2.dll",
+            "liblz4.dll",
+            "liblzma-5.dll",
+            "libpcre2-8-0.dll",
+            "libpcre2-posix-3.dll",
+            "libzstd.dll",
+            "zlib1.dll",
+        ];
+
+        var missing = required.Where(file => !files.ContainsKey(file));
+        Assert.Empty(missing);
+
+        string[] licences =
+        [
+            "licenses/SOURCES.txt",
+            "licenses/bzip2.txt",
+            "licenses/expat.txt",
+            "licenses/libarchive-LICENSE.txt",
+            "licenses/libb2.txt",
+            "licenses/libcharset-COPYING.LIB.txt",
+            "licenses/libiconv-COPYING.LIB.txt",
+            "licenses/libiconv-COPYING.txt",
+            "licenses/lz4-LICENSE.txt",
+            "licenses/pcre2-LICENCE.md",
+            "licenses/xz-COPYING.0BSD.txt",
+            "licenses/xz-COPYING.GPLv2.txt",
+            "licenses/xz-COPYING.GPLv3.txt",
+            "licenses/xz-COPYING.LGPLv2.1.txt",
+            "licenses/xz-COPYING.txt",
+            "licenses/zlib.txt",
+            "licenses/zstd.txt",
+        ];
+
+        var actualLicences = files.Keys
+            .Where(file => file.StartsWith("licenses/", StringComparison.Ordinal))
+            .OrderBy(file => file, StringComparer.Ordinal);
+
+        Assert.Equal(licences.OrderBy(file => file, StringComparer.Ordinal), actualLicences);
+
+        foreach (var entry in files.Values)
+        {
+            using var content = entry.Open();
+            content.CopyTo(Stream.Null);
+        }
+    }
+
+    private static IEnumerable<(string Written, string Created)> Misspelt(
+        string script, IEnumerable<string> created)
+    {
+        foreach (var name in created)
+        {
+            for (var at = script.IndexOf(name, StringComparison.OrdinalIgnoreCase);
+                 at >= 0;
+                 at = script.IndexOf(name, at + 1, StringComparison.OrdinalIgnoreCase))
+            {
+                var written = script.Substring(at, name.Length);
+
+                if (IsSegment(script, at, name.Length)
+                    && !string.Equals(written, name, StringComparison.Ordinal))
+                {
+                    yield return (written, name);
+                }
+            }
+        }
+    }
+
+    private static bool IsSegment(string script, int at, int length) =>
+        at > 0
+        && script[at - 1] == '/'
+        && (at + length == script.Length || script[at + length] is '/' or '"' or '\'');
+}

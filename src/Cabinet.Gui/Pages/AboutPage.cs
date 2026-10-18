@@ -18,6 +18,7 @@ internal sealed class AboutPage
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
+        list.Append(Ui.Loading("Reading this build…"));
         Widget = page;
     }
 
@@ -26,37 +27,27 @@ internal sealed class AboutPage
     public void Refresh()
     {
         var current = generation.Next();
-        Ui.Clear(list);
 
-        var cabinet = Group("Cabinet");
-        var bundled = Group("Bundled");
-
-        list.Append(Paths());
-
-        Task.Run(() =>
+        Task.Run(() => new About(layout, runner).Read()).ContinueWith(task => Ui.OnMainLoop(() =>
         {
-            try
+            if (!generation.IsCurrent(current))
             {
-                var build = new About(layout, runner).Read();
-                Ui.OnMainLoop(() =>
-                {
-                    if (generation.IsCurrent(current))
-                    {
-                        Fill(cabinet, bundled, build);
-                    }
-                });
+                return;
             }
-            catch (Exception exception)
+
+            Ui.Clear(list);
+            var cabinet = Group("Cabinet");
+            var bundled = Group("Bundled");
+            list.Append(Paths());
+
+            if (task.IsFaulted)
             {
-                Ui.OnMainLoop(() =>
-                {
-                    if (generation.IsCurrent(current))
-                    {
-                        cabinet.SetDescription(exception.Message);
-                    }
-                });
+                cabinet.SetDescription(task.Exception!.InnerException!.Message);
+                return;
             }
-        });
+
+            Fill(cabinet, bundled, task.Result);
+        }));
     }
 
     private void Fill(Adw.PreferencesGroup cabinet, Adw.PreferencesGroup bundled, Build build)

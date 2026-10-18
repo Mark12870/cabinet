@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Cabinet.Core/Cabinet.Core.csproj" />
+    <ProjectReference Include="../Cabinet.Doctor/Cabinet.Doctor.csproj" />
   </ItemGroup>
 
 </Project>

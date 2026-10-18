@@ -74,7 +74,7 @@ prefixes; after any uninstall, remove `~/.vst*/cabinet`, `~/.clap/cabinet` and t
 ## Building
 
 ```sh
-flatpak run org.flatpak.Builder --repo=repo --force-clean --default-branch=stable build io.github.mark12870.cabinet.yml
+flatpak run org.flatpak.Builder --repo=repo --force-clean --default-branch=stable build flatpak/io.github.mark12870.cabinet.yml
 flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://$PWD/repo"
 flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet
 ```
@@ -82,4 +82,4 @@ flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet
 ## License
 
 GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE). The app icon combines the *dresser* and *piano-keys* icons
-from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see [data/LICENSE.phosphor](data/LICENSE.phosphor).
+from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see [flatpak/LICENSE.phosphor](flatpak/LICENSE.phosphor).

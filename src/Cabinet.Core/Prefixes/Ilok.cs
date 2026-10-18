@@ -111,7 +111,7 @@ public sealed partial class Ilok(Layout layout, IProcessRunner runner)
         string directory, Action<string>? onOutput, Action<double>? onProgress)
     {
         var target = Path.Combine(directory, Path.GetFileName(new Uri(Url).AbsolutePath));
-        onOutput?.Invoke(Library.Unverifiable(Url));
+        onOutput?.Invoke(Checksum.Unverifiable(Url));
         http.ToFile(Url, target, onOutput, onProgress);
         return target;
     }

@@ -49,7 +49,7 @@ runtime_pin() {
   bundled=$(sed -n 's:.*<BundledNETCoreAppPackageVersion>\(.*\)</BundledNETCoreAppPackageVersion>.*:\1:p' "$props")
   if [ "$bundled" != "$pinned" ]; then
     printf '::warning::the SDK bundles .NET runtime %s but src/Directory.Build.props pins %s; ' "$bundled" "$pinned" >&2
-    printf 'move the pin and regenerate nuget-sources.json deliberately\n' >&2
+    printf 'move the pin and regenerate flatpak/nuget-sources.json deliberately\n' >&2
   fi
 }
 
@@ -60,12 +60,17 @@ if [ "${1:-}" != --staged ]; then
   step 'dotnet build';    dotnet build src/Cabinet.Gui --nologo -v q \
                             -p:UseSharedCompilation=false
   step 'dotnet build';    dotnet build tests/Cabinet.Runtime.Tests --nologo -v q
+  step 'dotnet build';    dotnet build tools/Tools.slnx --nologo -v q
+  step 'dotnet format';   dotnet format tools/Tools.slnx --verify-no-changes
   step 'dotnet test';     unit_tests Cabinet.Core.Tests
+  step 'dotnet test';     unit_tests Cabinet.Library.Tests
+  step 'dotnet test';     unit_tests Cabinet.Doctor.Tests
   step 'dotnet test';     unit_tests Cabinet.Cli.Tests
   step 'cargo build';     (cd shim && cargo build)
   step 'dotnet test';     unit_tests Cabinet.Contract.Tests
-  step 'appstreamcli';    appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml
+  step 'appstreamcli';    appstreamcli validate --no-net flatpak/io.github.mark12870.cabinet.metainfo.xml
   step 'cargo fmt';       (cd shim && cargo fmt --check)
+  step 'cargo fmt';       (cd tools/wine-probes && cargo fmt --check)
   step 'cargo clippy';    (cd shim && cargo clippy --all-targets -- -D warnings)
   step 'cargo test';      (cd shim && cargo test)
   exit 0
@@ -82,7 +87,7 @@ for f in "${staged[@]}"; do
   case $f in
     *.cs) cs+=("$f") ;;
     shim/*) rust=yes ;;
-    io.github.mark12870.cabinet.metainfo.xml) metainfo=yes ;;
+    flatpak/io.github.mark12870.cabinet.metainfo.xml) metainfo=yes ;;
   esac
 done
 
@@ -107,7 +112,7 @@ fi
 
 if [ "$metainfo" = yes ]; then
   step 'appstreamcli'
-  appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml
+  appstreamcli validate --no-net flatpak/io.github.mark12870.cabinet.metainfo.xml
 fi
 
 formatted=(); blocked=()

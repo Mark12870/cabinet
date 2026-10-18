@@ -49,7 +49,7 @@ case "$BACKEND" in
         runner=(toolbox run --container "$BOX")
         ;;
     direct)
-        for command in c++ curl flatpak git magick make python3 sha256sum unzip weston \
+        for command in c++ cargo curl flatpak git jq magick make python3 sha256sum unzip weston \
             x86_64-w64-mingw32-gcc xdotool xprop xwd Xwayland; do
             command -v "$command" >/dev/null || die "$command is not installed"
         done
@@ -281,7 +281,8 @@ install_newest_d2d1() {
     local url archive runner
     url=$(curl --fail --silent --show-error --location \
         https://api.github.com/repos/mklnln/wine-d2d1-dcomp/releases/latest |
-        python3 -c 'import json, sys; print(next(asset["browser_download_url"] for asset in json.load(sys.stdin)["assets"] if asset["name"].endswith(".tar.zst")))')
+        jq -r 'first(.assets[] | select(.name | endswith(".tar.zst")) | .browser_download_url)')
+    [ -n "$url" ] || die 'the newest wine-d2d1-dcomp release has no .tar.zst asset'
     archive=$root/tmp/$(basename "$url")
     runner=$(basename "$url" .tar.zst)
     runner=${runner%-x86_64}

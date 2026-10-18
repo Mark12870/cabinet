@@ -61,10 +61,10 @@ for vendor in "$root"/data/library/*/; do
   done
 done
 
-same "$app.metainfo.xml" "share/metainfo/$app.metainfo.xml"
-same "$app.desktop" "share/applications/$app.desktop"
-same "data/$app.Links.desktop" "share/applications/$app.Links.desktop"
-same "data/$app.svg" "share/icons/hicolor/scalable/apps/$app.svg"
+same "flatpak/$app.metainfo.xml" "share/metainfo/$app.metainfo.xml"
+same "flatpak/$app.desktop" "share/applications/$app.desktop"
+same "flatpak/$app.Links.desktop" "share/applications/$app.Links.desktop"
+same "flatpak/$app.svg" "share/icons/hicolor/scalable/apps/$app.svg"
 [ -f "$files/share/glib-2.0/schemas/gschemas.compiled" ] || fail "the GSettings schema is not compiled"
 
 run() { flatpak build "$build" "$@"; }

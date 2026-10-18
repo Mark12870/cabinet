@@ -49,7 +49,7 @@ internal sealed partial class LibraryPage
             (entry.Source == PluginSource.Rolling
                 ? "Cabinet downloads it, keeps it in its own directory and links it into "
                   + "~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in your DAW afterwards."
-                  + $"\n\n{Library.Unverifiable(entry.Url!)}"
+                  + $"\n\n{Checksum.Unverifiable(entry.Url!)}"
                 : $"Cabinet downloads it from {new Uri(entry.Url!).Host}, keeps it in its own "
                   + "directory and links it into ~/.vst3, ~/.clap, ~/.lv2 and ~/.vst. Rescan in "
                   + "your DAW afterwards.")
@@ -258,7 +258,7 @@ internal sealed partial class LibraryPage
 
         return entry.Source == PluginSource.Rolling
             ? "Cabinet downloads it and runs its installer under Wine. "
-              + $"{Library.Unverifiable(entry.Url!)}\n\n{prefix}"
+              + $"{Checksum.Unverifiable(entry.Url!)}\n\n{prefix}"
             : $"Cabinet downloads it from {new Uri(entry.Url!).Host} and runs its installer "
               + $"under Wine. {prefix}";
     }

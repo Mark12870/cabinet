@@ -94,7 +94,7 @@ public sealed class IlokTests : IDisposable
 
         new Ilok(Layout, recorder).Install("gadget", said.Add);
 
-        Assert.Equal(Library.Unverifiable(Ilok.Url), beforeProcesses[0]);
+        Assert.Equal(Checksum.Unverifiable(Ilok.Url), beforeProcesses[0]);
     }
 
     [Fact]

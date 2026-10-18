@@ -268,7 +268,7 @@ run_test() {
     # A vendor's server that stalls once fails a test with nothing wrong in it, so a failed test
     # runs once more in a fresh process, fixture and all. Past a fifth of the suite failing, the
     # cause is Cabinet's and nothing is rerun. The top runtime.trx is the last attempt alone;
-    # each attempt's own is under Retries/, which scenario-report.py reads.
+    # each attempt's own is under Retries/, which Cabinet.Ci scenario-report reads.
     step 'dotnet test'
     dotnet test --project tests/Cabinet.Runtime.Tests --no-build --no-progress \
         --results-directory "$WORK/tests/Cabinet.Runtime.Tests/TestResults" \

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Cabinet.Ci/Cabinet.Ci.csproj" />
+  <Project Path="Cabinet.Probes/Cabinet.Probes.csproj" />
+</Solution>

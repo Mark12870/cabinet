@@ -254,7 +254,7 @@ public static class Enrolment
         Directory.Exists(layout.NativeDir)
             ? Directory.EnumerateDirectories(layout.NativeDir)
                 .Where(root => Layout.IsName(Path.GetFileName(root)))
-                .SelectMany(Library.Bundles)
+                .SelectMany(PluginBundles.In)
                 .Where(bundle => LinkTarget(bundle) is null && LegacyPublished(layout, bundle))
                 .Select(layout.NativePlacement)
                 .Order(StringComparer.Ordinal)
@@ -263,7 +263,7 @@ public static class Enrolment
 
     private static void MoveNativeRoot(Layout layout, string root)
     {
-        foreach (var bundle in Library.Bundles(root).Where(bundle => LinkTarget(bundle) is null).ToList())
+        foreach (var bundle in PluginBundles.In(root).Where(bundle => LinkTarget(bundle) is null).ToList())
         {
             if (LegacyPublished(layout, bundle) && !ForeignCabinetScanDir(layout, Path.GetExtension(bundle)))
             {
@@ -282,13 +282,13 @@ public static class Enrolment
             }
         }
 
-        var moved = Library.Bundles(root)
+        var moved = PluginBundles.In(root)
             .Where(bundle => Resolved(bundle) == layout.NativePlacement(bundle))
             .ToDictionary(bundle => bundle, layout.NativePlacement, StringComparer.Ordinal);
 
-        foreach (var bundle in Library.Bundles(root).Where(bundle => LegacyPublished(layout, bundle)).ToList())
+        foreach (var bundle in PluginBundles.In(root).Where(bundle => LegacyPublished(layout, bundle)).ToList())
         {
-            if (Library.Repointed(bundle, moved) is { } target)
+            if (PluginBundles.Repointed(bundle, moved) is { } target)
             {
                 var placed = layout.NativePlacement(bundle);
                 File.Delete(placed);

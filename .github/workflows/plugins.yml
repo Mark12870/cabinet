@@ -62,6 +62,13 @@ jobs:
           name: runtime
           path: runtime
 
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the CI tools
+        run: dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+
       - name: Diagnose the failed scenarios
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -79,19 +86,16 @@ jobs:
             echo "The plugin scenarios failed in [run ${GITHUB_RUN_ID}](${run}) at commit ${GITHUB_SHA::7}."
             echo "Its \`runtime\` artifact holds every log, and the captures of each failed scenario, until $(date -u -d '+7 days' +%F)."
             echo
-            scripts/scenario-diagnosis.py runtime
+            dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-diagnosis runtime
           } > diagnosis.md
           cat diagnosis.md >> "${GITHUB_STEP_SUMMARY}"
 
-      - name: Install the email renderer
-        run: python3 -m pip install --disable-pip-version-check --target "${RUNNER_TEMP}/diagnosis-email" --requirement scripts/email-diagnosis-requirements.txt
-
       - name: Email the full diagnosis
         env:
-          PYTHONPATH: ${{ runner.temp }}/diagnosis-email
+          GITHUB_TOKEN: ${{ github.token }}
           SMTP_HOST: ${{ vars.SMTP_HOST || 'smtp.agentmail.to' }}
           SMTP_PORT: ${{ vars.SMTP_PORT || '465' }}
           SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_TO: ${{ secrets.SMTP_TO || vars.SMTP_TO }}
-        run: python3 scripts/email-diagnosis.py diagnosis.md
+        run: scripts/email-diagnosis.sh diagnosis.md

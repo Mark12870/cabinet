@@ -131,7 +131,7 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
 7. Check that every scenario names a shipped entry, then run the full checks:
 
    ```sh
-   dotnet test --project tests/Cabinet.Core.Tests --filter-class '*CatalogueTests'
+   dotnet test --project tests/Cabinet.Library.Tests --filter-class '*CatalogueTests'
    scripts/checks.sh
    ```
 

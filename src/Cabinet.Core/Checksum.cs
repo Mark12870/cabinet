@@ -16,6 +16,11 @@ public static class Checksum
         return Convert.ToHexString(MD5.HashData(stream)).ToLowerInvariant();
     }
 
+    public static string Unverifiable(string url) =>
+        $"{new Uri(url).Host} publishes no checksum and changes this download with every "
+        + "release, so nothing here can verify what arrives — only that it came from the "
+        + "vendor over HTTPS.";
+
     public static void Expect(string path, string expected) => Match(path, Sha256(path), expected);
 
     public static void ExpectMd5(string path, string expected) => Match(path, Md5(path), expected);

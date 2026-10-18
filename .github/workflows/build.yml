@@ -86,8 +86,8 @@ jobs:
         with:
           path: .flatpak-builder
           key: >-
-            flatpak-builder-${{ hashFiles('io.github.mark12870.cabinet.yml', 'patches/yabridge/**',
-            'nuget-sources.json', 'shim/Cargo.lock') }}
+            flatpak-builder-${{ hashFiles('flatpak/io.github.mark12870.cabinet.yml', 'patches/yabridge/**',
+            'flatpak/nuget-sources.json', 'shim/Cargo.lock') }}
           restore-keys: flatpak-builder-
 
       - name: Build
@@ -97,7 +97,7 @@ jobs:
             --force-clean \
             --disable-rofiles-fuse \
             --default-branch=stable \
-            build "${APP_ID}.yml"
+            build "flatpak/${APP_ID}.yml"
 
       - name: Check the artifact
         run: scripts/check-artifact.sh build

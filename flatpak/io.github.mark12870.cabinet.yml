@@ -1,0 +1,395 @@
+app-id: io.github.mark12870.cabinet
+# GNOME, not freedesktop: the GUI is GTK4 + libadwaita, which org.freedesktop.Platform
+# does not carry. Bottles ships this same runtime over the same Wine base.
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.dotnet10
+  # NativeAOT links with clang/lld, which the SDK alone does not carry.
+  - org.freedesktop.Sdk.Extension.llvm20
+  - org.freedesktop.Sdk.Compat.i386
+
+# Wine comes from Flathub rather than being built here. `stable-25.08`, not
+# `wow64-25.08`: yabridge's 32-bit host is a 32-bit *winelib* binary, which new
+# WoW64 cannot run, and that is most of the older VST2 catalogue.
+base: org.winehq.Wine
+base-version: stable-25.08
+
+command: cabinet
+
+# `base:` copies the base app's files but NOT its extension declarations, so the
+# multilib Wine we just inherited arrives with no 32-bit runtime and dies on
+# `/lib/ld-linux.so.2: could not open`. These re-declare what org.winehq.Wine
+# declares, and are what makes 32-bit plugin hosting work at all.
+add-extensions:
+  # Also lost with `base:`, and re-declarable despite belonging to another app.
+  org.winehq.Wine.gecko:
+    directory: share/wine/gecko
+    version: stable-25.08
+
+  org.winehq.Wine.mono:
+    directory: share/wine/mono
+    version: stable-25.08
+
+  org.freedesktop.Platform.Compat.i386:
+    directory: lib/i386-linux-gnu
+    version: '25.08'
+
+  org.freedesktop.Platform.Compat.i386.Debug:
+    directory: lib/debug/lib/i386-linux-gnu
+    version: '25.08'
+    no-autodownload: true
+
+  org.freedesktop.Platform.GL32:
+    directory: lib/i386-linux-gnu/GL
+    version: '1.4'
+    versions: 25.08;25.08-extra;1.4
+    subdirectories: true
+    no-autodownload: true
+    add-ld-path: lib
+    merge-dirs: vulkan/icd.d;glvnd/egl_vendor.d;egl/egl_external_platform.d;OpenCL/vendors;lib/dri;lib/d3d;lib/gbm;vulkan/explicit_layer.d;vulkan/implicit_layer.d;vdpau
+    download-if: active-gl-driver
+    enable-if: active-gl-driver
+    autoprune-unless: active-gl-driver
+
+finish-args:
+  - --share=ipc                            # X11 MIT-SHM, for editor embedding
+  - --share=network                        # plugin activation / licence servers
+  # X11 is Wine's: yabridge's editor embedding and drag-and-drop are built on it.
+  # Wayland is the GUI's alone -- both Prefixes and the shim blank WAYLAND_DISPLAY,
+  # so granting it here cannot move Wine off X11 on either path into a prefix.
+  - --socket=x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  # Load-bearing. yabridge's audio buffers are shm_open(), and `--device=all` does
+  # NOT include /dev/shm -- verified: a sandbox without this sees an empty one.
+  - --device=shm
+  - --allow=multiarch                      # 32-bit plugin hosts
+  # Wine sets a thread's debug registers through ptrace, which the default seccomp filter
+  # refuses; PACE's iLok licence service crashes at every start without them.
+  - --allow=devel
+  # The runtime's Vulkan loader finds every GL extension driver twice, through
+  # /usr/share/vulkan/icd.d and its symlink target; DXVK then reports two identical
+  # GPUs, and JUCE 8's vblank thread calls freed listeners when both claim a monitor.
+  - --env=VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d:/usr/lib/i386-linux-gnu/GL/vulkan/icd.d
+  # yabridgectl's output, where a DAW scans for plugins.
+  - --filesystem=~/.vst3:create
+  - --filesystem=~/.vst:create
+  - --filesystem=~/.clap:create
+  # Linux-native plugins only; yabridge bridges no LV2.
+  - --filesystem=~/.lv2:create
+  # A Library entry's `Data:` directory. u-he's plugins read their presets and resources
+  # from this path by name -- one grant per vendor.
+  - --filesystem=~/.u-he:create
+  # The same, for a DAW outside Flatpak, whose XDG_DATA_HOME is the real one. Only `sync`
+  # writes here now, to take out the links older Cabinet releases left in it.
+  - --filesystem=~/.local/share/yabridge:create
+  # Cabinet's own files, read back through their host path because the chainloader hands
+  # those to the shim. Both roots: a system install is outside $HOME.
+  - --filesystem=~/.local/share/flatpak/app/io.github.mark12870.cabinet:ro
+  - --filesystem=/var/lib/flatpak/app/io.github.mark12870.cabinet:ro
+  # `doctor` reads an enrolled DAW's override file; it cannot ask flatpak from in here.
+  - --filesystem=~/.local/share/flatpak/overrides:ro
+  # `about` reads the origin remote's url, to tell a published build from a local one.
+  # A single-file grant, honoured through the mask over ~/.local/share/flatpak.
+  - --filesystem=~/.local/share/flatpak/repo/config:ro
+  - --filesystem=/var/lib/flatpak/repo/config:ro
+  # The socket directory, shared with the DAW on the other side of the boundary. A DAW outside
+  # Flatpak sets no YABRIDGE_TEMP_DIR and yabridge then uses $XDG_RUNTIME_DIR itself, which
+  # `xdg-run` cannot express -- the shim grants that path by value on each `flatpak run`.
+  - --filesystem=xdg-run/yabridge:create
+  - --env=YABRIDGE_NO_WATCHDOG=1
+
+modules:
+  - name: zenity
+    buildsystem: meson
+    config-opts:
+      - -Dmanpage=false
+      - -Dwebkitgtk=false
+    sources:
+      - type: archive
+        url: https://gitlab.gnome.org/GNOME/zenity/-/archive/4.0.3/zenity-4.0.3.tar.gz
+        sha256: 5f50c315a937e1061f0ec5267a8dcc1f430c6aca6ca285373820fd03f420980c
+
+  - name: yabridge
+    buildsystem: simple
+    build-commands:
+      - install -d wine-dev-amd64 wine-dev-i386 gcc-dev-i386 xcb-dev-i386 ${FLATPAK_DEST}/lib/i386-linux-gnu/GL
+      - install -d ${FLATPAK_DEST}/lib/debug/lib/i386-linux-gnu
+      - install -d ${FLATPAK_DEST}/share/wine/gecko
+      - install -d ${FLATPAK_DEST}/share/wine/mono
+      - install -d ${FLATPAK_DEST}/lib/yabridge
+      - ar p libwine-dev-amd64.deb data.tar.xz | tar -xJ -C wine-dev-amd64
+      - ar p libwine-dev-i386.deb data.tar.xz | tar -xJ -C wine-dev-i386
+      - ar p libgcc-dev-i386.deb data.tar.xz | tar -xJ -C gcc-dev-i386
+      - ar p libxcb1-i386.deb data.tar.xz | tar -xJ -C xcb-dev-i386
+      - ar p libxcb1-dev-i386.deb data.tar.xz | tar -xJ -C xcb-dev-i386
+      - |
+        cat > winegcc-flatpak <<'EOF'
+        #!/bin/sh
+        root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+        wine_dev=amd64
+        wine_lib=x86_64-linux-gnu/wine/x86_64-unix
+        gcc_flags=
+        for arg in "$@"; do
+          if [ "$arg" = "-m32" ]; then
+            wine_dev=i386
+            wine_lib=i386-linux-gnu/wine/i386-unix
+            gcc_flags="-B$root/gcc-dev-i386/usr/lib/gcc/i686-linux-gnu/12/ -L$root/gcc-dev-i386/usr/lib/gcc/i686-linux-gnu/12"
+          fi
+        done
+        compiler=/app/bin/winegcc
+        case "$(basename "$0")" in wineg++-flatpak) compiler=/app/bin/wineg++; esac
+        exec "$compiler" \
+          -I"$root/wine-dev-amd64/usr/include/wine" \
+          -I"$root/wine-dev-amd64/usr/include/wine/wine/windows" \
+          -L"$root/wine-dev-$wine_dev/usr/lib/$wine_lib" \
+          -L"$root/xcb-dev-i386/usr/lib/i386-linux-gnu" \
+          -Wno-changes-meaning $gcc_flags "$@"
+        EOF
+      - chmod +x winegcc-flatpak
+      - ln -s winegcc-flatpak wineg++-flatpak
+      - |
+        for dependency in asio bitsery clap function2 ghc_filesystem; do
+          cp "subprojects/packagefiles/$dependency/meson.build" "subprojects/$dependency/meson.build"
+        done
+      - sed -i "s/^c = 'winegcc'/c = 'winegcc-flatpak'/;s/^cpp = 'wineg++'/cpp = 'wineg++-flatpak'/;s/^pkg-config = 'pkg-config'/pkgconfig = 'pkg-config'\npkg-config = 'pkg-config'/" cross-wine.conf
+      - |
+        export PATH="$PWD:$PATH"
+        meson setup build --buildtype=release --cross-file=cross-wine.conf --unity=on --unity-size=1000 -Dbitbridge=true
+        meson compile -j1 -C build
+      - install -Dm755 build/libyabridge-chainloader-clap.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-clap.so
+      - install -Dm755 build/libyabridge-chainloader-vst2.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-vst2.so
+      - install -Dm755 build/libyabridge-chainloader-vst3.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-vst3.so
+      - install -Dm755 build/libyabridge-clap.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-clap.so
+      - install -Dm755 build/libyabridge-vst2.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-vst2.so
+      - install -Dm755 build/libyabridge-vst3.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-vst3.so
+      - install -Dm755 build/yabridge-host.exe ${FLATPAK_DEST}/lib/yabridge/yabridge-host.exe
+      - install -Dm755 build/yabridge-host.exe.so ${FLATPAK_DEST}/lib/yabridge/yabridge-host.exe.so
+      - install -Dm755 build/yabridge-host-32.exe ${FLATPAK_DEST}/lib/yabridge/yabridge-host-32.exe
+      - install -Dm755 build/yabridge-host-32.exe.so ${FLATPAK_DEST}/lib/yabridge/yabridge-host-32.exe.so
+      - install -Dm755 yabridgectl-release/yabridgectl ${FLATPAK_DEST}/lib/yabridge/yabridgectl
+      # winegcc's wrapper falls back to bare `wine`, which a DAW outside Flatpak has no reason to
+      # have. Point that fallback at the shim beside it, so a native DAW bridges however it was
+      # started rather than aborting on an uncaught exception in yabridge's launch thread.
+      - |
+        for host in yabridge-host.exe yabridge-host-32.exe; do
+          script=${FLATPAK_DEST}/lib/yabridge/$host
+          sed -i 's|WINELOADER="wine"|WINELOADER="$appdir/cabinet-wine"|' "$script"
+          grep -q 'WINELOADER="$appdir/cabinet-wine"' "$script" || exit 1
+        done
+      - rm libwine-dev-amd64.deb libwine-dev-i386.deb libgcc-dev-i386.deb libxcb1-i386.deb libxcb1-dev-i386.deb
+    sources:
+      - type: archive
+        url: https://github.com/robbert-vdh/yabridge/archive/ba7022df0aee1e91cde62d7f0e940d3bc43a82b0.tar.gz
+        sha256: d9acb1c85a4c9c8d418d371046747a5a052e073436ae755de3b2627af9884c9a
+        strip-components: 1
+      - type: patch
+        path: ../patches/yabridge/yabridge-teardown-guard.patch
+      - type: patch
+        path: ../patches/yabridge/yabridge-foreign-drag-drop.patch
+      - type: patch
+        path: ../patches/yabridge/yabridge-editor-window-origin.patch
+      - type: patch
+        path: ../patches/yabridge/yabridge-chainloader-cabinet-first.patch
+      - type: patch
+        path: ../patches/yabridge/yabridge-state-per-interface.patch
+      - type: patch
+        path: ../patches/yabridge/yabridge-short-socket-names.patch
+      - type: archive
+        url: https://github.com/robbert-vdh/yabridge/releases/download/5.1.1/yabridge-5.1.1.tar.gz
+        sha256: d11f0307412b5566b09a75ed4aa191266db56d22f4de4d20e4fbde6296cd1a47
+        dest: yabridgectl-release
+        strip-components: 1
+      - type: archive
+        url: https://github.com/chriskohlhoff/asio/archive/ed6aa8a13d51dfc6c00ae453fc9fb7df5d6ea963.tar.gz
+        sha256: 9d4619e1ea963d3c72c8dc07d5d8c9c4fab67141990b4f8cb10e5d8ad2c83f42
+        dest: subprojects/asio
+        strip-components: 1
+      - type: archive
+        url: https://github.com/fraillt/bitsery/archive/d1a47e06e2104b195a19c73b61f1d5c1dceaa228.tar.gz
+        sha256: 766e82e66c56dfa70f91728800428904028090aa3c6802c03eb1250e1fc1c401
+        dest: subprojects/bitsery
+        strip-components: 1
+      - type: archive
+        url: https://github.com/Naios/function2/archive/9e303865d14f1204f09379e37bbeb30c4375139a.tar.gz
+        sha256: 698e86a5230567899422525cf7d53ef4bef5461eb1832b170a22a3d97b7eff78
+        dest: subprojects/function2
+        strip-components: 1
+      - type: archive
+        url: https://github.com/gulrak/filesystem/archive/8a2edd6d92ed820521d42c94d179462bf06b5ed3.tar.gz
+        sha256: 3742a0d47da885da0e671008d72e7de5b7dbc3ccd3eed731166268b52e176cd4
+        dest: subprojects/ghc_filesystem
+        strip-components: 1
+      - type: archive
+        url: https://github.com/marzer/tomlplusplus/archive/30172438cee64926dc41fdd9c11fb3ba5b2ba9de.tar.gz
+        sha256: 291254ffe7f2433f90deef878d0d9335534a350a958ea23ecf511b7b2277bf7f
+        dest: subprojects/tomlplusplus
+        strip-components: 1
+      - type: archive
+        url: https://github.com/free-audio/clap/archive/094bb76c85366a13cc6c49292226d8608d6ae50c.tar.gz
+        sha256: b8846278c7cde906d15458c86d014a0a54facf127559c55f4bddd9d202b54c0e
+        dest: subprojects/clap
+        strip-components: 1
+      - type: archive
+        url: https://github.com/robbert-vdh/vst3sdk/archive/3ff02a8fb91f8e14f61c4e26130841b51d601575.tar.gz
+        sha256: 45a3fa71d444c1722ee84987fdd5ecbb1322d4e30420aadd2754b94291ed2cbf
+        dest: subprojects/vst3
+        strip-components: 1
+      - type: archive
+        url: https://github.com/steinbergmedia/vst3_base/archive/ea2bac9a109cce69ced21833fa6ff873dd6e368a.tar.gz
+        sha256: d74834b48b50dc3d92c47c43ca3f7e14847c54eab30850517a1f940319e50006
+        dest: subprojects/vst3/base
+        strip-components: 1
+      - type: archive
+        url: https://github.com/steinbergmedia/vst3_pluginterfaces/archive/bc5ff0f87aaa3cd28c114810f4f03c384421ad2c.tar.gz
+        sha256: e32c2130afac93332b32761eeeede637607528c5962cc6490daf5125ee7d2ee9
+        dest: subprojects/vst3/pluginterfaces
+        strip-components: 1
+      - type: archive
+        url: https://github.com/steinbergmedia/vst3_public_sdk/archive/bbb0538535b171e805c8a8b612c2cd8a5f95738b.tar.gz
+        sha256: 662541a479d299e82a0f5151a3671918349a30b1d27e84d2c468bd0f6f1d2c39
+        dest: subprojects/vst3/public.sdk
+        strip-components: 1
+      - type: file
+        url: https://deb.debian.org/debian/pool/main/w/wine/libwine-dev_8.0~repack-4_amd64.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20230219T210957Z/pool/main/w/wine/libwine-dev_8.0~repack-4_amd64.deb
+        sha256: 7f9616b192c9c31894b5cd267704c9e4ca7688847d87d22492fd764287f695d5
+        dest-filename: libwine-dev-amd64.deb
+      - type: file
+        url: https://deb.debian.org/debian/pool/main/w/wine/libwine-dev_8.0~repack-4_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20230219T210957Z/pool/main/w/wine/libwine-dev_8.0~repack-4_i386.deb
+        sha256: fd38bb8f26c5651f8cb4ea8879343992abdb53d47e49efcb966229aeb1df29d5
+        dest-filename: libwine-dev-i386.deb
+      - type: file
+        url: https://deb.debian.org/debian/pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20250415T084322Z/pool/main/g/gcc-12/libgcc-12-dev_12.2.0-14+deb12u1_i386.deb
+        sha256: d25bdc547dc760f2c48aa808dcd0c4f3b5bd124daa3b47186ee6070ea57d85f1
+        dest-filename: libgcc-dev-i386.deb
+      - type: file
+        url: https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb1_1.15-1_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20220804T091827Z/pool/main/libx/libxcb/libxcb1_1.15-1_i386.deb
+        sha256: 58eac13b8d4614a9804b8fbfd8090a4da725ee70ebda435cb807144348d8a216
+        dest-filename: libxcb1-i386.deb
+      - type: file
+        url: https://deb.debian.org/debian/pool/main/libx/libxcb/libxcb1-dev_1.15-1_i386.deb
+        mirror-urls:
+          - https://snapshot.debian.org/archive/debian/20220804T091827Z/pool/main/libx/libxcb/libxcb1-dev_1.15-1_i386.deb
+        sha256: f128688a3a58011588258b00d18c9f4f856f2229fa0cd73d5b17938319161c7f
+        dest-filename: libxcb1-dev-i386.deb
+
+  # No cargo-sources.json: the shim depends on nothing but std, so an offline
+  # build needs nothing vendored. Keep it that way.
+  - name: cabinet-wine
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin
+      env:
+        CARGO_HOME: /run/build/cabinet-wine/cargo
+    build-commands:
+      - cargo build --offline --release
+      # Not in bin/: exec'd by the DAW, and in here only as the bus-activated dispatcher.
+      - install -Dm755 target/release/cabinet-wine ${FLATPAK_DEST}/lib/yabridge/cabinet-wine
+      # A sandboxed DAW starts its Wine sessions by activating this name; it needs no host access.
+      - install -Dm644 io.github.mark12870.cabinet.Bridge.service ${FLATPAK_DEST}/share/dbus-1/services/io.github.mark12870.cabinet.Bridge.service
+    sources:
+      - type: dir
+        path: ../shim
+
+  # Kontakt 8's installer hands its files to Windows Installer, which wedges under Wine.
+  # This msi.dll stands in for Wine's only in that installer and runs kontakt-8.sh instead.
+  - name: msi-shim
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/llvm20/bin
+    build-commands:
+      - llvm-dlltool -m i386 -k -d kernel32.def -l kernel32.lib
+      - clang --target=i686-pc-windows-msvc -O2 -ffreestanding -fno-builtin -nostdlib -Wall -Wextra -Werror -c msi.c -o msi.obj
+      - lld-link /dll /nodefaultlib /entry:DllMain /def:msi.def /machine:x86 /out:msi.dll msi.obj kernel32.lib
+      - install -Dm644 msi.dll ${FLATPAK_DEST}/share/cabinet/library/native-instruments/msi.dll
+    sources:
+      - type: dir
+        path: ../msi-shim
+
+  - name: winetricks
+    buildsystem: simple
+    build-commands:
+      - sed -i 's/^\( *\*-w)\) w_warn "Running.*;;$/\1 ;;/' /app/bin/winetricks
+      - grep -q '^ *\*-w) ;;$' /app/bin/winetricks
+
+  - name: cabinet
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/dotnet10/bin:/usr/lib/sdk/llvm20/bin
+      prepend-ld-library-path: /usr/lib/sdk/llvm20/lib
+      env:
+        DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+        DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+        DOTNET_NOLOGO: '1'
+    build-commands:
+      - dotnet publish src/Cabinet.Cli -c Release --source ./nuget-sources -o publish
+      - dotnet publish src/Cabinet.Gui -c Release --source ./nuget-sources -o publish-gui -p:UseSharedCompilation=false
+      - install -Dm755 publish/cabinet ${FLATPAK_DEST}/bin/cabinet
+      - cp -a publish-gui ${FLATPAK_DEST}/lib/cabinet-gui
+      - ln -s ../lib/cabinet-gui/cabinet-gui ${FLATPAK_DEST}/bin/cabinet-gui
+      - install -Dm644 ${FLATPAK_ID}.gschema.xml
+        ${FLATPAK_DEST}/share/glib-2.0/schemas/${FLATPAK_ID}.gschema.xml
+      - glib-compile-schemas ${FLATPAK_DEST}/share/glib-2.0/schemas
+      - install -Dm644 ${FLATPAK_ID}.metainfo.xml
+        ${FLATPAK_DEST}/share/metainfo/${FLATPAK_ID}.metainfo.xml
+      - install -Dm644 ${FLATPAK_ID}.desktop
+        ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.desktop
+      - install -Dm644 ${FLATPAK_ID}.Links.desktop
+        ${FLATPAK_DEST}/share/applications/${FLATPAK_ID}.Links.desktop
+      - install -Dm644 ${FLATPAK_ID}.svg
+        ${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg
+      - gtk4-update-icon-cache -f -t ${FLATPAK_DEST}/share/icons/hicolor
+      # The plugin catalogue the Library page reads: one directory per vendor holding its
+      # entries, its install script and its artwork. Bundled, so the list works offline.
+      - |
+        for vendor in data/library/*/; do
+          # A vendor whose directory carries a .md is held back: the entry is written and
+          # the tests check it, but the app does not offer it. That .md says why.
+          if ls "$vendor"*.md >/dev/null 2>&1; then continue; fi
+          dest=${FLATPAK_DEST}/share/cabinet/library/$(basename "$vendor")
+          install -Dm644 "$vendor"*.yml -t "$dest"/
+          for art in "$vendor"*.jpg "$vendor"*.png; do
+            if [ -f "$art" ]; then install -Dm644 "$art" -t "$dest"/; fi
+          done
+          for script in "$vendor"*.sh; do
+            if [ -f "$script" ]; then install -Dm755 "$script" -t "$dest"/; fi
+          done
+          for response in "$vendor"*.iss; do
+            if [ -f "$response" ]; then install -Dm644 "$response" -t "$dest"/; fi
+          done
+          for payload in "$vendor"*.zip; do
+            if [ -f "$payload" ]; then install -Dm644 "$payload" -t "$dest"/; fi
+          done
+        done
+    sources:
+      - type: dir
+        path: ../src
+        dest: src
+      - type: dir
+        path: ../data/library
+        dest: data/library
+      - type: file
+        path: io.github.mark12870.cabinet.metainfo.xml
+      - type: file
+        path: io.github.mark12870.cabinet.desktop
+      - type: file
+        path: io.github.mark12870.cabinet.Links.desktop
+      - type: file
+        path: io.github.mark12870.cabinet.gschema.xml
+      - type: file
+        path: io.github.mark12870.cabinet.svg
+      # Generated by flatpak-dotnet-generator.py; required even with no
+      # third-party packages, because NativeAOT pulls ILCompiler from NuGet.
+      - nuget-sources.json

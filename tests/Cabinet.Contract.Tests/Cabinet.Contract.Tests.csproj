@@ -16,15 +16,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="../Cabinet.Core.Tests/Repo.cs" Link="Repo.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="xunit.v3" Version="4.0.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/Cabinet.Core/Cabinet.Core.csproj" />
+    <ProjectReference Include="../Cabinet.Testing/Cabinet.Testing.csproj" />
   </ItemGroup>
 
 </Project>

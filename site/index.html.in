@@ -107,7 +107,7 @@ flatpak run $app_id</code></pre>
   Only Wine runs inside the sandbox. The halves your DAW loads — yabridge's chainloader
   and <code>libyabridge-*.so</code> — are never copied out of it: the DAW reads them from
   the installed Flatpak itself, which <code>enrol</code> grants it read-only. There is no
-  setup step. A shim at <code>$$WINELOADER</code> is the whole boundary between the two.
+  setup step. A shim at <code>$WINELOADER</code> is the whole boundary between the two.
 </p>
 <p>
   Plugins get Wine prefixes of their own, one per vendor or product family, under

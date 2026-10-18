@@ -5,8 +5,8 @@ description: Bump Cabinet's version by adding a release to the metainfo. Use whe
 
 # Bumping Cabinet's version
 
-Cabinet's version is the newest `<release>` in `io.github.mark12870.cabinet.metainfo.xml` and
-nowhere else. Flatpak reads `Version:` from it and `render-site.py` reads it back out of every
+Cabinet's version is the newest `<release>` in `flatpak/io.github.mark12870.cabinet.metainfo.xml` and
+nowhere else. Flatpak reads `Version:` from it and `render-site.sh` reads it back out of every
 published commit to build the site's table. Nothing goes in a csproj.
 
 **1. Read the newest `<release>`.** It sits at the top of `<releases>`; that version is the one
@@ -44,7 +44,7 @@ as `&lt;`, `&gt;` and `&amp;` — a `cabinet set <name>` written raw breaks the 
 **4. Validate it.**
 
 ```sh
-appstreamcli validate --no-net io.github.mark12870.cabinet.metainfo.xml
+appstreamcli validate --no-net flatpak/io.github.mark12870.cabinet.metainfo.xml
 ```
 
 `MetainfoTests` checks the same file, so `scripts/checks.sh` covers it too.

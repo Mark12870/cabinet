@@ -27,6 +27,7 @@ internal sealed class RunnersPage
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
+        list.Append(Ui.Loading("Reading Wine runners…"));
         Widget = page;
     }
 
@@ -67,7 +68,7 @@ internal sealed class RunnersPage
 
         group.SetHeaderSuffix(Actions());
 
-        var described = new List<(Runner Runner, Adw.ActionRow Row, string Subtitle)>();
+        var described = new List<(Runner Runner, Adw.ActionRow Row, string Subtitle, Adw.Spinner Reading)>();
 
         foreach (var describedRunner in installedRunners)
         {
@@ -78,6 +79,10 @@ internal sealed class RunnersPage
             row.SetSubtitle(subtitle);
             row.AddPrefix(Gtk.Image.NewFromIconName(Icons.Runners));
 
+            var reading = Adw.Spinner.New();
+            reading.SetVisible(installed.Usable);
+            row.AddSuffix(reading);
+
             if (!installed.Bundled)
             {
                 var remove = Ui.RowButton(Icons.Delete, "Delete this runner");
@@ -86,7 +91,7 @@ internal sealed class RunnersPage
             }
 
             group.Add(row);
-            described.Add((installed, row, subtitle));
+            described.Add((installed, row, subtitle, reading));
         }
 
         list.Append(group);
@@ -118,7 +123,7 @@ internal sealed class RunnersPage
     }
 
     private void ShowVersions(
-        IReadOnlyList<(Runner Runner, Adw.ActionRow Row, string Subtitle)> described,
+        IReadOnlyList<(Runner Runner, Adw.ActionRow Row, string Subtitle, Adw.Spinner Reading)> described,
         int current) =>
         Task.Run(() =>
         {
@@ -126,7 +131,7 @@ internal sealed class RunnersPage
             {
                 var runners = new Runners(layout, runner);
 
-                foreach (var (installed, row, subtitle) in described
+                foreach (var (installed, row, subtitle, reading) in described
                              .Where(shown => shown.Runner.Usable))
                 {
                     var version = runners.Version(installed);
@@ -135,6 +140,7 @@ internal sealed class RunnersPage
                         if (generation.IsCurrent(current))
                         {
                             row.SetSubtitle($"{subtitle}  ·  {version}");
+                            reading.SetVisible(false);
                         }
                     });
                 }
@@ -145,6 +151,11 @@ internal sealed class RunnersPage
                 {
                     if (generation.IsCurrent(current))
                     {
+                        foreach (var shown in described)
+                        {
+                            shown.Reading.SetVisible(false);
+                        }
+
                         Ui.Report(window, "Could not read Wine versions", exception.Message);
                     }
                 });
@@ -171,8 +182,15 @@ internal sealed class RunnersPage
         var body = Ui.Page();
         var group = Adw.PreferencesGroup.New();
         group.SetTitle("Available upstream");
-        group.SetDescription("Reading Bottles' component index…");
-        body.Append(Ui.Scrolled(group));
+        var loading = Ui.Loading("Reading Bottles' component index…");
+        body.Append(loading);
+
+        void Reveal(string description)
+        {
+            group.SetDescription(description);
+            body.Remove(loading);
+            body.Append(Ui.Scrolled(group));
+        }
 
         var view = Adw.ToolbarView.New();
         view.AddTopBar(Adw.HeaderBar.New());
@@ -198,12 +216,12 @@ internal sealed class RunnersPage
                         return;
                     }
 
-                    group.SetDescription(RunnerIndex.Provenance);
-
                     foreach (var family in families)
                     {
                         group.Add(FamilyRow(family, dialog));
                     }
+
+                    Reveal(RunnerIndex.Provenance);
                 });
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -215,7 +233,7 @@ internal sealed class RunnersPage
                 {
                     if (open)
                     {
-                        group.SetDescription(exception.Message);
+                        Reveal(exception.Message);
                     }
                 });
             }

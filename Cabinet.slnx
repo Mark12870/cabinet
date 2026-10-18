@@ -2,12 +2,17 @@
   <Folder Name="/src/">
     <Project Path="src/Cabinet.Cli/Cabinet.Cli.csproj" />
     <Project Path="src/Cabinet.Core/Cabinet.Core.csproj" />
+    <Project Path="src/Cabinet.Doctor/Cabinet.Doctor.csproj" />
     <Project Path="src/Cabinet.Gui/Cabinet.Gui.csproj" />
+    <Project Path="src/Cabinet.Library/Cabinet.Library.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Cabinet.Cli.Tests/Cabinet.Cli.Tests.csproj" />
     <Project Path="tests/Cabinet.Contract.Tests/Cabinet.Contract.Tests.csproj" />
     <Project Path="tests/Cabinet.Core.Tests/Cabinet.Core.Tests.csproj" />
+    <Project Path="tests/Cabinet.Doctor.Tests/Cabinet.Doctor.Tests.csproj" />
+    <Project Path="tests/Cabinet.Library.Tests/Cabinet.Library.Tests.csproj" />
     <Project Path="tests/Cabinet.Runtime.Tests/Cabinet.Runtime.Tests.csproj" />
+    <Project Path="tests/Cabinet.Testing/Cabinet.Testing.csproj" />
   </Folder>
 </Solution>

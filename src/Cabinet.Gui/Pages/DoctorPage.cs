@@ -12,6 +12,7 @@ internal sealed class DoctorPage
     private readonly Operation operations;
     private readonly Action updateAll;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly Gtk.Box checks = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
     private readonly RefreshGeneration generation = new();
 
     public DoctorPage(
@@ -33,6 +34,9 @@ internal sealed class DoctorPage
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
+        checks.Append(Ui.Loading("Running checks…"));
+        list.Append(checks);
+        list.Append(Repair());
         Widget = page;
     }
 
@@ -41,42 +45,32 @@ internal sealed class DoctorPage
     public void Refresh()
     {
         var current = generation.Next();
-        Ui.Clear(list);
 
-        var group = Adw.PreferencesGroup.New();
-        group.SetTitle("Checks");
-        list.Append(group);
-        list.Append(Repair());
-
-        Task.Run(() =>
+        Task.Run(() => new Doctor(layout, runner).Run()).ContinueWith(task => Ui.OnMainLoop(() =>
         {
-            try
+            if (!generation.IsCurrent(current))
             {
-                var checks = new Doctor(layout, runner).Run();
-                Ui.OnMainLoop(() =>
-                {
-                    if (!generation.IsCurrent(current))
-                    {
-                        return;
-                    }
+                return;
+            }
 
-                    foreach (var check in checks)
-                    {
-                        group.Add(Row(check));
-                    }
-                });
-            }
-            catch (Exception exception)
+            var group = Adw.PreferencesGroup.New();
+            group.SetTitle("Checks");
+
+            if (task.IsFaulted)
             {
-                Ui.OnMainLoop(() =>
-                {
-                    if (generation.IsCurrent(current))
-                    {
-                        group.SetDescription(exception.Message);
-                    }
-                });
+                group.SetDescription(task.Exception!.InnerException!.Message);
             }
-        });
+            else
+            {
+                foreach (var check in task.Result)
+                {
+                    group.Add(Row(check));
+                }
+            }
+
+            Ui.Clear(checks);
+            checks.Append(group);
+        }));
     }
 
     private Adw.PreferencesGroup Repair()

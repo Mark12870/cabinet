@@ -214,7 +214,7 @@ internal static partial class Program
         if (entry.Source == PluginSource.Rolling)
         {
             Console.WriteLine();
-            Console.WriteLine(Wrapped(Cabinet.Core.Library.Unverifiable(entry.Url!)));
+            Console.WriteLine(Wrapped(Checksum.Unverifiable(entry.Url!)));
         }
 
         Console.WriteLine();

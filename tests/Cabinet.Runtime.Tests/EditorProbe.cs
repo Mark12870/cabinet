@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Cabinet.Core.Tests;
 
 namespace Cabinet.Runtime.Tests;
 
@@ -13,7 +14,7 @@ internal static class EditorProbe
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
 
     public static ProbeResult Run(
-        string script,
+        string probe,
         string name,
         string plugin,
         string format,
@@ -22,24 +23,24 @@ internal static class EditorProbe
         var session = RuntimeTestEnvironment.SocketDirectory;
         var trace = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, $"{name}-editor.log");
 
-        return RunIn(RuntimeTestEnvironment.Home, session, trace, script, plugin, format, extra);
+        return RunIn(RuntimeTestEnvironment.Home, session, trace, probe, plugin, format, extra);
     }
 
     public static ProbeResult RunIn(
         string home,
         string session,
         string trace,
-        string script,
+        string probe,
         string plugin,
         string format,
         params string[] extra) =>
-        RunIn(home, session, trace, script, new Dictionary<string, string>(), plugin, format, extra);
+        RunIn(home, session, trace, probe, new Dictionary<string, string>(), plugin, format, extra);
 
     public static ProbeResult RunIn(
         string home,
         string session,
         string trace,
-        string script,
+        string probe,
         IReadOnlyDictionary<string, string> environment,
         string plugin,
         string format,
@@ -48,7 +49,7 @@ internal static class EditorProbe
         try
         {
             using var display = Display.Start();
-            return Drive(display, home, script, trace, plugin, format, extra, session, environment);
+            return Drive(display, home, probe, trace, plugin, format, extra, session, environment);
         }
         finally
         {
@@ -63,7 +64,7 @@ internal static class EditorProbe
     private static ProbeResult Drive(
         Display display,
         string home,
-        string script,
+        string probe,
         string log,
         string plugin,
         string format,
@@ -75,7 +76,7 @@ internal static class EditorProbe
         File.Delete(log);
         Directory.CreateDirectory(session);
 
-        var info = new ProcessStartInfo("python3")
+        var info = new ProcessStartInfo("dotnet")
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -99,7 +100,8 @@ internal static class EditorProbe
             info.Environment[name] = value;
         }
 
-        info.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "Probes", script));
+        info.ArgumentList.Add(ProbeProgram.Path);
+        info.ArgumentList.Add(probe);
         info.ArgumentList.Add(CarlaPrefix());
         info.ArgumentList.Add(plugin);
         info.ArgumentList.Add(format);

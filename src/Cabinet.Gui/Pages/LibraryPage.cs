@@ -81,6 +81,8 @@ internal sealed partial class LibraryPage
         var page = Ui.Page();
         page.Append(Filters());
         page.Append(Ui.Scrolled(list));
+        filters.SetVisible(false);
+        list.Append(Ui.Loading("Reading the library…"));
         Widget = page;
     }
 

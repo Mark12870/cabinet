@@ -185,10 +185,10 @@ and a format the entry gains fails until the scenario says which bridged file it
 Scenarios never run on a push: CI's runtime job runs the general suite, everything else in
 `Cabinet.Runtime.Tests`. The `Plugins` workflow runs only the scenarios, daily on a schedule or by
 hand, against a Cabinet built from main through the same `build.yml` and `runtime.yml` that CI
-calls. On its run page `scripts/scenario-report.py` puts one row per entry and format, with a
+calls. On its run page `Cabinet.Ci scenario-report` (`tools/`) puts one row per entry and format, with a
 failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
-A failed run sends each failed entry's redacted logs to Groq through `scripts/scenario-diagnosis.py`
+A failed run sends each failed entry's redacted logs to Groq through `Cabinet.Ci scenario-diagnosis`
 and posts the answer on the open "Plugin scenarios are failing" issue, which GitHub emails to the
 repository's watchers. The `GROQ_API_KEY` secret reaches only that job; locally it sits in the
 gitignored `secrets.env` with the account secrets, one line per GitHub secret.
@@ -256,7 +256,7 @@ fill the tail. Input, output, parameters, captures and logs remain under
 `$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/{editor,audio}/<format>/`. Tools and the
 prepared Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and plugin into the
 new home before it creates the prefix and bridge. Carla only observes the resulting bridge as a DAW.
-The render probe is a library that `audio-render.py` loads through `ctypes`, the way
+The render probe, `Cabinet.Probes audio-render` (`tools/`), opens Carla with `dlopen` the way
 the editor probes load Carla: linked into an executable, Carla's bundled asio takes the place of
 yabridge's own and the VST3 bridge crashes while it loads.
 
@@ -300,8 +300,8 @@ scripts/setup-runtime-tests.sh` with `--filter-namespace Cabinet.Runtime.Tests.P
 `RuntimeSuiteTests` fails any runtime test that is not the matrix, a plugin scenario or such a probe.
 
 `DragAndDropTests` tells you when `patches/yabridge/yabridge-foreign-drag-drop.patch` is no longer needed
-(see `PATCHES.md`). The Toolbox's `mingw64-gcc` compiles a small Windows probe from
-`Probes/revoke-drag-drop.c`. Each case runs it through the shim in a probe prefix on the newest
+(see `PATCHES.md`). The Toolbox's cargo builds a small Windows probe from
+`tools/wine-probes` (`revoke-drag-drop`). Each case runs it through the shim in a probe prefix on the newest
 release of a runner family:
 
 - the bundled Wine;
@@ -335,7 +335,7 @@ so a run never puts a plugin window on the user's screen.
 ## Editor rendering and interaction
 
 Geometry says where a window is, not whether the user can use what is in it. A plugin scenario's
-editor check answers that: `Probes/editor-interaction.py` opens each plugin's editor, captures the window,
+editor check answers that: `Cabinet.Probes editor-interaction` opens each plugin's editor, captures the window,
 moves up to 24 parameters from the host, one at a time, since a plugin's first parameters are
 often on a page the editor is not showing, and presses and drags wherever the editor redraws one,
 vertically first and then sideways, since Surge XT's macro sliders answer only a horizontal drag;

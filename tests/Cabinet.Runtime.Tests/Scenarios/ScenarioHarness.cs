@@ -18,11 +18,9 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         ["LV2"] = (".lv2", "lv2"),
     };
     private readonly string root = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", entry.Id);
-    private static readonly Lock Compiling = new();
     private static readonly HashSet<int> Slots = [];
     private int slot = -1;
     private string socket = "";
-    private static Task<string>? audioProbe;
 
     public string Artefacts => Path.Combine(root, "artefacts");
     public string Home => Path.Combine(root, "home");
@@ -109,24 +107,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
     public async Task SendText(Display display, string title, int x, int y, string text)
     {
         var executable = Path.Combine(Home, ".send-input.exe");
-        if (!File.Exists(executable))
-        {
-            var compiled = await Run(
-                "x86_64-w64-mingw32-gcc",
-                [
-                    "-O2",
-                    "-municode",
-                    "-mwindows",
-                    "-static",
-                    Repo.Path("tests/Cabinet.Runtime.Tests/Probes/send-input.c"),
-                    "-lshell32",
-                    "-o",
-                    executable,
-                ],
-                display: null,
-                ProbePatience);
-            Assert.True(compiled.ExitCode == 0, compiled.Said);
-        }
+        File.Copy(WineProbes.Path("send-input"), executable, overwrite: true);
 
         var input = Path.Combine(Home, $".input-{Guid.NewGuid():N}");
         await File.WriteAllBytesAsync(input, Encoding.Unicode.GetBytes(text));
@@ -211,24 +192,16 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         Bridge bridge, string mix, bool audio, int note, string state, string click, Display display)
     {
         var (plugin, format) = bridge;
-        Task<string> compiled;
-        lock (Compiling)
-        {
-            compiled = audioProbe ??= CompileAudioProbe();
-        }
-
-        var library = await compiled;
         var binaries = Path.Combine(EditorProbe.CarlaPrefix(), "lib", "carla");
         var output = Path.Combine(Artefacts, "audio", bridge.Label);
         Directory.CreateDirectory(output);
         var wrapper = EditorProbe.Wrapper(Path.Combine(root, "bin"), display, Home, socket);
 
-        var launcher = Path.Combine(AppContext.BaseDirectory, "Probes", "audio-render.py");
         var result = await Run(
-            "python3",
+            "dotnet",
             [
-                launcher,
-                library,
+                ProbeProgram.Path,
+                "audio-render",
                 plugin,
                 format,
                 mix,
@@ -284,7 +257,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             Home,
             socket,
             Path.Combine(shots, "yabridge.log"),
-            "editor-interaction.py",
+            "editor-interaction",
             new Dictionary<string, string>
             {
                 ["CABINET_PROBE_TYPE"] = type,
@@ -345,43 +318,6 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
     {
         var layout = new Layout(Home, RuntimeTestEnvironment.RuntimeDirectory);
         return entry.Kind == PluginKind.Windows ? layout.WindowsScanDir(extension) : layout.NativeScanDir(extension);
-    }
-
-    private async Task<string> CompileAudioProbe()
-    {
-        var output = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "scenarios", "audio-render.so");
-        var source = Path.Combine(AppContext.BaseDirectory, "Probes", "audio-render.cpp");
-        var carla = EditorProbe.CarlaPrefix();
-        var carlaSource = Path.Combine(
-            RuntimeTestEnvironment.Home, ".var", "app", Host.App, "data", "carla-tests", "source");
-        var library = Path.Combine(carla, "lib", "carla");
-
-        Require(source, "audio probe source");
-        Require(Path.Combine(carlaSource, "source", "includes", "CarlaNativePlugin.h"), "Carla headers");
-        Require(Path.Combine(library, "libcarla_native-plugin.so"), "Carla native plugin library");
-
-        var result = await Run(
-            "c++",
-            [
-                "-std=c++17",
-                "-O2",
-                "-shared",
-                "-fPIC",
-                $"-I{Path.Combine(carlaSource, "source", "includes")}",
-                $"-I{Path.Combine(carlaSource, "source", "backend")}",
-                source,
-                $"-L{library}",
-                $"-Wl,-rpath,{library}",
-                "-l:libcarla_standalone2.so",
-                "-lcarla_native-plugin",
-                "-o",
-                output,
-            ],
-            display: null,
-            ProbePatience);
-        File.WriteAllText(Path.Combine(Artefacts, "compile.log"), result.Said);
-        Assert.True(result.ExitCode == 0, result.Said);
-        return output;
     }
 
     private async Task<ScenarioProcessResult> Run(
@@ -496,7 +432,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             Home,
             socket,
             Path.Combine(shots, "yabridge.log"),
-            "editor-play.py",
+            "editor-play",
             new Dictionary<string, string>
             {
                 ["CABINET_PROBE_RELEASE"] = release.ToString(CultureInfo.InvariantCulture),

@@ -27,7 +27,7 @@ description: Decide on, write, test, document or retire a patch Cabinet carries 
    bug is, and keep every other plugin on its old path.
 
 5. Wire it in:
-   - yabridge: a `- type: patch` line after the last patch in `io.github.mark12870.cabinet.yml`,
+   - yabridge: a `- type: patch` line after the last patch in `flatpak/io.github.mark12870.cabinet.yml`,
      and a `ManifestTests` fact that asserts its position after the previous patch and the lines
      that make it work.
    - Carla: `scripts/setup-runtime-tests.sh` applies every file in `patches/carla/`, so adding the

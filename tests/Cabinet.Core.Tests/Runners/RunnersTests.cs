@@ -18,8 +18,6 @@ public sealed class RunnersTests : IDisposable
         new(root, "/run/user/1000", Path.Combine(root, "data"), null,
             Path.Combine(root, "library"));
 
-    private IReadOnlyList<Check> Checks() => new Doctor(Layout, new UnusedRunner()).Run();
-
     private Runners Subject => new(Layout, new UnusedRunner());
 
     private void GiveRunner(string name)
@@ -127,7 +125,6 @@ public sealed class RunnersTests : IDisposable
 
         Assert.False(broken.Usable);
         Assert.Equal("unknown", Subject.Version(broken));
-        Assert.Contains("half-unpacked", Checks().Single(c => c.Name == "broken runners").Detail);
     }
 
     [Fact]

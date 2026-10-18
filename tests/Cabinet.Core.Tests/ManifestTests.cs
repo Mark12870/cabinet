@@ -8,10 +8,10 @@ namespace Cabinet.Core.Tests;
 public class ManifestTests
 {
     private static readonly string[] Lines =
-        Repo.Lines("io.github.mark12870.cabinet.yml");
+        Repo.Lines("flatpak/io.github.mark12870.cabinet.yml");
 
     private static readonly XDocument WindowSchema =
-        XDocument.Load(Repo.Path("data/io.github.mark12870.cabinet.gschema.xml"));
+        XDocument.Load(Repo.Path("flatpak/io.github.mark12870.cabinet.gschema.xml"));
 
     private static readonly HashSet<string> FinishArgs = Lines
         .Select(line => line.Trim())
@@ -205,7 +205,7 @@ public class ManifestTests
         var install = Array.FindIndex(
             Lines,
             line => line.Contains(
-                "install -Dm644 data/${FLATPAK_ID}.gschema.xml", StringComparison.Ordinal));
+                "install -Dm644 ${FLATPAK_ID}.gschema.xml", StringComparison.Ordinal));
         var compile = Array.FindIndex(
             Lines,
             line => line.Trim()
@@ -216,6 +216,20 @@ public class ManifestTests
             "${FLATPAK_DEST}/share/glib-2.0/schemas/${FLATPAK_ID}.gschema.xml",
             Lines[install + 1].Trim());
         Assert.True(compile > install);
+    }
+
+    [Fact]
+    public void TheIconCacheIsRebuiltAfterTheAppIconIsInstalled()
+    {
+        var icon = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "${FLATPAK_DEST}/share/icons/hicolor/scalable/apps/${FLATPAK_ID}.svg");
+        var cache = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "- gtk4-update-icon-cache -f -t ${FLATPAK_DEST}/share/icons/hicolor");
+
+        Assert.True(icon >= 0);
+        Assert.True(cache > icon);
     }
 
     [Fact]
@@ -243,7 +257,7 @@ public class ManifestTests
         var archive = Array.FindIndex(
             Lines,
             line => line.Contains("github.com/robbert-vdh/yabridge/archive/", StringComparison.Ordinal));
-        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
         var guard = File.ReadAllText(Repo.Path(patch));
 
         Assert.True(archive >= 0);
@@ -259,8 +273,8 @@ public class ManifestTests
         const string patch = "patches/yabridge/yabridge-foreign-drag-drop.patch";
         var guard = Array.FindIndex(
             Lines,
-            line => line.Trim() == "path: patches/yabridge/yabridge-teardown-guard.patch");
-        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+            line => line.Trim() == "path: ../patches/yabridge/yabridge-teardown-guard.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
         var redirect = File.ReadAllText(Repo.Path(patch));
 
         Assert.True(guard >= 0);
@@ -276,8 +290,8 @@ public class ManifestTests
         const string patch = "patches/yabridge/yabridge-chainloader-cabinet-first.patch";
         var origin = Array.FindIndex(
             Lines,
-            line => line.Trim() == "path: patches/yabridge/yabridge-editor-window-origin.patch");
-        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+            line => line.Trim() == "path: ../patches/yabridge/yabridge-editor-window-origin.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
         var search = File.ReadAllText(Repo.Path(patch));
         var installation = Path.GetRelativePath(
             "/home/u/.local/share/flatpak", new Layout("/home/u", "/run/user/1000").HostYabridgeDir);
@@ -297,8 +311,8 @@ public class ManifestTests
         const string patch = "patches/yabridge/yabridge-state-per-interface.patch";
         var chainloader = Array.FindIndex(
             Lines,
-            line => line.Trim() == "path: patches/yabridge/yabridge-chainloader-cabinet-first.patch");
-        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+            line => line.Trim() == "path: ../patches/yabridge/yabridge-chainloader-cabinet-first.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
         var routing = File.ReadAllText(Repo.Path(patch));
 
         Assert.True(chainloader >= 0);
@@ -315,8 +329,8 @@ public class ManifestTests
         const string patch = "patches/yabridge/yabridge-short-socket-names.patch";
         var state = Array.FindIndex(
             Lines,
-            line => line.Trim() == "path: patches/yabridge/yabridge-state-per-interface.patch");
-        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: " + patch);
+            line => line.Trim() == "path: ../patches/yabridge/yabridge-state-per-interface.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
         var shortening = File.ReadAllText(Repo.Path(patch));
 
         Assert.True(state >= 0);
@@ -355,7 +369,7 @@ public class ManifestTests
             .ToList();
 
         Assert.NotEmpty(patches);
-        Assert.All(patches, patch => Assert.Contains(Lines, line => line.Trim() == $"path: patches/yabridge/{patch}"));
+        Assert.All(patches, patch => Assert.Contains(Lines, line => line.Trim() == $"path: ../patches/yabridge/{patch}"));
         Assert.All(patches, patch => Assert.Contains($"## {patch}", documented, StringComparison.Ordinal));
     }
 
@@ -402,7 +416,7 @@ public class ManifestTests
     {
         var pinned = XDocument.Load(Repo.Path("src/Directory.Build.props"))
             .Descendants("RuntimeFrameworkVersion").Single().Value;
-        var sources = System.Text.Json.JsonDocument.Parse(Repo.Read("nuget-sources.json")).RootElement
+        var sources = System.Text.Json.JsonDocument.Parse(Repo.Read("flatpak/nuget-sources.json")).RootElement
             .EnumerateArray()
             .Select(source => source.GetProperty("dest-filename").GetString()!)
             .ToHashSet(StringComparer.Ordinal);

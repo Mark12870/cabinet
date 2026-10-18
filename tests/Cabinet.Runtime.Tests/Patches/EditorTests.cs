@@ -41,7 +41,7 @@ public sealed class EditorTests : IDisposable
     private static Seen Measure(string format, string root, string plugin)
     {
         var said = EditorProbe.Run(
-            "editor-geometry.py",
+            "editor-geometry",
             Path.GetFileNameWithoutExtension(plugin),
             Fixtures.Windows(root, plugin),
             format).Said;

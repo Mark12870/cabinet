@@ -14,9 +14,9 @@ work=$3
 
 newest() { grep -oE '<release[[:space:]]+version="[^"]+"' | head -1 | cut -d'"' -f2; }
 
-version="$(newest < "${app}.metainfo.xml")"
+version="$(newest < "flatpak/${app}.metainfo.xml")"
 [ -n "${version}" ] || {
-  echo "::error::no <release> version in ${app}.metainfo.xml" >&2
+  echo "::error::no <release> version in flatpak/${app}.metainfo.xml" >&2
   exit 1
 }
 

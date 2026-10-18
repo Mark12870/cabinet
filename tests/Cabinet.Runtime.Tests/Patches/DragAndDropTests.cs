@@ -5,7 +5,6 @@ namespace Cabinet.Runtime.Tests.Patches;
 public sealed class DragAndDropTests : IDisposable
 {
     private readonly RuntimeTestLock runtimeLock = RuntimeTestLock.Acquire();
-    private static readonly Lazy<string> Probe = new(Compile);
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(3);
 
     [Theory]
@@ -46,19 +45,6 @@ public sealed class DragAndDropTests : IDisposable
         return File.Exists(marker) ? File.ReadAllText(marker).Trim() : "the bundled Wine";
     }
 
-    private static string Compile()
-    {
-        var source = Path.Combine(AppContext.BaseDirectory, "Probes", "revoke-drag-drop.c");
-        var probe = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "revoke-drag-drop.exe");
-        var result = Host.Run(
-            "x86_64-w64-mingw32-gcc",
-            ["-O2", "-Wall", "-Wextra", "-Wno-unused-parameter", "-Werror", "-o", probe, source, "-lole32", "-luuid"]);
-
-        return result.ExitCode == 0
-            ? probe
-            : throw new InvalidOperationException("could not build the drag-and-drop probe: " + result.Error);
-    }
-
     private static string RunProbe(string prefix, string session)
     {
         var info = new ProcessStartInfo(Host.Shim())
@@ -73,7 +59,7 @@ public sealed class DragAndDropTests : IDisposable
 
         info.Environment["WINEPREFIX"] = PrefixPath(prefix);
         info.Environment["YABRIDGE_TEMP_DIR"] = session;
-        info.ArgumentList.Add(Probe.Value);
+        info.ArgumentList.Add(WineProbes.Path("revoke-drag-drop"));
 
         using var process = Process.Start(info) ?? throw new InvalidOperationException("could not start the shim");
         process.StandardInput.Close();

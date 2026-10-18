@@ -1,0 +1,14 @@
+[package]
+name = "wine-probes"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Windows programs the runtime tests run inside a Wine prefix"
+
+[dependencies]
+
+[profile.release]
+opt-level = "s"
+lto = true
+panic = "abort"
+strip = true
