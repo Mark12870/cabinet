@@ -227,9 +227,22 @@ public sealed class PrefixesTests : IDisposable
 
         var updated = Assert.Single(recorder.Ran);
         Assert.Equal(Layout.RunnerWine("wine-9.21"), updated.File);
-        Assert.Equal(["wineboot", "-u"], updated.Arguments);
+        Assert.Equal(["wineboot", "--update", "--restart"], updated.Arguments);
         Assert.Equal("mscoree=d;mshtml=d", updated.Environment["WINEDLLOVERRIDES"]);
         Assert.Equal(["wine-9.21"], recordedFirst);
+    }
+
+    [Fact]
+    public void EveryWinebootCabinetRunsLeavesThePrefixStartupProgramsAlone()
+    {
+        var calls = Directory.EnumerateFiles(Repo.Path("src"), "*.cs", SearchOption.AllDirectories)
+            .Where(file => !file.Contains("/obj/", StringComparison.Ordinal) && !file.Contains("/bin/", StringComparison.Ordinal))
+            .SelectMany(File.ReadLines)
+            .Where(line => line.Contains("\"wineboot\"", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.NotEmpty(calls);
+        Assert.All(calls, call => Assert.Matches("--init|--shutdown|UpdateWithoutStartupPrograms", call));
     }
 
     [Fact]

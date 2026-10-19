@@ -79,7 +79,7 @@ public sealed class DxvkTests : IDisposable
         new Dxvk(Layout, recorder).Remove("gadget");
 
         Assert.False(File.Exists(system32));
-        Assert.Equal(["wineboot", "-u"], recorder.LastArguments);
+        Assert.Equal(["wineboot", "--update", "--restart"], recorder.LastArguments);
         Assert.Equal("mscoree=d;mshtml=d", recorder.Environment["WINEDLLOVERRIDES"]);
     }
 

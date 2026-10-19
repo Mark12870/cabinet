@@ -306,7 +306,7 @@ public sealed partial class Library
             using var guard = prefixes.Guard(where, "end its Wine");
 
             say($"{late} Ending every Wine process in {where}, Cabinet's own included.");
-            prefixes.RunJoined(where, ["wineboot", "-k"], logTo: log);
+            prefixes.RunJoined(where, ["wineboot", "--kill", "--shutdown"], logTo: log);
 
             if (Running(prefixes, where, entry.LaunchExe!))
             {

@@ -14,6 +14,8 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 
     private const string Unattended = "mscoree=d;mshtml=d";
 
+    private static readonly string[] UpdateWithoutStartupPrograms = ["--update", "--restart"];
+
     private static readonly IReadOnlyList<string> NoCrashDialog =
         ["reg", "add", @"HKCU\Software\Wine\WineDbg", "/v", "ShowCrashDialog", "/t", "REG_DWORD", "/d", "0", "/f"];
 
@@ -237,7 +239,7 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
     }
 
     internal ProcessResult Update(string name, Action<string>? onOutput) =>
-        Wine(name, "wineboot", ["-u"], onOutput, Unattended);
+        Wine(name, "wineboot", UpdateWithoutStartupPrograms, onOutput, Unattended);
 
     internal ProcessResult RunInstaller(string name, string installer, Action<string>? onOutput)
     {

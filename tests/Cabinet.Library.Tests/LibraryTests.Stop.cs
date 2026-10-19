@@ -72,7 +72,7 @@ public partial class LibraryTests
         Assert.Equal(StopResult.Forced, outcome.Result);
         Assert.Single(
             recorder.Calls,
-            call => call.Arguments.SequenceEqual([Prefixes.JoinMode, "wineboot", "-k"]));
+            call => call.Arguments.SequenceEqual([Prefixes.JoinMode, "wineboot", "--kill", "--shutdown"]));
         Assert.Contains(
             "Ending every Wine process in thing, Cabinet's own included",
             File.ReadAllText(layout.PrefixLaunchLog(entry.Prefix)));
