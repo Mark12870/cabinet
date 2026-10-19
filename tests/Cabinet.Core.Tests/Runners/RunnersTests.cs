@@ -72,20 +72,20 @@ public sealed class RunnersTests : IDisposable
     [Fact]
     public void AWow64OnlyBuildIsAcceptedButSaidToBe64BitOnly()
     {
-        var staging = Path.Combine(root, "staging", "wine-d2d1");
+        var staging = Path.Combine(root, "staging", "wine-d2d1-dcomp-11.0-777");
         Directory.CreateDirectory(Path.Combine(staging, "bin"));
         File.WriteAllText(Path.Combine(staging, "bin", "wine"), "");
 
-        var archive = Path.Combine(root, "wine-d2d1-11.0-x86_64.tar.zst");
+        var archive = Path.Combine(root, "wine-d2d1-dcomp-11.0-777-x86_64.tar.zst");
         var real = new ProcessRunner();
         Assert.True(real
             .Run(
-                "tar", ["-cf", archive, "-C", Path.Combine(root, "staging"), "wine-d2d1"],
+                "tar", ["-cf", archive, "-C", Path.Combine(root, "staging"), "wine-d2d1-dcomp-11.0-777"],
                 cancellationToken: TestContext.Current.CancellationToken).Ok);
 
         var said = new List<string>();
         var found = new Runners(Layout, real).Add(
-            archive, "wine-d2d1-11.0", said.Add,
+            archive, "wine-d2d1-dcomp-11.0-777", said.Add,
             TestContext.Current.CancellationToken);
 
         Assert.False(found.Multilib);

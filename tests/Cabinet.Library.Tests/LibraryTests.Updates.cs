@@ -409,6 +409,19 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void APrefixOnARetiredPinnedRunnerIsMovedAsACatalogueChange()
+    {
+        var layout = InstallSetup(SetupRecipe + "\nRunner: d2d1-11.0\n", before: OnRunner("wine-d2d1-11.0"));
+        Catalogue(("thing", SetupRecipe + "\nRunner: d2d1-dcomp-11.0-777\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal(["Switch Wine from wine-d2d1-11.0 to d2d1-dcomp-11.0-777."], update.Changes);
+        Assert.Empty(update.Resets);
+    }
+
+    [Fact]
     public void KeepingCustomChangesLeavesEveryHandChangedSetting()
     {
         var recipe = SetupRecipe + "\nRunner: 9.21\nSync: fsync\nEnv: MANAGED=recommended\n";
@@ -776,7 +789,7 @@ public partial class LibraryTests
         library.UpdatePrefix(library.PrefixUpdateOf(library.Find("thing"))!);
 
         Assert.False(File.Exists(layout.PrefixRunnerFile("chosen")));
-        Assert.Contains(recorder.Ran, call => call.Arguments.SequenceEqual(["wineboot", "-u"]));
+        Assert.Contains(recorder.Ran, call => call.Arguments.SequenceEqual(["wineboot", "--update", "--restart"]));
         Assert.DoesNotContain(recorder.Ran, call => call.File == "curl");
         Assert.Empty(library.PrefixUpdates());
     }

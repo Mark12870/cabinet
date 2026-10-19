@@ -277,25 +277,6 @@ install_newest() {
     installed_runner "$runner"
 }
 
-install_newest_d2d1() {
-    local url archive runner
-    url=$(curl --fail --silent --show-error --location \
-        https://api.github.com/repos/mklnln/wine-d2d1-dcomp/releases/latest |
-        jq -r 'first(.assets[] | select(.name | endswith(".tar.zst")) | .browser_download_url)')
-    [ -n "$url" ] || die 'the newest wine-d2d1-dcomp release has no .tar.zst asset'
-    archive=$root/tmp/$(basename "$url")
-    runner=$(basename "$url" .tar.zst)
-    runner=${runner%-x86_64}
-
-    if [ ! -x "$data/runners/$runner/bin/wine" ]; then
-        curl --fail --location --retry 3 --retry-all-errors --output "$archive" "$url"
-        cabinet runners add "$archive" >&2
-        rm -f "$archive"
-    fi
-
-    installed_runner "$runner"
-}
-
 drag_drop_prefix() {
     local prefix=$1
     local runner=$2
@@ -316,15 +297,13 @@ drag_drop_prefix() {
     cabinet new "$prefix" ${runner:+"$runner"}
 }
 
-# The drag-and-drop probes say when a yabridge patch can go, which is asked on demand: their four
-# prefixes and the three runner families they pin are five gigabytes that nothing else here needs.
+# The drag-and-drop probes say when a yabridge patch can go, which is asked on demand: their three
+# prefixes and the two runner families they pin are gigabytes that nothing else here needs.
 if [ "${CABINET_RUNTIME_PROBES:-0}" = 1 ]; then
-    newest_d2d1=$(install_newest_d2d1)
     newest_kron4ek=$(install_newest Kron4ek)
     newest_soda=$(install_newest Soda)
 
     drag_drop_prefix drag-drop-bundled ""
-    drag_drop_prefix drag-drop-d2d1 "$newest_d2d1"
     drag_drop_prefix drag-drop-kron4ek "$newest_kron4ek"
     drag_drop_prefix drag-drop-soda "$newest_soda"
 fi

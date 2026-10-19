@@ -9,7 +9,6 @@ public sealed class DragAndDropTests : IDisposable
 
     [Theory]
     [InlineData("drag-drop-bundled")]
-    [InlineData("drag-drop-d2d1")]
     [InlineData("drag-drop-kron4ek")]
     [InlineData("drag-drop-soda")]
     public void RevokingDragAndDropOnAWindowOfAnotherProcessStillCrashesTheNewestRunner(string prefix)

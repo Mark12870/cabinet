@@ -119,7 +119,7 @@ key, and start it at `Revision: 1`. Raise `Revision` when you edit that file; ad
 - Put whatever the prefix should hold in a config key rather than the script: `library update`
   re-applies a changed key to installed prefixes, and a script never runs again. A script keeps
   only the steps that depend on what its install did.
-- Always use **`Runner: wine-d2d1-11.0`** when the plugin uses the JUCE-8 framework. More info here: https://github.com/mklnln/wine-d2d1-dcomp
+- Always use **`Runner: d2d1-dcomp-11.0-777`** when the plugin uses the JUCE-8 framework. More info here: https://github.com/Mark12870/wine-d2d1-dcomp
 
 `Kind: native` refuses every one of those outright: a Linux plugin is loaded by the DAW
 directly, so there is no prefix, runner, DXVK, sync or environment to set.

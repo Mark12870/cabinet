@@ -439,13 +439,13 @@ public partial class LibraryTests
     }
 
     [Fact]
-    public void AnInstalledD2D1RunnerIsReusedForItsVersionSpec()
+    public void AnInstalledD2D1DcompRunnerIsReusedForItsVersionSpec()
     {
-        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nRunner: d2d1-11.0\n"));
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nRunner: d2d1-dcomp-11.0-777\n"));
 
         var layout = Layout();
-        Directory.CreateDirectory(Path.GetDirectoryName(layout.RunnerWine("wine-d2d1-11.0"))!);
-        File.WriteAllText(layout.RunnerWine("wine-d2d1-11.0"), "");
+        Directory.CreateDirectory(Path.GetDirectoryName(layout.RunnerWine("wine-d2d1-dcomp-11.0-777"))!);
+        File.WriteAllText(layout.RunnerWine("wine-d2d1-dcomp-11.0-777"), "");
 
         var installer = Path.Combine(root, "thing-setup.exe");
         File.WriteAllText(installer, "");

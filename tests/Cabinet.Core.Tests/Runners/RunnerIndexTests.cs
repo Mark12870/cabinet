@@ -146,11 +146,11 @@ public sealed class RunnerIndexTests : IDisposable
     [Fact]
     public void TheD2D1DcompBuildIsOfferedWithoutTouchingBottlesAtAll()
     {
-        var release = Answering("200", Index).Find("d2d1-11.0");
+        var release = Answering("200", Index).Find("d2d1-dcomp-11.0-777");
 
         Assert.Equal(RunnerFamily.D2D1Dcomp, release.Family);
-        Assert.Equal("wine-d2d1-11.0-x86_64.tar.zst", release.Asset);
-        Assert.Equal("wine-d2d1-11.0", release.Name);
+        Assert.Equal("wine-d2d1-dcomp-11.0-777-x86_64.tar.zst", release.Asset);
+        Assert.Equal("wine-d2d1-dcomp-11.0-777", release.Name);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public sealed class RunnerIndexTests : IDisposable
     [Theory]
     [InlineData("9.21", "wine-9.21-staging-tkg")]
     [InlineData("soda-11.0-5", "soda-11.0-5")]
-    [InlineData("d2d1-11.0", "wine-d2d1-11.0")]
+    [InlineData("d2d1-dcomp-11.0-777", "wine-d2d1-dcomp-11.0-777")]
     public void ARunnerTheCatalogueNamesIsFoundWithoutReadingTheIndex(string spec, string name)
     {
         var release = new RunnerIndex(new UnusedRunner()).Find(spec);
@@ -185,7 +185,7 @@ public sealed class RunnerIndexTests : IDisposable
 
         Assert.Equal(6, available.Count);
         Assert.Equal(
-            ["soda-11.0-5", "wine-11.17-staging-tkg", "wine-9.21-staging-tkg", "wine-d2d1-11.0"],
+            ["soda-11.0-5", "wine-11.17-staging-tkg", "wine-9.21-staging-tkg", "wine-d2d1-dcomp-11.0-777"],
             available.Where(RunnerIndex.IsPinned).Select(release => release.Name).Order(StringComparer.Ordinal));
         Assert.All(available.Where(RunnerIndex.IsPinned), release => Assert.Empty(release.ManifestUrl));
     }

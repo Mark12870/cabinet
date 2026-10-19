@@ -305,7 +305,6 @@ scripts/setup-runtime-tests.sh` with `--filter-namespace Cabinet.Runtime.Tests.P
 release of a runner family:
 
 - the bundled Wine;
-- mklnln's latest d2d1 build on GitHub (Cabinet's index pins only one);
 - the newest Kron4ek and the newest Soda release in `cabinet runners available`.
 
 Each setup run moves a probe prefix onto a newer release as soon as one appears. The probe

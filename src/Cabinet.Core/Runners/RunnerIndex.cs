@@ -45,10 +45,10 @@ public sealed record RunnerFamily(
 
     public static readonly RunnerFamily D2D1Dcomp = new(
         "wine-d2d1-dcomp",
-        "mklnln's Wine with Direct2D 1.3 and DirectComposition, for JUCE 8 plugin GUIs.",
-        NamePrefix: "wine-d2d1-",
+        "giang17's Wine with Direct2D 1.3 and DirectComposition, for JUCE 8 plugin GUIs.",
+        NamePrefix: "wine-d2d1-dcomp-",
         NameSuffix: "",
-        AssetPrefix: "wine-d2d1-",
+        AssetPrefix: "wine-d2d1-dcomp-",
         AssetSuffix: "-x86_64.tar.zst",
         SumsFile: null);
 }
@@ -84,11 +84,14 @@ public sealed class RunnerIndex(IProcessRunner runner)
             "63dfa05aee8be3a95bab4875a5dd69f432670ecb828491453bfc5e238e6f1595"),
         new(
             new RunnerRelease(
-                RunnerFamily.D2D1Dcomp, "d2d1-11.0", RunnerFamily.D2D1Dcomp.AssetFor("11.0"), ""),
-            "https://github.com/mklnln/wine-d2d1-dcomp/releases/download/v11.0/"
-            + "wine-d2d1-11.0-x86_64.tar.zst",
-            "909e283e1e087a93e196defffd2a67120ab2df6ea4edd7f6f45b97528bf8646b"),
+                RunnerFamily.D2D1Dcomp, "d2d1-dcomp-11.0-777", RunnerFamily.D2D1Dcomp.AssetFor("11.0-777"), ""),
+            "https://github.com/Mark12870/wine-d2d1-dcomp/releases/download/wine-d2d1-dcomp-11.0-777/"
+            + "wine-d2d1-dcomp-11.0-777-x86_64.tar.zst",
+            "13339e868cb8602e34534ef06d3d5031a27b66c6938f3c604565e3adb8bf9762"),
     ];
+
+    private static readonly IReadOnlyDictionary<string, string> Retired =
+        new Dictionary<string, string>(StringComparer.Ordinal) { ["d2d1-11.0"] = "wine-d2d1-11.0" };
 
     private static FixedRunner Pinned(RunnerFamily family, string version, string directory, string sha256)
     {
@@ -147,7 +150,8 @@ public sealed class RunnerIndex(IProcessRunner runner)
     }
 
     public static bool MatchesFixedRunner(string name, string spec) =>
-        Fixed.Any(known => known.Release.Name == name && known.Release.Version == spec);
+        Fixed.Any(known => known.Release.Name == name && known.Release.Version == spec)
+        || Retired.GetValueOrDefault(spec) == name;
 
     public string Download(
         RunnerRelease release,

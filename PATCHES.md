@@ -19,7 +19,7 @@ has already been freed, in about a quarter of removals.
 On Wine 11.0, dispatching that access violation fails too. The collided-unwind path in
 `call_seh_handlers` passes a NULL `HandlerData` to `RtlVirtualUnwind2`, which writes through it,
 and the dispatch recurses until the host's main thread overflows its stack. Upstream Wine fixed
-that in a55cddce98 (Wine 11.7), but the d2d1 fork still has it.
+that in a55cddce98 (Wine 11.7), but the JUCE 8 runner's Wine 11.0 base does not carry it.
 
 **Patch.** On 64-bit hosts, a vectored exception handler covers VST3 instance and view
 destruction. It acts only on access violations in native code, not in Wine builtins. It resumes
@@ -48,14 +48,11 @@ process's window and calls the real function otherwise.
 
 **When it can go.** Pinned runners never change, so the fix can only arrive in a new release.
 `DragAndDropTests` in `Cabinet.Runtime.Tests` runs a small probe program on the newest release of
-each runner family: the bundled Wine, mklnln's d2d1 build, Kron4ek and Soda. It asserts that each
-still crashes. A failing case names the release that has the fix.
+each runner family: the bundled Wine, Kron4ek and Soda. It asserts that each still crashes. A
+failing case names the release that has the fix.
 
-WebView2 editors that render only on d2d1, such as Splice INSTRUMENT, need the fix in a d2d1
-release.
-
-The d2d1 fork's source has had the fix since commit fafb443f85 (2026-07-23), but mklnln's only
-build, v11.0, predates it. Upstream Wine had not fixed this as of 2026-09.
+The JUCE 8 runner, wine-d2d1-dcomp 11.0-777, is built from giang17's `d2d1-dcomp-11.0` after the fix
+(fafb443f85, 2026-07-23). Upstream Wine had not fixed this as of 2026-09.
 
 ## yabridge-editor-window-origin.patch
 

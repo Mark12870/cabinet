@@ -10,6 +10,8 @@ internal sealed class Manager(
 {
     private const double Likeness = 0.05;
 
+    private const int Drift = 8;
+
     private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan Patience = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan Draining = TimeSpan.FromSeconds(30);
@@ -94,11 +96,15 @@ internal sealed class Manager(
         var corners = region.Split(' ', ',').Select(int.Parse).ToArray();
         var raw = Path.Combine(Path.GetTempPath(), $"cabinet-{Guid.NewGuid():N}.xwd");
         var crop = Path.ChangeExtension(raw, ".png");
+        var expected = Path.ChangeExtension(raw, ".reference.png");
         try
         {
             Run("xwd", null, "-id", window, "-silent", "-out", raw);
-            Run("magick", null, raw, "-crop", $"{corners[2] - corners[0]}x{corners[3] - corners[1]}+{corners[0]}+{corners[1]}", "+repage", crop);
-            var compared = Run("magick", null, "compare", "-metric", "RMSE", crop, Repo.Path(reference), "null:");
+            Run("magick", null, Repo.Path(reference), "PNG24:" + expected);
+            var left = Math.Max(0, corners[0] - Drift);
+            var top = Math.Max(0, corners[1] - Drift);
+            Run("magick", null, raw, "-crop", $"{corners[2] + Drift - left}x{corners[3] + Drift - top}+{left}+{top}", "+repage", "PNG24:" + crop);
+            var compared = Run("magick", null, "compare", "-metric", "RMSE", "-subimage-search", crop, expected, "null:");
             var distance = Regex.Match(compared.Error, @"\(([0-9.e+-]+)\)");
             return distance.Success && double.Parse(distance.Groups[1].Value, CultureInfo.InvariantCulture) < Likeness;
         }
@@ -106,6 +112,7 @@ internal sealed class Manager(
         {
             File.Delete(raw);
             File.Delete(crop);
+            File.Delete(expected);
         }
     }
 
