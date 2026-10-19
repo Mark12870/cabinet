@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.30.2" date="2026-10-19">
+      <description>
+        <p>Fix JUCE 8 plugin editors that freeze or go black after a resize</p>
+        <ul>
+          <li>JUCE 8 plugins such as Cymatics Hotline now run on a newer Wine with Direct2D and DirectComposition, so their editors keep drawing after being resized</li>
+          <li>The affected prefixes offer an update that moves them to the new Wine</li>
+          <li>Prefix updates no longer wait for a hidden app, such as Cymatics Hub, that the prefix starts when it boots</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.30.1" date="2026-10-18">
       <description>
         <p>Restore release builds for the latest Cabinet improvements</p>
