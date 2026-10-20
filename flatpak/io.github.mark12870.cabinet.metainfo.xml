@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.31.0" date="2026-10-20">
+      <description>
+        <p>Fix Waves Central 17.1.3 and follow apps that update themselves</p>
+        <ul>
+          <li>Waves Central 17.1.3 now runs on Wine 11.17, which ends its "system permission issue" and lets it find your licences again</li>
+          <li>Lil Tube's preset browser and other Waves preset menus draw instead of staying black</li>
+          <li>Prefixes of apps that update themselves, such as Waves Central, Native Access or Arturia Software Center, now get the setup for the version actually installed; the affected prefixes offer an update</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.30.2" date="2026-10-19">
       <description>
         <p>Fix JUCE 8 plugin editors that freeze or go black after a resize</p>
