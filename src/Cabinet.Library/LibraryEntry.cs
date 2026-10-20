@@ -54,7 +54,8 @@ public sealed record LibraryEntry(
     string Vendor,
     string? InstallInstructions = null,
     bool Family = false,
-    IReadOnlyList<PrefixConfig>? PrefixConfigs = null)
+    IReadOnlyList<PrefixConfig>? PrefixConfigs = null,
+    string? VersionFile = null)
 {
     public bool Manager => Launch is not null;
 

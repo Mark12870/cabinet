@@ -15,6 +15,7 @@ Source: download
 Url: https://g2.ikmultimedia.com/plugins/ProductManager/ik_product_manager_1.1.16.zip
 Sha256: e2d500aebc33eadc947e79d3a0659a7190ca7821f37a07401ff1afc08bd7008f
 Launch: C:\Program Files\IK Multimedia\IK Product Manager\IK Product Manager.exe
+VersionFile: C:\Program Files\IK Multimedia\IK Product Manager\IK Product Manager.exe
 Script: ik-multimedia.sh
 Description:
   Not a plugin but the door to IK's catalogue: AmpliTube, SampleTank, T-RackS,

@@ -12,6 +12,7 @@ Homepage: https://cymatics.fm/pages/cymatics-hub-download-1
 Source: rolling
 Url: https://downloads.cymatics.fm/free/Hub/CymaticsHubSetup.exe
 Launch: C:\Program Files\Cymatics Hub\CymaticsHub.exe
+VersionFile: C:\Program Files\Cymatics Hub\CymaticsHub.exe
 LaunchArgs:
   --no-sandbox
   --disable-gpu

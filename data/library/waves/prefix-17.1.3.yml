@@ -1,0 +1,6 @@
+Revision: 1
+Runner: 11.17
+Sync: fsync
+Winetricks: powershell, arial, courier, verdana, calibri, consolas
+Registry:
+  HKCU\Software\Wine\AppDefaults\msedgewebview2.exe\Version=win7

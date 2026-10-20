@@ -659,6 +659,24 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void AVersionFileIsTheWindowsPathOfTheFileThatCarriesTheInstalledVersion()
+    {
+        var entry = LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: windows\nSource: byo\n" + @"VersionFile: C:\Program Files\Thing\Thing.exe" + "\n");
+
+        Assert.Equal(@"C:\Program Files\Thing\Thing.exe", entry.VersionFile);
+    }
+
+    [Fact]
+    public void AVersionFileThatIsNotAWindowsPathIsRefused()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse("thing", "Name: Thing\nKind: windows\nSource: byo\nVersionFile: Thing.exe\n"));
+
+        Assert.Contains("VersionFile: Thing.exe", refused.Message);
+    }
+
+    [Fact]
     public void AnEnvironmentBlockCarriesAVariableALine()
     {
         var entry = LibraryEntry.Parse(

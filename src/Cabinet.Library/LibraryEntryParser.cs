@@ -92,7 +92,7 @@ internal static class LibraryEntryParser
             {
                 "Prefix", "Runner", "Dxvk", "Ilok", "Sync", "Winetricks", "Env", "Registry", "Desktop",
                 "Launch", "LaunchService", "LaunchHelper", "LaunchArgs", "Scheme", "Keep",
-                "Recover",
+                "Recover", "VersionFile",
             }
                 .FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
@@ -195,7 +195,8 @@ internal static class LibraryEntryParser
             vendor,
             Sentence(Value(fields, "InstallInstructions")),
             family && shared is not null,
-            shared);
+            shared,
+            Value(fields, "VersionFile") is { } versionFile ? ParseVersionFile(id, versionFile) : null);
     }
 
     private static IReadOnlyList<PrefixConfig> Share(
@@ -273,13 +274,19 @@ internal static class LibraryEntryParser
         return name;
     }
 
-    private static string ParseLaunch(string id, string path)
+    private static string ParseLaunch(string id, string path) =>
+        ParseWindowsPath(id, "Launch", path, "an executable its own installer leaves in the prefix");
+
+    private static string ParseVersionFile(string id, string path) =>
+        ParseWindowsPath(id, "VersionFile", path, "the file whose version is the installed version");
+
+    private static string ParseWindowsPath(string id, string key, string path, string what)
     {
         if (path is not [var drive, ':', '\\', ..] || !char.IsAsciiLetter(drive))
         {
             throw new InvalidOperationException(
-                $"{id}.yml has Launch: {path} — the Windows path of an executable its own "
-                + @"installer leaves in the prefix, such as C:\Program Files\Thing\Thing.exe");
+                $"{id}.yml has {key}: {path} — the Windows path of {what}, "
+                + @"such as C:\Program Files\Thing\Thing.exe");
         }
 
         return path;

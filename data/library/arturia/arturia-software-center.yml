@@ -14,6 +14,7 @@ Source: download
 Url: https://dl.arturia.net/products/asc/soft/Arturia_Software_Center__2_12_0_3157.exe
 Sha256: e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8
 Launch: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe
+VersionFile: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe
 Script: arturia.sh
 Description:
   Not a plugin but the door to Arturia's catalogue: V Collection, Pigments,

@@ -12,6 +12,7 @@ Homepage: https://www.waves.com/downloads/central
 Source: rolling
 Url: https://cf-installers.waves.com/WavesCentral/Install_Waves_Central.exe
 Launch: C:\Program Files\Waves Central\Waves Central.exe
+VersionFile: C:\Program Files\Waves Central\Waves Central.exe
 LaunchArgs:
   --no-sandbox
   --disable-gpu

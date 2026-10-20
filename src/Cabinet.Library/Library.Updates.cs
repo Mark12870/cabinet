@@ -419,6 +419,11 @@ public sealed partial class Library
             return null;
         }
 
+        if (entry.VersionFile is { } file && PortableExecutable.Version(layout.PrefixWindowsPath(prefix, file)) is { } own)
+        {
+            return own;
+        }
+
         var keys = RecordedKeys(prefix, entry.Id).ToHashSet(StringComparer.Ordinal);
 
         return new PrefixRegistry(layout).Uninstallers(prefix)

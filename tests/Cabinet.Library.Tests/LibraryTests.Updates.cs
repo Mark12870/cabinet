@@ -1119,6 +1119,56 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void SoftwareThatUpdatedItselfIsKnownByItsVersionFileNotItsStaleRegistryVersion()
+    {
+        Catalogue(
+            ("thing", "Name: Thing\nKind: windows\nSource: rolling\nUrl: https://example.com/Thing.exe\n"
+                      + "VersionFile: C:\\Program Files\\Thing\\Thing.exe\n"),
+            ("prefix-1.0", "Revision: 1\nWinetricks: corefonts\n"),
+            ("prefix-2.0", "Revision: 1\nWinetricks: allfonts\n"));
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("chosen"), "dosdevices"));
+        File.WriteAllText(
+            layout.PrefixPluginsFile("chosen"),
+            "thing\tHKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Thing\n");
+        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), "corefonts\n");
+        InstalledThingReports(layout, "1.5");
+        var program = layout.PrefixWindowsPath("chosen", @"C:\Program Files\Thing\Thing.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(program)!);
+        File.WriteAllBytes(program, Executable.Bytes(2, 1, 0, 7));
+        var library = new Library(layout, new UnusedRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal("2.1.0.7", update.Software);
+        Assert.Equal("2.0, revision 1", update.Config);
+        Assert.Equal(["Install allfonts with Winetricks."], update.Changes);
+    }
+
+    [Fact]
+    public void AVersionFileThatIsMissingLeavesTheRegistryVersionInCharge()
+    {
+        Catalogue(
+            ("thing", "Name: Thing\nKind: windows\nSource: rolling\nUrl: https://example.com/Thing.exe\n"
+                      + "VersionFile: C:\\Program Files\\Thing\\Thing.exe\n"),
+            ("prefix-1.0", "Revision: 1\nWinetricks: corefonts\n"),
+            ("prefix-2.0", "Revision: 1\nWinetricks: allfonts\n"));
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("chosen"), "dosdevices"));
+        File.WriteAllText(
+            layout.PrefixPluginsFile("chosen"),
+            "thing\tHKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Thing\n");
+        File.WriteAllText(layout.PrefixWinetricksLog("chosen"), "corefonts\n");
+        InstalledThingReports(layout, "2.5");
+        var library = new Library(layout, new UnusedRunner());
+
+        var update = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal("2.5", update.Software);
+        Assert.Equal("2.0, revision 1", update.Config);
+    }
+
+    [Fact]
     public void AFamilySharesOneUpdateAcrossItsMembers()
     {
         var layout = InstallFamily();
