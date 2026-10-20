@@ -72,6 +72,25 @@ internal sealed partial class Desktop(TimeSpan? limit = null, Action<string>? no
     public bool Managed(string window) =>
         Run("xprop", "-id", window, "WM_STATE").Output.Contains("window state", StringComparison.OrdinalIgnoreCase);
 
+    public void MovePointer(int x, int y)
+    {
+        var display = X11.XOpenDisplay(IntPtr.Zero);
+        if (display == IntPtr.Zero)
+        {
+            return;
+        }
+
+        try
+        {
+            X11.XTestFakeMotionEvent(display, 0, x, y, 0);
+            X11.XSync(display, 0);
+        }
+        finally
+        {
+            X11.XCloseDisplay(display);
+        }
+    }
+
     public string? Capture(string window, string directory, string name)
     {
         var path = Path.Combine(directory, name + ".png");

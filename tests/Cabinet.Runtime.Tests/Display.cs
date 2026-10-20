@@ -30,6 +30,8 @@ internal sealed class Display : IDisposable
         var socket = $"cabinet-wl-{Environment.ProcessId}-{Interlocked.Increment(ref taken)}";
         var log = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, $"{socket}.log");
         File.Delete(log);
+        var config = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, $"{socket}.ini");
+        File.WriteAllText(config, "[shell]\nclose-animation=none\n");
 
         var info = new ProcessStartInfo("weston")
         {
@@ -53,6 +55,7 @@ internal sealed class Display : IDisposable
                      "--xwayland",
                      $"--socket={socket}",
                      $"--log={log}",
+                     $"--config={config}",
                  })
         {
             info.ArgumentList.Add(argument);

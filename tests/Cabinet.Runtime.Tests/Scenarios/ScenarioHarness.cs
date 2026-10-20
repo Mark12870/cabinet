@@ -135,6 +135,15 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
     }
 
+    public async Task RunProgram(Display display, string program, params string[] arguments)
+    {
+        var result = await Run(
+            "flatpak", [.. Sandboxed(), "run", entry.Prefix, program, .. arguments], display, ProbePatience);
+        Assert.True(
+            result.ExitCode == 0,
+            arguments.Aggregate(result.Said, (said, argument) => said.Replace(argument, "<argument>", StringComparison.Ordinal)));
+    }
+
     public void Restore(string registry) => Merge(Encoding.UTF8.GetString(Convert.FromBase64String(registry)));
 
     public void Merge(string registry, string hive = "user.reg")
@@ -151,7 +160,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
     private static string Key(string section) => section.Split("] ", 2)[0];
 
-    private static string Windows(string path) => @"Z:" + path.Replace('/', '\\');
+    public static string Windows(string path) => @"Z:" + path.Replace('/', '\\');
 
     private List<string> Cabinet(string verb, params string[] arguments) =>
         [.. Sandboxed(), "library", verb, entry.Id, .. arguments];
@@ -292,6 +301,36 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             $"no control moved under the pointer: {result.Said}");
         Assert.DoesNotContain("crashed while being torn down", result.Said, StringComparison.Ordinal);
         return new EditorOrigin(found.Groups[15].Value, found.Groups[16].Value);
+    }
+
+    public void VerifyPopup(Bridge bridge, (int X, int Y) open, (int X, int Y) away)
+    {
+        var (plugin, format) = bridge;
+        var shots = Path.Combine(Artefacts, "popup", bridge.Label);
+        Directory.CreateDirectory(shots);
+        var result = EditorProbe.RunIn(
+            Home,
+            socket,
+            Path.Combine(shots, "yabridge.log"),
+            "editor-popup",
+            plugin,
+            format,
+            shots,
+            open.X.ToString(CultureInfo.InvariantCulture),
+            open.Y.ToString(CultureInfo.InvariantCulture),
+            away.X.ToString(CultureInfo.InvariantCulture),
+            away.Y.ToString(CultureInfo.InvariantCulture));
+        File.WriteAllText(Path.Combine(shots, "probe.log"), result.Said);
+        Assert.True(result.ExitCode == 0, result.Said);
+
+        var found = Regex.Match(
+            result.Output,
+            @"POPUP=(\S+) SIZE=(\d+)x(\d+) COLOURS=(\d+) CLOSED=(yes|no) EDITOR=(alive|dead)");
+        Assert.True(found.Success, result.Said);
+        var colours = int.Parse(found.Groups[4].Value, CultureInfo.InvariantCulture);
+        Assert.True(colours >= 16, $"the popup held only {colours} colours: {result.Said}");
+        Assert.Equal("yes", found.Groups[5].Value);
+        Assert.Equal("alive", found.Groups[6].Value);
     }
 
     public void Dispose()

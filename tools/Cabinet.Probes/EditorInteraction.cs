@@ -467,6 +467,7 @@ internal sealed unsafe partial class EditorInteraction
                                + desktop.Run("xprop", "-id", over.Groups[1].Value, "WM_NAME", "WM_CLASS",
                                    "_NET_WM_WINDOW_TYPE", "WM_TRANSIENT_FOR", "_NET_WM_STATE").Output;
                     Note("covered by " + Spaces().Replace(said, " ").Trim());
+                    Capture(over.Groups[1].Value, "covering-window");
                 }
             }
 

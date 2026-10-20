@@ -1,13 +1,18 @@
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace Cabinet.Runtime.Tests.Scenarios;
 
-public sealed class WavesCentralScenario(WavesCentralScenario.Installed installed)
+public sealed partial class WavesCentralScenario(WavesCentralScenario.Installed installed)
     : IClassFixture<WavesCentralScenario.Installed>
 {
     private const string Id = "waves-central";
 
     private const string Drive = "Drive";
+
+    private static readonly (int X, int Y) PresetMenu = (217, 9);
+
+    private static readonly (int X, int Y) Faceplate = (450, 110);
 
     private static readonly Dictionary<string, string> Bridges = new()
     {
@@ -30,6 +35,7 @@ public sealed class WavesCentralScenario(WavesCentralScenario.Installed installe
             editor.Wine != "none" && editor.Wine == editor.Told,
             $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
         var audio = await installed.Harness.Render(bridge, Drive, installed.Display);
+        installed.Harness.VerifyPopup(bridge, PresetMenu, Faceplate);
 
         Assert.True(audio.Parameters > 0, "Lil Tube exposed no parameters");
         Assert.True(audio.MixChanged, $"Lil Tube's {Drive} did not hold at its maximum");
@@ -38,7 +44,7 @@ public sealed class WavesCentralScenario(WavesCentralScenario.Installed installe
         Assert.InRange(audio.Peak, 0.02, 1);
     }
 
-    public sealed class Installed() : InstalledEntry(Id)
+    public sealed partial class Installed() : InstalledEntry(Id)
     {
         public const string Shell = "WaveShell1-VST3 17.1_x64.vst3";
 
@@ -77,6 +83,21 @@ public sealed class WavesCentralScenario(WavesCentralScenario.Installed installe
         private static readonly TimeSpan Downloading = TimeSpan.FromMinutes(20);
 
         private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
+
+        private const string Engine =
+            @"C:\ProgramData\Waves Audio\Modules\WavesLicenseEngine.bundle\Contents\Win64\exec\wle.exe";
+
+        private Waves? account;
+
+        private string device = "";
+
+        private string DriveC => Path.Combine(Harness.Prefix, "drive_c");
+
+        private string User => Directory.GetDirectories(Path.Combine(DriveC, "users"))
+            .Single(directory => Path.GetFileName(directory) != "Public");
+
+        private string Settings =>
+            Path.Combine(User, "AppData", "Roaming", "Waves Audio", "Preferences", "Waves Central.json");
 
         private protected override async Task Install(Display display)
         {
@@ -128,17 +149,49 @@ public sealed class WavesCentralScenario(WavesCentralScenario.Installed installe
             manager.HoldClick(window, 650, 519);
             Assert.True(Harness.Holds("VST3", Shell), $"Waves Central installed no bridged {Shell}");
             await manager.Close();
+            await ActivateTheLicence(display);
+        }
+
+        private protected override Task Release() => account?.Return(device) ?? Task.CompletedTask;
+
+        private async Task ActivateTheLicence(Display display)
+        {
+            var logs = Path.Combine(Harness.Home, "waves-licence");
+            Directory.CreateDirectory(logs);
+            await Harness.RunProgram(display, Engine, "devices", "--log", ScenarioHarness.Windows(logs));
+            var computers = Computer().Matches(File.ReadAllText(Path.Combine(logs, "wle.log")));
+            Assert.True(computers.Count > 0, "Waves' licence engine named no computer");
+            device = computers[^1].Groups[1].Value;
+
+            account = Waves.Restored(Path.Combine(DriveC, "Program Files", "Waves Central"), Settings);
+            await account.Activate(device);
+
+            try
+            {
+                await Harness.RunProgram(
+                    display, Engine, "sync", "--user", account.UserGuid, "--device", device, "--log",
+                    ScenarioHarness.Windows(logs));
+                Assert.True(
+                    Directory.EnumerateFiles(
+                        Path.Combine(DriveC, "ProgramData", "Waves Audio", "Licenses"), $"*_{device}.wle").Any(),
+                    "Waves sent no licence for this run's computer");
+            }
+            catch
+            {
+                await account.Return(device);
+                throw;
+            }
         }
 
         private void RestoreTheSession()
         {
-            var user = Directory.GetDirectories(Path.Combine(Harness.Prefix, "drive_c", "users"))
-                .Single(directory => Path.GetFileName(directory) != "Public");
-            var preferences = Path.Combine(user, "AppData", "Roaming", "Waves Audio", "Preferences");
-            Directory.CreateDirectory(preferences);
+            Directory.CreateDirectory(Path.GetDirectoryName(Settings)!);
             var settings = JsonNode.Parse(Convert.FromBase64String(Credentials.Read()["WAVES"]))!.AsObject();
             settings["UserSettings"]!["tours"] = new JsonObject { ["welcomeVersion"] = 1 };
-            File.WriteAllText(Path.Combine(preferences, "Waves Central.json"), settings.ToJsonString());
+            File.WriteAllText(Settings, settings.ToJsonString());
         }
+
+        [GeneratedRegex(@"\] ([0-9A-F]{8,}) comp ")]
+        private static partial Regex Computer();
     }
 }

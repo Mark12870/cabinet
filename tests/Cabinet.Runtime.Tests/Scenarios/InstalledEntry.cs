@@ -44,17 +44,26 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
-        await Timed("dispose", () =>
+        try
         {
-            Harness.Dispose();
-            display?.Dispose();
-            return Task.CompletedTask;
-        });
-        runtimeLock?.Dispose();
-        AtOnce.Release();
+            await Timed("release", Release);
+        }
+        finally
+        {
+            await Timed("dispose", () =>
+            {
+                Harness.Dispose();
+                display?.Dispose();
+                return Task.CompletedTask;
+            });
+            runtimeLock?.Dispose();
+            AtOnce.Release();
+        }
     }
 
     private protected virtual Task Install(Display display) => Harness.Install(Entry.DemoUrl ?? Entry.Url!, display);
+
+    private protected virtual Task Release() => Task.CompletedTask;
 
     protected virtual void Settle(string home)
     {
