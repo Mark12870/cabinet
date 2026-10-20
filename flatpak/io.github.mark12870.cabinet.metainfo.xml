@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.32.0" date="2026-10-20">
+      <description>
+        <p>Install UVI Portal 3.1.1 and give any prefix the WebView2 Runtime</p>
+        <ul>
+          <li>UVI Portal installs as 3.1.1, the version UVI now requires, so it signs in and installs UVI Player again</li>
+          <li>A prefix can hold the Microsoft Edge WebView2 Runtime: turn it on from the prefix page or with cabinet set &lt;name&gt; webview2 on</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.31.0" date="2026-10-20">
       <description>
         <p>Fix Waves Central 17.1.3 and follow apps that update themselves</p>
