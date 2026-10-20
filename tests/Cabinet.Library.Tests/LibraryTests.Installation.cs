@@ -340,6 +340,40 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void AnEntryThatAsksForWebView2HasItInstalledInItsPrefix()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nWebView2: true\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("thing"), "dosdevices"));
+        var recorder = new RecordingRunner(WebView2Download.Serving(layout, "thing"));
+        var library = new Library(layout, recorder);
+
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.Single(recorder.Ran, call => call.Arguments is [.., "/silent", "/install"]);
+        Assert.Equal(WebView2Download.Version, new WebView2(layout, recorder).InstalledIn("thing"));
+    }
+
+    [Fact]
+    public void AWebView2TheInstallerBroughtIsNotInstalledAgain()
+    {
+        Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\nWebView2: true\n"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        var layout = Layout();
+        Directory.CreateDirectory(Path.Combine(layout.PrefixPath("thing"), "dosdevices"));
+        WebView2Download.Installed(layout, "thing");
+        var recorder = new RecordingRunner();
+        var library = new Library(layout, recorder);
+
+        library.Install(library.Find("thing"), installer: installer);
+
+        Assert.DoesNotContain(recorder.Calls, call => call.Arguments is [.., WebView2.Url]);
+    }
+
+    [Fact]
     public void InstallingAgainGoesToThePrefixThePluginIsRecordedIn()
     {
         Catalogue(("thing", "Name: Thing\nKind: windows\nSource: byo\n"));

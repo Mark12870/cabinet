@@ -25,6 +25,7 @@ internal static partial class Program
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
           cabinet set <name> ilok <on|off>     install iLok License Manager, or uninstall it
+          cabinet set <name> webview2 <on|off> install the WebView2 Runtime, or uninstall it
           cabinet set <name> env KEY=VALUE     a variable for this prefix (KEY= removes it)
           cabinet set <name> desktop <on|off>  enable or disable a Wine desktop of its own
           cabinet winetricks <name> [verb...]  open Winetricks, or install the verbs given

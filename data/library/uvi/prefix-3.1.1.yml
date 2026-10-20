@@ -1,0 +1,9 @@
+Revision: 1
+Runner: 11.17
+Dxvk: true
+Ilok: true
+WebView2: true
+Sync: fsync
+Registry:
+  HKCU\Software\Wine\Version=win7
+  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\UVI Portal.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu

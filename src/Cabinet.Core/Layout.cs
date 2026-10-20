@@ -298,6 +298,10 @@ public sealed class Layout
 
     public const string PackageRegistry = @"C:\windows\temp\cabinet-package.reg";
 
+    public const string WebView2Dir = @"C:\Program Files (x86)\Microsoft\EdgeWebView\Application";
+
+    public string PrefixWebView2Dir(string name) => PrefixWindowsPath(name, WebView2Dir);
+
     public string PrefixPackageRegistry(string name) => PrefixWindowsPath(name, PackageRegistry);
 
     public string PrefixWindowsPath(string name, string windowsPath)

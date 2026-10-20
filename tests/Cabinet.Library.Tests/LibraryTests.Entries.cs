@@ -419,6 +419,28 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void ANativeEntryCannotCarryWebView2()
+    {
+        var refused = Assert.Throws<InvalidOperationException>(() => LibraryEntry.Parse(
+            "thing", "Name: Thing\nKind: native\nSource: byo\nWebView2: true\n"));
+
+        Assert.Contains("carries WebView2", refused.Message);
+    }
+
+    [Fact]
+    public void AnEntryTakesWebView2FromItsVendorsPrefixConfig()
+    {
+        var entry = LibraryEntry.Parse(
+            "gadget",
+            "Name: Gadget\nKind: windows\nSource: byo\n",
+            "a-vendor",
+            new Dictionary<string, string> { ["1.0"] = "Revision: 1\nWebView2: true\n" });
+
+        Assert.True(entry.WebView2);
+        Assert.Contains("WebView2 Runtime", entry.Requirements());
+    }
+
+    [Fact]
     public void AnEntryWithNoIlokLeavesItOut()
     {
         var entry = LibraryEntry.Parse("gadget", "Name: Gadget\nKind: windows\nSource: byo\n");

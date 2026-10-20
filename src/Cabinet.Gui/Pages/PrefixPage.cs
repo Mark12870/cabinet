@@ -60,6 +60,7 @@ internal sealed class PrefixPage
         settings.Add(SyncRow(prefix));
         settings.Add(DxvkRow(prefix));
         settings.Add(IlokRow(prefix));
+        settings.Add(WebView2Row(prefix));
         settings.Add(DesktopRow(prefix));
 
         var actions = Adw.PreferencesGroup.New();
@@ -192,6 +193,23 @@ internal sealed class PrefixPage
                 else
                 {
                     new Ilok(layout, runner).Remove(Name, output);
+                }
+            });
+
+    private Adw.ActionRow WebView2Row(Prefix prefix) =>
+        ToggleRow(
+            "WebView2 Runtime",
+            prefix.WebView2 is null ? "not installed" : prefix.WebView2,
+            prefix.WebView2 is not null,
+            (enabled, output, progress) =>
+            {
+                if (enabled)
+                {
+                    new WebView2(layout, runner).Install(Name, output, progress);
+                }
+                else
+                {
+                    new WebView2(layout, runner).Remove(Name, output);
                 }
             });
 

@@ -2,13 +2,14 @@ namespace Cabinet.Core;
 
 public sealed record Prefix(
     string Name, string Path, bool Initialised, string Runner, string? Dxvk, string? Ilok,
-    SyncMode Sync, bool Desktop);
+    SyncMode Sync, bool Desktop, string? WebView2 = null);
 
 public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 {
     private readonly Runners runners = new(layout, runner);
     private readonly Dxvk dxvk = new(layout, runner);
     private readonly Ilok ilok = new(layout, runner);
+    private readonly WebView2 webView2 = new(layout, runner);
     private readonly VirtualDesktop desktop = new(layout, runner);
     private readonly PrefixSettings settings = new(layout);
 
@@ -198,7 +199,8 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
             dxvk.InstalledIn(name),
             ilok.InstalledIn(name),
             settings.Sync(name),
-            desktop.EnabledIn(name));
+            desktop.EnabledIn(name),
+            webView2.InstalledIn(name));
 
     public void Delete(string name, Action<string>? onOutput = null)
     {

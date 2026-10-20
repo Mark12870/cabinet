@@ -74,6 +74,7 @@ internal static class Json
                 writer.WriteString("runner", prefix.Runner);
                 writer.WriteString("dxvk", prefix.Dxvk);
                 writer.WriteString("ilok", prefix.Ilok);
+                writer.WriteString("webview2", prefix.WebView2);
                 writer.WriteString("sync", PrefixSettings.Word(prefix.Sync));
                 writer.WriteBoolean("desktop", prefix.Desktop);
                 writer.WriteEndObject();
@@ -107,6 +108,7 @@ internal static class Json
                 writer.WriteString("runner", entry.Runner);
                 writer.WriteBoolean("dxvk", entry.Dxvk);
                 writer.WriteBoolean("ilok", entry.Ilok);
+                writer.WriteBoolean("webview2", entry.WebView2);
                 writer.WriteString("sync", PrefixSettings.Word(entry.Sync));
                 Strings(writer, "winetricks", entry.Winetricks);
                 writer.WriteBoolean("desktop", entry.Desktop);

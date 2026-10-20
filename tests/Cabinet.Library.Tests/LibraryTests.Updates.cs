@@ -592,6 +592,44 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void AConfigThatNowWantsWebView2OffersToInstallIt()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        Catalogue(("thing", SetupRecipe + "\nWebView2: true\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        Assert.Equal(["Install the WebView2 Runtime."], library.PrefixUpdateOf(library.Find("thing"))!.Changes);
+    }
+
+    [Fact]
+    public void AConfigThatNowWantsTheWebView2AnInstallerBroughtHasNothingToChange()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        WebView2Download.Installed(layout, "chosen");
+        Catalogue(("thing", SetupRecipe + "\nWebView2: true\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Empty(review.Changes);
+        Assert.Empty(review.Edits);
+    }
+
+    [Fact]
+    public void ARevisedConfigLeavesTheWebView2AnInstallerBroughtInPlace()
+    {
+        var layout = InstallSetup(SetupRecipe);
+        WebView2Download.Installed(layout, "chosen");
+        Catalogue(("thing", SetupRecipe + "\nDxvk: true\n"));
+        var library = new Library(layout, new UnusedRunner());
+
+        var review = library.PrefixUpdateOf(library.Find("thing"))!;
+
+        Assert.Equal(["Turn on DXVK for Direct3D."], review.Changes);
+        Assert.Empty(review.Resets);
+    }
+
+    [Fact]
     public void APrefixMatchingItsConfigIsUpToDate()
     {
         var layout = InstallSetup(SetupRecipe);

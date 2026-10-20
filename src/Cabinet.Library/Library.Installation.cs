@@ -247,6 +247,13 @@ public sealed partial class Library
             ilok.Install(prefix, onOutput, onProgress);
         }
 
+        var webView2 = new WebView2(layout, runner);
+
+        if (entry.WebView2 && webView2.InstalledIn(prefix) is null)
+        {
+            webView2.Install(prefix, onOutput, onProgress);
+        }
+
         var desktop = new VirtualDesktop(layout, runner);
 
         if (entry.Desktop && !desktop.EnabledIn(prefix))

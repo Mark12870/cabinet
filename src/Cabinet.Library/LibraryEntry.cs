@@ -55,14 +55,15 @@ public sealed record LibraryEntry(
     string? InstallInstructions = null,
     bool Family = false,
     IReadOnlyList<PrefixConfig>? PrefixConfigs = null,
-    string? VersionFile = null)
+    string? VersionFile = null,
+    bool WebView2 = false)
 {
     public bool Manager => Launch is not null;
 
     public string? SetupVersion => Family ? null : Version;
 
     public IReadOnlyList<PrefixConfig> Configs =>
-        PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Ilok, Sync, Winetricks, Env, Registry, Desktop)];
+        PrefixConfigs ?? [new PrefixConfig(Version ?? "", 1, Runner, Dxvk, Ilok, Sync, Winetricks, Env, Registry, Desktop, WebView2)];
 
     public PrefixConfig Config => PrefixConfig.For(Configs, SetupVersion);
 
@@ -100,6 +101,11 @@ public sealed record LibraryEntry(
         if (Ilok)
         {
             costs.Add("iLok License Manager");
+        }
+
+        if (WebView2)
+        {
+            costs.Add("WebView2 Runtime");
         }
 
         if (Sync != SyncMode.System)

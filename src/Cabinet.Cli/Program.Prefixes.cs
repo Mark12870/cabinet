@@ -57,6 +57,18 @@ internal static partial class Program
         return Exit.Ok;
     }
 
+    private static int InstallWebView2(Layout layout, IProcessRunner runner, string name)
+    {
+        new WebView2(layout, runner).Install(name, Console.WriteLine);
+        return Exit.Ok;
+    }
+
+    private static int RemoveWebView2(Layout layout, IProcessRunner runner, string name)
+    {
+        new WebView2(layout, runner).Remove(name, Console.WriteLine);
+        return Exit.Ok;
+    }
+
     private static Func<int> Set(CommandLine line, Layout layout, IProcessRunner runner)
     {
         var name = line.Word("a prefix name");
@@ -70,9 +82,12 @@ internal static partial class Program
             "ilok" => One(line, "on or off", word => OnOff(word)
                 ? InstallIlok(layout, runner, name)
                 : RemoveIlok(layout, runner, name)),
+            "webview2" => One(line, "on or off", word => OnOff(word)
+                ? InstallWebView2(layout, runner, name)
+                : RemoveWebView2(layout, runner, name)),
             "env" => One(line, "KEY=VALUE", assignment => SetVariable(layout, name, Assignment(assignment))),
             "desktop" => One(line, "on or off", word => SetDesktop(layout, runner, name, OnOff(word))),
-            null => throw new UsageException("expected sync, dxvk, ilok, env or desktop"),
+            null => throw new UsageException("expected sync, dxvk, ilok, webview2, env or desktop"),
             var unknown => throw line.Unknown($"set {name} {unknown}"),
         };
     }
@@ -174,6 +189,7 @@ internal static partial class Program
         Console.WriteLine($"{"runner",-16}  {prefix.Runner}");
         Console.WriteLine($"{"dxvk",-16}  {prefix.Dxvk ?? "off"}");
         Console.WriteLine($"{"ilok",-16}  {prefix.Ilok ?? "off"}");
+        Console.WriteLine($"{"webview2",-16}  {prefix.WebView2 ?? "off"}");
         Console.WriteLine($"{"sync",-16}  {PrefixSettings.Word(prefix.Sync)}");
         Console.WriteLine($"{"desktop",-16}  {(prefix.Desktop ? "on" : "off")}");
 

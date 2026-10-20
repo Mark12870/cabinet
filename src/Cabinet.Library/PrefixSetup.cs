@@ -14,7 +14,8 @@ internal sealed record PrefixSetup(
     IReadOnlyList<string> Winetricks,
     IReadOnlyDictionary<string, string> Env,
     IReadOnlyDictionary<string, string> Registry,
-    bool Desktop)
+    bool Desktop,
+    bool WebView2 = false)
 {
     public string Label => $"{ConfigVersion}, revision {Revision}";
 
@@ -29,7 +30,8 @@ internal sealed record PrefixSetup(
         [.. config.Winetricks.Select(verb => verb.ToLowerInvariant()).Order(StringComparer.Ordinal)],
         config.Env,
         config.Registry,
-        config.Desktop);
+        config.Desktop,
+        config.WebView2);
 
     public string Serialise()
     {
@@ -70,6 +72,7 @@ internal sealed record PrefixSetup(
 
             writer.WriteEndObject();
             writer.WriteBoolean("desktop", Desktop);
+            writer.WriteBoolean("webview2", WebView2);
             writer.WriteEndObject();
         }
 
@@ -130,7 +133,8 @@ internal sealed record PrefixSetup(
                 verbs,
                 env,
                 registry,
-                root.GetProperty("desktop").GetBoolean());
+                root.GetProperty("desktop").GetBoolean(),
+                root.TryGetProperty("webview2", out var webView2) && webView2.GetBoolean());
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException
                                      or KeyNotFoundException or ArgumentException or FormatException)

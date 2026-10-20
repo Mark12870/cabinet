@@ -2,7 +2,7 @@ namespace Cabinet.Core;
 
 internal static class LibraryEntryParser
 {
-    private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Ilok", "Sync", "Winetricks", "Env", "Registry", "Desktop"];
+    private static readonly string[] SettingKeys = ["Runner", "Dxvk", "Ilok", "WebView2", "Sync", "Winetricks", "Env", "Registry", "Desktop"];
 
     private static readonly string[] PrefixKeys = ["Prefix", .. SettingKeys];
 
@@ -90,7 +90,7 @@ internal static class LibraryEntryParser
         if (kind == PluginKind.Native
             && new[]
             {
-                "Prefix", "Runner", "Dxvk", "Ilok", "Sync", "Winetricks", "Env", "Registry", "Desktop",
+                "Prefix", "Runner", "Dxvk", "Ilok", "WebView2", "Sync", "Winetricks", "Env", "Registry", "Desktop",
                 "Launch", "LaunchService", "LaunchHelper", "LaunchArgs", "Scheme", "Keep",
                 "Recover", "VersionFile",
             }
@@ -196,7 +196,8 @@ internal static class LibraryEntryParser
             Sentence(Value(fields, "InstallInstructions")),
             family && shared is not null,
             shared,
-            Value(fields, "VersionFile") is { } versionFile ? ParseVersionFile(id, versionFile) : null);
+            Value(fields, "VersionFile") is { } versionFile ? ParseVersionFile(id, versionFile) : null,
+            Value(fields, "WebView2") is { } webView2 && bool.Parse(webView2));
     }
 
     private static IReadOnlyList<PrefixConfig> Share(
@@ -253,7 +254,8 @@ internal static class LibraryEntryParser
             ParseWinetricks(file, Value(fields, "Winetricks")),
             ParseEnv(file, Value(fields, "Env")),
             ParseRegistry(file, Value(fields, "Registry")),
-            Value(fields, "Desktop") is { } desktop && bool.Parse(desktop));
+            Value(fields, "Desktop") is { } desktop && bool.Parse(desktop),
+            Value(fields, "WebView2") is { } webView2 && bool.Parse(webView2));
     }
 
     private static string ParsePrefix(string id, string name) =>
