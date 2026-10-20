@@ -18,9 +18,17 @@ use std::sync::{Arc, Mutex, Once, OnceLock, PoisonError};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+#[cfg(not(test))]
 macro_rules! note {
     ($($arg:tt)*) => {{
         let _ = writeln!(io::stderr(), $($arg)*);
+    }};
+}
+
+#[cfg(test)]
+macro_rules! note {
+    ($($arg:tt)*) => {{
+        eprintln!($($arg)*);
     }};
 }
 
