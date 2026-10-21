@@ -3,7 +3,7 @@ Kind: windows
 Category: Manager
 Summary: Arturia's own manager, which activates, downloads and installs their software.
 Developer: Arturia
-Version: 2.12.0.3157
+Version: 2.13.0.3440
 Licence: Freeware
 Licensing:
   The app is free and signs in to an Arturia account. What it will install is what
@@ -11,8 +11,8 @@ Licensing:
 Formats: VST3, VST2
 Homepage: https://www.arturia.com/support/downloads-manuals/product/asc
 Source: download
-Url: https://dl.arturia.net/products/asc/soft/Arturia_Software_Center__2_12_0_3157.exe
-Sha256: e92baaaa94f4635fb33b6cbad4f6397d619d07c9e0997e6460a8d64544f1bfb8
+Url: https://dl.arturia.net/products/asc/soft/Arturia_Software_Center__2_13_0_3440.exe
+Sha256: af23dab17e4353f497d85610fc415e506d90a36476a77fc226346b39fc01758e
 Launch: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe
 VersionFile: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe
 Script: arturia.sh
