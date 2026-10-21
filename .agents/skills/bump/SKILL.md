@@ -37,9 +37,10 @@ it and the one below:
     </release>
 ```
 
-The `<p>` is the headline and the `<ul>` one `<li>` per user-visible change. Write for whoever
-sees the update, not for a reviewer: no file names, no internal types. Escape `<`, `>` and `&`
-as `&lt;`, `&gt;` and `&amp;` — a `cabinet set <name>` written raw breaks the XML.
+Use `<p>` for the headline and one `<li>` per user-visible change. Write for users, not reviewers:
+no file names or internal types. Claim only verified user-facing effects; a test failure or version
+bump alone does not prove users were affected. Otherwise describe the update neutrally, without
+claiming a fix or restored functionality. Escape `<`, `>` and `&` as `&lt;`, `&gt;` and `&amp;`.
 
 **4. Validate it.**
 
