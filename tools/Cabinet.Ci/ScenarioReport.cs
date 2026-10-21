@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Xml.Linq;
 
 namespace Cabinet.Ci;
 
@@ -6,6 +7,32 @@ internal static class ScenarioReport
 {
     private static readonly string[] Steps = ["prepare", "display", "install", "settle", "dispose"];
     private static readonly string[] Phases = ["runner", "prefix", "download", "installer", "dxvk", "bridge"];
+
+    public static int Approve(string trx, string id)
+    {
+        var entry = Scenarios.Entries().Single(pair => Scenarios.Stem(pair.Value) == id);
+        var formats = Scenarios.Field(entry.Value, "Formats").Split(',').Select(format => format.Trim()).ToArray();
+        var outcomes = Merged(trx).Where(pair => pair.Key.Scenario == entry.Key)
+            .ToDictionary(pair => pair.Key.Format, pair => pair.Value, StringComparer.Ordinal);
+
+        var results = Attempts(trx).Where(File.Exists)
+            .SelectMany(path => XDocument.Load(path).Descendants(Scenarios.Trx + "UnitTestResult"))
+            .Where(result => ((string?)result.Attribute("testName") ?? "")
+                .StartsWith(Scenarios.Namespace + entry.Key + ".", StringComparison.Ordinal));
+
+        if (Complete(formats, outcomes) && results.All(result => (string?)result.Attribute("outcome") == "Passed"))
+        {
+            return 0;
+        }
+
+        Console.Error.WriteLine($"{id}: every declared format must pass without skips or retries before automatic merging");
+        return 1;
+    }
+
+    internal static bool Complete(IReadOnlyList<string> formats, IReadOnlyDictionary<string, string> outcomes) =>
+        formats.Count > 0 && outcomes.Count == formats.Count
+        && formats.Distinct(StringComparer.Ordinal).Count() == formats.Count
+        && formats.All(format => format.Length > 0 && outcomes.GetValueOrDefault(format) == "Passed");
 
     public static int Passed(string trx)
     {

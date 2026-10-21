@@ -63,14 +63,14 @@ public class WorkflowTests
     }
 
     [Fact]
-    public void PluginScenariosRunOnlyOnTheScheduleAndNeverOnAPush()
+    public void FullPluginScenariosRunOnTheScheduleAndCandidatesUseTheirOwnScenario()
     {
         const string scenarios = "Cabinet.Runtime.Tests.Scenarios";
 
         Assert.Contains(Plugins, line => line.Trim() == "suite: scenarios");
         Assert.Contains(Plugins, line => line.Trim() == "schedule:");
         Assert.DoesNotContain(Plugins, line => line.Trim() is "push:" or "pull_request:");
-        Assert.DoesNotContain(Ci, line => Names(line, "suite"));
+        Assert.Contains(Job(Ci, "candidate-runtime"), line => line.Trim() == "suite: scenarios");
         Assert.Contains($"general) filter=(--filter-not-namespace {scenarios}", Driver, StringComparison.Ordinal);
         Assert.Contains($"scenarios) filter=(--filter-namespace {scenarios})", Driver, StringComparison.Ordinal);
         Assert.All(
@@ -138,16 +138,59 @@ public class WorkflowTests
     }
 
     [Fact]
-    public void OnlyALocalPluginRunTakesAClassFilterAndRunsItAlone()
+    public void TargetedPluginRunsTakeAClassFilterAndRunAlone()
     {
         var scenarios = Driver.Split("scenarios) filter=", StringSplitOptions.None)[1]
             .Split(";;", StringSplitOptions.None)[0];
 
         Assert.DoesNotContain(Plugins, line => line.Contains("filter_class", StringComparison.Ordinal));
-        Assert.DoesNotContain(Runtime, line => line.Contains("FILTER_CLASS", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(Runtime, line => line.Contains("--env CABINET_RUNTIME_FILTER_CLASS=", StringComparison.Ordinal));
         Assert.Contains("parallel=(--parallel collections)", scenarios, StringComparison.Ordinal);
         Assert.Contains("filter+=(--filter-class \"$CABINET_RUNTIME_FILTER_CLASS\")", scenarios, StringComparison.Ordinal);
         Assert.Contains("parallel=(--parallel none)", scenarios, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AutomaticMergingRequiresChecksBuildAndTheCandidateScenario()
+    {
+        var merge = Job(Ci, "merge-candidate");
+        var runtime = Job(Ci, "candidate-runtime");
+
+        Assert.Contains(merge, line => line.Trim() == "needs: [candidate, checks, build, candidate-runtime]");
+        Assert.Contains(merge, line => line.Contains("--match-head-commit", StringComparison.Ordinal));
+        Assert.Contains(merge, line => line.Contains("\"$current\" != \"$BASE\"", StringComparison.Ordinal));
+        Assert.Contains(runtime, line => line.Contains("entry_id: ${{ needs.candidate.outputs.id }}", StringComparison.Ordinal));
+        Assert.Contains(Runtime, line => line.Contains("scenario-approve runtime/TestResults/runtime.trx", StringComparison.Ordinal));
+        Assert.DoesNotContain(Runtime, line => line.Contains("CATALOGUE_UPDATE_APP_PRIVATE_KEY", StringComparison.Ordinal));
+        Assert.Contains(runtime, line => line.Trim() == "packages: read");
+    }
+
+    [Fact]
+    public void CandidatesAreValidatedUsingTrustedBaseCodeAndOnlyOneCatalogueFile()
+    {
+        var candidate = Job(Ci, "candidate");
+
+        Assert.Contains(candidate, line => line.Contains("ref: ${{ github.event.pull_request.base.sha || github.sha }}", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("github.event.pull_request.user.login == vars.CATALOGUE_UPDATE_BOT", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("github.event.pull_request.head.repo.full_name == github.repository", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("[ \"${#changed[@]}\" -eq 1 ]", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("catalogue-updates validate", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void DiscoveryReportsRunWithoutWriterCredentialsAndSurviveSourceFailures()
+    {
+        var workflow = Repo.Lines(".github/workflows/catalogue-updates.yml");
+        var discover = Job(workflow, "discover");
+        var propose = Job(workflow, "propose");
+
+        Assert.DoesNotContain(discover, line => line.Contains("CATALOGUE_UPDATE_APP", StringComparison.Ordinal));
+        Assert.DoesNotContain(discover, line => line.Contains("CATALOGUE_UPDATE_BOT", StringComparison.Ordinal));
+        Assert.Contains(discover, line => line.Trim() == "if: always()");
+        Assert.Contains(discover, line => line.Contains("exit \"$status\"", StringComparison.Ordinal));
+        Assert.Contains(propose, line => line.Trim() == "!cancelled()");
+        Assert.Contains(propose, line => line.Contains("vars.CATALOGUE_UPDATE_APP_ID != ''", StringComparison.Ordinal));
+        Assert.Contains(propose, line => line.Contains("vars.CATALOGUE_UPDATE_BOT != ''", StringComparison.Ordinal));
     }
 
     [Theory]

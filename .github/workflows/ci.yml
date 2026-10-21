@@ -119,6 +119,53 @@ jobs:
             echo 'runtime=false' >> "$GITHUB_OUTPUT"
           fi
 
+  candidate:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.base.ref == 'main'
+      && vars.CATALOGUE_UPDATE_BOT != ''
+      && github.event.pull_request.user.login == vars.CATALOGUE_UPDATE_BOT
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && startsWith(github.head_ref, 'catalogue-update/')
+    runs-on: ubuntu-latest
+    outputs:
+      id: ${{ steps.validate.outputs.id }}
+      scenario: ${{ steps.validate.outputs.scenario }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Validate the catalogue-only candidate against trusted configuration
+        id: validate
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          id="${BRANCH#catalogue-update/}"
+          [[ "$id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
+          mapfile -t changed < <(git diff --name-only "$BASE" "$HEAD")
+          [ "${#changed[@]}" -eq 1 ]
+          path="${changed[0]}"
+          [[ "$path" =~ ^data/library/[a-z0-9-]+/$id\.yml$ ]]
+          baseline="${RUNNER_TEMP}/catalogue-baseline"
+          mkdir -p "$baseline/$(dirname "$path")"
+          cp "$path" "$baseline/$path"
+          dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+          git show "$HEAD:$path" > "$path"
+          scenario=$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates validate "$baseline/data/library" "$id")
+          [[ "$scenario" =~ ^Cabinet\.Runtime\.Tests\.Scenarios\.[A-Za-z0-9_]+Scenario$ ]]
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "scenario=$scenario" >> "$GITHUB_OUTPUT"
+
   # docs/TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
   # which nothing in checks.sh can do. It starts beside the build rather than after it, because
   # the only thing it wants from the build is an artifact it does not touch until it installs
@@ -138,6 +185,57 @@ jobs:
       packages: write
     with:
       rebuild_fixtures: ${{ inputs.rebuild_fixtures || false }}
+
+  candidate-runtime:
+    needs: candidate
+    if: needs.candidate.outputs.id != ''
+    uses: ./.github/workflows/runtime.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    with:
+      suite: scenarios
+      filter_class: ${{ needs.candidate.outputs.scenario }}
+      entry_id: ${{ needs.candidate.outputs.id }}
+    secrets:
+      EMAIL: ${{ secrets.EMAIL }}
+      PASSWORD: ${{ secrets.PASSWORD }}
+      DROPBOX: ${{ secrets.DROPBOX }}
+      USERNAME: ${{ secrets.USERNAME }}
+      NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
+      WAVES: ${{ secrets.WAVES }}
+      EMAIL_IMAP_HOST: ${{ vars.EMAIL_IMAP_HOST }}
+      EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
+
+  merge-candidate:
+    needs: [candidate, checks, build, candidate-runtime]
+    if: github.event_name == 'pull_request' && needs.candidate.outputs.id != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.CATALOGUE_UPDATE_APP_ID }}
+          private-key: ${{ secrets.CATALOGUE_UPDATE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Merge only the tested head and base
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current" != "$BASE" ]; then
+            echo '::notice::main moved; the next discovery run will refresh and retest this candidate'
+            exit 0
+          fi
+          gh pr merge "$PR" --squash --match-head-commit "$HEAD"
 
   publish:
     needs: [checks, build, runtime]

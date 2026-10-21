@@ -1,0 +1,442 @@
+{
+  "entries": [
+    {
+      "id": "neural-amp-modeler",
+      "path": "neural-amp-modeler/neural-amp-modeler.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.NeuralAmpModelerScenario",
+      "allowedDownloadHosts": [
+        "github.com",
+        "release-assets.githubusercontent.com",
+        "objects.githubusercontent.com"
+      ],
+      "source": {
+        "type": "github",
+        "repository": "mikeoliphant/neural-amp-modeler-lv2",
+        "versionRegex": "^v?(?<version>(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))*)$",
+        "assetRegex": "^neural_amp_modeler_lv2_linux_x64\\.tgz$"
+      }
+    },
+    {
+      "id": "valhalla-supermassive",
+      "path": "valhalla-dsp/valhalla-supermassive.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.ValhallaSupermassiveScenario",
+      "allowedDownloadHosts": [
+        "valhalladsp.com",
+        "valhallaproduction.s3.us-west-2.amazonaws.com"
+      ],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://valhalladsp.com/demos-downloads/",
+        "downloadRegex": "^https://valhallaproduction\\.s3\\.us-west-2\\.amazonaws\\.com/supermassive/ValhallaSupermassiveWin_V(?<version>(?:0|[1-9][0-9]*)(?:[._](?:0|[1-9][0-9]*)){2})\\.zip$"
+      }
+    },
+    {
+      "id": "arturia-software-center",
+      "path": "arturia/arturia-software-center.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.ArturiaSoftwareCenterScenario",
+      "allowedDownloadHosts": ["www.arturia.com", "dl.arturia.net"],
+      "source": {
+        "type": "document",
+        "pageUrl": "https://www.arturia.com/support/downloads-manuals/product/asc",
+        "releaseRegex": "(?<url>/api/download/products/asc/soft/Arturia_Software_Center__(?<version>[0-9]+(?:_[0-9]+){3})\\.exe)",
+        "downloadBase": "https://dl.arturia.net/",
+        "relativePrefix": "/api/download/",
+        "downloadRegex": "^https://dl\\.arturia\\.net/products/asc/soft/Arturia_Software_Center__(?<version>[0-9]+(?:_[0-9]+){3})\\.exe$"
+      }
+    },
+    {
+      "id": "dexed",
+      "path": "digital-suburban/dexed.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.DexedScenario",
+      "allowedDownloadHosts": [
+        "github.com",
+        "release-assets.githubusercontent.com",
+        "objects.githubusercontent.com"
+      ],
+      "source": {
+        "type": "github",
+        "repository": "asb2m10/dexed",
+        "versionRegex": "^v?(?<version>[0-9]+(?:\\.[0-9]+)*)$",
+        "assetRegex": "^Dexed-(?<version>[0-9]+(?:\\.[0-9]+)*)-lnx\\.zip$"
+      }
+    },
+    {
+      "id": "surge-xt",
+      "path": "surge-synth-team/surge-xt.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.SurgeXtScenario",
+      "allowedDownloadHosts": [
+        "github.com",
+        "release-assets.githubusercontent.com",
+        "objects.githubusercontent.com"
+      ],
+      "source": {
+        "type": "github",
+        "repository": "surge-synthesizer/releases-xt",
+        "versionRegex": "^(?<version>[0-9]+(?:\\.[0-9]+)*)$",
+        "assetRegex": "^surge-xt-linux-(?<version>[0-9]+(?:\\.[0-9]+)*)-pluginsonly\\.tar\\.gz$"
+      }
+    },
+    {
+      "id": "couture",
+      "path": "auburn-sounds/couture.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.CoutureScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/Couture.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Couture-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "graillon",
+      "path": "auburn-sounds/graillon.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.GraillonScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/Graillon.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Graillon-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "inner-pitch",
+      "path": "auburn-sounds/inner-pitch.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.InnerPitchScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/InnerPitch.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Inner-Pitch-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "lens",
+      "path": "auburn-sounds/lens.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.LensScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/Lens.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Lens-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "panagement",
+      "path": "auburn-sounds/panagement.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.PanagementScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/Panagement.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Panagement-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "psypan",
+      "path": "auburn-sounds/psypan.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.PsypanScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/Psypan.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Psypan-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "renegate",
+      "path": "auburn-sounds/renegate.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.RenegateScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/Renegate.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Renegate-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "selene",
+      "path": "auburn-sounds/selene.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.SeleneScenario",
+      "allowedDownloadHosts": ["www.auburnsounds.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.auburnsounds.com/products/Selene.html",
+        "downloadRegex": "^https://www\\.auburnsounds\\.com/downloads/Selene-FREE-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$"
+      }
+    },
+    {
+      "id": "aalto",
+      "path": "madrona-labs/aalto.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.AaltoScenario",
+      "allowedDownloadHosts": ["madronalabs.com", "nyc3.digitaloceanspaces.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://madronalabs.com/products/aalto",
+        "downloadRegex": "^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/aalto/AaltoInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"
+      }
+    },
+    {
+      "id": "aaltoverb",
+      "path": "madrona-labs/aaltoverb.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.AaltoverbScenario",
+      "allowedDownloadHosts": ["madronalabs.com", "nyc3.digitaloceanspaces.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://madronalabs.com/products/aaltoverb",
+        "downloadRegex": "^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/aaltoverb/AaltoverbInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"
+      }
+    },
+    {
+      "id": "kaivo",
+      "path": "madrona-labs/kaivo.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.KaivoScenario",
+      "allowedDownloadHosts": ["madronalabs.com", "nyc3.digitaloceanspaces.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://madronalabs.com/products/kaivo",
+        "downloadRegex": "^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/kaivo/KaivoInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"
+      }
+    },
+    {
+      "id": "sumu",
+      "path": "madrona-labs/sumu.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.SumuScenario",
+      "allowedDownloadHosts": ["madronalabs.com", "nyc3.digitaloceanspaces.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://madronalabs.com/products/sumu",
+        "downloadRegex": "^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/sumu/SumuInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"
+      }
+    },
+    {
+      "id": "virta",
+      "path": "madrona-labs/virta.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.VirtaScenario",
+      "allowedDownloadHosts": ["madronalabs.com", "nyc3.digitaloceanspaces.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://madronalabs.com/products/virta",
+        "downloadRegex": "^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/virta/VirtaInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"
+      }
+    },
+    {
+      "id": "valhalla-freq-echo",
+      "path": "valhalla-dsp/valhalla-freq-echo.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.ValhallaFreqEchoScenario",
+      "allowedDownloadHosts": [
+        "valhalladsp.com",
+        "valhallaproduction.s3.us-west-2.amazonaws.com"
+      ],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://valhalladsp.com/demos-downloads/",
+        "downloadRegex": "^https://valhallaproduction\\.s3\\.us-west-2\\.amazonaws\\.com/freqecho/ValhallaFreqEchoWin_V(?<version>[0-9]+(?:_[0-9]+){2})\\.zip$"
+      }
+    },
+    {
+      "id": "valhalla-space-modulator",
+      "path": "valhalla-dsp/valhalla-space-modulator.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.ValhallaSpaceModulatorScenario",
+      "allowedDownloadHosts": [
+        "valhalladsp.com",
+        "valhallaproduction.s3.us-west-2.amazonaws.com"
+      ],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://valhalladsp.com/demos-downloads/",
+        "downloadRegex": "^https://valhallaproduction\\.s3\\.us-west-2\\.amazonaws\\.com/spacemod/ValhallaSpaceModulatorWin_(?<version>[0-9]+(?:_[0-9]+){2})v[0-9]+\\.zip$"
+      }
+    },
+    {
+      "id": "bazille-cm",
+      "path": "u-he/bazille-cm.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.BazilleCmScenario",
+      "allowedDownloadHosts": ["u-he.com", "dl.u-he.com", "uhe-dl.b-cdn.net"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://u-he.com/products/bazillecm/",
+        "versionRegex": "<b>\\s*BazilleCM\\s+(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\s+\\(revision\\s+[0-9]+\\)",
+        "downloadRegex": "^https://dl\\.u-he\\.com/releases/BazilleCM_(?<compact>[0-9]+)_[0-9]+_Linux\\.tar\\.xz$"
+      }
+    },
+    {
+      "id": "podolski",
+      "path": "u-he/podolski.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.PodolskiScenario",
+      "allowedDownloadHosts": ["u-he.com", "dl.u-he.com", "uhe-dl.b-cdn.net"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://u-he.com/products/podolski/",
+        "versionRegex": "<b>\\s*Podolski\\s+(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\s+\\(revision\\s+[0-9]+\\)",
+        "downloadRegex": "^https://dl\\.u-he\\.com/releases/Podolski_(?<compact>[0-9]+)_[0-9]+_Linux\\.tar\\.xz$"
+      }
+    },
+    {
+      "id": "protoverb",
+      "path": "u-he/protoverb.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.ProtoverbScenario",
+      "allowedDownloadHosts": ["u-he.com", "dl.u-he.com", "uhe-dl.b-cdn.net"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://u-he.com/products/protoverb/",
+        "versionRegex": "<b>\\s*Protoverb\\s+(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\s+\\(revision\\s+[0-9]+\\)",
+        "downloadRegex": "^https://dl\\.u-he\\.com/releases/Protoverb_(?<compact>[0-9]+)_[0-9]+_Linux\\.tar\\.xz$"
+      }
+    },
+    {
+      "id": "triple-cheese",
+      "path": "u-he/triple-cheese.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.TripleCheeseScenario",
+      "allowedDownloadHosts": ["u-he.com", "dl.u-he.com", "uhe-dl.b-cdn.net"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://u-he.com/products/triplecheese/",
+        "versionRegex": "<b>\\s*Triple Cheese\\s+(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\s+\\(revision\\s+[0-9]+\\)",
+        "downloadRegex": "^https://dl\\.u-he\\.com/releases/TripleCheese_(?<compact>[0-9]+)_[0-9]+_Linux\\.tar\\.xz$"
+      }
+    },
+    {
+      "id": "tyrell-n6",
+      "path": "u-he/tyrell-n6.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.TyrellN6Scenario",
+      "allowedDownloadHosts": ["u-he.com", "dl.u-he.com", "uhe-dl.b-cdn.net"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://u-he.com/products/tyrelln6/",
+        "versionRegex": "<b>\\s*TyrellN6 Beta\\s+(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\s+\\(revision\\s+[0-9]+\\)",
+        "downloadRegex": "^https://dl\\.u-he\\.com/releases/TyrellN6_(?<compact>[0-9]+)_public_beta_[0-9]+_Linux\\.tar\\.xz$"
+      }
+    },
+    {
+      "id": "zebra-cm",
+      "path": "u-he/zebra-cm.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.ZebraCmScenario",
+      "allowedDownloadHosts": ["u-he.com", "dl.u-he.com", "uhe-dl.b-cdn.net"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://u-he.com/products/zebracm/",
+        "versionRegex": "<b>\\s*ZebraCM\\s+(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\s+\\(revision\\s+[0-9]+\\)",
+        "downloadRegex": "^https://dl\\.u-he\\.com/releases/ZebraCM_(?<compact>[0-9]+)_[0-9]+_Linux\\.tar\\.xz$"
+      }
+    },
+    {
+      "id": "zebralette",
+      "path": "u-he/zebralette.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.ZebraletteScenario",
+      "allowedDownloadHosts": ["u-he.com", "dl.u-he.com", "uhe-dl.b-cdn.net"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://u-he.com/products/plug-ins/zebralette3/",
+        "versionRegex": "<p\\s+class=version-info><a href=/products/plug-ins/zebralette3/releases/[0-9.]+/>\\s*Version\\s*(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\s*<small>\\(rev\\.\\s*[0-9]+\\)</small>\\s*</a>\\s*[–-]\\s*Released",
+        "downloadRegex": "^https://dl\\.u-he\\.com/releases/Zebralette3_(?<compact>[0-9]+)_[0-9]+_Linux\\.tar\\.xz$"
+      }
+    },
+    {
+      "id": "sitala-1",
+      "path": "decomposer/sitala-1.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.Sitala1Scenario",
+      "allowedDownloadHosts": ["decomposer.de"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://decomposer.de/sitala/",
+        "downloadRegex": "^https://decomposer\\.de/releases/Sitala-(?<version>1\\.[0-9]+)-Setup-64\\.msi$"
+      }
+    },
+    {
+      "id": "sitala-2",
+      "path": "decomposer-sitala-2/sitala-2.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.Sitala2Scenario",
+      "allowedDownloadHosts": ["decomposer.de"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://decomposer.de/sitala/",
+        "downloadRegex": "^https://decomposer\\.de/releases/Sitala-(?<version>2\\.[0-9]+(?:\\.[0-9]+)*)-Setup\\.msi$"
+      }
+    },
+    {
+      "id": "decent-sampler",
+      "path": "decent-samples/decent-sampler.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.DecentSamplerScenario",
+      "allowedDownloadHosts": ["store.decentsamples.com", "cdn.decentsamples.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://store.decentsamples.com/downloads/decent-sampler/versions",
+        "downloadRegex": "^https://cdn\\.decentsamples\\.com/production/builds/ds/(?<version>[0-9]+(?:\\.[0-9]+)*)/Decent_Sampler-\\k<version>-Linux-Static-x86_64\\.tar\\.gz$"
+      }
+    },
+    {
+      "id": "drumgizmo",
+      "path": "drumgizmo/drumgizmo.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.DrumGizmoScenario",
+      "allowedDownloadHosts": ["deb.debian.org"],
+      "source": {
+        "type": "debian",
+        "pageUrl": "https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz",
+        "package": "drumgizmo",
+        "downloadBase": "https://deb.debian.org/debian/",
+        "downloadRegex": "^https://deb\\.debian\\.org/debian/pool/main/d/drumgizmo/drumgizmo_(?<version>[0-9]+(?:\\.[0-9]+)*-[0-9]+)_amd64\\.deb$"
+      }
+    },
+    {
+      "id": "mt-power-drum-kit-2",
+      "path": "manda-audio/mt-power-drum-kit-2.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.MtPowerDrumKit2Scenario",
+      "allowedDownloadHosts": ["www.powerdrumkit.com", "cdn2.resources.manda-audio.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.powerdrumkit.com/linux.php",
+        "downloadRegex": "^https://cdn2\\.resources\\.manda-audio\\.com/DOWNLOADS/products/mtpdk2_free/[0-9]+(?:\\.[0-9]+)*/MTPDK-(?<version>[0-9]+(?:\\.[0-9]+)*)-VST3-64bit-Linux-FULL\\.zip$"
+      }
+    },
+    {
+      "id": "ik-product-manager",
+      "path": "ik-multimedia/ik-product-manager.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.IkProductManagerScenario",
+      "allowedDownloadHosts": ["www.ikmultimedia.com", "ikmultimedia.com", "g1.ikmultimedia.com", "g2.ikmultimedia.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.ikmultimedia.com/pages/ik-product-manager",
+        "downloadRegex": "^https://g[12]\\.ikmultimedia\\.com/plugins/ProductManager/ik_product_manager_(?<version>[0-9]+(?:\\.[0-9]+)+)\\.zip$"
+      }
+    },
+    {
+      "id": "sine-player",
+      "path": "orchestral-tools/sine-player.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.SinePlayerScenario",
+      "allowedDownloadHosts": ["www.orchestraltools.com", "orchtools-installers-dl.s3.eu-central-1.amazonaws.com"],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.orchestraltools.com/get-sine",
+        "downloadRegex": "^https://orchtools-installers-dl\\.s3\\.eu-central-1\\.amazonaws\\.com/SINE_Player_(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)\\.[0-9]+\\.exe$"
+      }
+    },
+    {
+      "id": "uvi-portal",
+      "path": "uvi/uvi-portal.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.UviPortalScenario",
+      "allowedDownloadHosts": ["www.uvi.net", "cdn.uvi.net"],
+      "source": {
+        "type": "redirect",
+        "pageUrl": "https://www.uvi.net/download-portal/winx64",
+        "downloadRegex": "^https://cdn\\.uvi\\.net/PORTAL_Uvi_portal/files/(?<version>[0-9]+(?:\\.[0-9]+)+)/soft/UVI_Portal\\.exe$"
+      }
+    },
+    {
+      "id": "klevgrand-helper",
+      "path": "klevgrand/klevgrand-helper.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.KlevgrandHelperScenario",
+      "allowedDownloadHosts": ["klevgrand.com", "s3.eu-west-par.io.cloud.ovh.net"],
+      "source": {
+        "type": "redirect",
+        "pageUrl": "https://klevgrand.com/api/downloads/helper/Windows",
+        "downloadRegex": "^https://s3\\.eu-west-par\\.io\\.cloud\\.ovh\\.net/ultraklev/plugins/kds/Klevgrand_Helper_Installer_(?<version>[0-9]+_[0-9]+_[0-9]+)b[0-9]+\\.zip(?:\\?.*)?$"
+      }
+    }
+  ],
+  "blocked": [
+    {
+      "id": "roland-cloud-manager",
+      "reason": "Official 3.1.26 release notes exist, but both HEAD and GET requests to the download endpoint redirect to the versionless product page; no immutable installer URL was found. The versioned 3.1.25 asset is not newer."
+    }
+  ]
+}

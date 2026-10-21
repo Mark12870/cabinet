@@ -1,0 +1,97 @@
+name: Catalogue updates
+
+on:
+  schedule:
+    - cron: '43 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalogue-updates
+  cancel-in-progress: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      candidates: ${{ steps.discover.outputs.candidates }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Discover newer upstream releases
+        id: discover
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+          status=0
+          dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates discover candidates || status=$?
+          echo "candidates=$(jq -c . candidates/candidates.json)" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: catalogue-candidates
+          path: candidates
+          retention-days: 7
+
+  propose:
+    needs: discover
+    if: >-
+      !cancelled()
+      && needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
+      && vars.CATALOGUE_UPDATE_APP_ID != '' && vars.CATALOGUE_UPDATE_BOT != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        candidate: ${{ fromJSON(needs.discover.outputs.candidates) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: catalogue-candidates
+          path: ${{ runner.temp }}/candidates
+
+      - name: Apply the discovered catalogue entry
+        env:
+          ID: ${{ matrix.candidate.id }}
+          ENTRY_PATH: data/library/${{ matrix.candidate.path }}
+        run: cp "${RUNNER_TEMP}/candidates/$ID.yml" "$ENTRY_PATH"
+
+      - uses: actions/create-github-app-token@v2
+        id: app
+        with:
+          app-id: ${{ vars.CATALOGUE_UPDATE_APP_ID }}
+          private-key: ${{ secrets.CATALOGUE_UPDATE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app.outputs.token }}
+          sign-commits: true
+          branch: catalogue-update/${{ matrix.candidate.id }}
+          base: main
+          add-paths: data/library/${{ matrix.candidate.path }}
+          commit-message: 'Update ${{ matrix.candidate.id }} to ${{ matrix.candidate.version }}'
+          title: 'Update ${{ matrix.candidate.id }} to ${{ matrix.candidate.version }}'
+          body: >-
+            Discovered from the configured upstream source. Automatic merging requires
+            repository checks, a candidate Flatpak build and every declared format in
+            the matching scenario to pass. This does not publish a Cabinet release.
