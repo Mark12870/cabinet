@@ -698,10 +698,90 @@ public sealed class CatalogueUpdateTests
         var baseDirectory = fixture.WriteBaseline();
         fixture.WriteCandidate("1.1.0", "1.1.0");
 
-        var scenario = fixture.Service(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))))
-            .Validate(baseDirectory, "plugin");
+        var selections = fixture.Service(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))))
+            .Validate(baseDirectory, ["plugin"]);
 
-        Assert.Equal("Cabinet.Runtime.Tests.Scenarios.PluginScenario", scenario);
+        var selection = Assert.Single(selections);
+        Assert.Equal("plugin", selection.Id);
+        Assert.Equal("vendor/plugin.yml", selection.Path);
+        Assert.Equal("Cabinet.Runtime.Tests.Scenarios.PluginScenario", selection.Scenario);
+    }
+
+    [Fact]
+    public void ValidationRejectsEmptyDuplicateMalformedAndUnknownSelections()
+    {
+        using var fixture = new Fixture();
+        var service = fixture.Service(new HttpClient());
+
+        Assert.Throws<InvalidDataException>(() => service.Validate(fixture.Root, []));
+        Assert.Throws<InvalidDataException>(() => service.Validate(fixture.Root, ["plugin", "plugin"]));
+        Assert.Throws<InvalidDataException>(() => service.Validate(fixture.Root, ["Plugin"]));
+        Assert.Throws<InvalidDataException>(() => service.Validate(fixture.Root, ["unknown-plugin"]));
+    }
+
+    [Fact]
+    public void BatchReleaseIsOnePatchAndSortsNotesIndependentlyOfInputOrder()
+    {
+        using var fixture = new Fixture();
+        fixture.AddLaterEntry();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        fixture.WriteLaterCandidate("1.2.0");
+        var service = fixture.Service(new HttpClient());
+
+        service.GenerateRelease(baseDirectory, ["plugin-later", "plugin"], ReleaseDate);
+        var generated = File.ReadAllText(fixture.CandidateMetainfoPath);
+        var selections = service.Validate(baseDirectory, ["plugin-later", "plugin"]);
+        service.GenerateRelease(baseDirectory, ["plugin", "plugin-later"], ReleaseDate);
+
+        Assert.Equal(generated, File.ReadAllText(fixture.CandidateMetainfoPath));
+        Assert.Equal(new[] { "plugin", "plugin-later" }, selections.Select(item => item.Id));
+        Assert.Contains("<release version=\"0.9.1\" date=\"2026-10-21\">", generated);
+        Assert.Contains("<p>Update catalogue plugins</p>", generated);
+        Assert.Contains("<li>Install Test Plugin 1.1.0 from the updated catalogue</li>", generated);
+        Assert.Contains("<li>Install Later Plugin 1.2.0 from the updated catalogue</li>", generated);
+        Assert.True(generated.IndexOf("Install Test Plugin", StringComparison.Ordinal)
+            < generated.IndexOf("Install Later Plugin", StringComparison.Ordinal));
+        Assert.Equal(1, generated.Split("<release version=\"0.9.1\"", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public void ValidationRejectsOmittedAndAddedEntriesInTheBatchRelease()
+    {
+        using var fixture = new Fixture();
+        fixture.AddLaterEntry();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        fixture.WriteLaterCandidate("1.2.0");
+        var service = fixture.Service(new HttpClient());
+
+        service.GenerateRelease(baseDirectory, ["plugin", "plugin-later"], ReleaseDate);
+        var omitted = Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, ["plugin"]));
+        Assert.Equal("metainfo release does not match the trusted base and catalogue update", omitted.Message);
+
+        service.GenerateRelease(baseDirectory, ["plugin"], ReleaseDate);
+        var added = Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, ["plugin", "plugin-later"]));
+        Assert.Equal("metainfo release does not match the trusted base and catalogue update", added.Message);
+    }
+
+    [Fact]
+    public void BatchReleaseDoesNotWriteWhenAnySelectedEntryFailsValidation()
+    {
+        using var fixture = new Fixture();
+        fixture.AddLaterEntry();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        fixture.WriteLaterCandidate("1.2.0");
+        const string existingMetainfo = "unchanged metainfo";
+        File.WriteAllText(fixture.CandidateMetainfoPath, existingMetainfo);
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName(fixture.EntryPath)!, "plugin-later.yml"),
+            File.ReadAllText(Path.Combine(Path.GetDirectoryName(fixture.EntryPath)!, "plugin-later.yml"))
+                .Replace(new string('c', 64), "invalid", StringComparison.Ordinal));
+
+        var error = Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient())
+            .GenerateRelease(baseDirectory, ["plugin", "plugin-later"], ReleaseDate));
+        Assert.Equal("Sha256 is not a pinned lowercase SHA-256 hash", error.Message);
+        Assert.Equal(existingMetainfo, File.ReadAllText(fixture.CandidateMetainfoPath));
     }
 
     [Theory]
@@ -714,7 +794,7 @@ public sealed class CatalogueUpdateTests
         fixture.WriteCandidate(version, version);
         var service = fixture.Service(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))));
 
-        Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, "plugin"));
+        Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, ["plugin"]));
     }
 
     [Fact]
@@ -725,7 +805,7 @@ public sealed class CatalogueUpdateTests
         fixture.WriteCandidate("1.1.0", "1.0.0");
         var service = fixture.Service(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))));
 
-        Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, "plugin"));
+        Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, ["plugin"]));
     }
 
     [Fact]
@@ -736,7 +816,19 @@ public sealed class CatalogueUpdateTests
         fixture.WriteCandidate("1.1.0", "1.1.0", "Changed");
         var service = fixture.Service(new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.NotFound))));
 
-        Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, "plugin"));
+        Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, ["plugin"]));
+    }
+
+    [Fact]
+    public void ValidationRejectsAnInvalidSha256Hash()
+    {
+        using var fixture = new Fixture();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        File.WriteAllText(fixture.EntryPath,
+            File.ReadAllText(fixture.EntryPath).Replace(new string('b', 64), new string('B', 64), StringComparison.Ordinal));
+
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, ["plugin"]));
     }
 
     [Fact]
@@ -748,7 +840,20 @@ public sealed class CatalogueUpdateTests
         File.WriteAllText(fixture.CandidateMetainfoPath,
             File.ReadAllText(fixture.CandidateMetainfoPath).Replace("Existing release", "Edited release", StringComparison.Ordinal));
 
-        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, "plugin"));
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, ["plugin"]));
+    }
+
+    [Fact]
+    public void ValidationRejectsAdditionalReleaseHistory()
+    {
+        using var fixture = new Fixture();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        File.WriteAllText(fixture.CandidateMetainfoPath,
+            File.ReadAllText(fixture.CandidateMetainfoPath).Replace("  </releases>",
+                "    <release version=\"0.8.0\" date=\"2025-01-01\"></release>\n  </releases>", StringComparison.Ordinal));
+
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, ["plugin"]));
     }
 
     [Fact]
@@ -760,7 +865,7 @@ public sealed class CatalogueUpdateTests
         File.WriteAllText(fixture.CandidateMetainfoPath,
             File.ReadAllText(fixture.CandidateMetainfoPath).Replace("version=\"0.9.1\"", "version=\"0.9.2\"", StringComparison.Ordinal));
 
-        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, "plugin"));
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, ["plugin"]));
     }
 
     [Fact]
@@ -772,7 +877,7 @@ public sealed class CatalogueUpdateTests
         File.WriteAllText(fixture.CandidateMetainfoPath,
             File.ReadAllText(fixture.CandidateMetainfoPath).Replace("date=\"2026-10-21\"", "date=\"2026-10-1\"", StringComparison.Ordinal));
 
-        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, "plugin"));
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, ["plugin"]));
     }
 
     [Fact]
@@ -783,7 +888,7 @@ public sealed class CatalogueUpdateTests
         fixture.WriteCandidate("1.1.0", "1.1.0");
         var service = fixture.Service(new HttpClient());
 
-        service.GenerateRelease(baseDirectory, "plugin", ReleaseDate);
+        service.GenerateRelease(baseDirectory, ["plugin"], ReleaseDate);
 
         var metainfo = File.ReadAllText(fixture.CandidateMetainfoPath);
         Assert.Contains("<release version=\"0.9.1\" date=\"2026-10-21\">", metainfo);
@@ -1000,7 +1105,10 @@ public sealed class CatalogueUpdateTests
             var baseDirectory = Path.Combine(Root, "base");
             var baseEntry = Path.Combine(baseDirectory, "data", "library", "vendor", "plugin.yml");
             Directory.CreateDirectory(Path.GetDirectoryName(baseEntry)!);
-            File.WriteAllText(baseEntry, Entry);
+            foreach (var entry in Directory.EnumerateFiles(Path.GetDirectoryName(EntryPath)!, "*.yml"))
+            {
+                File.Copy(entry, Path.Combine(Path.GetDirectoryName(baseEntry)!, Path.GetFileName(entry)));
+            }
             var baseMetainfo = Path.Combine(baseDirectory, CatalogueRelease.MetainfoPath);
             Directory.CreateDirectory(Path.GetDirectoryName(baseMetainfo)!);
             File.WriteAllText(baseMetainfo, Metainfo);
@@ -1020,7 +1128,20 @@ public sealed class CatalogueUpdateTests
             Directory.CreateDirectory(Path.GetDirectoryName(CandidateMetainfoPath)!);
             File.WriteAllText(CandidateMetainfoPath,
                 CatalogueRelease.Generate(File.ReadAllText(Path.Combine(Root, "base", CatalogueRelease.MetainfoPath)),
-                    "Test Plugin", version, ReleaseDate));
+                    [new("Test Plugin", version)], ReleaseDate));
+        }
+
+        public void WriteLaterCandidate(string version)
+        {
+            var path = Path.Combine(Path.GetDirectoryName(EntryPath)!, "plugin-later.yml");
+            var candidate = Entry
+                .Replace("Test Plugin", "Later Plugin", StringComparison.Ordinal)
+                .Replace("Version: 1.0.0", $"Version: {version}", StringComparison.Ordinal)
+                .Replace("Url: https://github.com/acme/plugin/releases/download/v1.0.0/Plugin-1.0.0.zip",
+                    $"Url: https://github.com/acme/plugin/releases/download/v{version}/Plugin-{version}.zip",
+                    StringComparison.Ordinal)
+                .Replace(new string('a', 64), new string('c', 64), StringComparison.Ordinal);
+            File.WriteAllText(path, candidate);
         }
 
         public void Dispose() => Directory.Delete(Root, true);

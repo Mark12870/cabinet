@@ -4,25 +4,26 @@
 `coverage.json` artifact and GitHub summary. Every pinned download must have a verified discovery rule or a specific
 blocker; CI rejects unclassified entries. Rolling and BYO sources are reported but cannot receive automatic version pins.
 
-A newer release gets a PR changing only version, URL and calculated SHA-256, plus a Cabinet release note, when its scenario
-covers every declared format. Discovery still checks entries with unsupported formats or missing scenarios, but never
-downloads their installers or proposes bumps. Beta catalogue versions and expiring signed download URLs also block proposals.
+A newer release gets one batch PR on `catalogue-updates`, changing only candidate entries and one Cabinet release note.
+Discovery still checks entries with unsupported formats or missing scenarios, but never downloads their installers or
+proposes bumps. Beta catalogue versions and expiring signed download URLs also block proposals.
 
-CI builds the candidate Flatpak and runs its isolated scenario. Every declared format and additional test case must pass
-without skips or retries. Merging requires repository checks, build and runtime success, the tested head and an unchanged
-base. A moved `main` waits for the next discovery run to refresh the candidate. Failed candidates stay open.
+The bot commit uses `[skip ci]` to avoid a duplicate push or pull-request run. Discovery explicitly dispatches CI from
+trusted `main`; that run validates the exact PR, base and head, builds one Flatpak artifact, runs the general runtime suite,
+and runs all affected scenarios together in parallel. Every affected entry must pass every declared format and additional
+test case without skips or retries. If `main` moved, promotion and publication stop; discovery must refresh and retest.
 
-The PR increments Cabinet's patch release and adds a note for the updated plugin. Merging it makes that release eligible
-for the existing release gate; publishing still waits for normal CI checks and build.
+After the exact tested head is fast-forwarded to `main`, that same CI run publishes the same tested artifact through the
+normal release gate. It does not dispatch a second CI run after promotion. Failed candidates stay open.
 
 ## GitHub setup
 
 1. In **Settings → Actions → General → Workflow permissions**, allow GitHub Actions to create and approve pull requests.
    The workflows use the built-in `GITHUB_TOKEN`; no App or PAT credentials are needed. They do not bypass branch
    protection.
-2. Keep `main` protected with required checks `checks`, `build / build` and `candidate` (confirm displayed names in the
-   first run). Automatic merging also requires the candidate runtime; do not require that conditional job for ordinary
-   PRs or require `merge-candidate`. The merge is a non-forced fast-forward of the exact tested head and base.
+2. Keep the existing protection on `main`. The workflow does not bypass branch protection; if a rule requires PR-attached
+   status checks or otherwise rejects its non-forced fast-forward, promotion fails closed. Do not weaken or bypass those
+   rules to make a candidate pass.
 3. Keep the scenario account secrets used by `Plugins` configured. Run `Catalogue updates` manually to verify setup.
 
 Only catalogue scenarios receive those account secrets. Existing GPG signing and plugin-account secrets are unchanged.
@@ -42,6 +43,6 @@ dotnet run --project tools/Cabinet.Ci -- catalogue-updates check /tmp/catalogue-
 dotnet run --project tools/Cabinet.Ci -- catalogue-updates discover /tmp/catalogue-candidates
 ```
 
-Reports distinguish discovery, automation eligibility and each check's outcome. Unexpected upstream failures fail the
-workflow after saving reports; known blockers do not. Candidate YAML and `candidates.json` never change the catalogue
+Reports distinguish discovery, automation eligibility and each check's outcome. Failed upstream checks are reported and
+skipped without blocking other candidates. Candidate YAML and `candidates.json` never change the catalogue
 directly. None of these commands installs or runs software.

@@ -88,7 +88,7 @@ as_owner() {
         CABINET_RUNTIME_HOST_FLATPAK_REPO="${CABINET_RUNTIME_HOST_FLATPAK_REPO:-$SOURCE/repo}" \
         CABINET_RUNTIME_CABINET_REF="${CABINET_RUNTIME_CABINET_REF:-$APP/x86_64/stable}" \
         CABINET_RUNTIME_SUITE="${CABINET_RUNTIME_SUITE:-general}" \
-        CABINET_RUNTIME_FILTER_CLASS="${CABINET_RUNTIME_FILTER_CLASS:-}" \
+        CABINET_RUNTIME_SELECTION="${CABINET_RUNTIME_SELECTION:-}" \
         bash "$0" "$@"
 }
 
@@ -246,16 +246,26 @@ run_test() {
 
     session_bus
 
-    local filter=() parallel=()
+    local filter=() parallel=() classes=() selection="${CABINET_RUNTIME_SELECTION:-}"
 
     case "${CABINET_RUNTIME_SUITE:-general}" in
         general) filter=(--filter-not-namespace Cabinet.Runtime.Tests.Scenarios
             --filter-not-namespace Cabinet.Runtime.Tests.Patches) ;;
         scenarios) filter=(--filter-namespace Cabinet.Runtime.Tests.Scenarios)
             parallel=(--parallel collections)
-            if [ -n "${CABINET_RUNTIME_FILTER_CLASS:-}" ]; then
-                filter+=(--filter-class "$CABINET_RUNTIME_FILTER_CLASS")
-                parallel=(--parallel none)
+            if [ -n "$selection" ]; then
+                jq -e 'type == "array" and length > 0 and
+                  all(.[]; type == "object" and
+                    (.id | type == "string" and test("^[a-z0-9]+(-[a-z0-9]+)*$")) and
+                    (.path | type == "string" and test("^[a-z0-9-]+/[a-z0-9-]+\\.yml$")) and
+                    (.scenario | type == "string" and test("^Cabinet\\.Runtime\\.Tests\\.Scenarios\\.[A-Za-z0-9_]+Scenario$")) and
+                    (.path | split("/")[-1] | sub("\\.yml$"; "")) == .id) and
+                  ([.[].id] | length == (unique | length))' <<< "$selection" >/dev/null ||
+                    die 'invalid runtime scenario selection'
+                mapfile -t classes < <(jq -r '.[].scenario' <<< "$selection" | sort -u)
+                for class in "${classes[@]}"; do
+                    filter+=(--filter-class "$class")
+                done
             fi ;;
         *) die "no runtime suite named ${CABINET_RUNTIME_SUITE}" ;;
     esac

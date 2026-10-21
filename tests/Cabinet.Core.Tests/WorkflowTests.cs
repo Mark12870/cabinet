@@ -138,26 +138,30 @@ public class WorkflowTests
     }
 
     [Fact]
-    public void TargetedPluginRunsTakeAClassFilterAndRunAlone()
+    public void BatchPluginRunsUseValidatedClassesAndKeepCollectionParallelism()
     {
         var scenarios = Driver.Split("scenarios) filter=", StringSplitOptions.None)[1]
             .Split(";;", StringSplitOptions.None)[0];
 
         Assert.DoesNotContain(Plugins, line => line.Contains("filter_class", StringComparison.Ordinal));
-        Assert.Contains(Runtime, line => line.Contains("--env CABINET_RUNTIME_FILTER_CLASS=", StringComparison.Ordinal));
+        Assert.Contains(Runtime, line => line.Contains("selection_json:", StringComparison.Ordinal));
+        Assert.Contains(Runtime, line => line.Contains("CABINET_RUNTIME_SELECTION=", StringComparison.Ordinal));
         Assert.Contains("parallel=(--parallel collections)", scenarios, StringComparison.Ordinal);
-        Assert.Contains("filter+=(--filter-class \"$CABINET_RUNTIME_FILTER_CLASS\")", scenarios, StringComparison.Ordinal);
-        Assert.Contains("parallel=(--parallel none)", scenarios, StringComparison.Ordinal);
+        Assert.Contains("jq -r '.[].scenario'", scenarios, StringComparison.Ordinal);
+        Assert.Contains("filter+=(--filter-class \"$class\")", scenarios, StringComparison.Ordinal);
+        Assert.DoesNotContain("parallel=(--parallel none)", scenarios, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AutomaticMergingRequiresChecksBuildAndTheCandidateScenario()
+    public void PromotionRequiresEveryBatchGateAndDoesNotDispatchAnotherCiRun()
     {
         var merge = Job(Ci, "merge-candidate");
         var runtime = Job(Ci, "candidate-runtime");
 
-        Assert.Contains(merge, line => line.Trim() == "needs: [candidate, checks, build, candidate-runtime]");
+        Assert.Contains(merge, line => line.Trim() == "needs: [candidate, checks, build, runtime, candidate-runtime]");
         Assert.Contains(merge, line => line.Contains("github.event_name == 'workflow_dispatch'", StringComparison.Ordinal));
+        Assert.Contains(merge, line => line.Contains("needs.runtime.result == 'success'", StringComparison.Ordinal));
+        Assert.Contains(merge, line => line.Contains("needs.candidate-runtime.result == 'success'", StringComparison.Ordinal));
         Assert.DoesNotContain(merge, line => line.Contains("gh pr merge", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains("gh api \"repos/$GH_REPO/pulls/$PR\"", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains(".state == \"open\"", StringComparison.Ordinal));
@@ -165,7 +169,7 @@ public class WorkflowTests
         Assert.Contains(merge, line => line.Contains(".user.login == \"github-actions[bot]\"", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains(".head.sha == $head", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains(".head.repo.full_name == $repo", StringComparison.Ordinal));
-        Assert.Contains(merge, line => line.Contains(".head.ref == (\"catalogue-update/\" + $id)", StringComparison.Ordinal));
+        Assert.Contains(merge, line => line.Contains(".head.ref == \"catalogue-updates\"", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains(".base.ref == \"main\"", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains(".base.sha == $base", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains(".base.repo.full_name == $repo", StringComparison.Ordinal));
@@ -179,23 +183,22 @@ public class WorkflowTests
         var pullRequestCheck = merge.ToList().FindIndex(line => line.Contains("pull_request=$(gh api", StringComparison.Ordinal));
         var commitCheck = merge.ToList().FindIndex(line => line.Contains("commit=$(gh api", StringComparison.Ordinal));
         var fastForward = merge.ToList().FindIndex(line => line.Contains("--method PATCH", StringComparison.Ordinal));
-        Assert.True(pullRequestCheck >= 0 && pullRequestCheck < commitCheck && commitCheck < fastForward);
+        var promoted = merge.ToList().FindIndex(line => line.Contains("echo \"promoted=true\"", StringComparison.Ordinal));
+        Assert.True(pullRequestCheck >= 0 && pullRequestCheck < commitCheck && commitCheck < fastForward && fastForward < promoted);
         Assert.Contains(merge, line => line.Contains("\"$current\" != \"$BASE\"", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains("GH_TOKEN: ${{ github.token }}", StringComparison.Ordinal));
-        Assert.Contains(merge, line => line.Trim() == "actions: write");
         Assert.Contains(merge, line => line.Trim() == "contents: write");
         Assert.Contains(merge, line => line.Trim() == "pull-requests: read");
-        var patch = merge.ToList().FindIndex(line => line.Contains("--method PATCH", StringComparison.Ordinal));
-        var dispatch = merge.ToList().FindIndex(line => line.Contains("gh workflow run ci.yml --ref main", StringComparison.Ordinal));
-        Assert.True(patch >= 0 && dispatch > patch);
-        Assert.Contains(runtime, line => line.Contains("entry_id: ${{ needs.candidate.outputs.id }}", StringComparison.Ordinal));
-        Assert.Contains(runtime, line => line.Contains("checkout_ref: ${{ needs.candidate.outputs.head }}", StringComparison.Ordinal));
-        Assert.Contains(Runtime, line => line.Contains("scenario-approve runtime/TestResults/runtime.trx", StringComparison.Ordinal));
+        Assert.DoesNotContain(merge, line => line.Contains("gh workflow run ci.yml", StringComparison.Ordinal));
+        Assert.Contains(runtime, line => line.Contains("selection_json: ${{ needs.candidate.outputs.selection_json }}", StringComparison.Ordinal));
+        Assert.Contains(runtime, line => line.Contains("checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}", StringComparison.Ordinal));
+        Assert.Contains(Runtime, line => line.Contains("for id in \"${ids[@]}\"", StringComparison.Ordinal));
+        Assert.Contains(Runtime, line => line.Contains("scenario-approve \\", StringComparison.Ordinal));
         Assert.Contains(runtime, line => line.Trim() == "packages: read");
     }
 
     [Fact]
-    public void CandidatesAreValidatedUsingTrustedBaseCodeAndOnlyTheEntryAndMetainfo()
+    public void BatchCandidatesAreValidatedAgainstTrustedBaseAndExactModifiedPaths()
     {
         var candidate = Job(Ci, "candidate");
 
@@ -219,20 +222,27 @@ public class WorkflowTests
         Assert.Contains(candidate, line => line.Contains("\"${parents[0]}\" = \"$HEAD\"", StringComparison.Ordinal));
         Assert.Contains(candidate, line => line.Contains("\"${parents[1]}\" = \"$BASE\"", StringComparison.Ordinal));
         Assert.Contains(candidate, line => line.Contains("git diff --raw --no-renames", StringComparison.Ordinal));
-        Assert.Contains(candidate, line => line.Contains("[ \"${#changed[@]}\" -eq 2 ]", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("[ \"${#changed[@]}\" -ge 2 ]", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("declare -A seen_ids=()", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("entry_paths+=(\"$path\")", StringComparison.Ordinal));
         Assert.Contains(candidate, line => line.Contains("100644\\ 100644", StringComparison.Ordinal));
         Assert.Contains(candidate, line => line.Contains("flatpak/io.github.mark12870.cabinet.metainfo.xml", StringComparison.Ordinal));
         Assert.Contains(candidate, line => line.Contains("catalogue-updates validate", StringComparison.Ordinal));
-        Assert.Contains(candidate, line => line.Contains("validate \"$baseline\" \"$id\"", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("\"$baseline\" \"${RUNNER_TEMP}/catalogue-ids.json\"", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("[.[].path] | sort) == ($paths | sort)", StringComparison.Ordinal));
+        Assert.Contains(candidate, line => line.Contains("head.ref == \"catalogue-updates\"", StringComparison.Ordinal));
         Assert.Contains(candidate, line => line.Contains("echo \"checkout_sha=$HEAD\"", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void CatalogueUpdateProposalsGenerateAndStageTheirNextReleaseEntry()
+    public void CatalogueUpdateProposalsBatchOnOneSignedBranchAndDispatchTrustedCi()
     {
         var workflow = Repo.Lines(".github/workflows/catalogue-updates.yml");
         var propose = Job(workflow, "propose");
 
+        Assert.DoesNotContain(propose, line => line.Trim() == "matrix:");
+        Assert.DoesNotContain(propose, line => line.Trim() == "strategy:");
+        Assert.Contains(propose, line => line.Contains("ref: ${{ needs.discover.outputs.base }}", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Contains("dotnet build tools/Cabinet.Ci", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Contains("catalogue-updates release", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Contains("date -u +%F", StringComparison.Ordinal));
@@ -240,13 +250,18 @@ public class WorkflowTests
         Assert.Contains(propose, line => line.Contains("token: ${{ github.token }}", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Contains("sign-commits: true", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Trim() == "add-paths: |");
+        Assert.Contains(propose, line => line.Trim() == "data/library/**/*.yml");
         Assert.Contains(propose, line => line.Trim() == "flatpak/io.github.mark12870.cabinet.metainfo.xml");
-        Assert.Contains(propose, line => line.Contains("Cabinet patch", StringComparison.Ordinal));
-        Assert.Contains(propose, line => line.Contains("existing release gate", StringComparison.Ordinal));
-        Assert.Contains(propose, line => line.Contains("normal checks, build and runtime suite", StringComparison.Ordinal));
+        Assert.Contains(propose, line => line.Contains("Batch catalogue updates [skip ci]", StringComparison.Ordinal));
+        Assert.Contains(propose, line => line.Trim() == "title: 'Batch catalogue updates'");
+        Assert.Equal(1, propose.Count(line => line.Contains("[skip ci]", StringComparison.Ordinal)));
+        Assert.Contains(propose, line => line.Contains("branch: catalogue-updates", StringComparison.Ordinal));
+        Assert.Contains(propose, line => line.Contains("catalogue-ids.json", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Contains("steps.pr.outputs.pull-request-head-sha", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Contains("gh workflow run ci.yml --ref main -f candidate_pr=\"$PR\" -f candidate_head=\"$HEAD\"", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Contains(".state == \"open\" and .head.sha == $head", StringComparison.Ordinal));
+        Assert.Contains(propose, line => line.Contains("main moved after discovery", StringComparison.Ordinal));
+        Assert.Equal(1, propose.Count(line => line.Contains("gh workflow run ci.yml", StringComparison.Ordinal)));
         Assert.Contains(propose, line => line.Trim() == "actions: write");
         Assert.Contains(propose, line => line.Trim() == "contents: write");
         Assert.Contains(propose, line => line.Trim() == "pull-requests: write");
@@ -261,11 +276,12 @@ public class WorkflowTests
 
         Assert.Contains(discover, line => line.Trim() == "if: always()");
         Assert.Contains(discover, line => line.Contains("exit \"$status\"", StringComparison.Ordinal));
+        Assert.Contains(discover, line => line.Contains("base: ${{ steps.discover.outputs.base }}", StringComparison.Ordinal));
         Assert.Contains(propose, line => line.Trim() == "!cancelled()");
     }
 
     [Fact]
-    public void CandidateRunsCheckoutTheirValidatedHeadAndCannotPublish()
+    public void BatchCandidatesTestAndPublishOneValidatedBuildOnlyAfterPromotion()
     {
         var checks = Job(Ci, "checks");
         var build = Job(Ci, "build");
@@ -275,12 +291,19 @@ public class WorkflowTests
 
         Assert.Contains(checks, line => line.Contains("ref: ${{ needs.candidate.outputs.checkout_sha }}", StringComparison.Ordinal));
         Assert.Contains(build, line => line.Contains("checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}", StringComparison.Ordinal));
-        Assert.Contains(runtime, line => line.Contains("checkout_ref: ${{ needs.candidate.outputs.head }}", StringComparison.Ordinal));
-        Assert.Contains(normalRuntime, line => line.Contains("!inputs.candidate_pr && !inputs.candidate_head", StringComparison.Ordinal));
+        Assert.Contains(runtime, line => line.Contains("selection_json: ${{ needs.candidate.outputs.selection_json }}", StringComparison.Ordinal));
+        Assert.Contains(runtime, line => line.Contains("checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}", StringComparison.Ordinal));
+        Assert.DoesNotContain(normalRuntime, line => line.Contains("!inputs.candidate_pr && !inputs.candidate_head", StringComparison.Ordinal));
+        Assert.Contains(normalRuntime, line => line.Contains("checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}", StringComparison.Ordinal));
         Assert.Contains(publish, line => line.Contains("needs.checks.result == 'success'", StringComparison.Ordinal));
-        Assert.Contains(publish, line => line.Contains("!inputs.candidate_pr && !inputs.candidate_head", StringComparison.Ordinal));
-        Assert.Contains(publish, line => line.Contains("needs.candidate.outputs.id == ''", StringComparison.Ordinal));
+        Assert.Contains(publish, line => line.Contains("needs.candidate.outputs.selection_json == '' && !inputs.candidate_pr && !inputs.candidate_head", StringComparison.Ordinal));
+        Assert.Contains(publish, line => line.Contains("needs.merge-candidate.outputs.promoted == 'true'", StringComparison.Ordinal));
+        Assert.Contains(publish, line => line.Contains("needs.candidate-runtime.result == 'success'", StringComparison.Ordinal));
+        Assert.Contains(publish, line => line.Contains("group: cabinet-publish", StringComparison.Ordinal));
+        Assert.Contains(publish, line => line.Contains("ref: ${{ needs.candidate.outputs.checkout_sha }}", StringComparison.Ordinal));
+        Assert.Contains(publish, line => line.Contains("main still points at the checked-out source", StringComparison.Ordinal));
         Assert.Contains(Ci, line => line.Contains("inputs.candidate_pr && format('candidate-{0}', inputs.candidate_pr)", StringComparison.Ordinal));
+        Assert.DoesNotContain(Ci, line => line.Contains("gh workflow run ci.yml", StringComparison.Ordinal));
     }
 
     [Theory]

@@ -17,41 +17,59 @@ internal static class CatalogueRelease
     private static readonly Regex FirstRelease = new("^    <release version=\"[^\"]+\" date=\"(?<date>[^\"]+)\">$",
         RegexOptions.CultureInvariant);
 
-    public static string Generate(string baseline, string name, string candidateVersion, DateOnly date)
+    public static string Generate(string baseline, IReadOnlyList<CatalogueReleaseItem> items, DateOnly date)
     {
-        if (string.IsNullOrWhiteSpace(name))
+        if (items is null || items.Count == 0)
         {
-            throw new InvalidDataException("trusted catalogue entry has no name");
+            throw new InvalidDataException("catalogue release must contain at least one entry");
         }
-        if (!CandidateVersion.IsMatch(candidateVersion))
+
+        foreach (var item in items)
         {
-            throw new InvalidDataException("candidate version is not a stable numeric version");
+            if (item is null || string.IsNullOrWhiteSpace(item.Name))
+            {
+                throw new InvalidDataException("trusted catalogue entry has no name");
+            }
+            if (string.IsNullOrEmpty(item.Version) || !CandidateVersion.IsMatch(item.Version))
+            {
+                throw new InvalidDataException("candidate version is not a stable numeric version");
+            }
         }
 
         var releaseVersion = NextReleaseVersion(baseline);
         var (insertion, newline) = InsertionPoint(baseline);
-        try
+        var escapedNames = new string[items.Count];
+        for (var index = 0; index < items.Count; index++)
         {
-            XmlConvert.VerifyXmlChars(name);
-        }
-        catch (XmlException exception)
-        {
-            throw new InvalidDataException("trusted catalogue name is not valid XML text", exception);
+            try
+            {
+                XmlConvert.VerifyXmlChars(items[index].Name);
+            }
+            catch (XmlException exception)
+            {
+                throw new InvalidDataException("trusted catalogue name is not valid XML text", exception);
+            }
+
+            escapedNames[index] = SecurityElement.Escape(items[index].Name)!;
         }
 
-        var escapedName = SecurityElement.Escape(name)!;
         var dateText = date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        var release = string.Join(newline,
-        [
+        var headline = items.Count == 1 ? $"Update {escapedNames[0]}" : "Update catalogue plugins";
+        var releaseLines = new List<string>
+        {
             $"    <release version=\"{releaseVersion}\" date=\"{dateText}\">",
             "      <description>",
-            $"        <p>Update {escapedName}</p>",
-            "        <ul>",
-            $"          <li>Install {escapedName} {candidateVersion} from the updated catalogue</li>",
-            "        </ul>",
-            "      </description>",
-            "    </release>"
-        ]);
+            $"        <p>{headline}</p>",
+            "        <ul>"
+        };
+        for (var index = 0; index < items.Count; index++)
+        {
+            releaseLines.Add($"          <li>Install {escapedNames[index]} {items[index].Version} from the updated catalogue</li>");
+        }
+        releaseLines.Add("        </ul>");
+        releaseLines.Add("      </description>");
+        releaseLines.Add("    </release>");
+        var release = string.Join(newline, releaseLines);
         return baseline.Insert(insertion, release + newline + newline);
     }
 
@@ -108,3 +126,5 @@ internal static class CatalogueRelease
         return (content + newline.Length, newline);
     }
 }
+
+internal sealed record CatalogueReleaseItem(string Name, string Version);

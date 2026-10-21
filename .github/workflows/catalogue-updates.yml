@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       candidates: ${{ steps.discover.outputs.candidates }}
+      base: ${{ steps.discover.outputs.base }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,6 +34,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           status=0
           dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates discover candidates || status=$?
           echo "candidates=$(jq -c . candidates/candidates.json)" >> "$GITHUB_OUTPUT"
@@ -55,15 +57,10 @@ jobs:
       actions: write
       contents: write
       pull-requests: write
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        candidate: ${{ fromJSON(needs.discover.outputs.candidates) }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: main
+          ref: ${{ needs.discover.outputs.base }}
           persist-credentials: false
 
       - uses: actions/download-artifact@v8
@@ -78,36 +75,63 @@ jobs:
       - name: Build the trusted release helper
         run: dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
 
-      - name: Apply the catalogue entry and prepare its release notes
+      - name: Apply the catalogue batch and prepare its release notes
         env:
-          ID: ${{ matrix.candidate.id }}
-          ENTRY_PATH: data/library/${{ matrix.candidate.path }}
+          BASE: ${{ needs.discover.outputs.base }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CANDIDATES: ${{ needs.discover.outputs.candidates }}
         run: |
           set -euo pipefail
+          [[ "$BASE" =~ ^[0-9a-f]{40}$ ]]
+          [ "$(git rev-parse HEAD)" = "$BASE" ]
+          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current" != "$BASE" ]; then
+            echo '::notice::main moved after discovery; no catalogue candidates were applied'
+            exit 1
+          fi
+
+          jq -e 'type == "array" and length > 0 and all(.[];
+            type == "object" and (.id | type == "string" and test("^[a-z0-9]+(-[a-z0-9]+)*$")) and
+            (.path | type == "string" and test("^[a-z0-9-]+/[a-z0-9-]+\\.yml$")) and
+            (.version | type == "string")) and
+            ([.[].id] | length == (unique | length))' <<< "$CANDIDATES" >/dev/null
+
           baseline="${RUNNER_TEMP}/catalogue-baseline"
-          mkdir -p "$baseline/$(dirname "$ENTRY_PATH")" "$baseline/flatpak"
-          cp "$ENTRY_PATH" "$baseline/$ENTRY_PATH"
-          cp flatpak/io.github.mark12870.cabinet.metainfo.xml "$baseline/flatpak/io.github.mark12870.cabinet.metainfo.xml"
-          cp "${RUNNER_TEMP}/candidates/$ID.yml" "$ENTRY_PATH"
-          dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates release "$baseline" "$ID" "$(date -u +%F)"
+          metainfo=flatpak/io.github.mark12870.cabinet.metainfo.xml
+          mkdir -p "$baseline/flatpak"
+          cp "$metainfo" "$baseline/$metainfo"
+          ids=()
+          while IFS=$'\t' read -r id path; do
+            [[ "$id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
+            [[ "$path" =~ ^([a-z0-9-]+)/([a-z0-9-]+)\.yml$ ]]
+            [ "${BASH_REMATCH[2]}" = "$id" ]
+            entry="data/library/$path"
+            mkdir -p "$baseline/data/library/$(dirname "$path")"
+            cp "$entry" "$baseline/$entry"
+            cp "${RUNNER_TEMP}/candidates/$id.yml" "$entry"
+            ids+=("$id")
+          done < <(jq -r '.[] | [.id, .path] | @tsv' <<< "$CANDIDATES")
+          printf '%s\n' "${ids[@]}" | jq -R . | jq -s . > "${RUNNER_TEMP}/catalogue-ids.json"
+          dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates release \
+            "$baseline" "${RUNNER_TEMP}/catalogue-ids.json" "$(date -u +%F)"
 
       - uses: peter-evans/create-pull-request@v7
         id: pr
         with:
           token: ${{ github.token }}
           sign-commits: true
-          branch: catalogue-update/${{ matrix.candidate.id }}
+          branch: catalogue-updates
           base: main
           add-paths: |
-            data/library/${{ matrix.candidate.path }}
+            data/library/**/*.yml
             flatpak/io.github.mark12870.cabinet.metainfo.xml
-          commit-message: 'Update ${{ matrix.candidate.id }} to ${{ matrix.candidate.version }}'
-          title: 'Update ${{ matrix.candidate.id }} to ${{ matrix.candidate.version }}'
+          commit-message: 'Batch catalogue updates [skip ci]'
+          title: 'Batch catalogue updates'
           body: >-
-            Discovered from the configured upstream source. This PR includes a Cabinet patch
-            version bump; merging it triggers the existing release gate, which publishes only
-            after the normal checks, build and runtime suite pass. Automatic merging also requires
-            a candidate Flatpak build and every declared format in the matching scenario.
+            Discovered from configured upstream sources. This single batch is validated and tested
+            by an explicit trusted-main dispatch; publication uses that same tested build after
+            the tested head is promoted to main.
 
       - name: Dispatch candidate CI
         if: steps.pr.outputs.pull-request-number != '' && steps.pr.outputs.pull-request-head-sha != ''

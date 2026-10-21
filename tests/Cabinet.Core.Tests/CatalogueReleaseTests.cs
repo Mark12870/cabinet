@@ -9,7 +9,7 @@ public sealed class CatalogueReleaseTests
     {
         const string baseline = "<component>\n  <releases>\n    <release version=\"1.2.10\" date=\"2026-01-02\">\n      <description>\n        <p>Newest</p>\n      </description>\n    </release>\n    <release version=\"1.2.9\" date=\"2026-01-01\">\n      <description>\n        <p>Older</p>\n      </description>\n    </release>\n  </releases>\n</component>\n";
 
-        var generated = CatalogueRelease.Generate(baseline, "Plugin & <One>", "4.5.6", new DateOnly(2026, 10, 21));
+        var generated = CatalogueRelease.Generate(baseline, [new("Plugin & <One>", "4.5.6")], new DateOnly(2026, 10, 21));
 
         Assert.StartsWith("<component>\n  <releases>\n", generated, StringComparison.Ordinal);
         Assert.Contains("<release version=\"1.2.11\" date=\"2026-10-21\">", generated);
@@ -36,7 +36,7 @@ public sealed class CatalogueReleaseTests
             ""
         ]);
 
-        var generated = CatalogueRelease.Generate(baseline, "Plugin", "1.0.0", new DateOnly(2026, 1, 2));
+        var generated = CatalogueRelease.Generate(baseline, [new("Plugin", "1.0.0")], new DateOnly(2026, 1, 2));
         var insertion = baseline.IndexOf("<releases>", StringComparison.Ordinal) + "<releases>".Length + newline.Length;
         var release = string.Join(newline,
         [
@@ -60,7 +60,7 @@ public sealed class CatalogueReleaseTests
     public void CandidateDatesMustBeCanonicalAndValid(string date)
     {
         var generated = CatalogueRelease.Generate("<releases>\n    <release version=\"1.0.0\" date=\"2026-01-01\">\n    </release>\n</releases>",
-            "Plugin", "1.0.0", new DateOnly(2026, 1, 2));
+            [new("Plugin", "1.0.0")], new DateOnly(2026, 1, 2));
         generated = generated.Replace("date=\"2026-01-02\"", $"date=\"{date}\"", StringComparison.Ordinal);
 
         Assert.Throws<InvalidDataException>(() => CatalogueRelease.ReadCandidateDate(generated));
@@ -71,9 +71,31 @@ public sealed class CatalogueReleaseTests
     {
         const string baseline = "<releases>\n    <release version=\"1.0.0\" date=\"2026-01-01\">\n    </release>\n</releases>";
 
-        Assert.Throws<InvalidDataException>(() => CatalogueRelease.Generate(baseline, "Plugin", "1.0.0\n", new DateOnly(2026, 1, 2)));
+        Assert.Throws<InvalidDataException>(() => CatalogueRelease.Generate(baseline, [new("Plugin", "1.0.0\n")], new DateOnly(2026, 1, 2)));
         Assert.Throws<InvalidDataException>(() => CatalogueRelease.Generate(
             baseline.Replace("version=\"1.0.0\"", "version=\"1.0.0\n\"", StringComparison.Ordinal),
-            "Plugin", "1.0.0", new DateOnly(2026, 1, 2)));
+            [new("Plugin", "1.0.0")], new DateOnly(2026, 1, 2)));
+    }
+
+    [Fact]
+    public void BatchGenerationUsesOneNeutralHeadlineAndEscapedEntryBullets()
+    {
+        const string baseline = "<component>\n  <releases>\n    <release version=\"1.2.10\" date=\"2026-01-02\">\n      <description>\n        <p>Older</p>\n      </description>\n    </release>\n  </releases>\n</component>\n";
+
+        var generated = CatalogueRelease.Generate(baseline,
+            [new("Second & <Plugin>", "2.3.4"), new("First Plugin", "1.2.3")], new DateOnly(2026, 10, 21));
+
+        Assert.Contains("<p>Update catalogue plugins</p>", generated);
+        Assert.Contains("<li>Install Second &amp; &lt;Plugin&gt; 2.3.4 from the updated catalogue</li>", generated);
+        Assert.Contains("<li>Install First Plugin 1.2.3 from the updated catalogue</li>", generated);
+        Assert.Equal(1, generated.Split("<release version=\"1.2.11\"", StringSplitOptions.None).Length - 1);
+        Assert.EndsWith(baseline[baseline.IndexOf("    <release", StringComparison.Ordinal)..], generated,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void GenerationRejectsAnEmptyBatch()
+    {
+        Assert.Throws<InvalidDataException>(() => CatalogueRelease.Generate("<releases>\n</releases>", [], new DateOnly(2026, 1, 2)));
     }
 }

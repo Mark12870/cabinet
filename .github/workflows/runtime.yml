@@ -13,14 +13,14 @@ on:
         description: general or scenarios
         type: string
         default: general
-      filter_class:
-        description: Exact scenario class for a catalogue update
+      selection_json:
+        description: Validated catalogue update scenarios
         type: string
         default: ''
-      entry_id:
-        description: Catalogue entry requiring complete scenario results
+      artifact_name:
+        description: Runtime captures artifact name
         type: string
-        default: ''
+        default: runtime
     secrets:
       EMAIL:
         required: false
@@ -196,6 +196,7 @@ jobs:
         id: setup
         env:
           SUITE: ${{ inputs.suite }}
+          SELECTION: ${{ inputs.selection_json }}
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
           if [ -f fixtures.tar ]; then
@@ -203,12 +204,13 @@ jobs:
             docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh restore /tmp/fixtures.tar
           fi
           docker exec --env CABINET_RUNTIME_SUITE="${SUITE}" \
+            --env CABINET_RUNTIME_SELECTION="${SELECTION}" \
             "${CONTAINER}" /src/scripts/runtime-ci.sh setup
 
       - name: Runtime tests
         env:
           SUITE: ${{ inputs.suite }}
-          FILTER_CLASS: ${{ inputs.filter_class }}
+          SELECTION: ${{ inputs.selection_json }}
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
           DROPBOX: ${{ secrets.DROPBOX }}
@@ -219,7 +221,7 @@ jobs:
           EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
         run: |
           docker exec --env CABINET_RUNTIME_SUITE="${SUITE}" \
-            --env CABINET_RUNTIME_FILTER_CLASS="${FILTER_CLASS}" \
+            --env CABINET_RUNTIME_SELECTION="${SELECTION}" \
             --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME --env NATIVE_ACCESS --env WAVES \
             --env EMAIL_IMAP_HOST --env EMAIL_IMAP_PASSWORD \
             "${CONTAINER}" /src/scripts/runtime-ci.sh test
@@ -240,7 +242,7 @@ jobs:
         run: dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
 
       - name: Drop the captures of the scenarios that passed
-        if: always() && inputs.suite == 'scenarios' && inputs.entry_id == ''
+        if: always() && inputs.suite == 'scenarios' && inputs.selection_json == ''
         run: |
           dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-report --passed runtime/TestResults/runtime.trx | while read -r id; do
             [ -d "runtime/scenarios/${id}" ] || continue
@@ -250,7 +252,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: runtime
+          name: ${{ inputs.artifact_name }}
           path: runtime
           retention-days: 7
 
@@ -260,10 +262,19 @@ jobs:
           dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-report runtime/TestResults/runtime.trx
 
       - name: Require every candidate format to pass
-        if: inputs.entry_id != ''
+        if: inputs.selection_json != ''
         env:
-          ENTRY_ID: ${{ inputs.entry_id }}
-        run: dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-approve runtime/TestResults/runtime.trx "${ENTRY_ID}"
+          SELECTION: ${{ inputs.selection_json }}
+        run: |
+          set -euo pipefail
+          mapfile -t ids < <(jq -r '.[].id' <<< "$SELECTION")
+          [ "${#ids[@]}" -gt 0 ]
+          status=0
+          for id in "${ids[@]}"; do
+            dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-approve \
+              runtime/TestResults/runtime.trx "$id" || status=1
+          done
+          exit "$status"
 
       # Kept on the setup, not on the tests. A plugin that fails the first time its editor opens --
       # Decent Sampler does, with no config of its own yet -- would otherwise keep the fixtures

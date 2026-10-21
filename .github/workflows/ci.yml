@@ -75,11 +75,18 @@ jobs:
         id: gate
         if: >-
           github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-          && needs.candidate.outputs.id == '' && !inputs.candidate_pr && !inputs.candidate_head
+          && (needs.candidate.outputs.selection_json != '' || (!inputs.candidate_pr && !inputs.candidate_head))
+        env:
+          SELECTION: ${{ needs.candidate.outputs.selection_json }}
         run: |
           url="$(scripts/pages-url.sh)"
           release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
           echo "release=${release}" >> "$GITHUB_OUTPUT"
+
+          if [ -n "$SELECTION" ]; then
+            echo "publish=${release}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           # A dispatch means "republish what is out" -- that is what an extension refresh is --
           # except when it was asked for the test fixtures, which have nothing to do with
@@ -107,7 +114,6 @@ jobs:
   # A push that only rewrites prose cannot change what a plugin does, and the runtime job is the
   # long one. Anything else, and anything that is not a push, runs it.
   scope:
-    if: ${{ !inputs.candidate_pr && !inputs.candidate_head }}
     runs-on: ubuntu-latest
     outputs:
       runtime: ${{ steps.decide.outputs.runtime }}
@@ -142,8 +148,7 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      id: ${{ steps.validate.outputs.id }}
-      scenario: ${{ steps.validate.outputs.scenario }}
+      selection_json: ${{ steps.validate.outputs.selection_json }}
       head: ${{ steps.validate.outputs.head }}
       base: ${{ steps.validate.outputs.base }}
       pr: ${{ steps.validate.outputs.pr }}
@@ -173,6 +178,7 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$PR" && -z "$HEAD" ]]; then
+            echo "selection_json=" >> "$GITHUB_OUTPUT"
             echo "checkout_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -183,44 +189,62 @@ jobs:
           [ "$current" = "$GITHUB_SHA" ]
           pull_request=$(gh api "repos/$REPOSITORY/pulls/$PR")
           jq -e --arg head "$HEAD" --arg base "$GITHUB_SHA" --arg repo "$REPOSITORY" \
-            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .base.repo.full_name == $repo and .base.ref == "main" and .base.sha == $base and (.head.ref | test("^catalogue-update/[a-z0-9]+(-[a-z0-9]+)*$"))' \
+            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == "catalogue-updates" and .base.repo.full_name == $repo and .base.ref == "main" and .base.sha == $base' \
             <<< "$pull_request" >/dev/null
           BASE=$(jq -r '.base.sha' <<< "$pull_request")
-          BRANCH=$(jq -r '.head.ref' <<< "$pull_request")
-          id="${BRANCH#catalogue-update/}"
           git fetch --no-tags origin "$HEAD"
-          [[ "$id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
           ancestry=$(git rev-list --parents -n1 "$HEAD")
           read -r -a parents <<< "$ancestry"
           [ "${#parents[@]}" -eq 2 ] && [ "${parents[0]}" = "$HEAD" ] && [ "${parents[1]}" = "$BASE" ]
           metainfo='flatpak/io.github.mark12870.cabinet.metainfo.xml'
           mapfile -t changed < <(git diff --raw --no-renames "$BASE" "$HEAD")
-          [ "${#changed[@]}" -eq 2 ]
-          entry_path=''
+          [ "${#changed[@]}" -ge 2 ]
+          entry_paths=()
+          ids=()
+          declare -A seen_ids=()
           metainfo_changed=false
           for change in "${changed[@]}"; do
             [[ "$change" =~ ^:100644\ 100644\ [0-9a-f]+\ [0-9a-f]+\ M[[:space:]](.+)$ ]]
             path="${BASH_REMATCH[1]}"
             if [[ "$path" == "$metainfo" ]]; then
               metainfo_changed=true
-            elif [[ "$path" =~ ^data/library/[a-z0-9-]+/$id\.yml$ ]]; then
-              entry_path="$path"
+            elif [[ "$path" =~ ^data/library/[a-z0-9-]+/([a-z0-9-]+)\.yml$ ]]; then
+              id="${BASH_REMATCH[1]}"
+              [[ -z "${seen_ids[$id]+present}" ]]
+              seen_ids[$id]=present
+              entry_paths+=("$path")
+              ids+=("$id")
             else
               exit 1
             fi
           done
-          [ -n "$entry_path" ] && [ "$metainfo_changed" = true ]
+          [ "${#entry_paths[@]}" -ge 1 ] && [ "$metainfo_changed" = true ]
           baseline="${RUNNER_TEMP}/catalogue-baseline"
-          mkdir -p "$baseline/$(dirname "$entry_path")" "$baseline/flatpak"
-          cp "$entry_path" "$baseline/$entry_path"
-          cp "$metainfo" "$baseline/$metainfo"
-          dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
-          git show "$HEAD:$entry_path" > "$entry_path"
+          mkdir -p "$baseline/data/library" "$baseline/flatpak"
+          git show "$BASE:$metainfo" > "$baseline/$metainfo"
+          for path in "${entry_paths[@]}"; do
+            mkdir -p "$baseline/$(dirname "$path")"
+            git show "$BASE:$path" > "$baseline/$path"
+            git show "$HEAD:$path" > "$path"
+          done
           git show "$HEAD:$metainfo" > "$metainfo"
-          scenario=$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates validate "$baseline" "$id")
-          [[ "$scenario" =~ ^Cabinet\.Runtime\.Tests\.Scenarios\.[A-Za-z0-9_]+Scenario$ ]]
-          echo "id=$id" >> "$GITHUB_OUTPUT"
-          echo "scenario=$scenario" >> "$GITHUB_OUTPUT"
+          dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+          printf '%s\n' "${ids[@]}" | jq -R . | jq -s . > "${RUNNER_TEMP}/catalogue-ids.json"
+          printf '%s\n' "${entry_paths[@]#data/library/}" | jq -R . | jq -s . > "${RUNNER_TEMP}/catalogue-paths.json"
+          selection=$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates validate \
+            "$baseline" "${RUNNER_TEMP}/catalogue-ids.json")
+          jq -e --argjson ids "$(cat "${RUNNER_TEMP}/catalogue-ids.json")" \
+            --argjson paths "$(cat "${RUNNER_TEMP}/catalogue-paths.json")" \
+            'type == "array" and length == ($ids | length) and
+             all(.[]; type == "object" and (.id | type == "string" and test("^[a-z0-9]+(-[a-z0-9]+)*$")) and
+               (.path | type == "string" and test("^[a-z0-9-]+/[a-z0-9-]+\\.yml$")) and
+               (.scenario | type == "string" and test("^Cabinet\\.Runtime\\.Tests\\.Scenarios\\.[A-Za-z0-9_]+Scenario$")) and
+               (.path | split("/")[-1] | sub("\\.yml$"; "")) == .id) and
+             ([.[].id] == ([.[].id] | sort)) and
+             ([.[].id] | sort) == ($ids | sort) and
+             ([.[].path] | sort) == ($paths | sort)' <<< "$selection" >/dev/null
+          selection_json=$(jq -c . <<< "$selection")
+          echo "selection_json=$selection_json" >> "$GITHUB_OUTPUT"
           echo "head=$HEAD" >> "$GITHUB_OUTPUT"
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "pr=$PR" >> "$GITHUB_OUTPUT"
@@ -236,7 +260,6 @@ jobs:
     needs: [scope, candidate]
     if: >-
       needs.scope.outputs.runtime == 'true'
-      && !inputs.candidate_pr && !inputs.candidate_head
       && (github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     uses: ./.github/workflows/runtime.yml
@@ -246,10 +269,11 @@ jobs:
       packages: write
     with:
       rebuild_fixtures: ${{ inputs.rebuild_fixtures || false }}
+      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
 
   candidate-runtime:
     needs: candidate
-    if: needs.candidate.outputs.id != ''
+    if: needs.candidate.outputs.selection_json != ''
     uses: ./.github/workflows/runtime.yml
     permissions:
       actions: read
@@ -257,9 +281,9 @@ jobs:
       packages: read
     with:
       suite: scenarios
-      filter_class: ${{ needs.candidate.outputs.scenario }}
-      entry_id: ${{ needs.candidate.outputs.id }}
-      checkout_ref: ${{ needs.candidate.outputs.head }}
+      selection_json: ${{ needs.candidate.outputs.selection_json }}
+      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
+      artifact_name: runtime-candidates
     secrets:
       EMAIL: ${{ secrets.EMAIL }}
       PASSWORD: ${{ secrets.PASSWORD }}
@@ -271,22 +295,27 @@ jobs:
       EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
 
   merge-candidate:
-    needs: [candidate, checks, build, candidate-runtime]
-    if: github.event_name == 'workflow_dispatch' && needs.candidate.outputs.id != ''
+    needs: [candidate, checks, build, runtime, candidate-runtime]
+    if: >-
+      always() && github.event_name == 'workflow_dispatch'
+      && needs.candidate.outputs.selection_json != ''
+      && needs.checks.result == 'success' && needs.build.result == 'success'
+      && needs.runtime.result == 'success' && needs.candidate-runtime.result == 'success'
     runs-on: ubuntu-latest
+    outputs:
+      promoted: ${{ steps.promote.outputs.promoted }}
     permissions:
-      actions: write
       contents: write
       pull-requests: read
     steps:
       - name: Merge only the tested head and base
+        id: promote
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ needs.candidate.outputs.pr }}
           HEAD: ${{ needs.candidate.outputs.head }}
           BASE: ${{ needs.candidate.outputs.base }}
-          ID: ${{ needs.candidate.outputs.id }}
         run: |
           set -euo pipefail
           current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
@@ -295,23 +324,30 @@ jobs:
             exit 0
           fi
           pull_request=$(gh api "repos/$GH_REPO/pulls/$PR")
-          jq -e --arg head "$HEAD" --arg base "$BASE" --arg repo "$GH_REPO" --arg id "$ID" \
-            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == ("catalogue-update/" + $id) and .base.ref == "main" and .base.sha == $base and .base.repo.full_name == $repo' \
+          jq -e --arg head "$HEAD" --arg base "$BASE" --arg repo "$GH_REPO" \
+            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == "catalogue-updates" and .base.ref == "main" and .base.sha == $base and .base.repo.full_name == $repo' \
             <<< "$pull_request" >/dev/null
           commit=$(gh api "repos/$GH_REPO/git/commits/$HEAD")
           jq -e --arg head "$HEAD" --arg base "$BASE" '.sha == $head and (.parents | length) == 1 and .parents[0].sha == $base' <<< "$commit" >/dev/null
           gh api --method PATCH "repos/$GH_REPO/git/refs/heads/main" -f sha="$HEAD" -F force=false
-          gh workflow run ci.yml --ref main
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
 
   publish:
-    needs: [candidate, checks, build, runtime]
+    needs: [candidate, checks, build, runtime, candidate-runtime, merge-candidate]
     if: >-
       always() && needs.candidate.result == 'success' && needs.checks.result == 'success'
-      && !inputs.candidate_pr && !inputs.candidate_head && needs.candidate.outputs.id == ''
+      && ((needs.candidate.outputs.selection_json == '' && !inputs.candidate_pr && !inputs.candidate_head
       && needs.checks.outputs.publish == 'true'
       && (needs.build.result == 'success' || needs.checks.outputs.release != 'true')
-      && (needs.runtime.result == 'success' || needs.checks.outputs.release != 'true')
+      && (needs.runtime.result == 'success' || needs.checks.outputs.release != 'true'))
+      || (needs.candidate.outputs.selection_json != '' && needs.checks.outputs.release == 'true'
+      && needs.build.result == 'success' && needs.runtime.result == 'success'
+      && needs.candidate-runtime.result == 'success' && needs.merge-candidate.result == 'success'
+      && needs.merge-candidate.outputs.promoted == 'true'))
     runs-on: ubuntu-latest
+    concurrency:
+      group: cabinet-publish
+      cancel-in-progress: false
     permissions:
       contents: read
       pages: write
@@ -326,6 +362,20 @@ jobs:
     steps:
       # Only for scripts/ and site/ -- the repo itself comes from the artifact.
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.candidate.outputs.checkout_sha }}
+
+      - name: Confirm main still points at the checked-out source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CHECKED_SHA: ${{ needs.candidate.outputs.checkout_sha }}
+        run: |
+          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current" != "$CHECKED_SHA" ]; then
+            echo '::error::main moved after the build was validated; refusing to publish a stale artifact'
+            exit 1
+          fi
 
       - name: Install flatpak
         # Ubuntu's indexes come from GitHub's Azure-first mirrorlist. apt's default

@@ -119,69 +119,102 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return candidates;
     }
 
-    public string Validate(string baseDirectory, string id)
+    public IReadOnlyList<CatalogueUpdateSelection> Validate(string baseDirectory, IReadOnlyList<string> ids)
     {
-        var validated = ValidateEntry(baseDirectory, id);
+        var validated = ValidateEntries(baseDirectory, ids);
         var baseMetainfo = File.ReadAllText(ResolveUnder(Path.GetFullPath(baseDirectory), CatalogueRelease.MetainfoPath));
         var candidateMetainfo = File.ReadAllText(ResolveUnder(repository, CatalogueRelease.MetainfoPath));
         var date = CatalogueRelease.ReadCandidateDate(candidateMetainfo);
-        var expectedMetainfo = CatalogueRelease.Generate(baseMetainfo, ReadField(validated.Baseline, "Name"),
-            validated.Version, date);
+        var releaseItems = validated.Select(item => new CatalogueReleaseItem(
+            ReadField(item.Baseline, "Name"), item.Version)).ToArray();
+        var expectedMetainfo = CatalogueRelease.Generate(baseMetainfo, releaseItems, date);
         if (candidateMetainfo != expectedMetainfo)
         {
             throw new InvalidDataException("metainfo release does not match the trusted base and catalogue update");
         }
 
-        return validated.Entry.Scenario;
+        return validated.Select(item => new CatalogueUpdateSelection(item.Entry.Id, item.Entry.Path,
+            item.Entry.Scenario)).ToArray();
     }
 
-    public void GenerateRelease(string baseDirectory, string id, DateOnly date)
+    public void GenerateRelease(string baseDirectory, IReadOnlyList<string> ids, DateOnly date)
     {
-        var validated = ValidateEntry(baseDirectory, id);
+        var validated = ValidateEntries(baseDirectory, ids);
         var baselineMetainfo = File.ReadAllText(ResolveUnder(Path.GetFullPath(baseDirectory), CatalogueRelease.MetainfoPath));
-        var candidateMetainfo = CatalogueRelease.Generate(baselineMetainfo, ReadField(validated.Baseline, "Name"),
-            validated.Version, date);
+        var releaseItems = validated.Select(item => new CatalogueReleaseItem(
+            ReadField(item.Baseline, "Name"), item.Version)).ToArray();
+        var candidateMetainfo = CatalogueRelease.Generate(baselineMetainfo, releaseItems, date);
         File.WriteAllText(ResolveUnder(repository, CatalogueRelease.MetainfoPath), candidateMetainfo, new UTF8Encoding(false));
     }
 
-    private ValidatedCatalogueEntry ValidateEntry(string baseDirectory, string id)
+    private ValidatedCatalogueEntry[] ValidateEntries(string baseDirectory, IReadOnlyList<string> ids)
     {
+        if (ids is null || ids.Count == 0)
+        {
+            throw new InvalidDataException("catalogue update IDs must be a nonempty array");
+        }
+
+        var requestedIds = ids.ToArray();
+        var uniqueIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var id in requestedIds)
+        {
+            if (id is null || !Regex.IsMatch(id, "^[a-z0-9]+(?:-[a-z0-9]+)*\\z", RegexOptions.CultureInvariant)
+                || !uniqueIds.Add(id))
+            {
+                throw new InvalidDataException("catalogue update IDs must be unique canonical catalogue IDs");
+            }
+        }
+
         var entries = ReadConfiguration();
-        var entry = entries.SingleOrDefault(e => e.Id == id)
-            ?? throw new InvalidDataException($"catalogue update ID '{id}' is not configured");
-        ValidateMapping(entry);
-        var status = CatalogueUpdateCoverage.Read(repository).Single(item => item.Id == id);
-        if (status.AutomationBlockers.Length > 0)
+        var configured = entries.ToDictionary(entry => entry.Id, StringComparer.Ordinal);
+        var requestedEntries = requestedIds.Order(StringComparer.Ordinal).Select(id =>
         {
-            throw new InvalidDataException("entry does not have complete scenario coverage: " + string.Join(", ", status.AutomationBlockers));
-        }
-
+            if (!configured.TryGetValue(id, out var entry))
+            {
+                throw new InvalidDataException($"catalogue update ID '{id}' is not configured");
+            }
+            return entry;
+        }).ToArray();
+        var coverage = CatalogueUpdateCoverage.Read(repository).ToDictionary(item => item.Id, StringComparer.Ordinal);
         var baselineRoot = Path.GetFullPath(baseDirectory);
-        var baseText = File.ReadAllText(ResolveUnder(Path.Combine(baselineRoot, "data", "library"), entry.Path));
-        var currentText = File.ReadAllText(ResolveLibraryPath(entry.Path));
-        var baselineVersion = NormaliseVersion(ReadField(baseText, "Version"));
-        var currentVersion = NormaliseVersion(ReadField(currentText, "Version"));
-
-        if (CompareVersions(currentVersion, baselineVersion) <= 0)
+        var validated = new List<ValidatedCatalogueEntry>(requestedEntries.Length);
+        foreach (var entry in requestedEntries)
         {
-            throw new InvalidDataException("candidate version is not newer than the trusted base");
+            ValidateMapping(entry);
+            var status = coverage[entry.Id];
+            if (status.AutomationBlockers.Length > 0)
+            {
+                throw new InvalidDataException("entry does not have complete scenario coverage: " + string.Join(", ", status.AutomationBlockers));
+            }
+
+            var baseText = File.ReadAllText(ResolveUnder(Path.Combine(baselineRoot, "data", "library"), entry.Path));
+            var currentText = File.ReadAllText(ResolveLibraryPath(entry.Path));
+            var baselineVersion = NormaliseVersion(ReadField(baseText, "Version"));
+            var currentVersion = NormaliseVersion(ReadField(currentText, "Version"));
+
+            if (CompareVersions(currentVersion, baselineVersion) <= 0)
+            {
+                throw new InvalidDataException("candidate version is not newer than the trusted base");
+            }
+
+            if (!OnlyUpdateFieldsChanged(baseText, currentText))
+            {
+                throw new InvalidDataException("entry changes fields other than Version, Url and Sha256");
+            }
+
+            var source = ParseSource(entry.Source);
+            var url = ReadField(currentText, "Url");
+            ValidateDownloadUrl(entry, source, url, currentVersion);
+
+            if (!Regex.IsMatch(ReadField(currentText, "Sha256"), "^[a-f0-9]{64}$", RegexOptions.CultureInvariant))
+            {
+                throw new InvalidDataException("Sha256 is not a pinned lowercase SHA-256 hash");
+            }
+
+            validated.Add(new(entry, baseText, currentVersion));
         }
 
-        if (!OnlyUpdateFieldsChanged(baseText, currentText))
-        {
-            throw new InvalidDataException("entry changes fields other than Version, Url and Sha256");
-        }
-
-        var source = ParseSource(entry.Source);
-        var url = ReadField(currentText, "Url");
-        ValidateDownloadUrl(entry, source, url, currentVersion);
-
-        if (!Regex.IsMatch(ReadField(currentText, "Sha256"), "^[a-f0-9]{64}$", RegexOptions.CultureInvariant))
-        {
-            throw new InvalidDataException("Sha256 is not a pinned lowercase SHA-256 hash");
-        }
-
-        return new(entry, baseText, currentVersion);
+        return validated.ToArray();
     }
 
     private CatalogueUpdateEntry[] ReadConfiguration()
@@ -806,3 +839,5 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
 }
 
 internal sealed record CatalogueUpdateCandidate(string Id, string Path, string Version);
+
+internal sealed record CatalogueUpdateSelection(string Id, string Path, string Scenario);

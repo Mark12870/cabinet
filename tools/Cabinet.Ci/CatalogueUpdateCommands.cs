@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 
 namespace Cabinet.Ci;
 
@@ -46,14 +47,16 @@ internal static class CatalogueUpdates
         }
     }
 
-    public static int Validate(string baseDirectory, string id)
+    public static int Validate(string baseDirectory, string idsJsonFile)
     {
         try
         {
             var repository = Scenarios.Repo;
             using var client = CreateClient();
             var service = new CatalogueUpdateService(client, repository);
-            Console.WriteLine(service.Validate(baseDirectory, id));
+            var selections = service.Validate(baseDirectory, ReadIds(idsJsonFile));
+            Console.WriteLine(JsonSerializer.Serialize(selections,
+                new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
             return 0;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -63,7 +66,7 @@ internal static class CatalogueUpdates
         }
     }
 
-    public static int Release(string baseDirectory, string id, string dateText)
+    public static int Release(string baseDirectory, string idsJsonFile, string dateText)
     {
         try
         {
@@ -76,8 +79,9 @@ internal static class CatalogueUpdates
 
             using var client = CreateClient();
             var service = new CatalogueUpdateService(client, Scenarios.Repo);
-            service.GenerateRelease(baseDirectory, id, date);
-            Console.WriteLine($"Generated Cabinet release notes for catalogue update {id}");
+            var ids = ReadIds(idsJsonFile);
+            service.GenerateRelease(baseDirectory, ids, date);
+            Console.WriteLine($"Generated Cabinet release notes for catalogue updates: {string.Join(", ", ids)}");
             return 0;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -86,6 +90,10 @@ internal static class CatalogueUpdates
             return 1;
         }
     }
+
+    private static string[] ReadIds(string path) =>
+        JsonSerializer.Deserialize<string[]>(File.ReadAllText(path))
+        ?? throw new InvalidDataException("catalogue update IDs must be a nonempty JSON array");
 
     private static HttpClient CreateClient() => new(new SocketsHttpHandler
     {
