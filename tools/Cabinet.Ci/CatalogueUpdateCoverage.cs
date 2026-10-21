@@ -6,19 +6,25 @@ namespace Cabinet.Ci;
 internal static class CatalogueUpdateCoverage
 {
     private const string ScenarioNamespace = "Cabinet.Runtime.Tests.Scenarios.";
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
-    public static IReadOnlyList<CatalogueUpdateStatus> Read(string repository, string configuration)
+    public static IReadOnlyList<CatalogueUpdateStatus> Read(string repository)
     {
         var library = Path.Combine(repository, "data", "library");
         var entries = ReadCatalogue(library);
-        var rules = ReadConfiguration(configuration);
+        var rules = CatalogueUpdateConfiguration.Read(repository);
         var byId = entries.ToDictionary(entry => entry.Id, StringComparer.Ordinal);
-        var configured = new Dictionary<string, UpdateRule>(StringComparer.Ordinal);
+        var configured = new Dictionary<string, CatalogueUpdateEntry>(StringComparer.Ordinal);
         var blocked = new Dictionary<string, string>(StringComparer.Ordinal);
+        var ruleIds = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var rule in rules.Entries ?? [])
         {
+            if (rule is null || string.IsNullOrWhiteSpace(rule.Id) || string.IsNullOrWhiteSpace(rule.Path)
+                || !ruleIds.Add(rule.Id))
+            {
+                throw new InvalidDataException("catalogue update IDs must be unique and have paths");
+            }
+
             if (!byId.TryGetValue(rule.Id, out var entry))
             {
                 throw new InvalidDataException($"catalogue update ID '{rule.Id}' is not shipped");
@@ -41,8 +47,14 @@ internal static class CatalogueUpdateCoverage
             }
         }
 
+        var blockedIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var item in rules.Blocked ?? [])
         {
+            if (item is null || string.IsNullOrWhiteSpace(item.Id) || !blockedIds.Add(item.Id))
+            {
+                throw new InvalidDataException("catalogue update blocked IDs must be unique");
+            }
+
             if (!byId.TryGetValue(item.Id, out var entry))
             {
                 throw new InvalidDataException($"catalogue update blocked ID '{item.Id}' is not shipped");
@@ -188,33 +200,7 @@ internal static class CatalogueUpdateCoverage
         return entries;
     }
 
-    private static UpdateConfiguration ReadConfiguration(string path)
-    {
-        var configuration = JsonSerializer.Deserialize<UpdateConfiguration>(File.ReadAllText(path), JsonOptions)
-            ?? throw new InvalidDataException("catalogue update configuration is empty");
-        var entryIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var entry in configuration.Entries ?? [])
-        {
-            if (entry is null || string.IsNullOrWhiteSpace(entry.Id) || string.IsNullOrWhiteSpace(entry.Path)
-                || !entryIds.Add(entry.Id))
-            {
-                throw new InvalidDataException("catalogue update IDs must be unique and have paths");
-            }
-        }
-
-        var blockedIds = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var item in configuration.Blocked ?? [])
-        {
-            if (item is null || string.IsNullOrWhiteSpace(item.Id) || !blockedIds.Add(item.Id))
-            {
-                throw new InvalidDataException("catalogue update blocked IDs must be unique");
-            }
-        }
-
-        return new(configuration.Entries ?? [], configuration.Blocked ?? []);
-    }
-
-    private static void ValidateMetadataSource(UpdateRule rule)
+    private static void ValidateMetadataSource(CatalogueUpdateEntry rule)
     {
         var source = rule.Source;
         var validSource = source?.Type switch
@@ -376,12 +362,6 @@ internal static class CatalogueUpdateCoverage
     private static string Markdown(string value) => value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
 
     private sealed record CatalogueEntry(string Id, string Path, string Version, string Source, string Formats);
-    private sealed record UpdateConfiguration(UpdateRule[]? Entries, BlockedRule[]? Blocked);
-    private sealed record UpdateRule(string Id, string Path, string[]? AllowedDownloadHosts,
-        SourceRule? Source);
-    private sealed record BlockedRule(string Id, string Reason);
-    private sealed record SourceRule(string? Type, string? Repository, string? VersionRegex, string? AssetRegex,
-        string? PageUrl, string? DownloadRegex, string? ReleaseRegex, string? Package, string? DownloadBase);
     private sealed record RuntimeFixtures(string[] Formats, HashSet<string> ExcludedFormats,
         bool FormatsAvailable, bool ExclusionsAvailable);
 

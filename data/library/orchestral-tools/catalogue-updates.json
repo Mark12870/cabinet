@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"sine-player","path":"orchestral-tools/sine-player.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.SinePlayerScenario","allowedDownloadHosts":["www.orchestraltools.com","orchtools-installers-dl.s3.eu-central-1.amazonaws.com"],"source":{"type":"vendor-page","pageUrl":"https://www.orchestraltools.com/get-sine","downloadRegex":"^https://orchtools-installers-dl\\.s3\\.eu-central-1\\.amazonaws\\.com/SINE_Player_(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)\\.[0-9]+\\.exe$"}}
+  ],
+  "blocked": [
+  ]
+}

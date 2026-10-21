@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"dexed","path":"digital-suburban/dexed.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.DexedScenario","allowedDownloadHosts":["github.com","release-assets.githubusercontent.com","objects.githubusercontent.com"],"source":{"type":"github","repository":"asb2m10/dexed","versionRegex":"^v?(?<version>[0-9]+(?:\\.[0-9]+)*)$","assetRegex":"^Dexed-(?<version>[0-9]+(?:\\.[0-9]+)*)-lnx\\.zip$"}}
+  ],
+  "blocked": [
+  ]
+}

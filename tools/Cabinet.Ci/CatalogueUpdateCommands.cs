@@ -10,8 +10,7 @@ internal static class CatalogueUpdates
         {
             var repository = Scenarios.Repo;
             using var client = CreateClient();
-            var service = new CatalogueUpdateService(client, repository,
-                Path.Combine(repository, "data", "catalogue-updates.json"), Console.Error.WriteLine,
+            var service = new CatalogueUpdateService(client, repository, Console.Error.WriteLine,
                 Environment.GetEnvironmentVariable("GITHUB_TOKEN"));
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));
             await service.Discover(outputDirectory, timeout.Token, createCandidates);
@@ -37,8 +36,7 @@ internal static class CatalogueUpdates
         try
         {
             var repository = Scenarios.Repo;
-            CatalogueUpdateCoverage.Write(outputDirectory, CatalogueUpdateCoverage.Read(repository,
-                Path.Combine(repository, "data", "catalogue-updates.json")));
+            CatalogueUpdateCoverage.Write(outputDirectory, CatalogueUpdateCoverage.Read(repository));
             return 0;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
@@ -54,8 +52,7 @@ internal static class CatalogueUpdates
         {
             var repository = Scenarios.Repo;
             using var client = CreateClient();
-            var service = new CatalogueUpdateService(client, repository,
-                Path.Combine(repository, "data", "catalogue-updates.json"));
+            var service = new CatalogueUpdateService(client, repository);
             Console.WriteLine(service.Validate(baseDirectory, id));
             return 0;
         }

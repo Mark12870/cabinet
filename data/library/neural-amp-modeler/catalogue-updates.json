@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"neural-amp-modeler","path":"neural-amp-modeler/neural-amp-modeler.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.NeuralAmpModelerScenario","allowedDownloadHosts":["github.com","release-assets.githubusercontent.com","objects.githubusercontent.com"],"source":{"type":"github","repository":"mikeoliphant/neural-amp-modeler-lv2","versionRegex":"^v?(?<version>(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))*)$","assetRegex":"^neural_amp_modeler_lv2_linux_x64\\.tgz$"}}
+  ],
+  "blocked": [
+  ]
+}

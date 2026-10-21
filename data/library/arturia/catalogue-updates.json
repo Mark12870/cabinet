@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"arturia-software-center","path":"arturia/arturia-software-center.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.ArturiaSoftwareCenterScenario","allowedDownloadHosts":["www.arturia.com","dl.arturia.net"],"source":{"type":"document","pageUrl":"https://www.arturia.com/support/downloads-manuals/product/asc","releaseRegex":"(?<url>/api/download/products/asc/soft/Arturia_Software_Center__(?<version>[0-9]+(?:_[0-9]+){3})\\.exe)","downloadBase":"https://dl.arturia.net/","relativePrefix":"/api/download/","downloadRegex":"^https://dl\\.arturia\\.net/products/asc/soft/Arturia_Software_Center__(?<version>[0-9]+(?:_[0-9]+){3})\\.exe$"}}
+  ],
+  "blocked": [
+  ]
+}

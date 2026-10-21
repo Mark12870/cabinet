@@ -10,7 +10,7 @@ using System.Text.RegularExpressions;
 
 namespace Cabinet.Ci;
 
-internal sealed class CatalogueUpdateService(HttpClient client, string repository, string configuration,
+internal sealed class CatalogueUpdateService(HttpClient client, string repository,
     Action<string>? report = null, string? githubToken = null)
 {
     private const string ScenarioNamespace = "Cabinet.Runtime.Tests.Scenarios.";
@@ -21,7 +21,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         CancellationToken cancellationToken = default, bool createCandidates = true)
     {
         var entries = ReadConfiguration();
-        var coverage = CatalogueUpdateCoverage.Read(repository, configuration);
+        var coverage = CatalogueUpdateCoverage.Read(repository);
         var output = Path.GetFullPath(outputDirectory);
         Directory.CreateDirectory(output);
 
@@ -116,10 +116,6 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
 
         WriteCandidates(Path.Combine(output, "candidates.json"), candidates.OrderBy(c => c.Id, StringComparer.Ordinal));
         CatalogueUpdateCoverage.Write(output, coverage);
-        if (coverage.Any(status => status.Outcome == "failed"))
-        {
-            throw new InvalidDataException("one or more upstream checks failed; see coverage.json");
-        }
         return candidates;
     }
 
@@ -129,7 +125,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         var entry = entries.SingleOrDefault(e => e.Id == id)
             ?? throw new InvalidDataException($"catalogue update ID '{id}' is not configured");
         ValidateMapping(entry);
-        var status = CatalogueUpdateCoverage.Read(repository, configuration).Single(item => item.Id == id);
+        var status = CatalogueUpdateCoverage.Read(repository).Single(item => item.Id == id);
         if (status.AutomationBlockers.Length > 0)
         {
             throw new InvalidDataException("entry does not have complete scenario coverage: " + string.Join(", ", status.AutomationBlockers));
@@ -162,19 +158,19 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return entry.Scenario;
     }
 
-    private EntryConfig[] ReadConfiguration()
+    private CatalogueUpdateEntry[] ReadConfiguration()
     {
-        var config = JsonSerializer.Deserialize<CatalogueUpdateConfig>(File.ReadAllText(configuration),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
-            ?? throw new InvalidDataException("catalogue update configuration is empty");
-        if (config.Entries is null || config.Entries.Length == 0)
+        var config = CatalogueUpdateConfiguration.Read(repository);
+        if (config.Entries is not { Length: > 0 })
         {
             throw new InvalidDataException("catalogue update configuration has no entries");
         }
 
         var ids = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var entry in config.Entries)
+        var entries = new CatalogueUpdateEntry[config.Entries.Length];
+        for (var index = 0; index < config.Entries.Length; index++)
         {
+            var entry = config.Entries[index];
             var id = entry?.Id ?? "";
             if (entry is null || !Regex.IsMatch(id, "^[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.CultureInvariant)
                 || !ids.Add(id))
@@ -188,12 +184,14 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
             {
                 throw new InvalidDataException($"{entry.Id} has no valid allowed download hosts");
             }
+
+            entries[index] = entry;
         }
 
-        return config.Entries;
+        return entries;
     }
 
-    private void ValidateMapping(EntryConfig entry)
+    private void ValidateMapping(CatalogueUpdateEntry entry)
     {
         var libraryPath = ResolveLibraryPath(entry.Path);
         if (!Path.GetFileName(libraryPath).Equals(entry.Id + ".yml", StringComparison.Ordinal))
@@ -238,7 +236,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return fullPath;
     }
 
-    private static SourceConfig ParseSource(SourceConfig? source)
+    private static CatalogueUpdateSource ParseSource(CatalogueUpdateSource? source)
     {
         if (source is null || string.IsNullOrWhiteSpace(source.Type))
         {
@@ -273,7 +271,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return source;
     }
 
-    private async Task<Release?> GithubRelease(SourceConfig source, string[] allowedHosts,
+    private async Task<Release?> GithubRelease(CatalogueUpdateSource source, string[] allowedHosts,
         CancellationToken cancellationToken)
     {
         var versionRegex = CreateRegex(source.VersionRegex!);
@@ -341,7 +339,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return SelectNewest(releases);
     }
 
-    private async Task<Release?> VendorRelease(SourceConfig source, string[] allowedHosts,
+    private async Task<Release?> VendorRelease(CatalogueUpdateSource source, string[] allowedHosts,
         CancellationToken cancellationToken)
     {
         ValidateOrigin(source.PageUrl!, allowedHosts);
@@ -368,7 +366,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return SelectNewest(links);
     }
 
-    private async Task<Release?> RedirectRelease(SourceConfig source, string[] allowedHosts,
+    private async Task<Release?> RedirectRelease(CatalogueUpdateSource source, string[] allowedHosts,
         CancellationToken cancellationToken)
     {
         var pattern = CreateRegex(source.DownloadRegex!);
@@ -379,7 +377,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return match.Success ? new Release(MatchedVersion(match), url) : null;
     }
 
-    private async Task<Release?> DebianRelease(SourceConfig source, string[] allowedHosts,
+    private async Task<Release?> DebianRelease(CatalogueUpdateSource source, string[] allowedHosts,
         CancellationToken cancellationToken)
     {
         using var response = await Send(new Uri(source.PageUrl!), allowedHosts, cancellationToken);
@@ -414,7 +412,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return SelectNewest(packages);
     }
 
-    private async Task<Release?> DocumentRelease(SourceConfig source, string[] allowedHosts,
+    private async Task<Release?> DocumentRelease(CatalogueUpdateSource source, string[] allowedHosts,
         CancellationToken cancellationToken)
     {
         ValidateOrigin(source.PageUrl!, allowedHosts);
@@ -585,7 +583,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         return document.ToArray();
     }
 
-    private static void ValidateDownloadUrl(EntryConfig entry, SourceConfig source, string url, string version,
+    private static void ValidateDownloadUrl(CatalogueUpdateEntry entry, CatalogueUpdateSource source, string url, string version,
         bool allowTemporary = false)
     {
         ValidateOrigin(url, entry.AllowedDownloadHosts);
@@ -776,11 +774,6 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         writer.WriteEndArray();
     }
 
-    private sealed record CatalogueUpdateConfig(EntryConfig[]? Entries);
-    private sealed record EntryConfig(string Id, string Path, string Scenario, string[] AllowedDownloadHosts, SourceConfig? Source);
-    private sealed record SourceConfig(string Type, string? Repository = null, string? VersionRegex = null,
-        string? AssetRegex = null, string? PageUrl = null, string? DownloadRegex = null, string? ReleaseRegex = null,
-        string? Package = null, string? DownloadBase = null, string? RelativePrefix = null);
     private sealed record Release(string Version, string Url, string? Hash = null);
 }
 

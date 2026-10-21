@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"decent-sampler","path":"decent-samples/decent-sampler.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.DecentSamplerScenario","allowedDownloadHosts":["store.decentsamples.com","cdn.decentsamples.com"],"source":{"type":"vendor-page","pageUrl":"https://store.decentsamples.com/downloads/decent-sampler/versions","downloadRegex":"^https://cdn\\.decentsamples\\.com/production/builds/ds/(?<version>[0-9]+(?:\\.[0-9]+)*)/Decent_Sampler-\\k<version>-Linux-Static-x86_64\\.tar\\.gz$"}}
+  ],
+  "blocked": [
+  ]
+}

@@ -2,12 +2,16 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Cabinet.Ci;
 
 namespace Cabinet.Core.Tests;
 
 public sealed class CatalogueUpdateTests
 {
+    private static readonly string[] UheIds =
+    ["bazille-cm", "podolski", "protoverb", "triple-cheese", "tyrell-n6", "zebra-cm", "zebralette"];
+
     [Fact]
     public async Task DiscoveryWritesOnlyNewStableCandidatesAndPreservesEntryContent()
     {
@@ -186,8 +190,9 @@ public sealed class CatalogueUpdateTests
         }));
 
         var output = Path.Combine(fixture.Root, "output");
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Service(client).Discover(output, TestContext.Current.CancellationToken));
+        var candidates = await fixture.Service(client).Discover(output, TestContext.Current.CancellationToken);
 
+        Assert.Empty(candidates);
         Assert.Equal(new[] { "vendor.example" }, requestedHosts);
         AssertFailedCoverage(output, "URL is not an allowed HTTPS origin");
     }
@@ -205,8 +210,9 @@ public sealed class CatalogueUpdateTests
         }));
 
         var output = Path.Combine(fixture.Root, "output");
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Service(client).Discover(output, TestContext.Current.CancellationToken));
+        var candidates = await fixture.Service(client).Discover(output, TestContext.Current.CancellationToken);
 
+        Assert.Empty(candidates);
         Assert.Equal(new[] { "api.github.com" }, requestedHosts);
         AssertFailedCoverage(output, "URL is not an allowed HTTPS origin");
     }
@@ -356,8 +362,9 @@ public sealed class CatalogueUpdateTests
         }));
         var output = Path.Combine(fixture.Root, "output");
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Service(client).Discover(output, TestContext.Current.CancellationToken));
+        var candidates = await fixture.Service(client).Discover(output, TestContext.Current.CancellationToken);
 
+        Assert.Empty(candidates);
         Assert.Equal(new[] { "vendor.example" }, requests);
         AssertFailedCoverage(output, "download filename does not match the published version");
     }
@@ -420,8 +427,9 @@ public sealed class CatalogueUpdateTests
         }));
         var output = Path.Combine(fixture.Root, "output");
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Service(client).Discover(output, TestContext.Current.CancellationToken));
+        var candidates = await fixture.Service(client).Discover(output, TestContext.Current.CancellationToken);
 
+        Assert.Empty(candidates);
         AssertFailedCoverage(output, "published download path does not match its configured prefix");
     }
 
@@ -533,8 +541,9 @@ public sealed class CatalogueUpdateTests
         })));
         var output = Path.Combine(fixture.Root, "output");
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Service(client).Discover(output, TestContext.Current.CancellationToken));
+        var candidates = await fixture.Service(client).Discover(output, TestContext.Current.CancellationToken);
 
+        Assert.Empty(candidates);
         AssertFailedCoverage(output, "download hash does not match the release metadata");
     }
 
@@ -559,6 +568,126 @@ public sealed class CatalogueUpdateTests
         Assert.Contains("upstream check cancelled", File.ReadAllText(Path.Combine(output, "coverage.md")));
         Assert.True(File.Exists(Path.Combine(output, "coverage.md")));
         Assert.True(File.Exists(Path.Combine(output, "candidates.json")));
+        Assert.False(File.Exists(Path.Combine(output, "plugin.yml")));
+    }
+
+    [Fact]
+    public async Task FailedEntryDoesNotPreventLaterValidCandidate()
+    {
+        using var fixture = new Fixture();
+        fixture.AddLaterEntry();
+        var reports = new List<string>();
+        var responses = new Queue<Func<HttpResponseMessage>>(
+        [
+            () => throw new OperationCanceledException("simulated upstream timeout"),
+            () => JsonResponse(ReleaseList()),
+            () => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(Encoding.UTF8.GetBytes("installer payload"))
+            }
+        ]);
+        using var client = new HttpClient(new StubHandler(_ => responses.Dequeue()()));
+        var output = Path.Combine(fixture.Root, "output");
+
+        var candidates = await fixture.Service(client, report: reports.Add)
+            .Discover(output, TestContext.Current.CancellationToken);
+
+        var candidate = Assert.Single(candidates);
+        Assert.Equal("plugin-later", candidate.Id);
+        Assert.Equal("3.0.0", candidate.Version);
+        Assert.False(File.Exists(Path.Combine(output, "plugin.yml")));
+        Assert.Contains("Version: 3.0.0", File.ReadAllText(Path.Combine(output, "plugin-later.yml")));
+        using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "candidates.json")));
+        Assert.Equal("plugin-later", manifest.RootElement[0].GetProperty("id").GetString());
+        using var coverage = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "coverage.json")));
+        var entries = coverage.RootElement.GetProperty("entries").EnumerateArray().ToArray();
+        var failed = Assert.Single(entries, entry => entry.GetProperty("id").GetString() == "plugin");
+        Assert.Equal("failed", failed.GetProperty("outcome").GetString());
+        Assert.Equal("simulated upstream timeout", failed.GetProperty("error").GetString());
+        var succeeded = Assert.Single(entries, entry => entry.GetProperty("id").GetString() == "plugin-later");
+        Assert.Equal("newer", succeeded.GetProperty("outcome").GetString());
+        Assert.Contains("catalogue update skipped plugin: simulated upstream timeout", reports);
+        Assert.Contains("simulated upstream timeout", File.ReadAllText(Path.Combine(output, "coverage.md")));
+    }
+
+    [Fact]
+    public async Task UheIndexUsesRepositoryRulesToDiscoverOnlyCurrentLinuxPackages()
+    {
+        using var fixture = new UheFixture();
+        var index = """
+            <a href="BazilleCM_102_13000_Linux.tar.xz">BazilleCM</a>
+            <a href="Podolski_124_13000_Linux.tar.xz">Podolski</a>
+            <a href="Podolski_124_13000_20250812_Linux.tar.xz">Podolski dated</a>
+            <a href="Protoverb_102_13000_Linux.tar.xz">Protoverb</a>
+            <a href="TripleCheese_14_13000_Linux.tar.xz">Triple Cheese</a>
+            <a href="TyrellN6_301_public_beta_13000_Linux.tar.xz">TyrellN6</a>
+            <a href="ZebraCM_112_13000_Linux.tar.xz">ZebraCM</a>
+            <a href="ZebraCM_112_13000_Windows.zip">ZebraCM Windows</a>
+            <a href="Zebralette3_301_20399_Linux.tar.xz">Zebralette3</a>
+            """;
+        var requests = new List<Uri>();
+        using var client = new HttpClient(new StubHandler(request =>
+        {
+            var uri = request.RequestUri!;
+            requests.Add(uri);
+            return Route(uri.AbsolutePath, new Dictionary<string, Func<HttpResponseMessage>>
+            {
+                ["/releases/"] = () => new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(index, Encoding.UTF8, "text/html")
+                }
+            }, () => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(Encoding.UTF8.GetBytes("synthetic installer"))
+            });
+        }));
+        var output = Path.Combine(fixture.Root, "output");
+
+        var candidates = await new CatalogueUpdateService(client, fixture.Root)
+            .Discover(output, TestContext.Current.CancellationToken);
+
+        var expectedVersions = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["bazille-cm"] = "1.0.2",
+            ["podolski"] = "1.2.4",
+            ["protoverb"] = "1.0.2",
+            ["triple-cheese"] = "1.4",
+            ["tyrell-n6"] = "3.0.1",
+            ["zebra-cm"] = "1.1.2",
+            ["zebralette"] = "3.0.1"
+        };
+        var expectedUrls = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["bazille-cm"] = "https://uhe-dl.b-cdn.net/releases/BazilleCM_102_13000_Linux.tar.xz",
+            ["podolski"] = "https://uhe-dl.b-cdn.net/releases/Podolski_124_13000_Linux.tar.xz",
+            ["protoverb"] = "https://uhe-dl.b-cdn.net/releases/Protoverb_102_13000_Linux.tar.xz",
+            ["triple-cheese"] = "https://uhe-dl.b-cdn.net/releases/TripleCheese_14_13000_Linux.tar.xz",
+            ["zebra-cm"] = "https://uhe-dl.b-cdn.net/releases/ZebraCM_112_13000_Linux.tar.xz"
+        };
+
+        Assert.Equal(expectedUrls.Keys.Order(StringComparer.Ordinal),
+            candidates.Select(candidate => candidate.Id).Order(StringComparer.Ordinal));
+        Assert.Equal(UheIds.Length, requests.Count(uri => uri.AbsolutePath == "/releases/"));
+        Assert.Equal(expectedUrls.Values.Order(StringComparer.Ordinal),
+            requests.Where(uri => uri.AbsolutePath != "/releases/").Select(uri => uri.AbsoluteUri).Order(StringComparer.Ordinal));
+        Assert.All(requests, uri => Assert.Equal("uhe-dl.b-cdn.net", uri.Host));
+        using var coverage = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "coverage.json")));
+        var statuses = coverage.RootElement.GetProperty("entries").EnumerateArray()
+            .ToDictionary(entry => entry.GetProperty("id").GetString()!, StringComparer.Ordinal);
+        Assert.Equal(UheIds.Order(StringComparer.Ordinal), statuses.Keys.Order(StringComparer.Ordinal));
+        foreach (var (id, version) in expectedVersions)
+        {
+            Assert.Equal(version, statuses[id].GetProperty("availableVersion").GetString());
+            Assert.Contains(statuses[id].GetProperty("outcome").GetString()!, new[] { "newer", "observed" });
+        }
+        Assert.Equal("observed", statuses["tyrell-n6"].GetProperty("outcome").GetString());
+        Assert.Equal(expectedUrls.Count, candidates.Count);
+        foreach (var (id, url) in expectedUrls)
+        {
+            Assert.Contains($"Url: {url}", File.ReadAllText(Path.Combine(output, id + ".yml")));
+        }
+        Assert.False(File.Exists(Path.Combine(output, "tyrell-n6.yml")));
+        Assert.False(File.Exists(Path.Combine(output, "zebralette.yml")));
     }
 
     [Fact]
@@ -636,6 +765,9 @@ public sealed class CatalogueUpdateTests
         Assert.Equal("failed", status.GetProperty("outcome").GetString());
         Assert.Contains(error, status.GetProperty("error").GetString()!);
         Assert.Contains(error, File.ReadAllText(Path.Combine(output, "coverage.md")));
+        Assert.False(File.Exists(Path.Combine(output, "plugin.yml")));
+        using var candidates = JsonDocument.Parse(File.ReadAllText(Path.Combine(output, "candidates.json")));
+        Assert.Empty(candidates.RootElement.EnumerateArray());
     }
 
     private static object DebianSource() => new
@@ -720,7 +852,7 @@ public sealed class CatalogueUpdateTests
 
         public string Root { get; }
         public string EntryPath { get; }
-        private string ConfigurationPath => Path.Combine(Root, "data", "catalogue-updates.json");
+        public string ConfigurationPath => Path.Combine(Root, "data", "library", "vendor", "catalogue-updates.json");
 
         public void ConfigureGithub(params string[] allowedHosts) => WriteConfiguration(
             allowedHosts,
@@ -781,8 +913,31 @@ public sealed class CatalogueUpdateTests
             Path.Combine(Root, "tests", "Cabinet.Runtime.Tests", "Scenarios", "PluginScenario.cs"),
             "internal sealed class PluginScenario { private static readonly Dictionary<string, string> Bridges = new() { [\"VST3\"] = \"Plugin.vst3\", }; }");
 
-        public CatalogueUpdateService Service(HttpClient client, string? githubToken = null) =>
-            new(client, Root, ConfigurationPath, githubToken: githubToken);
+        public CatalogueUpdateService Service(HttpClient client, string? githubToken = null, Action<string>? report = null) =>
+            new(client, Root, report, githubToken);
+
+        public void AddLaterEntry()
+        {
+            var entryPath = Path.Combine(Path.GetDirectoryName(EntryPath)!, "plugin-later.yml");
+            File.WriteAllText(entryPath, Entry.Replace("Test Plugin", "Later Plugin", StringComparison.Ordinal));
+            File.WriteAllText(Path.Combine(Root, "tests", "Cabinet.Runtime.Tests", "Scenarios", "LaterPluginScenario.cs"),
+                "internal sealed class LaterPluginScenario { private const string Id = \"plugin-later\"; private static readonly Dictionary<string, string> Bridges = new() { [\"VST3\"] = \"Plugin.vst3\", }; }");
+            using var configuration = JsonDocument.Parse(File.ReadAllText(ConfigurationPath));
+            var entries = configuration.RootElement.GetProperty("Entries");
+            var existing = entries[0];
+            var later = JsonSerializer.SerializeToElement(new
+            {
+                Id = "plugin-later",
+                Path = "vendor/plugin-later.yml",
+                Scenario = "Cabinet.Runtime.Tests.Scenarios.LaterPluginScenario",
+                AllowedDownloadHosts = existing.GetProperty("AllowedDownloadHosts").Clone(),
+                Source = existing.GetProperty("Source").Clone()
+            });
+            File.WriteAllText(ConfigurationPath, JsonSerializer.Serialize(new
+            {
+                Entries = new[] { existing.Clone(), later }
+            }));
+        }
 
         public string WriteBaseline()
         {
@@ -824,6 +979,49 @@ public sealed class CatalogueUpdateTests
                 }
             }));
         }
+    }
+
+    private sealed class UheFixture : IDisposable
+    {
+        public UheFixture()
+        {
+            Root = Path.Combine(Path.GetTempPath(), $"cabinet-uhe-catalogue-update-{Guid.NewGuid():N}");
+            var library = Path.Combine(Root, "data", "library");
+            var scenarios = Path.Combine(Root, "tests", "Cabinet.Runtime.Tests", "Scenarios");
+            Directory.CreateDirectory(library);
+            Directory.CreateDirectory(scenarios);
+            using var configuration = JsonDocument.Parse(Repo.Read("data/library/u-he/catalogue-updates.json"));
+            var entries = configuration.RootElement.GetProperty("entries").EnumerateArray()
+                .Where(entry => UheIds.Contains(entry.GetProperty("id").GetString()!, StringComparer.Ordinal))
+                .Select(entry => entry.Clone()).ToArray();
+            foreach (var entry in entries)
+            {
+                var relativePath = entry.GetProperty("path").GetString()!;
+                var copiedEntry = Path.Combine(library, relativePath.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(copiedEntry)!);
+                var baselineVersion = new Dictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["tyrell-n6"] = "0.0 beta"
+                }.GetValueOrDefault(entry.GetProperty("id").GetString()!, "0.0.0");
+                File.WriteAllText(copiedEntry, Regex.Replace(
+                    Repo.Read(Path.Combine("data", "library", relativePath)),
+                    "^Version:[^\\r\\n]*", $"Version: {baselineVersion}", RegexOptions.Multiline));
+                var scenario = entry.GetProperty("scenario").GetString()!.Split('.').Last();
+                File.Copy(Repo.Path(Path.Combine("tests", "Cabinet.Runtime.Tests", "Scenarios", scenario + ".cs")),
+                    Path.Combine(scenarios, scenario + ".cs"));
+            }
+            File.Copy(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios/ScenarioHarness.cs"),
+                Path.Combine(scenarios, "ScenarioHarness.cs"));
+            File.Copy(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios/InstalledEntry.cs"),
+                Path.Combine(scenarios, "InstalledEntry.cs"));
+            ConfigurationPath = Path.Combine(Root, "data", "library", "u-he", "catalogue-updates.json");
+            File.WriteAllText(ConfigurationPath, JsonSerializer.Serialize(new { Entries = entries }));
+        }
+
+        public string Root { get; }
+        public string ConfigurationPath { get; }
+
+        public void Dispose() => Directory.Delete(Root, true);
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler

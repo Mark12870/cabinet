@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"sitala-2","path":"decomposer-sitala-2/sitala-2.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.Sitala2Scenario","allowedDownloadHosts":["decomposer.de"],"source":{"type":"vendor-page","pageUrl":"https://decomposer.de/sitala/","downloadRegex":"^https://decomposer\\.de/releases/Sitala-(?<version>2\\.[0-9]+(?:\\.[0-9]+)*)-Setup\\.msi$"}}
+  ],
+  "blocked": [
+  ]
+}

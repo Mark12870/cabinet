@@ -32,10 +32,10 @@ never reaches installers or scenarios. App-created PRs and merges trigger normal
 
 ## Discovery configuration
 
-`data/catalogue-updates.json` holds rules and explicit metadata blockers, not copied catalogue versions. Rules select
-official GitHub releases, download pages, published documents, redirects or a suite-specific Debian index. Allowed HTTPS
-hosts cover metadata, downloads and redirects. Human release metadata validates compact filenames; versions are never
-guessed. DrumGizmo remains on bookworm rather than following another Debian suite.
+`data/library/<vendor>/catalogue-updates.json` files hold rules and blockers, not copied versions; each lives beside its
+vendor's entries and paths remain relative to `data/library`. Rules select official GitHub releases, download pages,
+published documents, redirects or a suite-specific Debian index. Allowed HTTPS hosts cover metadata, downloads and
+redirects. Human metadata validates compact filenames; versions are never guessed. DrumGizmo remains on bookworm.
 
 Inspect coverage offline, check upstream metadata without fetching installers, or generate candidate YAML:
 

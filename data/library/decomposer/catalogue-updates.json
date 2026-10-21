@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"sitala-1","path":"decomposer/sitala-1.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.Sitala1Scenario","allowedDownloadHosts":["decomposer.de"],"source":{"type":"vendor-page","pageUrl":"https://decomposer.de/sitala/","downloadRegex":"^https://decomposer\\.de/releases/Sitala-(?<version>1\\.[0-9]+)-Setup-64\\.msi$"}}
+  ],
+  "blocked": [
+  ]
+}

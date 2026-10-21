@@ -1,0 +1,11 @@
+{
+  "entries": [
+    {"id":"aalto","path":"madrona-labs/aalto.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.AaltoScenario","allowedDownloadHosts":["madronalabs.com","nyc3.digitaloceanspaces.com"],"source":{"type":"vendor-page","pageUrl":"https://madronalabs.com/products/aalto","downloadRegex":"^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/aalto/AaltoInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"}},
+    {"id":"aaltoverb","path":"madrona-labs/aaltoverb.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.AaltoverbScenario","allowedDownloadHosts":["madronalabs.com","nyc3.digitaloceanspaces.com"],"source":{"type":"vendor-page","pageUrl":"https://madronalabs.com/products/aaltoverb","downloadRegex":"^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/aaltoverb/AaltoverbInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"}},
+    {"id":"kaivo","path":"madrona-labs/kaivo.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.KaivoScenario","allowedDownloadHosts":["madronalabs.com","nyc3.digitaloceanspaces.com"],"source":{"type":"vendor-page","pageUrl":"https://madronalabs.com/products/kaivo","downloadRegex":"^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/kaivo/KaivoInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"}},
+    {"id":"sumu","path":"madrona-labs/sumu.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.SumuScenario","allowedDownloadHosts":["madronalabs.com","nyc3.digitaloceanspaces.com"],"source":{"type":"vendor-page","pageUrl":"https://madronalabs.com/products/sumu","downloadRegex":"^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/sumu/SumuInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"}},
+    {"id":"virta","path":"madrona-labs/virta.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.VirtaScenario","allowedDownloadHosts":["madronalabs.com","nyc3.digitaloceanspaces.com"],"source":{"type":"vendor-page","pageUrl":"https://madronalabs.com/products/virta","downloadRegex":"^https://nyc3\\.digitaloceanspaces\\.com/madronalabs/installers/virta/VirtaInstaller(?<version>[0-9]+(?:\\.[0-9]+){1,2})\\.exe$"}}
+  ],
+  "blocked": [
+  ]
+}

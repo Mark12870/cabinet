@@ -1,0 +1,7 @@
+{
+  "entries": [
+  ],
+  "blocked": [
+    {"id":"roland-cloud-manager","reason":"Official 3.1.26 release notes exist, but both HEAD and GET requests to the download endpoint redirect to the versionless product page; no immutable installer URL was found. The versioned 3.1.25 asset is not newer."}
+  ]
+}

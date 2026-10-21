@@ -8,7 +8,7 @@ public sealed class CatalogueUpdateCoverageTests
     [Fact]
     public void RepositoryCatalogueHasCompleteCoverage()
     {
-        var statuses = CatalogueUpdateCoverage.Read(Repo.Root, Repo.Path("data/catalogue-updates.json"));
+        var statuses = CatalogueUpdateCoverage.Read(Repo.Root);
 
         Assert.NotEmpty(statuses);
         Assert.All(statuses, status => Assert.Contains(status.Discovery, new[] { "enabled", "blocked", "rolling", "byo" }));
@@ -37,6 +37,33 @@ public sealed class CatalogueUpdateCoverageTests
         Assert.Throws<InvalidDataException>(fixture.Read);
 
         fixture.SetConfiguration([rule], [new { id = "configured", reason = "no supported metadata source" }]);
+
+        Assert.Throws<InvalidDataException>(fixture.Read);
+    }
+
+    [Fact]
+    public void VendorConfigurationsCombineInOrderAndRejectCrossVendorDuplicatesAndConflicts()
+    {
+        using var fixture = new CoverageFixture();
+        fixture.AddEntry("alpha", "download", "1.2.3", "VST3");
+        fixture.AddEntry("beta", "download", "1.2.3", "VST3");
+        fixture.AddScenario("AlphaScenario", "alpha", "VST3");
+        fixture.AddScenario("BetaScenario", "beta", "VST3");
+        var alpha = fixture.Rule("alpha", "alpha/alpha.yml");
+        var beta = fixture.Rule("beta", "beta/beta.yml");
+        fixture.WriteConfiguration("beta", [beta]);
+        fixture.WriteConfiguration("alpha", [alpha]);
+
+        var statuses = fixture.Read();
+
+        Assert.Equal(new[] { "alpha", "beta" }, statuses.Select(status => status.Id));
+        Assert.All(statuses, status => Assert.Equal("enabled", status.Discovery));
+
+        fixture.WriteConfiguration("beta", [beta, alpha]);
+
+        Assert.Throws<InvalidDataException>(fixture.Read);
+
+        fixture.WriteConfiguration("beta", [beta], [new { id = "alpha", reason = "duplicate classification" }]);
 
         Assert.Throws<InvalidDataException>(fixture.Read);
     }
@@ -145,7 +172,6 @@ public sealed class CatalogueUpdateCoverageTests
         }
 
         public string Root { get; }
-        public string Configuration => Path.Combine(Root, "catalogue-updates.json");
         public string Output => Path.Combine(Root, "output");
 
         public void SetSupportedFormats(params string[] formats)
@@ -193,14 +219,54 @@ public sealed class CatalogueUpdateCoverageTests
                 """);
         }
 
-        public void SetConfiguration(object[]? configured = null, object[]? blocked = null) =>
-            File.WriteAllText(Configuration, JsonSerializer.Serialize(new
+        public void SetConfiguration(object[]? configured = null, object[]? blocked = null)
+        {
+            var byVendor = new Dictionary<string, (List<object> Entries, List<object> Blocked)>(StringComparer.Ordinal);
+            foreach (var rule in configured ?? [])
             {
-                entries = configured ?? [],
-                blocked = blocked ?? []
-            }));
+                using var document = JsonDocument.Parse(JsonSerializer.Serialize(rule));
+                var vendor = document.RootElement.GetProperty("path").GetString()!.Split('/')[0];
+                if (!byVendor.TryGetValue(vendor, out var group))
+                {
+                    group = ([], []);
+                    byVendor.Add(vendor, group);
+                }
+                group.Entries.Add(rule);
+            }
 
-        public IReadOnlyList<CatalogueUpdateStatus> Read() => CatalogueUpdateCoverage.Read(Root, Configuration);
+            foreach (var item in blocked ?? [])
+            {
+                using var document = JsonDocument.Parse(JsonSerializer.Serialize(item));
+                var vendor = document.RootElement.GetProperty("id").GetString()!;
+                if (!byVendor.TryGetValue(vendor, out var group))
+                {
+                    group = ([], []);
+                    byVendor.Add(vendor, group);
+                }
+                group.Blocked.Add(item);
+            }
+
+            foreach (var (vendor, group) in byVendor)
+            {
+                WriteConfiguration(vendor, group.Entries, group.Blocked);
+            }
+        }
+
+        public void WriteConfiguration(string vendor, object[] configured, object[]? blocked = null) =>
+            WriteConfiguration(vendor, configured.AsEnumerable(), (blocked ?? []).AsEnumerable());
+
+        private void WriteConfiguration(string vendor, IEnumerable<object> configured, IEnumerable<object> blocked)
+        {
+            var directory = Path.Combine(Root, "data", "library", vendor);
+            Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "catalogue-updates.json"), JsonSerializer.Serialize(new
+            {
+                entries = configured,
+                blocked
+            }));
+        }
+
+        public IReadOnlyList<CatalogueUpdateStatus> Read() => CatalogueUpdateCoverage.Read(Root);
 
         public void Dispose()
         {

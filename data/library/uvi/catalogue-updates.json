@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"uvi-portal","path":"uvi/uvi-portal.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.UviPortalScenario","allowedDownloadHosts":["www.uvi.net","cdn.uvi.net"],"source":{"type":"redirect","pageUrl":"https://www.uvi.net/download-portal/winx64","downloadRegex":"^https://cdn\\.uvi\\.net/PORTAL_Uvi_portal/files/(?<version>[0-9]+(?:\\.[0-9]+)+)/soft/UVI_Portal\\.exe$"}}
+  ],
+  "blocked": [
+  ]
+}

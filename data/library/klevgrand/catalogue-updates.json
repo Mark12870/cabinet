@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"klevgrand-helper","path":"klevgrand/klevgrand-helper.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.KlevgrandHelperScenario","allowedDownloadHosts":["klevgrand.com","s3.eu-west-par.io.cloud.ovh.net"],"source":{"type":"redirect","pageUrl":"https://klevgrand.com/api/downloads/helper/Windows","downloadRegex":"^https://s3\\.eu-west-par\\.io\\.cloud\\.ovh\\.net/ultraklev/plugins/kds/Klevgrand_Helper_Installer_(?<version>[0-9]+_[0-9]+_[0-9]+)b[0-9]+\\.zip(?:\\?.*)?$"}}
+  ],
+  "blocked": [
+  ]
+}

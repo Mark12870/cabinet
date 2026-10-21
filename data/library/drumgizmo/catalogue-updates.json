@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"drumgizmo","path":"drumgizmo/drumgizmo.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.DrumGizmoScenario","allowedDownloadHosts":["deb.debian.org"],"source":{"type":"debian","pageUrl":"https://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.gz","package":"drumgizmo","downloadBase":"https://deb.debian.org/debian/","downloadRegex":"^https://deb\\.debian\\.org/debian/pool/main/d/drumgizmo/drumgizmo_(?<version>[0-9]+(?:\\.[0-9]+)*-[0-9]+)_amd64\\.deb$"}}
+  ],
+  "blocked": [
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"mt-power-drum-kit-2","path":"manda-audio/mt-power-drum-kit-2.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.MtPowerDrumKit2Scenario","allowedDownloadHosts":["www.powerdrumkit.com","cdn2.resources.manda-audio.com"],"source":{"type":"vendor-page","pageUrl":"https://www.powerdrumkit.com/linux.php","downloadRegex":"^https://cdn2\\.resources\\.manda-audio\\.com/DOWNLOADS/products/mtpdk2_free/[0-9]+(?:\\.[0-9]+)*/MTPDK-(?<version>[0-9]+(?:\\.[0-9]+)*)-VST3-64bit-Linux-FULL\\.zip$"}}
+  ],
+  "blocked": [
+  ]
+}

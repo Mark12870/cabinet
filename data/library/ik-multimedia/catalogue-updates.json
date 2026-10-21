@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"ik-product-manager","path":"ik-multimedia/ik-product-manager.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.IkProductManagerScenario","allowedDownloadHosts":["www.ikmultimedia.com","ikmultimedia.com","g1.ikmultimedia.com","g2.ikmultimedia.com"],"source":{"type":"vendor-page","pageUrl":"https://www.ikmultimedia.com/pages/ik-product-manager","downloadRegex":"^https://g[12]\\.ikmultimedia\\.com/plugins/ProductManager/ik_product_manager_(?<version>[0-9]+(?:\\.[0-9]+)+)\\.zip$"}}
+  ],
+  "blocked": [
+  ]
+}

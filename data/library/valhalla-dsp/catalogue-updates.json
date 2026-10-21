@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {"id":"valhalla-supermassive","path":"valhalla-dsp/valhalla-supermassive.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.ValhallaSupermassiveScenario","allowedDownloadHosts":["valhalladsp.com","valhallaproduction.s3.us-west-2.amazonaws.com"],"source":{"type":"vendor-page","pageUrl":"https://valhalladsp.com/demos-downloads/","downloadRegex":"^https://valhallaproduction\\.s3\\.us-west-2\\.amazonaws\\.com/supermassive/ValhallaSupermassiveWin_V(?<version>(?:0|[1-9][0-9]*)(?:[._](?:0|[1-9][0-9]*)){2})\\.zip$"}},
+    {"id":"valhalla-freq-echo","path":"valhalla-dsp/valhalla-freq-echo.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.ValhallaFreqEchoScenario","allowedDownloadHosts":["valhalladsp.com","valhallaproduction.s3.us-west-2.amazonaws.com"],"source":{"type":"vendor-page","pageUrl":"https://valhalladsp.com/demos-downloads/","downloadRegex":"^https://valhallaproduction\\.s3\\.us-west-2\\.amazonaws\\.com/freqecho/ValhallaFreqEchoWin_V(?<version>[0-9]+(?:_[0-9]+){2})\\.zip$"}},
+    {"id":"valhalla-space-modulator","path":"valhalla-dsp/valhalla-space-modulator.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.ValhallaSpaceModulatorScenario","allowedDownloadHosts":["valhalladsp.com","valhallaproduction.s3.us-west-2.amazonaws.com"],"source":{"type":"vendor-page","pageUrl":"https://valhalladsp.com/demos-downloads/","downloadRegex":"^https://valhallaproduction\\.s3\\.us-west-2\\.amazonaws\\.com/spacemod/ValhallaSpaceModulatorWin_(?<version>[0-9]+(?:_[0-9]+){2})v[0-9]+\\.zip$"}}
+  ],
+  "blocked": [
+  ]
+}

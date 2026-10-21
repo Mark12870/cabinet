@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"surge-xt","path":"surge-synth-team/surge-xt.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.SurgeXtScenario","allowedDownloadHosts":["github.com","release-assets.githubusercontent.com","objects.githubusercontent.com"],"source":{"type":"github","repository":"surge-synthesizer/releases-xt","versionRegex":"^(?<version>[0-9]+(?:\\.[0-9]+)*)$","assetRegex":"^surge-xt-linux-(?<version>[0-9]+(?:\\.[0-9]+)*)-pluginsonly\\.tar\\.gz$"}}
+  ],
+  "blocked": [
+  ]
+}
