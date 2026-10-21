@@ -3,7 +3,7 @@ Kind: windows
 Category: Drums
 Summary: The same drum sampler over a 4×4 grid, with pitch snapping.
 Developer: Decomposer
-Version: 2.1
+Version: 2.1.2
 Licence: Commercial
 Licensing:
   Sitala 2 needs a $20 licence from Decomposer. Without one it opens an
@@ -11,8 +11,8 @@ Licensing:
 Formats: VST3
 Homepage: https://decomposer.de/sitala/
 Source: download
-Url: https://decomposer.de/sitala/releases/Sitala-2.1-Setup.msi
-Sha256: 124f237999e44f7c2b102c540b9f4f162f5e3a017854d60704ee6f0828d75b25
+Url: https://decomposer.de/releases/Sitala-2.1.2-Setup.msi
+Sha256: f1796338012757582d88f1d21a4aca8542b8d8b44c69d6251b4fb18eccb05f37
 Script: sitala.sh
 Description:
   The sixteen pads laid out four by four with the six knobs beside them, tuning
