@@ -9,6 +9,7 @@ namespace Cabinet.Core.Tests;
 
 public sealed class CatalogueUpdateTests
 {
+    private static readonly DateOnly ReleaseDate = new(2026, 10, 21);
     private static readonly string[] UheIds =
     ["bazille-cm", "podolski", "protoverb", "triple-cheese", "tyrell-n6", "zebra-cm", "zebralette"];
 
@@ -738,6 +739,59 @@ public sealed class CatalogueUpdateTests
         Assert.Throws<InvalidDataException>(() => service.Validate(baseDirectory, "plugin"));
     }
 
+    [Fact]
+    public void ValidationRejectsChangesToAnExistingRelease()
+    {
+        using var fixture = new Fixture();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        File.WriteAllText(fixture.CandidateMetainfoPath,
+            File.ReadAllText(fixture.CandidateMetainfoPath).Replace("Existing release", "Edited release", StringComparison.Ordinal));
+
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, "plugin"));
+    }
+
+    [Fact]
+    public void ValidationRejectsAnIncorrectCabinetVersionBump()
+    {
+        using var fixture = new Fixture();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        File.WriteAllText(fixture.CandidateMetainfoPath,
+            File.ReadAllText(fixture.CandidateMetainfoPath).Replace("version=\"0.9.1\"", "version=\"0.9.2\"", StringComparison.Ordinal));
+
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, "plugin"));
+    }
+
+    [Fact]
+    public void ValidationRejectsANonCanonicalReleaseDate()
+    {
+        using var fixture = new Fixture();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        File.WriteAllText(fixture.CandidateMetainfoPath,
+            File.ReadAllText(fixture.CandidateMetainfoPath).Replace("date=\"2026-10-21\"", "date=\"2026-10-1\"", StringComparison.Ordinal));
+
+        Assert.Throws<InvalidDataException>(() => fixture.Service(new HttpClient()).Validate(baseDirectory, "plugin"));
+    }
+
+    [Fact]
+    public void ReleaseGenerationUsesTheTrustedEntryAndCandidateVersion()
+    {
+        using var fixture = new Fixture();
+        var baseDirectory = fixture.WriteBaseline();
+        fixture.WriteCandidate("1.1.0", "1.1.0");
+        var service = fixture.Service(new HttpClient());
+
+        service.GenerateRelease(baseDirectory, "plugin", ReleaseDate);
+
+        var metainfo = File.ReadAllText(fixture.CandidateMetainfoPath);
+        Assert.Contains("<release version=\"0.9.1\" date=\"2026-10-21\">", metainfo);
+        Assert.Contains("<p>Update Test Plugin</p>", metainfo);
+        Assert.Contains("<li>Install Test Plugin 1.1.0 from the updated catalogue</li>", metainfo);
+        Assert.Contains("<p>Existing release</p>", metainfo);
+    }
+
     private static HttpResponseMessage JsonResponse(string json) => new(HttpStatusCode.OK)
     {
         Content = new StringContent(json, Encoding.UTF8, "application/json")
@@ -833,6 +887,7 @@ public sealed class CatalogueUpdateTests
     private sealed class Fixture : IDisposable
     {
         private const string Entry = "Name: Test Plugin\nKind: native\nSource: download\nVersion: 1.0.0\nFormats: VST3\nSummary: Preserved summary\nUrl: https://github.com/acme/plugin/releases/download/v1.0.0/Plugin-1.0.0.zip\nSha256: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n";
+        private const string Metainfo = "<component>\n  <releases>\n    <release version=\"0.9.0\" date=\"2026-01-01\">\n      <description>\n        <p>Existing release</p>\n      </description>\n    </release>\n  </releases>\n</component>\n";
 
         public Fixture()
         {
@@ -853,6 +908,7 @@ public sealed class CatalogueUpdateTests
         public string Root { get; }
         public string EntryPath { get; }
         public string ConfigurationPath => Path.Combine(Root, "data", "library", "vendor", "catalogue-updates.json");
+        public string CandidateMetainfoPath => Path.Combine(Root, CatalogueRelease.MetainfoPath);
 
         public void ConfigureGithub(params string[] allowedHosts) => WriteConfiguration(
             allowedHosts,
@@ -942,10 +998,13 @@ public sealed class CatalogueUpdateTests
         public string WriteBaseline()
         {
             var baseDirectory = Path.Combine(Root, "base");
-            var baseEntry = Path.Combine(baseDirectory, "vendor", "plugin.yml");
+            var baseEntry = Path.Combine(baseDirectory, "data", "library", "vendor", "plugin.yml");
             Directory.CreateDirectory(Path.GetDirectoryName(baseEntry)!);
             File.WriteAllText(baseEntry, Entry);
-            return baseDirectory;
+            var baseMetainfo = Path.Combine(baseDirectory, CatalogueRelease.MetainfoPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(baseMetainfo)!);
+            File.WriteAllText(baseMetainfo, Metainfo);
+            return Path.Combine(Root, "base");
         }
 
         public void WriteCandidate(string version, string urlVersion, string summary = "Preserved summary")
@@ -958,6 +1017,10 @@ public sealed class CatalogueUpdateTests
                 .Replace(new string('a', 64), new string('b', 64), StringComparison.Ordinal)
                 .Replace("Summary: Preserved summary", $"Summary: {summary}", StringComparison.Ordinal);
             File.WriteAllText(EntryPath, candidate);
+            Directory.CreateDirectory(Path.GetDirectoryName(CandidateMetainfoPath)!);
+            File.WriteAllText(CandidateMetainfoPath,
+                CatalogueRelease.Generate(File.ReadAllText(Path.Combine(Root, "base", CatalogueRelease.MetainfoPath)),
+                    "Test Plugin", version, ReleaseDate));
         }
 
         public void Dispose() => Directory.Delete(Root, true);

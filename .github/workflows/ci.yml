@@ -152,16 +152,34 @@ jobs:
           set -euo pipefail
           id="${BRANCH#catalogue-update/}"
           [[ "$id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
-          mapfile -t changed < <(git diff --name-only "$BASE" "$HEAD")
-          [ "${#changed[@]}" -eq 1 ]
-          path="${changed[0]}"
-          [[ "$path" =~ ^data/library/[a-z0-9-]+/$id\.yml$ ]]
+          ancestry=$(git rev-list --parents -n1 "$HEAD")
+          read -r -a parents <<< "$ancestry"
+          [ "${#parents[@]}" -eq 2 ] && [ "${parents[0]}" = "$HEAD" ] && [ "${parents[1]}" = "$BASE" ]
+          metainfo='flatpak/io.github.mark12870.cabinet.metainfo.xml'
+          mapfile -t changed < <(git diff --raw --no-renames "$BASE" "$HEAD")
+          [ "${#changed[@]}" -eq 2 ]
+          entry_path=''
+          metainfo_changed=false
+          for change in "${changed[@]}"; do
+            [[ "$change" =~ ^:100644\ 100644\ [0-9a-f]+\ [0-9a-f]+\ M[[:space:]](.+)$ ]]
+            path="${BASH_REMATCH[1]}"
+            if [[ "$path" == "$metainfo" ]]; then
+              metainfo_changed=true
+            elif [[ "$path" =~ ^data/library/[a-z0-9-]+/$id\.yml$ ]]; then
+              entry_path="$path"
+            else
+              exit 1
+            fi
+          done
+          [ -n "$entry_path" ] && [ "$metainfo_changed" = true ]
           baseline="${RUNNER_TEMP}/catalogue-baseline"
-          mkdir -p "$baseline/$(dirname "$path")"
-          cp "$path" "$baseline/$path"
+          mkdir -p "$baseline/$(dirname "$entry_path")" "$baseline/flatpak"
+          cp "$entry_path" "$baseline/$entry_path"
+          cp "$metainfo" "$baseline/$metainfo"
           dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
-          git show "$HEAD:$path" > "$path"
-          scenario=$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates validate "$baseline/data/library" "$id")
+          git show "$HEAD:$entry_path" > "$entry_path"
+          git show "$HEAD:$metainfo" > "$metainfo"
+          scenario=$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates validate "$baseline" "$id")
           [[ "$scenario" =~ ^Cabinet\.Runtime\.Tests\.Scenarios\.[A-Za-z0-9_]+Scenario$ ]]
           echo "id=$id" >> "$GITHUB_OUTPUT"
           echo "scenario=$scenario" >> "$GITHUB_OUTPUT"
@@ -235,7 +253,11 @@ jobs:
             echo '::notice::main moved; the next discovery run will refresh and retest this candidate'
             exit 0
           fi
-          gh pr merge "$PR" --squash --match-head-commit "$HEAD"
+          pull_request=$(gh api "repos/$GH_REPO/pulls/$PR")
+          jq -e --arg head "$HEAD" --arg base "$BASE" --arg repo "$GH_REPO" '.state == "open" and .draft == false and .head.sha == $head and .base.ref == "main" and .base.sha == $base and .base.repo.full_name == $repo' <<< "$pull_request" >/dev/null
+          commit=$(gh api "repos/$GH_REPO/git/commits/$HEAD")
+          jq -e --arg head "$HEAD" --arg base "$BASE" '.sha == $head and (.parents | length) == 1 and .parents[0].sha == $base' <<< "$commit" >/dev/null
+          gh api --method PATCH "repos/$GH_REPO/git/refs/heads/main" -f sha="$HEAD" -F force=false
 
   publish:
     needs: [checks, build, runtime]

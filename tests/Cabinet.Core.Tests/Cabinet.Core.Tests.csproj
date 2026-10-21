@@ -20,6 +20,7 @@
     <Compile Include="../../tools/Cabinet.Ci/Scenarios.cs" Link="Scenarios.cs" />
     <Compile Include="../../tools/Cabinet.Ci/CatalogueUpdateConfiguration.cs" Link="CatalogueUpdateConfiguration.cs" />
     <Compile Include="../../tools/Cabinet.Ci/CatalogueUpdateCoverage.cs" Link="CatalogueUpdateCoverage.cs" />
+    <Compile Include="../../tools/Cabinet.Ci/CatalogueRelease.cs" Link="CatalogueRelease.cs" />
     <Compile Include="../../tools/Cabinet.Ci/CatalogueUpdateService.cs" Link="CatalogueUpdateService.cs" />
     <Compile Include="../Cabinet.Runtime.Tests/Scenarios/Credentials.cs" Link="Credentials.cs" />
   </ItemGroup>

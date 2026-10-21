@@ -63,6 +63,30 @@ internal static class CatalogueUpdates
         }
     }
 
+    public static int Release(string baseDirectory, string id, string dateText)
+    {
+        try
+        {
+            if (!DateOnly.TryParseExact(dateText, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var date)
+                || date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) != dateText)
+            {
+                throw new InvalidDataException("release date must be canonical ISO format");
+            }
+
+            using var client = CreateClient();
+            var service = new CatalogueUpdateService(client, Scenarios.Repo);
+            service.GenerateRelease(baseDirectory, id, date);
+            Console.WriteLine($"Generated Cabinet release notes for catalogue update {id}");
+            return 0;
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            Console.Error.WriteLine($"catalogue update release generation failed: {exception.Message}");
+            return 1;
+        }
+    }
+
     private static HttpClient CreateClient() => new(new SocketsHttpHandler
     {
         AllowAutoRedirect = false,

@@ -121,6 +121,31 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
 
     public string Validate(string baseDirectory, string id)
     {
+        var validated = ValidateEntry(baseDirectory, id);
+        var baseMetainfo = File.ReadAllText(ResolveUnder(Path.GetFullPath(baseDirectory), CatalogueRelease.MetainfoPath));
+        var candidateMetainfo = File.ReadAllText(ResolveUnder(repository, CatalogueRelease.MetainfoPath));
+        var date = CatalogueRelease.ReadCandidateDate(candidateMetainfo);
+        var expectedMetainfo = CatalogueRelease.Generate(baseMetainfo, ReadField(validated.Baseline, "Name"),
+            validated.Version, date);
+        if (candidateMetainfo != expectedMetainfo)
+        {
+            throw new InvalidDataException("metainfo release does not match the trusted base and catalogue update");
+        }
+
+        return validated.Entry.Scenario;
+    }
+
+    public void GenerateRelease(string baseDirectory, string id, DateOnly date)
+    {
+        var validated = ValidateEntry(baseDirectory, id);
+        var baselineMetainfo = File.ReadAllText(ResolveUnder(Path.GetFullPath(baseDirectory), CatalogueRelease.MetainfoPath));
+        var candidateMetainfo = CatalogueRelease.Generate(baselineMetainfo, ReadField(validated.Baseline, "Name"),
+            validated.Version, date);
+        File.WriteAllText(ResolveUnder(repository, CatalogueRelease.MetainfoPath), candidateMetainfo, new UTF8Encoding(false));
+    }
+
+    private ValidatedCatalogueEntry ValidateEntry(string baseDirectory, string id)
+    {
         var entries = ReadConfiguration();
         var entry = entries.SingleOrDefault(e => e.Id == id)
             ?? throw new InvalidDataException($"catalogue update ID '{id}' is not configured");
@@ -131,7 +156,8 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
             throw new InvalidDataException("entry does not have complete scenario coverage: " + string.Join(", ", status.AutomationBlockers));
         }
 
-        var baseText = File.ReadAllText(ResolveUnder(Path.GetFullPath(baseDirectory), entry.Path));
+        var baselineRoot = Path.GetFullPath(baseDirectory);
+        var baseText = File.ReadAllText(ResolveUnder(Path.Combine(baselineRoot, "data", "library"), entry.Path));
         var currentText = File.ReadAllText(ResolveLibraryPath(entry.Path));
         var baselineVersion = NormaliseVersion(ReadField(baseText, "Version"));
         var currentVersion = NormaliseVersion(ReadField(currentText, "Version"));
@@ -155,7 +181,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
             throw new InvalidDataException("Sha256 is not a pinned lowercase SHA-256 hash");
         }
 
-        return entry.Scenario;
+        return new(entry, baseText, currentVersion);
     }
 
     private CatalogueUpdateEntry[] ReadConfiguration()
@@ -685,7 +711,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
 
     private static void EnsureNumericVersion(string value)
     {
-        if (!Regex.IsMatch(value, "^(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))*(?:-[0-9]+)?$", RegexOptions.CultureInvariant))
+        if (!Regex.IsMatch(value, "^(?:0|[1-9][0-9]*)(?:\\.(?:0|[1-9][0-9]*))*(?:-[0-9]+)?\\z", RegexOptions.CultureInvariant))
         {
             throw new InvalidDataException($"version '{value}' is not a stable numeric version");
         }
@@ -773,6 +799,8 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
 
         writer.WriteEndArray();
     }
+
+    private sealed record ValidatedCatalogueEntry(CatalogueUpdateEntry Entry, string Baseline, string Version);
 
     private sealed record Release(string Version, string Url, string? Hash = null);
 }

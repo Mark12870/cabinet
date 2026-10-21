@@ -4,15 +4,16 @@
 `coverage.json` artifact and GitHub summary. Every pinned download must have a verified discovery rule or a specific
 blocker; CI rejects unclassified entries. Rolling and BYO sources are reported but cannot receive automatic version pins.
 
-A newer release gets a PR changing only version, URL and calculated SHA-256 when its scenario covers every declared
-format. Discovery still checks entries with unsupported formats or missing scenarios, but never downloads their
-installers or proposes bumps. Beta catalogue versions and expiring signed download URLs also block automatic proposals.
+A newer release gets a PR changing only version, URL and calculated SHA-256, plus a Cabinet release note, when its scenario
+covers every declared format. Discovery still checks entries with unsupported formats or missing scenarios, but never
+downloads their installers or proposes bumps. Beta catalogue versions and expiring signed download URLs also block proposals.
 
 CI builds the candidate Flatpak and runs its isolated scenario. Every declared format and additional test case must pass
 without skips or retries. Merging requires repository checks, build and runtime success, the tested head and an unchanged
 base. A moved `main` waits for the next discovery run to refresh the candidate. Failed candidates stay open.
 
-Catalogue updates ship with the next Cabinet release; they do not bump Cabinet's release version.
+The PR increments Cabinet's patch release and adds a note for the updated plugin. Merging it makes that release eligible
+for the existing release gate; publishing still waits for normal CI checks and build.
 
 ## GitHub setup
 
@@ -21,8 +22,8 @@ Catalogue updates ship with the next Cabinet release; they do not bump Cabinet's
 2. Protect `main` with **Require branches to be up to date before merging** and required checks `checks`,
    `build / build` and `candidate` (confirm displayed names in the first run). Automatic merging additionally requires
    the candidate runtime; do not require that conditional job for ordinary PRs. Never require `merge-candidate`:
-   it must merge before its own job finishes. The App must obey these protections,
-   which close the race between checking the tested base and GitHub accepting the merge.
+    it must merge before its own job finishes. The App must obey these protections. The tested head reaches `main`
+    only by a non-forced fast-forward, so a moved `main` or competing release rejects it.
 3. Set repository variable `CATALOGUE_UPDATE_APP_ID` to its App ID and `CATALOGUE_UPDATE_BOT` to its bot login
    (`<app-slug>[bot]`). Store its private key in secret `CATALOGUE_UPDATE_APP_PRIVATE_KEY`.
 4. Keep the scenario account secrets used by `Plugins` configured. Run `Catalogue updates` manually to verify setup.

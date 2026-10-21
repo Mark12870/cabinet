@@ -68,11 +68,25 @@ jobs:
           name: catalogue-candidates
           path: ${{ runner.temp }}/candidates
 
-      - name: Apply the discovered catalogue entry
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the trusted release helper
+        run: dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+
+      - name: Apply the catalogue entry and prepare its release notes
         env:
           ID: ${{ matrix.candidate.id }}
           ENTRY_PATH: data/library/${{ matrix.candidate.path }}
-        run: cp "${RUNNER_TEMP}/candidates/$ID.yml" "$ENTRY_PATH"
+        run: |
+          set -euo pipefail
+          baseline="${RUNNER_TEMP}/catalogue-baseline"
+          mkdir -p "$baseline/$(dirname "$ENTRY_PATH")" "$baseline/flatpak"
+          cp "$ENTRY_PATH" "$baseline/$ENTRY_PATH"
+          cp flatpak/io.github.mark12870.cabinet.metainfo.xml "$baseline/flatpak/io.github.mark12870.cabinet.metainfo.xml"
+          cp "${RUNNER_TEMP}/candidates/$ID.yml" "$ENTRY_PATH"
+          dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates release "$baseline" "$ID" "$(date -u +%F)"
 
       - uses: actions/create-github-app-token@v2
         id: app
@@ -88,10 +102,13 @@ jobs:
           sign-commits: true
           branch: catalogue-update/${{ matrix.candidate.id }}
           base: main
-          add-paths: data/library/${{ matrix.candidate.path }}
+          add-paths: |
+            data/library/${{ matrix.candidate.path }}
+            flatpak/io.github.mark12870.cabinet.metainfo.xml
           commit-message: 'Update ${{ matrix.candidate.id }} to ${{ matrix.candidate.version }}'
           title: 'Update ${{ matrix.candidate.id }} to ${{ matrix.candidate.version }}'
           body: >-
-            Discovered from the configured upstream source. Automatic merging requires
-            repository checks, a candidate Flatpak build and every declared format in
-            the matching scenario to pass. This does not publish a Cabinet release.
+            Discovered from the configured upstream source. This PR includes a Cabinet patch
+            version bump; merging it triggers the existing release gate, which publishes only
+            after the normal checks, build and runtime suite pass. Automatic merging also requires
+            a candidate Flatpak build and every declared format in the matching scenario.
