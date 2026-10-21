@@ -3,6 +3,10 @@ name: Build
 # Called by ci.yml for every push and pull request, and by plugins.yml for the daily plugin run.
 on:
   workflow_call:
+    inputs:
+      checkout_ref:
+        type: string
+        default: ''
 
 env:
   APP_ID: io.github.mark12870.cabinet
@@ -34,6 +38,8 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
 
       # Without this the repo starts empty and each export is a parentless root: nothing to roll
       # back to. Seeding makes the new commit a child of the published one, which matters only for

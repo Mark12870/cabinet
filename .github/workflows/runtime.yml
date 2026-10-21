@@ -6,6 +6,9 @@ on:
       rebuild_fixtures:
         type: boolean
         default: false
+      checkout_ref:
+        type: string
+        default: ''
       suite:
         description: general or scenarios
         type: string
@@ -55,6 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
           persist-credentials: false
 
       # A registry name has to be lowercase and GitHub has no expression for that, so the shell

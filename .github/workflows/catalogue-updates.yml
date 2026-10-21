@@ -50,8 +50,11 @@ jobs:
     if: >-
       !cancelled()
       && needs.discover.outputs.candidates != '' && needs.discover.outputs.candidates != '[]'
-      && vars.CATALOGUE_UPDATE_APP_ID != '' && vars.CATALOGUE_UPDATE_BOT != ''
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
     strategy:
       fail-fast: false
       max-parallel: 1
@@ -88,17 +91,10 @@ jobs:
           cp "${RUNNER_TEMP}/candidates/$ID.yml" "$ENTRY_PATH"
           dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates release "$baseline" "$ID" "$(date -u +%F)"
 
-      - uses: actions/create-github-app-token@v2
-        id: app
-        with:
-          app-id: ${{ vars.CATALOGUE_UPDATE_APP_ID }}
-          private-key: ${{ secrets.CATALOGUE_UPDATE_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-
       - uses: peter-evans/create-pull-request@v7
+        id: pr
         with:
-          token: ${{ steps.app.outputs.token }}
+          token: ${{ github.token }}
           sign-commits: true
           branch: catalogue-update/${{ matrix.candidate.id }}
           base: main
@@ -112,3 +108,16 @@ jobs:
             version bump; merging it triggers the existing release gate, which publishes only
             after the normal checks, build and runtime suite pass. Automatic merging also requires
             a candidate Flatpak build and every declared format in the matching scenario.
+
+      - name: Dispatch candidate CI
+        if: steps.pr.outputs.pull-request-number != '' && steps.pr.outputs.pull-request-head-sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ steps.pr.outputs.pull-request-number }}
+          HEAD: ${{ steps.pr.outputs.pull-request-head-sha }}
+        run: |
+          set -euo pipefail
+          pull_request=$(gh api "repos/$GH_REPO/pulls/$PR")
+          jq -e --arg head "$HEAD" '.state == "open" and .head.sha == $head' <<< "$pull_request" >/dev/null
+          gh workflow run ci.yml --ref main -f candidate_pr="$PR" -f candidate_head="$HEAD"

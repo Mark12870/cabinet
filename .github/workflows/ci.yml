@@ -12,12 +12,20 @@ on:
           FabFilter trial, at the cost of a run of hours
         type: boolean
         default: false
+      candidate_pr:
+        description: Catalogue candidate pull request number
+        type: string
+        default: ''
+      candidate_head:
+        description: Immutable candidate commit SHA
+        type: string
+        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.candidate_pr && format('candidate-{0}', inputs.candidate_pr) || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -29,6 +37,7 @@ env:
 
 jobs:
   checks:
+    needs: candidate
     runs-on: ubuntu-latest
     outputs:
       release: ${{ steps.gate.outputs.release }}
@@ -39,6 +48,8 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.candidate.outputs.checkout_sha }}
 
       # checks.sh re-execs into org.gnome.Sdk but keeps this HOME, so restore lands here.
       - uses: actions/cache@v4
@@ -62,7 +73,9 @@ jobs:
 
       - name: Decide whether to publish
         id: gate
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: >-
+          github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+          && needs.candidate.outputs.id == '' && !inputs.candidate_pr && !inputs.candidate_head
         run: |
           url="$(scripts/pages-url.sh)"
           release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
@@ -86,11 +99,15 @@ jobs:
   # artifact builds. Only a new version ships this very build; a refresh republishes what is out.
   # It does not wait for checks: publish does, so a build nothing gates is only spent minutes.
   build:
+    needs: candidate
     uses: ./.github/workflows/build.yml
+    with:
+      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
 
   # A push that only rewrites prose cannot change what a plugin does, and the runtime job is the
   # long one. Anything else, and anything that is not a push, runs it.
   scope:
+    if: ${{ !inputs.candidate_pr && !inputs.candidate_head }}
     runs-on: ubuntu-latest
     outputs:
       runtime: ${{ steps.decide.outputs.runtime }}
@@ -120,37 +137,58 @@ jobs:
           fi
 
   candidate:
-    if: >-
-      github.event_name == 'pull_request'
-      && github.event.pull_request.base.ref == 'main'
-      && vars.CATALOGUE_UPDATE_BOT != ''
-      && github.event.pull_request.user.login == vars.CATALOGUE_UPDATE_BOT
-      && github.event.pull_request.head.repo.full_name == github.repository
-      && startsWith(github.head_ref, 'catalogue-update/')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       id: ${{ steps.validate.outputs.id }}
       scenario: ${{ steps.validate.outputs.scenario }}
+      head: ${{ steps.validate.outputs.head }}
+      base: ${{ steps.validate.outputs.base }}
+      pr: ${{ steps.validate.outputs.pr }}
+      checkout_sha: ${{ steps.validate.outputs.checkout_sha }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
       - uses: actions/setup-dotnet@v5
+        if: inputs.candidate_pr != '' || inputs.candidate_head != ''
         with:
           dotnet-version: '10.0.x'
 
       - name: Validate the catalogue-only candidate against trusted configuration
         id: validate
         env:
-          BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-          BRANCH: ${{ github.head_ref }}
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REPOSITORY: ${{ github.repository }}
+          REBUILD_FIXTURES: ${{ inputs.rebuild_fixtures }}
+          PR: ${{ inputs.candidate_pr }}
+          HEAD: ${{ inputs.candidate_head }}
         run: |
           set -euo pipefail
+          if [[ -z "$PR" && -z "$HEAD" ]]; then
+            echo "checkout_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          [[ "$EVENT_NAME" == workflow_dispatch && "$REF" == refs/heads/main && "$REBUILD_FIXTURES" == false ]]
+          [[ "$PR" =~ ^[1-9][0-9]*$ && "$HEAD" =~ ^[0-9a-f]{40}$ ]]
+          current=$(gh api "repos/$REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          [ "$current" = "$GITHUB_SHA" ]
+          pull_request=$(gh api "repos/$REPOSITORY/pulls/$PR")
+          jq -e --arg head "$HEAD" --arg base "$GITHUB_SHA" --arg repo "$REPOSITORY" \
+            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .base.repo.full_name == $repo and .base.ref == "main" and .base.sha == $base and (.head.ref | test("^catalogue-update/[a-z0-9]+(-[a-z0-9]+)*$"))' \
+            <<< "$pull_request" >/dev/null
+          BASE=$(jq -r '.base.sha' <<< "$pull_request")
+          BRANCH=$(jq -r '.head.ref' <<< "$pull_request")
           id="${BRANCH#catalogue-update/}"
+          git fetch --no-tags origin "$HEAD"
           [[ "$id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
           ancestry=$(git rev-list --parents -n1 "$HEAD")
           read -r -a parents <<< "$ancestry"
@@ -183,6 +221,10 @@ jobs:
           [[ "$scenario" =~ ^Cabinet\.Runtime\.Tests\.Scenarios\.[A-Za-z0-9_]+Scenario$ ]]
           echo "id=$id" >> "$GITHUB_OUTPUT"
           echo "scenario=$scenario" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+          echo "checkout_sha=$HEAD" >> "$GITHUB_OUTPUT"
 
   # docs/TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
   # which nothing in checks.sh can do. It starts beside the build rather than after it, because
@@ -191,9 +233,10 @@ jobs:
   # repository's own cache for what may not -- and scripts/runtime-ci.sh drives every step inside
   # the container.
   runtime:
-    needs: scope
+    needs: [scope, candidate]
     if: >-
       needs.scope.outputs.runtime == 'true'
+      && !inputs.candidate_pr && !inputs.candidate_head
       && (github.event_name == 'workflow_dispatch'
       || (github.event_name == 'push' && github.ref == 'refs/heads/main'))
     uses: ./.github/workflows/runtime.yml
@@ -216,6 +259,7 @@ jobs:
       suite: scenarios
       filter_class: ${{ needs.candidate.outputs.scenario }}
       entry_id: ${{ needs.candidate.outputs.id }}
+      checkout_ref: ${{ needs.candidate.outputs.head }}
     secrets:
       EMAIL: ${{ secrets.EMAIL }}
       PASSWORD: ${{ secrets.PASSWORD }}
@@ -228,24 +272,21 @@ jobs:
 
   merge-candidate:
     needs: [candidate, checks, build, candidate-runtime]
-    if: github.event_name == 'pull_request' && needs.candidate.outputs.id != ''
+    if: github.event_name == 'workflow_dispatch' && needs.candidate.outputs.id != ''
     runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: read
     steps:
-      - uses: actions/create-github-app-token@v2
-        id: app
-        with:
-          app-id: ${{ vars.CATALOGUE_UPDATE_APP_ID }}
-          private-key: ${{ secrets.CATALOGUE_UPDATE_APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
-
       - name: Merge only the tested head and base
         env:
-          GH_TOKEN: ${{ steps.app.outputs.token }}
+          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
-          BASE: ${{ github.event.pull_request.base.sha }}
+          PR: ${{ needs.candidate.outputs.pr }}
+          HEAD: ${{ needs.candidate.outputs.head }}
+          BASE: ${{ needs.candidate.outputs.base }}
+          ID: ${{ needs.candidate.outputs.id }}
         run: |
           set -euo pipefail
           current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
@@ -254,15 +295,20 @@ jobs:
             exit 0
           fi
           pull_request=$(gh api "repos/$GH_REPO/pulls/$PR")
-          jq -e --arg head "$HEAD" --arg base "$BASE" --arg repo "$GH_REPO" '.state == "open" and .draft == false and .head.sha == $head and .base.ref == "main" and .base.sha == $base and .base.repo.full_name == $repo' <<< "$pull_request" >/dev/null
+          jq -e --arg head "$HEAD" --arg base "$BASE" --arg repo "$GH_REPO" --arg id "$ID" \
+            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == ("catalogue-update/" + $id) and .base.ref == "main" and .base.sha == $base and .base.repo.full_name == $repo' \
+            <<< "$pull_request" >/dev/null
           commit=$(gh api "repos/$GH_REPO/git/commits/$HEAD")
           jq -e --arg head "$HEAD" --arg base "$BASE" '.sha == $head and (.parents | length) == 1 and .parents[0].sha == $base' <<< "$commit" >/dev/null
           gh api --method PATCH "repos/$GH_REPO/git/refs/heads/main" -f sha="$HEAD" -F force=false
+          gh workflow run ci.yml --ref main
 
   publish:
-    needs: [checks, build, runtime]
+    needs: [candidate, checks, build, runtime]
     if: >-
-      always() && needs.checks.outputs.publish == 'true'
+      always() && needs.candidate.result == 'success' && needs.checks.result == 'success'
+      && !inputs.candidate_pr && !inputs.candidate_head && needs.candidate.outputs.id == ''
+      && needs.checks.outputs.publish == 'true'
       && (needs.build.result == 'success' || needs.checks.outputs.release != 'true')
       && (needs.runtime.result == 'success' || needs.checks.outputs.release != 'true')
     runs-on: ubuntu-latest

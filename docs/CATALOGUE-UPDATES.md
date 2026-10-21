@@ -17,19 +17,15 @@ for the existing release gate; publishing still waits for normal CI checks and b
 
 ## GitHub setup
 
-1. Install a GitHub App on this repository with **Contents: read and write** and **Pull requests: read and write**.
-   Do not grant it branch-protection bypass. Allow squash merging in the repository settings.
-2. Protect `main` with **Require branches to be up to date before merging** and required checks `checks`,
-   `build / build` and `candidate` (confirm displayed names in the first run). Automatic merging additionally requires
-   the candidate runtime; do not require that conditional job for ordinary PRs. Never require `merge-candidate`:
-    it must merge before its own job finishes. The App must obey these protections. The tested head reaches `main`
-    only by a non-forced fast-forward, so a moved `main` or competing release rejects it.
-3. Set repository variable `CATALOGUE_UPDATE_APP_ID` to its App ID and `CATALOGUE_UPDATE_BOT` to its bot login
-   (`<app-slug>[bot]`). Store its private key in secret `CATALOGUE_UPDATE_APP_PRIVATE_KEY`.
-4. Keep the scenario account secrets used by `Plugins` configured. Run `Catalogue updates` manually to verify setup.
+1. In **Settings → Actions → General → Workflow permissions**, allow GitHub Actions to create and approve pull requests.
+   The workflows use the built-in `GITHUB_TOKEN`; no App or PAT credentials are needed. They do not bypass branch
+   protection.
+2. Keep `main` protected with required checks `checks`, `build / build` and `candidate` (confirm displayed names in the
+   first run). Automatic merging also requires the candidate runtime; do not require that conditional job for ordinary
+   PRs or require `merge-candidate`. The merge is a non-forced fast-forward of the exact tested head and base.
+3. Keep the scenario account secrets used by `Plugins` configured. Run `Catalogue updates` manually to verify setup.
 
-Discovery and coverage reporting run without App credentials; only PR creation and merging require them. The App token
-never reaches installers or scenarios. App-created PRs and merges trigger normal CI; required approvals still apply.
+Only catalogue scenarios receive those account secrets. Existing GPG signing and plugin-account secrets are unchanged.
 
 ## Discovery configuration
 
