@@ -149,6 +149,15 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void SinePlayerUsesTheRunnerThatRendersItsBundledBrowser()
+    {
+        var entry = Shipped.Single(entry => entry.Id == "sine-player");
+
+        Assert.Equal("11.17", entry.Runner);
+        Assert.Equal(3, entry.Config.Revision);
+    }
+
+    [Fact]
     public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
     {
         var writing = Directory

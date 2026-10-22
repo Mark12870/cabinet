@@ -86,7 +86,6 @@ public sealed class SinePlayerScenario(SinePlayerScenario.Installed installed)
         private protected override async Task Install(Display display)
         {
             await base.Install(display);
-            Harness.Merge("[Software\\\\Wine\\\\Drivers] 0\n\"Audio\"=\"\"");
             var library = Path.Combine(Harness.Prefix, "drive_c", "SINE");
             Directory.CreateDirectory(library);
             var credentials = Credentials.Read();
