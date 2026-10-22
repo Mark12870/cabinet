@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.32.3" date="2026-10-22">
+      <description>
+        <p>Improve SINEplayer compatibility</p>
+        <ul>
+          <li>SINEplayer prefixes now use Wine 11.17 to support newer embedded browsers</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.32.2" date="2026-10-21">
       <description>
         <p>Update Decent Sampler</p>
