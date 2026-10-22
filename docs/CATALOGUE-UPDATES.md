@@ -15,8 +15,8 @@ Bot PR [skip ci] ── candidate dispatch on main ── validate exact PR/head
 
 The candidate workflow validates the immutable PR, head and base, then permits only catalogue YAML files and Cabinet's
 release notes. Every affected entry must pass every declared format and additional test case without skips or retries.
-If main moves, promotion and publication stop; discovery must refresh and retest. There is no second post-promotion build;
-failed candidates stay open.
+General runtime and release-gate failures block publication, not merging. Failed candidate scenarios keep the PR open.
+If main moves, refresh and retest; publication reuses the tested build.
 
 ## GitHub setup
 

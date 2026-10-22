@@ -156,16 +156,17 @@ public class WorkflowTests
     }
 
     [Fact]
-    public void PromotionRequiresEveryBatchGateAndDoesNotDispatchAnotherCiRun()
+    public void PromotionRequiresCandidateChecksButDoesNotWaitForReleaseChecks()
     {
         var merge = Job(Candidate, "merge-candidate");
         var runtime = Job(Candidate, "candidate-runtime");
 
-        Assert.Contains(merge, line => line.Trim() == "needs: [candidate, checks, build, runtime, candidate-runtime, release-gate]");
+        Assert.Contains(merge, line => line.Trim() == "needs: [candidate, checks, build, candidate-runtime]");
         Assert.Contains(merge, line => line.Contains("github.event_name == 'workflow_dispatch'", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains("needs.checks.result == 'success'", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains("needs.build.result == 'success'", StringComparison.Ordinal));
-        Assert.Contains(merge, line => line.Contains("needs.runtime.result == 'success'", StringComparison.Ordinal));
+        Assert.DoesNotContain(merge, line => line.Contains("needs.runtime.", StringComparison.Ordinal));
+        Assert.DoesNotContain(merge, line => line.Contains("needs.release-gate.", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains("needs.candidate-runtime.result == 'success'", StringComparison.Ordinal));
         Assert.DoesNotContain(merge, line => line.Contains("gh pr merge", StringComparison.Ordinal));
         Assert.Contains(merge, line => line.Contains("gh api \"repos/$GH_REPO/pulls/$PR\"", StringComparison.Ordinal));

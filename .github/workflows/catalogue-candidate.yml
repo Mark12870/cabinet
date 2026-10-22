@@ -186,13 +186,12 @@ jobs:
           echo "release=${release}" >> "$GITHUB_OUTPUT"
 
   merge-candidate:
-    needs: [candidate, checks, build, runtime, candidate-runtime, release-gate]
+    needs: [candidate, checks, build, candidate-runtime]
     if: >-
       always() && github.event_name == 'workflow_dispatch'
       && needs.candidate.outputs.selection_json != ''
       && needs.candidate.result == 'success' && needs.checks.result == 'success'
-      && needs.build.result == 'success' && needs.runtime.result == 'success'
-      && needs.candidate-runtime.result == 'success' && needs.release-gate.result == 'success'
+      && needs.build.result == 'success' && needs.candidate-runtime.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       promoted: ${{ steps.promote.outputs.promoted }}
