@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.32.3" date="2026-10-22">
+      <description>
+        <p>Update catalogue plugins</p>
+        <ul>
+          <li>Install SINEplayer 1.4.4 from the updated catalogue</li>
+          <li>Install Sitala 2 2.1.2 from the updated catalogue</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.32.2" date="2026-10-21">
       <description>
         <p>Update Decent Sampler</p>
