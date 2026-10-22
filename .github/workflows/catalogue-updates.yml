@@ -2,7 +2,7 @@ name: Catalogue updates
 
 on:
   schedule:
-    - cron: '43 1 * * *'
+    - cron: '23 23 * * *'
   workflow_dispatch:
 
 permissions:
@@ -144,4 +144,4 @@ jobs:
           set -euo pipefail
           pull_request=$(gh api "repos/$GH_REPO/pulls/$PR")
           jq -e --arg head "$HEAD" '.state == "open" and .head.sha == $head' <<< "$pull_request" >/dev/null
-          gh workflow run ci.yml --ref main -f candidate_pr="$PR" -f candidate_head="$HEAD"
+          gh workflow run catalogue-candidate.yml --ref main -f candidate_pr="$PR" -f candidate_head="$HEAD"

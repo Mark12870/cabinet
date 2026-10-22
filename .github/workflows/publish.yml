@@ -1,0 +1,202 @@
+name: Publish
+
+on:
+  workflow_call:
+    inputs:
+      source_sha:
+        type: string
+        required: true
+      release:
+        type: boolean
+        required: true
+    secrets:
+      GPG_PRIVATE_KEY:
+        required: false
+      GPG_PASSPHRASE:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  APP_ID: io.github.mark12870.cabinet
+  HISTORY_DEPTH: 10
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: cabinet-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    timeout-minutes: 60
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_sha }}
+
+      - name: Confirm main still points at the checked-out source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          CHECKED_SHA: ${{ inputs.source_sha }}
+        run: |
+          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current" != "$CHECKED_SHA" ]; then
+            echo '::error::main moved after the build was validated; refusing to publish a stale artifact'
+            exit 1
+          fi
+
+      - name: Install flatpak
+        timeout-minutes: 6
+        run: |
+          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
+          sudo apt-get install -y --no-install-recommends flatpak ostree
+
+      - uses: actions/download-artifact@v8
+        if: inputs.release
+        with:
+          name: repo
+
+      - name: Unpack the built repo
+        if: inputs.release
+        run: |
+          mkdir -p _site
+          tar -xf repo.tar -C _site
+
+      - name: Take the published repo
+        if: ${{ !inputs.release }}
+        run: |
+          mkdir -p _site
+          scripts/seed-repo.sh "$(scripts/pages-url.sh)" _site/repo
+
+      - name: Mirror the Flathub extensions
+        id: mirror
+        run: |
+          changed="$(scripts/mirror-extensions.sh _site/repo)"
+          if [ -n "${changed}" ] || [ '${{ inputs.release }}' = true ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::the mirrored extensions are current; nothing to publish"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/configure-pages@v6
+        if: steps.mirror.outputs.deploy == 'true'
+        id: pages
+
+      - name: Import the signing key
+        if: steps.mirror.outputs.deploy == 'true'
+        id: gpg
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          if [ -z "${GPG_PRIVATE_KEY}" ]; then
+            echo "::error::GPG_PRIVATE_KEY is missing or empty. Add it under" \
+                 "Settings > Secrets and variables > Actions > Repository secrets."
+            exit 1
+          fi
+
+          GNUPGHOME="${RUNNER_TEMP}/gnupg"
+          mkdir -p "${GNUPGHOME}" && chmod 700 "${GNUPGHOME}"
+          export GNUPGHOME
+          printf 'pinentry-mode loopback\n' > "${GNUPGHOME}/gpg.conf"
+          printf 'allow-loopback-pinentry\ndefault-cache-ttl 7200\nmax-cache-ttl 7200\n' \
+            > "${GNUPGHOME}/gpg-agent.conf"
+          gpgconf --kill gpg-agent || true
+
+          printf '%s\n' "${GPG_PRIVATE_KEY}" | gpg --batch --import
+          keyid="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')"
+          if [ -z "${keyid}" ]; then
+            echo "::error::the secret imported no usable secret key"
+            exit 1
+          fi
+
+          pass=()
+          if [ -n "${GPG_PASSPHRASE}" ]; then
+            printf '%s' "${GPG_PASSPHRASE}" > "${GNUPGHOME}/pp"
+            pass=(--passphrase-file "${GNUPGHOME}/pp")
+          fi
+
+          if ! err="$(echo smoke | gpg --batch --yes --pinentry-mode loopback \
+                       ${pass[@]+"${pass[@]}"} --local-user "${keyid}" \
+                       --sign --output /dev/null 2>&1)"; then
+            echo "::error::cannot sign with ${keyid}: ${err//$'\n'/ } ::" \
+                 "if the key has a passphrase, add it as the GPG_PASSPHRASE secret"
+            exit 1
+          fi
+
+          echo "signing with ${keyid}"
+          {
+            echo "keyid=${keyid}"
+            echo "gnupghome=${GNUPGHOME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update and sign the repo
+        if: steps.mirror.outputs.deploy == 'true'
+        run: |
+          for ref in $(ostree --repo=_site/repo refs); do
+            c="$(ostree --repo=_site/repo rev-parse "${ref}")"
+            [ -f "_site/repo/objects/${c:0:2}/${c:2}.commitmeta" ] && continue
+            ostree --repo=_site/repo gpg-sign \
+              --gpg-homedir="${{ steps.gpg.outputs.gnupghome }}" \
+              "${c}" "${{ steps.gpg.outputs.keyid }}"
+          done
+
+          if ! err="$(flatpak build-update-repo --prune \
+                       --prune-depth="${HISTORY_DEPTH}" \
+                       --gpg-sign="${{ steps.gpg.outputs.keyid }}" \
+                       --gpg-homedir="${{ steps.gpg.outputs.gnupghome }}" \
+                       _site/repo 2>&1 >/dev/null)"; then
+            echo "::error::build-update-repo failed: ${err//$'\n'/ }"
+            exit 1
+          fi
+
+          test -f _site/repo/summary.sig
+          for ref in $(ostree --repo=_site/repo refs); do
+            c="$(ostree --repo=_site/repo rev-parse "${ref}")"
+            if [ ! -f "_site/repo/objects/${c:0:2}/${c:2}.commitmeta" ]; then
+              echo "::error::commit for ${ref} is unsigned"
+              exit 1
+            fi
+          done
+
+          size="$(du -sb _site/repo | cut -f1)"
+          if [ "${size}" -ge 1000000000 ]; then
+            echo "::error::the repo is ${size} bytes; Pages publishes at most 1 GB"
+            exit 1
+          fi
+
+      - name: Render the site
+        if: steps.mirror.outputs.deploy == 'true'
+        env:
+          BASE: ${{ steps.pages.outputs.base_url }}
+        run: |
+          scripts/render-site.sh \
+            --repo _site/repo \
+            --out _site \
+            --base-url "${BASE}" \
+            --homepage "https://github.com/${GITHUB_REPOSITORY}" \
+            --gpg-fingerprint "${{ steps.gpg.outputs.keyid }}" \
+            --gpg-key "$(gpg --homedir "${{ steps.gpg.outputs.gnupghome }}" \
+              --export "${{ steps.gpg.outputs.keyid }}" | base64 -w0)"
+
+          cp -r site/screenshots _site/screenshots
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v5
+        if: steps.mirror.outputs.deploy == 'true'
+        with:
+          path: _site
+          include-hidden-files: true
+
+      - uses: actions/deploy-pages@v5
+        if: steps.mirror.outputs.deploy == 'true'
+        id: deploy

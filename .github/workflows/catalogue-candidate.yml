@@ -1,0 +1,246 @@
+name: Catalogue candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_pr:
+        description: Catalogue candidate pull request number
+        type: string
+        required: true
+      candidate_head:
+        description: Immutable candidate commit SHA
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.candidate_pr }}
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      selection_json: ${{ steps.validate.outputs.selection_json }}
+      head: ${{ steps.validate.outputs.head }}
+      base: ${{ steps.validate.outputs.base }}
+      pr: ${{ steps.validate.outputs.pr }}
+      checkout_sha: ${{ steps.validate.outputs.checkout_sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Validate the catalogue-only candidate against trusted configuration
+        id: validate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REPOSITORY: ${{ github.repository }}
+          PR: ${{ inputs.candidate_pr }}
+          HEAD: ${{ inputs.candidate_head }}
+        run: |
+          set -euo pipefail
+          [[ "$EVENT_NAME" == workflow_dispatch && "$REF" == refs/heads/main ]]
+          [[ "$PR" =~ ^[1-9][0-9]*$ && "$HEAD" =~ ^[0-9a-f]{40}$ ]]
+          current=$(gh api "repos/$REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          [ "$current" = "$GITHUB_SHA" ]
+          pull_request=$(gh api "repos/$REPOSITORY/pulls/$PR")
+          jq -e --arg head "$HEAD" --arg base "$GITHUB_SHA" --arg repo "$REPOSITORY" \
+            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == "catalogue-updates" and .base.repo.full_name == $repo and .base.ref == "main" and .base.sha == $base' \
+            <<< "$pull_request" >/dev/null
+          BASE=$(jq -r '.base.sha' <<< "$pull_request")
+          git fetch --no-tags origin "$HEAD"
+          ancestry=$(git rev-list --parents -n1 "$HEAD")
+          read -r -a parents <<< "$ancestry"
+          [ "${#parents[@]}" -eq 2 ] && [ "${parents[0]}" = "$HEAD" ] && [ "${parents[1]}" = "$BASE" ]
+          metainfo='flatpak/io.github.mark12870.cabinet.metainfo.xml'
+          mapfile -t changed < <(git diff --raw --no-renames "$BASE" "$HEAD")
+          [ "${#changed[@]}" -ge 2 ]
+          entry_paths=()
+          ids=()
+          declare -A seen_ids=()
+          metainfo_changed=false
+          for change in "${changed[@]}"; do
+            [[ "$change" =~ ^:100644\ 100644\ [0-9a-f]+\ [0-9a-f]+\ M[[:space:]](.+)$ ]]
+            path="${BASH_REMATCH[1]}"
+            if [[ "$path" == "$metainfo" ]]; then
+              metainfo_changed=true
+            elif [[ "$path" =~ ^data/library/[a-z0-9-]+/([a-z0-9-]+)\.yml$ ]]; then
+              id="${BASH_REMATCH[1]}"
+              [[ -z "${seen_ids[$id]+present}" ]]
+              seen_ids[$id]=present
+              entry_paths+=("$path")
+              ids+=("$id")
+            else
+              exit 1
+            fi
+          done
+          [ "${#entry_paths[@]}" -ge 1 ] && [ "$metainfo_changed" = true ]
+          baseline="${RUNNER_TEMP}/catalogue-baseline"
+          mkdir -p "$baseline/data/library" "$baseline/flatpak"
+          git show "$BASE:$metainfo" > "$baseline/$metainfo"
+          for path in "${entry_paths[@]}"; do
+            mkdir -p "$baseline/$(dirname "$path")"
+            git show "$BASE:$path" > "$baseline/$path"
+            git show "$HEAD:$path" > "$path"
+          done
+          git show "$HEAD:$metainfo" > "$metainfo"
+          dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+          printf '%s\n' "${ids[@]}" | jq -R . | jq -s . > "${RUNNER_TEMP}/catalogue-ids.json"
+          printf '%s\n' "${entry_paths[@]#data/library/}" | jq -R . | jq -s . > "${RUNNER_TEMP}/catalogue-paths.json"
+          selection=$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates validate \
+            "$baseline" "${RUNNER_TEMP}/catalogue-ids.json")
+          jq -e --argjson ids "$(cat "${RUNNER_TEMP}/catalogue-ids.json")" \
+            --argjson paths "$(cat "${RUNNER_TEMP}/catalogue-paths.json")" \
+            'type == "array" and length == ($ids | length) and
+             all(.[]; type == "object" and (.id | type == "string" and test("^[a-z0-9]+(-[a-z0-9]+)*$")) and
+               (.path | type == "string" and test("^[a-z0-9-]+/[a-z0-9-]+\\.yml$")) and
+               (.scenario | type == "string" and test("^Cabinet\\.Runtime\\.Tests\\.Scenarios\\.[A-Za-z0-9_]+Scenario$")) and
+               (.path | split("/")[-1] | sub("\\.yml$"; "")) == .id) and
+             ([.[].id] == ([.[].id] | sort)) and
+             ([.[].id] | sort) == ($ids | sort) and
+             ([.[].path] | sort) == ($paths | sort)' <<< "$selection" >/dev/null
+          selection_json=$(jq -c . <<< "$selection")
+          echo "selection_json=$selection_json" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "pr=$PR" >> "$GITHUB_OUTPUT"
+          echo "checkout_sha=$HEAD" >> "$GITHUB_OUTPUT"
+
+  checks:
+    needs: candidate
+    uses: ./.github/workflows/checks.yml
+    with:
+      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
+
+  build:
+    needs: candidate
+    uses: ./.github/workflows/build.yml
+    with:
+      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
+
+  runtime:
+    needs: candidate
+    uses: ./.github/workflows/runtime.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    with:
+      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
+
+  candidate-runtime:
+    needs: candidate
+    uses: ./.github/workflows/runtime.yml
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    with:
+      suite: scenarios
+      selection_json: ${{ needs.candidate.outputs.selection_json }}
+      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
+      artifact_name: runtime-candidates
+    secrets:
+      EMAIL: ${{ secrets.EMAIL }}
+      PASSWORD: ${{ secrets.PASSWORD }}
+      DROPBOX: ${{ secrets.DROPBOX }}
+      USERNAME: ${{ secrets.USERNAME }}
+      NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
+      WAVES: ${{ secrets.WAVES }}
+      EMAIL_IMAP_HOST: ${{ vars.EMAIL_IMAP_HOST }}
+      EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
+
+  release-gate:
+    needs: candidate
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+    outputs:
+      release: ${{ steps.gate.outputs.release }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.candidate.outputs.checkout_sha }}
+
+      - name: Decide whether the tested candidate is a release
+        id: gate
+        env:
+          APP_ID: io.github.mark12870.cabinet
+        run: |
+          url="$(scripts/pages-url.sh)"
+          release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
+
+  merge-candidate:
+    needs: [candidate, checks, build, runtime, candidate-runtime, release-gate]
+    if: >-
+      always() && github.event_name == 'workflow_dispatch'
+      && needs.candidate.outputs.selection_json != ''
+      && needs.candidate.result == 'success' && needs.checks.result == 'success'
+      && needs.build.result == 'success' && needs.runtime.result == 'success'
+      && needs.candidate-runtime.result == 'success' && needs.release-gate.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      promoted: ${{ steps.promote.outputs.promoted }}
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Merge only the tested head and base
+        id: promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ needs.candidate.outputs.pr }}
+          HEAD: ${{ needs.candidate.outputs.head }}
+          BASE: ${{ needs.candidate.outputs.base }}
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+          if [ "$current" != "$BASE" ]; then
+            echo '::notice::main moved; the next discovery run will refresh and retest this candidate'
+            exit 0
+          fi
+          pull_request=$(gh api "repos/$GH_REPO/pulls/$PR")
+          jq -e --arg head "$HEAD" --arg base "$BASE" --arg repo "$GH_REPO" \
+            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == "catalogue-updates" and .base.ref == "main" and .base.sha == $base and .base.repo.full_name == $repo' \
+            <<< "$pull_request" >/dev/null
+          commit=$(gh api "repos/$GH_REPO/git/commits/$HEAD")
+          jq -e --arg head "$HEAD" --arg base "$BASE" '.sha == $head and (.parents | length) == 1 and .parents[0].sha == $base' <<< "$commit" >/dev/null
+          gh api --method PATCH "repos/$GH_REPO/git/refs/heads/main" -f sha="$HEAD" -F force=false
+          echo "promoted=true" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: [candidate, checks, build, runtime, candidate-runtime, release-gate, merge-candidate]
+    if: >-
+      always() && needs.candidate.result == 'success' && needs.checks.result == 'success'
+      && needs.build.result == 'success' && needs.runtime.result == 'success'
+      && needs.candidate-runtime.result == 'success' && needs.release-gate.result == 'success'
+      && needs.merge-candidate.result == 'success'
+      && needs.merge-candidate.outputs.promoted == 'true'
+      && needs.release-gate.outputs.release == 'true'
+    uses: ./.github/workflows/publish.yml
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    with:
+      source_sha: ${{ needs.candidate.outputs.checkout_sha }}
+      release: true
+    secrets:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}

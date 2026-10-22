@@ -1,6 +1,6 @@
 name: Build
 
-# Called by ci.yml for every push and pull request, and by plugins.yml for the daily plugin run.
+# Called by CI, catalogue candidates and the daily plugin run.
 on:
   workflow_call:
     inputs:

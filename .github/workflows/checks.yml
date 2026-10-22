@@ -1,0 +1,41 @@
+name: Checks
+
+on:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: >-
+            nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Build.props',
+            'flatpak/nuget-sources.json') }}
+          restore-keys: nuget-
+
+      - name: Install the SDK and the toolchains checks.sh enters
+        run: |
+          flatpak install -y --noninteractive flathub \
+            org.gnome.Sdk//50 \
+            org.freedesktop.Sdk.Extension.dotnet10//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08 \
+            org.freedesktop.Sdk.Extension.llvm20//25.08
+
+      - name: Checks
+        run: scripts/checks.sh

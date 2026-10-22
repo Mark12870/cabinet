@@ -12,107 +12,25 @@ on:
           FabFilter trial, at the cost of a run of hours
         type: boolean
         default: false
-      candidate_pr:
-        description: Catalogue candidate pull request number
-        type: string
-        default: ''
-      candidate_head:
-        description: Immutable candidate commit SHA
-        type: string
-        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ inputs.candidate_pr && format('candidate-{0}', inputs.candidate_pr) || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  APP_ID: io.github.mark12870.cabinet
-  # Parents kept behind each head when pruning, so `flatpak update --commit=` has
-  # somewhere to go. Lower than beeper-flatpak's 100 on purpose: Cabinet bundles
-  # Wine, so a retained commit is tens of megabytes rather than a few kilobytes.
-  HISTORY_DEPTH: 10
 
 jobs:
   checks:
-    needs: candidate
-    runs-on: ubuntu-latest
-    outputs:
-      release: ${{ steps.gate.outputs.release }}
-      publish: ${{ steps.gate.outputs.publish }}
-    container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
-      # bwrap needs to set up its own namespaces to run inside a container.
-      options: --privileged
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.candidate.outputs.checkout_sha }}
+    uses: ./.github/workflows/checks.yml
+    with:
+      checkout_ref: ${{ github.sha }}
 
-      # checks.sh re-execs into org.gnome.Sdk but keeps this HOME, so restore lands here.
-      - uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: >-
-            nuget-${{ hashFiles('**/*.csproj', 'src/Directory.Build.props',
-            'flatpak/nuget-sources.json') }}
-          restore-keys: nuget-
-
-      - name: Install the SDK and the toolchains checks.sh enters
-        run: |
-          flatpak install -y --noninteractive flathub \
-            org.gnome.Sdk//50 \
-            org.freedesktop.Sdk.Extension.dotnet10//25.08 \
-            org.freedesktop.Sdk.Extension.rust-stable//25.08 \
-            org.freedesktop.Sdk.Extension.llvm20//25.08
-
-      - name: Checks
-        run: scripts/checks.sh
-
-      - name: Decide whether to publish
-        id: gate
-        if: >-
-          github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-          && (needs.candidate.outputs.selection_json != '' || (!inputs.candidate_pr && !inputs.candidate_head))
-        env:
-          SELECTION: ${{ needs.candidate.outputs.selection_json }}
-        run: |
-          url="$(scripts/pages-url.sh)"
-          release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
-          echo "release=${release}" >> "$GITHUB_OUTPUT"
-
-          if [ -n "$SELECTION" ]; then
-            echo "publish=${release}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # A dispatch means "republish what is out" -- that is what an extension refresh is --
-          # except when it was asked for the test fixtures, which have nothing to do with
-          # the published repo.
-          case "${{ github.event_name }}" in
-            workflow_dispatch)
-              if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
-                publish=false
-              else
-                publish=true
-              fi ;;
-            *) publish="${release}" ;;
-          esac
-          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
-
-  # Runs on every push and pull request, not only for a release, so a green run means the
-  # artifact builds. Only a new version ships this very build; a refresh republishes what is out.
-  # It does not wait for checks: publish does, so a build nothing gates is only spent minutes.
   build:
-    needs: candidate
     uses: ./.github/workflows/build.yml
     with:
-      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
+      checkout_ref: ${{ github.sha }}
 
-  # A push that only rewrites prose cannot change what a plugin does, and the runtime job is the
-  # long one. Anything else, and anything that is not a push, runs it.
   scope:
     runs-on: ubuntu-latest
     outputs:
@@ -142,122 +60,41 @@ jobs:
             echo 'runtime=false' >> "$GITHUB_OUTPUT"
           fi
 
-  candidate:
+  release-gate:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-50
     outputs:
-      selection_json: ${{ steps.validate.outputs.selection_json }}
-      head: ${{ steps.validate.outputs.head }}
-      base: ${{ steps.validate.outputs.base }}
-      pr: ${{ steps.validate.outputs.pr }}
-      checkout_sha: ${{ steps.validate.outputs.checkout_sha }}
+      release: ${{ steps.gate.outputs.release }}
+      publish: ${{ steps.gate.outputs.publish }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v5
-        if: inputs.candidate_pr != '' || inputs.candidate_head != ''
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Validate the catalogue-only candidate against trusted configuration
-        id: validate
+      - name: Decide whether to publish
+        id: gate
         env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT_NAME: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-          REPOSITORY: ${{ github.repository }}
-          REBUILD_FIXTURES: ${{ inputs.rebuild_fixtures }}
-          PR: ${{ inputs.candidate_pr }}
-          HEAD: ${{ inputs.candidate_head }}
+          APP_ID: io.github.mark12870.cabinet
         run: |
-          set -euo pipefail
-          if [[ -z "$PR" && -z "$HEAD" ]]; then
-            echo "selection_json=" >> "$GITHUB_OUTPUT"
-            echo "checkout_sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          url="$(scripts/pages-url.sh)"
+          release="$(scripts/release-gate.sh "${APP_ID}" "${url}" "${RUNNER_TEMP}/published")"
+          echo "release=${release}" >> "$GITHUB_OUTPUT"
 
-          [[ "$EVENT_NAME" == workflow_dispatch && "$REF" == refs/heads/main && "$REBUILD_FIXTURES" == false ]]
-          [[ "$PR" =~ ^[1-9][0-9]*$ && "$HEAD" =~ ^[0-9a-f]{40}$ ]]
-          current=$(gh api "repos/$REPOSITORY/git/ref/heads/main" --jq '.object.sha')
-          [ "$current" = "$GITHUB_SHA" ]
-          pull_request=$(gh api "repos/$REPOSITORY/pulls/$PR")
-          jq -e --arg head "$HEAD" --arg base "$GITHUB_SHA" --arg repo "$REPOSITORY" \
-            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == "catalogue-updates" and .base.repo.full_name == $repo and .base.ref == "main" and .base.sha == $base' \
-            <<< "$pull_request" >/dev/null
-          BASE=$(jq -r '.base.sha' <<< "$pull_request")
-          git fetch --no-tags origin "$HEAD"
-          ancestry=$(git rev-list --parents -n1 "$HEAD")
-          read -r -a parents <<< "$ancestry"
-          [ "${#parents[@]}" -eq 2 ] && [ "${parents[0]}" = "$HEAD" ] && [ "${parents[1]}" = "$BASE" ]
-          metainfo='flatpak/io.github.mark12870.cabinet.metainfo.xml'
-          mapfile -t changed < <(git diff --raw --no-renames "$BASE" "$HEAD")
-          [ "${#changed[@]}" -ge 2 ]
-          entry_paths=()
-          ids=()
-          declare -A seen_ids=()
-          metainfo_changed=false
-          for change in "${changed[@]}"; do
-            [[ "$change" =~ ^:100644\ 100644\ [0-9a-f]+\ [0-9a-f]+\ M[[:space:]](.+)$ ]]
-            path="${BASH_REMATCH[1]}"
-            if [[ "$path" == "$metainfo" ]]; then
-              metainfo_changed=true
-            elif [[ "$path" =~ ^data/library/[a-z0-9-]+/([a-z0-9-]+)\.yml$ ]]; then
-              id="${BASH_REMATCH[1]}"
-              [[ -z "${seen_ids[$id]+present}" ]]
-              seen_ids[$id]=present
-              entry_paths+=("$path")
-              ids+=("$id")
-            else
-              exit 1
-            fi
-          done
-          [ "${#entry_paths[@]}" -ge 1 ] && [ "$metainfo_changed" = true ]
-          baseline="${RUNNER_TEMP}/catalogue-baseline"
-          mkdir -p "$baseline/data/library" "$baseline/flatpak"
-          git show "$BASE:$metainfo" > "$baseline/$metainfo"
-          for path in "${entry_paths[@]}"; do
-            mkdir -p "$baseline/$(dirname "$path")"
-            git show "$BASE:$path" > "$baseline/$path"
-            git show "$HEAD:$path" > "$path"
-          done
-          git show "$HEAD:$metainfo" > "$metainfo"
-          dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
-          printf '%s\n' "${ids[@]}" | jq -R . | jq -s . > "${RUNNER_TEMP}/catalogue-ids.json"
-          printf '%s\n' "${entry_paths[@]#data/library/}" | jq -R . | jq -s . > "${RUNNER_TEMP}/catalogue-paths.json"
-          selection=$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" catalogue-updates validate \
-            "$baseline" "${RUNNER_TEMP}/catalogue-ids.json")
-          jq -e --argjson ids "$(cat "${RUNNER_TEMP}/catalogue-ids.json")" \
-            --argjson paths "$(cat "${RUNNER_TEMP}/catalogue-paths.json")" \
-            'type == "array" and length == ($ids | length) and
-             all(.[]; type == "object" and (.id | type == "string" and test("^[a-z0-9]+(-[a-z0-9]+)*$")) and
-               (.path | type == "string" and test("^[a-z0-9-]+/[a-z0-9-]+\\.yml$")) and
-               (.scenario | type == "string" and test("^Cabinet\\.Runtime\\.Tests\\.Scenarios\\.[A-Za-z0-9_]+Scenario$")) and
-               (.path | split("/")[-1] | sub("\\.yml$"; "")) == .id) and
-             ([.[].id] == ([.[].id] | sort)) and
-             ([.[].id] | sort) == ($ids | sort) and
-             ([.[].path] | sort) == ($paths | sort)' <<< "$selection" >/dev/null
-          selection_json=$(jq -c . <<< "$selection")
-          echo "selection_json=$selection_json" >> "$GITHUB_OUTPUT"
-          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
-          echo "base=$BASE" >> "$GITHUB_OUTPUT"
-          echo "pr=$PR" >> "$GITHUB_OUTPUT"
-          echo "checkout_sha=$HEAD" >> "$GITHUB_OUTPUT"
+          case "${{ github.event_name }}" in
+            workflow_dispatch)
+              if [ '${{ inputs.rebuild_fixtures }}' = true ]; then
+                publish=false
+              else
+                publish=true
+              fi ;;
+            *) publish="${release}" ;;
+          esac
+          echo "publish=${publish}" >> "$GITHUB_OUTPUT"
 
-  # docs/TESTS.md's suite: it loads real plugins, opens their editors and drives a pointer over them,
-  # which nothing in checks.sh can do. It starts beside the build rather than after it, because
-  # the only thing it wants from the build is an artifact it does not touch until it installs
-  # Cabinet. The fixtures come in two halves -- a public image of what may be republished, the
-  # repository's own cache for what may not -- and scripts/runtime-ci.sh drives every step inside
-  # the container.
   runtime:
-    needs: [scope, candidate]
+    needs: scope
     if: >-
       needs.scope.outputs.runtime == 'true'
       && (github.event_name == 'workflow_dispatch'
@@ -269,287 +106,23 @@ jobs:
       packages: write
     with:
       rebuild_fixtures: ${{ inputs.rebuild_fixtures || false }}
-      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
-
-  candidate-runtime:
-    needs: candidate
-    if: needs.candidate.outputs.selection_json != ''
-    uses: ./.github/workflows/runtime.yml
-    permissions:
-      actions: read
-      contents: read
-      packages: read
-    with:
-      suite: scenarios
-      selection_json: ${{ needs.candidate.outputs.selection_json }}
-      checkout_ref: ${{ needs.candidate.outputs.checkout_sha }}
-      artifact_name: runtime-candidates
-    secrets:
-      EMAIL: ${{ secrets.EMAIL }}
-      PASSWORD: ${{ secrets.PASSWORD }}
-      DROPBOX: ${{ secrets.DROPBOX }}
-      USERNAME: ${{ secrets.USERNAME }}
-      NATIVE_ACCESS: ${{ secrets.NATIVE_ACCESS }}
-      WAVES: ${{ secrets.WAVES }}
-      EMAIL_IMAP_HOST: ${{ vars.EMAIL_IMAP_HOST }}
-      EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
-
-  merge-candidate:
-    needs: [candidate, checks, build, runtime, candidate-runtime]
-    if: >-
-      always() && github.event_name == 'workflow_dispatch'
-      && needs.candidate.outputs.selection_json != ''
-      && needs.checks.result == 'success' && needs.build.result == 'success'
-      && needs.runtime.result == 'success' && needs.candidate-runtime.result == 'success'
-    runs-on: ubuntu-latest
-    outputs:
-      promoted: ${{ steps.promote.outputs.promoted }}
-    permissions:
-      contents: write
-      pull-requests: read
-    steps:
-      - name: Merge only the tested head and base
-        id: promote
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PR: ${{ needs.candidate.outputs.pr }}
-          HEAD: ${{ needs.candidate.outputs.head }}
-          BASE: ${{ needs.candidate.outputs.base }}
-        run: |
-          set -euo pipefail
-          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
-          if [ "$current" != "$BASE" ]; then
-            echo '::notice::main moved; the next discovery run will refresh and retest this candidate'
-            exit 0
-          fi
-          pull_request=$(gh api "repos/$GH_REPO/pulls/$PR")
-          jq -e --arg head "$HEAD" --arg base "$BASE" --arg repo "$GH_REPO" \
-            '.state == "open" and .draft == false and .user.login == "github-actions[bot]" and .head.sha == $head and .head.repo.full_name == $repo and .head.ref == "catalogue-updates" and .base.ref == "main" and .base.sha == $base and .base.repo.full_name == $repo' \
-            <<< "$pull_request" >/dev/null
-          commit=$(gh api "repos/$GH_REPO/git/commits/$HEAD")
-          jq -e --arg head "$HEAD" --arg base "$BASE" '.sha == $head and (.parents | length) == 1 and .parents[0].sha == $base' <<< "$commit" >/dev/null
-          gh api --method PATCH "repos/$GH_REPO/git/refs/heads/main" -f sha="$HEAD" -F force=false
-          echo "promoted=true" >> "$GITHUB_OUTPUT"
+      checkout_ref: ${{ github.sha }}
 
   publish:
-    needs: [candidate, checks, build, runtime, candidate-runtime, merge-candidate]
+    needs: [checks, build, runtime, release-gate]
     if: >-
-      always() && needs.candidate.result == 'success' && needs.checks.result == 'success'
-      && ((needs.candidate.outputs.selection_json == '' && !inputs.candidate_pr && !inputs.candidate_head
-      && needs.checks.outputs.publish == 'true'
-      && (needs.build.result == 'success' || needs.checks.outputs.release != 'true')
-      && (needs.runtime.result == 'success' || needs.checks.outputs.release != 'true'))
-      || (needs.candidate.outputs.selection_json != '' && needs.checks.outputs.release == 'true'
-      && needs.build.result == 'success' && needs.runtime.result == 'success'
-      && needs.candidate-runtime.result == 'success' && needs.merge-candidate.result == 'success'
-      && needs.merge-candidate.outputs.promoted == 'true'))
-    runs-on: ubuntu-latest
-    concurrency:
-      group: cabinet-publish
-      cancel-in-progress: false
+      always() && needs.checks.result == 'success' && needs.release-gate.result == 'success'
+      && needs.release-gate.outputs.publish == 'true'
+      && (needs.release-gate.outputs.release != 'true'
+      || (needs.build.result == 'success' && needs.runtime.result == 'success'))
+    uses: ./.github/workflows/publish.yml
     permissions:
       contents: read
       pages: write
       id-token: write
-    # Backstop: seeding and mirroring take minutes and every other step seconds, so
-    # anything past this is wedged, and a wedged job holds the concurrency group for the
-    # six-hour limit.
-    timeout-minutes: 60
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      # Only for scripts/ and site/ -- the repo itself comes from the artifact.
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.candidate.outputs.checkout_sha }}
-
-      - name: Confirm main still points at the checked-out source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          CHECKED_SHA: ${{ needs.candidate.outputs.checkout_sha }}
-        run: |
-          current=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
-          if [ "$current" != "$CHECKED_SHA" ]; then
-            echo '::error::main moved after the build was validated; refusing to publish a stale artifact'
-            exit 1
-          fi
-
-      - name: Install flatpak
-        # Ubuntu's indexes come from GitHub's Azure-first mirrorlist. apt's default
-        # 120 s timeout times its retries turns one unreachable mirror into a step
-        # that outlasts the job limit -- and the concurrency group then holds every
-        # later run behind it. Bound the wait so the fallback mirror takes over.
-        timeout-minutes: 6
-        run: |
-          sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
-          sudo apt-get install -y --no-install-recommends flatpak ostree
-
-      - uses: actions/download-artifact@v8
-        if: needs.checks.outputs.release == 'true'
-        with:
-          name: repo
-
-      - name: Unpack the built repo
-        if: needs.checks.outputs.release == 'true'
-        run: |
-          # flatpak-builder already wrote it as archive-z2, which is what Pages
-          # needs to serve; the tar lands as _site/repo.
-          mkdir -p _site
-          tar -xf repo.tar -C _site
-
-      # A refresh republishes what is already out, never a rebuild of the same version.
-      - name: Take the published repo
-        if: needs.checks.outputs.release != 'true'
-        run: |
-          mkdir -p _site
-          scripts/seed-repo.sh "$(scripts/pages-url.sh)" _site/repo
-
-      # Flatpak looks for an app's extensions only in the remote the app came from, so
-      # Cabinet's remote has to carry the Flathub ones it downloads with the app.
-      - name: Mirror the Flathub extensions
-        id: mirror
-        run: |
-          changed="$(scripts/mirror-extensions.sh _site/repo)"
-          if [ -n "${changed}" ] || [ "${{ needs.checks.outputs.release }}" = true ]; then
-            echo "deploy=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::the mirrored extensions are current; nothing to publish"
-            echo "deploy=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - uses: actions/configure-pages@v6
-        if: steps.mirror.outputs.deploy == 'true'
-        id: pages
-
-      - name: Import the signing key
-        if: steps.mirror.outputs.deploy == 'true'
-        id: gpg
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-        run: |
-          # Hard failure rather than a quiet unsigned publish: clients that added the
-          # remote while it was signed break on an unsigned update, and a green build
-          # should never silently downgrade that.
-          if [ -z "${GPG_PRIVATE_KEY}" ]; then
-            echo "::error::GPG_PRIVATE_KEY is missing or empty. Add it under" \
-                 "Settings > Secrets and variables > Actions > Repository secrets."
-            exit 1
-          fi
-
-          GNUPGHOME="${RUNNER_TEMP}/gnupg"
-          mkdir -p "${GNUPGHOME}" && chmod 700 "${GNUPGHOME}"
-          export GNUPGHOME
-
-          # A runner has no terminal, so the agent must never reach for pinentry --
-          # it would die with "Inappropriate ioctl for device".
-          printf 'pinentry-mode loopback\n' > "${GNUPGHOME}/gpg.conf"
-          printf 'allow-loopback-pinentry\ndefault-cache-ttl 7200\nmax-cache-ttl 7200\n' \
-            > "${GNUPGHOME}/gpg-agent.conf"
-          gpgconf --kill gpg-agent || true
-
-          printf '%s\n' "${GPG_PRIVATE_KEY}" | gpg --batch --import
-          keyid="$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')"
-          if [ -z "${keyid}" ]; then
-            echo "::error::the secret imported no usable secret key"
-            exit 1
-          fi
-
-          pass=()
-          if [ -n "${GPG_PASSPHRASE}" ]; then
-            printf '%s' "${GPG_PASSPHRASE}" > "${GNUPGHOME}/pp"
-            pass=(--passphrase-file "${GNUPGHOME}/pp")
-          fi
-
-          # Sign once here: proves the key is usable and primes the agent cache so
-          # ostree's GPGME signing does not prompt later.
-          if ! err="$(echo smoke | gpg --batch --yes --pinentry-mode loopback \
-                       ${pass[@]+"${pass[@]}"} --local-user "${keyid}" \
-                       --sign --output /dev/null 2>&1)"; then
-            echo "::error::cannot sign with ${keyid}: ${err//$'\n'/ } ::" \
-                 "if the key has a passphrase, add it as the GPG_PASSPHRASE secret"
-            exit 1
-          fi
-
-          echo "signing with ${keyid}"
-          {
-            echo "keyid=${keyid}"
-            echo "gnupghome=${GNUPGHOME}"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Update and sign the repo
-        if: steps.mirror.outputs.deploy == 'true'
-        run: |
-          # The build job exports commits unsigned, and a client with gpg-verify=true
-          # refuses those.
-          for ref in $(ostree --repo=_site/repo refs); do
-            c="$(ostree --repo=_site/repo rev-parse "${ref}")"
-            # Heads carried in from the published history are signed already, and
-            # gpg-sign errors out rather than no-opping on those.
-            [ -f "_site/repo/objects/${c:0:2}/${c:2}.commitmeta" ] && continue
-            ostree --repo=_site/repo gpg-sign \
-              --gpg-homedir="${{ steps.gpg.outputs.gnupghome }}" \
-              "${c}" "${{ steps.gpg.outputs.keyid }}"
-          done
-
-          # No --generate-static-deltas: ostree prefers a delta over plain objects on
-          # an HTTP remote, and a delta does not carry the commit's detached
-          # signature, so every install would fail gpg-verify.
-          if ! err="$(flatpak build-update-repo --prune \
-                       --prune-depth="${HISTORY_DEPTH}" \
-                       --gpg-sign="${{ steps.gpg.outputs.keyid }}" \
-                       --gpg-homedir="${{ steps.gpg.outputs.gnupghome }}" \
-                       _site/repo 2>&1 >/dev/null)"; then
-            echo "::error::build-update-repo failed: ${err//$'\n'/ }"
-            exit 1
-          fi
-
-          test -f _site/repo/summary.sig
-          for ref in $(ostree --repo=_site/repo refs); do
-            c="$(ostree --repo=_site/repo rev-parse "${ref}")"
-            if [ ! -f "_site/repo/objects/${c:0:2}/${c:2}.commitmeta" ]; then
-              echo "::error::commit for ${ref} is unsigned"
-              exit 1
-            fi
-          done
-
-          size="$(du -sb _site/repo | cut -f1)"
-          if [ "${size}" -ge 1000000000 ]; then
-            echo "::error::the repo is ${size} bytes; Pages publishes at most 1 GB"
-            exit 1
-          fi
-
-      - name: Render the site
-        if: steps.mirror.outputs.deploy == 'true'
-        env:
-          BASE: ${{ steps.pages.outputs.base_url }}
-        run: |
-          scripts/render-site.sh \
-            --repo _site/repo \
-            --out _site \
-            --base-url "${BASE}" \
-            --homepage "https://github.com/${GITHUB_REPOSITORY}" \
-            --gpg-fingerprint "${{ steps.gpg.outputs.keyid }}" \
-            --gpg-key "$(gpg --homedir "${{ steps.gpg.outputs.gnupghome }}" \
-              --export "${{ steps.gpg.outputs.keyid }}" | base64 -w0)"
-
-          # The metainfo points at screenshots/ on this host, and appstream fetches
-          # them from there -- a missing one is a validation warning on every build.
-          cp -r site/screenshots _site/screenshots
-
-          # Stop Pages from running the upload through Jekyll.
-          touch _site/.nojekyll
-
-      - uses: actions/upload-pages-artifact@v5
-        if: steps.mirror.outputs.deploy == 'true'
-        with:
-          path: _site
-          # .nojekyll would otherwise be dropped.
-          include-hidden-files: true
-
-      - uses: actions/deploy-pages@v5
-        if: steps.mirror.outputs.deploy == 'true'
-        id: deploy
+    with:
+      source_sha: ${{ github.sha }}
+      release: ${{ needs.release-gate.outputs.release == 'true' }}
+    secrets:
+      GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+      GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
