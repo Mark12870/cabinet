@@ -3,7 +3,7 @@ Kind: windows
 Category: Sampler
 Summary: Free sample player for Orchestral Tools instruments.
 Developer: Orchestral Tools
-Version: 1.3.4
+Version: 1.4.4
 Licence: Freeware
 Licensing:
   The player is free and includes the SINEfactory instruments. It signs in to an
@@ -11,8 +11,8 @@ Licensing:
 Formats: VST3, VST2
 Homepage: https://www.orchestraltools.com/get-sine
 Source: download
-Url: https://orchtools-installers-dl.s3.eu-central-1.amazonaws.com/SINE_Player_1.3.4.1218.exe
-Sha256: c6b4008131945ad288c8a223a1e77e0345174096387bf8d3f919598e1df01225
+Url: https://orchtools-installers-dl.s3.eu-central-1.amazonaws.com/SINE_Player_1.4.4.1671.exe
+Sha256: d87fdca1cab341e0369441381e9ce7fb151928f3c7fee634c768f57ad1ef263a
 Launch: C:\Program Files\SINE Player\SINE Player.exe
 Script: sine-player.sh
 Description:
