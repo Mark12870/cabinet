@@ -108,26 +108,36 @@ internal sealed partial class LibraryPage
     private static Gtk.Widget Details(IReadOnlyList<PrefixUpdate> pending, bool headed)
     {
         var details = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+        var prefixes = Gtk.Box.New(Gtk.Orientation.Vertical, 24);
+        details.Append(prefixes);
 
         foreach (var update in pending)
         {
+            if (prefixes.GetFirstChild() is not null)
+            {
+                prefixes.Append(Gtk.Separator.New(Gtk.Orientation.Horizontal));
+            }
+
+            var prefix = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+            prefixes.Append(prefix);
+
             if (headed)
             {
                 var heading = Gtk.Label.New($"The {update.Prefix} prefix");
                 heading.AddCssClass("heading");
                 heading.SetXalign(0);
-                details.Append(heading);
+                prefix.Append(heading);
 
                 var summary = Gtk.Label.New(update.Summary);
                 summary.SetXalign(0);
                 summary.SetWrap(true);
-                details.Append(summary);
+                prefix.Append(summary);
             }
 
-            Section(details, PrefixUpdate.WillChange, update.Changes, null);
-            Section(details, PrefixUpdate.ReplacesYours, update.Resets, null);
-            Section(details, PrefixUpdate.AlreadyInPlace, OneLine(update.Present), null);
-            Section(details, PrefixUpdate.NoLongerInSetup, OneLine(update.Dropped), "Stays installed");
+            Section(prefix, PrefixUpdate.WillChange, update.Changes, null);
+            Section(prefix, PrefixUpdate.ReplacesYours, update.Resets, null);
+            Section(prefix, PrefixUpdate.AlreadyInPlace, OneLine(update.Present), null);
+            Section(prefix, PrefixUpdate.NoLongerInSetup, OneLine(update.Dropped), "Stays installed");
         }
 
         var notes = pending.SelectMany(update => new[] { update.NothingToInstall, update.Overrides })
