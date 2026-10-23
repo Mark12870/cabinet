@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.32.6" date="2026-10-23">
+      <description>
+        <p>Windows settings are kept when a prefix goes idle</p>
+        <ul>
+          <li>Registry changes a Windows program made shortly before its prefix went idle are no longer lost while another Windows program was still running</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.32.5" date="2026-10-23">
       <description>
         <p>Clearer prefix update dialog</p>
