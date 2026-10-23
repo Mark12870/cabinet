@@ -7,15 +7,15 @@ public sealed class KlevgrandHelperScenario(KlevgrandHelperScenario.Installed in
 
     private static readonly Dictionary<string, string> Bridges = new()
     {
-        ["VST3"] = "FreeAMP.vst3",
-        ["VST2"] = "FreeAMP.so",
+        ["VST3"] = "Fosfat.vst3",
+        ["VST2"] = "Fosfat.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
 
     [Theory]
     [MemberData(nameof(Formats))]
-    public async Task SignsInInstallsFreeAmpAndProcessesAudio(string format)
+    public async Task SignsInInstallsFosfatDemoAndProcessesAudio(string format)
     {
         Assert.True(
             Bridges.ContainsKey(format),
@@ -23,14 +23,14 @@ public sealed class KlevgrandHelperScenario(KlevgrandHelperScenario.Installed in
         var audio = await installed.Harness.Render(
             installed.Harness.Plugin(format, Bridges[format]), "", installed.Display);
 
-        Assert.True(audio.Parameters > 0, "FreeAMP exposed no parameters");
+        Assert.True(audio.Parameters > 0, "Fosfat exposed no parameters");
         Assert.InRange(audio.Before, 0, 0.00001);
-        Assert.InRange(audio.Tail, 0, 0.00001);
-        Assert.InRange(audio.Peak, 0.25, 0.35);
+        Assert.InRange(audio.Tail, 0.015, 0.02);
+        Assert.InRange(audio.Peak, 0.55, 0.65);
     }
 
     [Fact]
-    public void OpensAndOperatesTheFreeAmpEditorOnceAsVst3()
+    public void OpensAndOperatesTheFosfatEditorOnceAsVst3()
     {
         installed.Harness.VerifyEditor(
             installed.Harness.Plugin("VST3", Bridges["VST3"]), controlsAreParameters: false);
@@ -56,7 +56,17 @@ public sealed class KlevgrandHelperScenario(KlevgrandHelperScenario.Installed in
 
         private const string InstalledCard = "29,110 400,239";
 
+        private const string FosfatCard = References + "klevgrand-fosfat.png";
+
+        private const string ProductList = "8,8 992,692";
+
         private const string Account = "600,0 820,180";
+
+        private const int SubtitleRight = 36;
+
+        private const int SubtitleBelow = 15;
+
+        private const int PaneBottom = 640;
 
         private static readonly TimeSpan Opening = TimeSpan.FromMinutes(3);
 
@@ -96,13 +106,14 @@ public sealed class KlevgrandHelperScenario(KlevgrandHelperScenario.Installed in
             Thread.Sleep(TimeSpan.FromSeconds(2));
             await Harness.SendText(display, Title, 850, 69, "");
             Thread.Sleep(TimeSpan.FromSeconds(2));
-            await Harness.SendText(display, Title, 625, 516, "");
+            var product = Reveal(manager, window);
+            await Harness.SendText(display, Title, product.X + SubtitleRight, product.Y + SubtitleBelow, "");
             Thread.Sleep(TimeSpan.FromSeconds(2));
             await Harness.SendText(display, Title, 945, 678, "");
             manager.Until(
                 () => Harness.Holds("VST3", Bridges["VST3"]) && Harness.Holds("VST2", Bridges["VST2"]),
                 window,
-                "FreeAMP installed and bridged",
+                "Fosfat installed and bridged",
                 Downloading,
                 Account);
             await Harness.SendText(display, Title, 258, 23, "");
@@ -110,11 +121,31 @@ public sealed class KlevgrandHelperScenario(KlevgrandHelperScenario.Installed in
             manager.Until(
                 () => manager.Shows(window, InstalledPage, InstalledCard),
                 window,
-                "FreeAMP among My Plug-ins",
+                "Fosfat among My Plug-ins",
                 Answering,
                 Account);
             manager.Capture(window, "installed", Account);
             await manager.Close();
+        }
+
+        private static (int X, int Y) Reveal(Manager manager, string window)
+        {
+            var deadline = DateTime.UtcNow + Answering;
+            (int X, int Y)? product;
+            while ((product = manager.Find(window, FosfatCard, ProductList, Account)) is null
+                   || product.Value.Y + SubtitleBelow > PaneBottom)
+            {
+                if (DateTime.UtcNow >= deadline)
+                {
+                    manager.Capture(window, "gave-up", Account);
+                    throw new TimeoutException($"Fosfat's card did not come into view within {Answering}");
+                }
+
+                manager.ScrollDown(window, 600, 400, 1);
+                Thread.Sleep(TimeSpan.FromSeconds(1));
+            }
+
+            return product.Value;
         }
     }
 }

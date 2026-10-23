@@ -24,7 +24,7 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
         "drive_c/Program Files/Common Files/Native Instruments/Kontakt 8/Database/Kontakt Factory Presets.kdb";
 
     private const string FirstAcousticDrumsLoop =
-        "click 600 560; click 727 231; click 329 117; wait 3; click 104 375; wait 3; click 975 488; wait 2; "
+        "click 600 560; click 727 231; click 280 117; wait 3; click 104 375; wait 3; click 975 488; wait 2; "
         + "click 970 152; wait 3; double 856 323; wait 20";
 
     private static readonly Dictionary<string, string> Bridges = new()
@@ -99,9 +99,12 @@ public sealed class NativeAccessScenario(NativeAccessScenario.Installed installe
     {
         var bridge = installed.Harness.Plugin("VST3", Kontakt);
 
-        var restored = installed.Harness.RestoreAfterPlayingThroughEditor(
+        var (played, restored) = installed.Harness.RestoreAfterPlayingThroughEditor(
             bridge, Note, FirstAcousticDrumsLoop, KontaktWindow, release: 3);
 
+        Assert.InRange(played.Before, 0, 0.00001);
+        Assert.InRange(played.Held, 0.05, 1);
+        Assert.InRange(played.After, 0, 0.00001);
         Assert.InRange(restored.Before, 0, 0.00001);
         Assert.InRange(restored.Held, 0.05, 1);
         Assert.InRange(restored.After, 0, 0.00001);

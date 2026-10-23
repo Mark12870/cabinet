@@ -93,9 +93,9 @@ public sealed class SinePlayerScenario(SinePlayerScenario.Installed installed)
             using var manager = Harness.Open(display);
             var window = manager.Window(Title, Opening);
             manager.Until(() => manager.Shows(window, LogInPage, LogInHeading), window, "the log-in page", Opening);
-            manager.Type(window, 690, 394, credentials["EMAIL"]);
-            manager.Type(window, 690, 454, credentials["PASSWORD"]);
-            manager.Click(window, 690, 552);
+            await Harness.SendText(display, Title, 690, 394, credentials["EMAIL"]);
+            await Harness.SendText(display, Title, 690, 454, credentials["PASSWORD"]);
+            await Harness.SendText(display, Title, 690, 552, "");
             manager.Until(
                 () => manager.Shows(window, TutorialPage, TutorialClose),
                 window, "the signed-in tutorial", Answering, "550,374 830,474");

@@ -104,9 +104,66 @@ internal sealed class Manager(
             var left = Math.Max(0, corners[0] - Drift);
             var top = Math.Max(0, corners[1] - Drift);
             Run("magick", null, raw, "-crop", $"{corners[2] + Drift - left}x{corners[3] + Drift - top}+{left}+{top}", "+repage", "PNG24:" + crop);
-            var compared = Run("magick", null, "compare", "-metric", "RMSE", "-subimage-search", crop, expected, "null:");
+            var compared = Run("magick", null, "compare", "-metric", "RMSE", "-subimage-search", "-alpha", "off", crop, expected, "null:");
             var distance = Regex.Match(compared.Error, @"\(([0-9.e+-]+)\)");
             return distance.Success && double.Parse(distance.Groups[1].Value, CultureInfo.InvariantCulture) < Likeness;
+        }
+        finally
+        {
+            File.Delete(raw);
+            File.Delete(crop);
+            File.Delete(expected);
+        }
+    }
+
+    public (int X, int Y)? Find(string window, string reference, string region, string hidden = "")
+    {
+        var corners = region.Split(' ', ',').Select(int.Parse).ToArray();
+        var left = Math.Max(0, corners[0] - Drift);
+        var top = Math.Max(0, corners[1] - Drift);
+        var raw = Path.Combine(Path.GetTempPath(), $"cabinet-{Guid.NewGuid():N}.xwd");
+        var crop = Path.ChangeExtension(raw, ".png");
+        var expected = Path.ChangeExtension(raw, ".reference.png");
+        try
+        {
+            Run("xwd", null, "-id", window, "-silent", "-out", raw);
+            var arguments = new List<string> { raw };
+            if (hidden.Length > 0)
+            {
+                arguments.AddRange(["-fill", "black", "-draw", $"rectangle {hidden}"]);
+            }
+
+            arguments.AddRange(
+            [
+                "-crop",
+                $"{corners[2] + Drift - left}x{corners[3] + Drift - top}+{left}+{top}",
+                "+repage",
+                "-colorspace",
+                "Gray",
+                "-threshold",
+                "50%",
+                "PNG24:" + crop,
+            ]);
+            Run("magick", null, arguments.ToArray());
+            Run(
+                "magick",
+                null,
+                Repo.Path(reference),
+                "-colorspace",
+                "Gray",
+                "-threshold",
+                "50%",
+                "PNG24:" + expected);
+            var compared = Run("magick", null, "compare", "-metric", "RMSE", "-subimage-search", "-alpha", "off", crop, expected, "null:");
+            var distance = Regex.Match(compared.Error, @"\(([0-9.e+-]+)\) @ (\d+),(\d+)");
+            if (!distance.Success || double.Parse(distance.Groups[1].Value, CultureInfo.InvariantCulture) >= Likeness)
+            {
+                return null;
+            }
+
+            var x = int.Parse(distance.Groups[2].Value, CultureInfo.InvariantCulture);
+            var y = int.Parse(distance.Groups[3].Value, CultureInfo.InvariantCulture);
+            return (left + x, top + y);
         }
         finally
         {

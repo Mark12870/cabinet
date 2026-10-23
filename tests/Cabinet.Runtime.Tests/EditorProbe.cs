@@ -91,7 +91,7 @@ internal static class EditorProbe
         RuntimeTestEnvironment.OwnHome(info, home);
 
         info.Environment["WINELOADER"] = Path.Combine(yabridge, "cabinet-wine");
-        var wrapper = Path.Combine(RuntimeTestEnvironment.TemporaryDirectory, "editor-bin");
+        var wrapper = log + ".bin";
         info.Environment["PATH"] = $"{Wrapper(wrapper, display, home, session)}:{yabridge}:/usr/bin:/bin";
         info.Environment["YABRIDGE_TEMP_DIR"] = session;
         info.Environment["YABRIDGE_NO_WATCHDOG"] = "1";

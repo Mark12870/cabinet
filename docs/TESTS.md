@@ -275,11 +275,12 @@ reasons are here:
   scenario checks its welcome page, the browser link it hands out and its editor.
 - **Managers.** Klevgrand Helper, Arturia Software Center, IK Product Manager, Native Access,
   Roland Cloud Manager, Spitfire Audio App and Waves Central have scenarios that sign in with the
-  test account, install FreeAMP, Piano V3, MODO BASS 2 CS, Raum with Kontakt 8 Player, ZENOLOGY
-  Lite, BBC Symphony Orchestra Discover and the Waves Free Plugin Pack, and play them. Sign-in
-  screens are recognised by reference crops under `Scenarios/References/` before the password is
-  typed. Spitfire's account remembers what it installed, so its scenario resets BBCSO Discover once
-  the download completes; a run that dies before the reset leaves it to reset by hand.
+  test account, install the Fosfat demo, Piano V3, MODO BASS 2 CS, Raum with Kontakt 8 Player,
+  ZENOLOGY Lite, BBC Symphony Orchestra Discover and the Waves Free Plugin Pack, and play them.
+  Sign-in screens are recognised by reference crops under `Scenarios/References/` before the
+  password is typed. Spitfire's account remembers what it installed, so its scenario resets BBCSO
+  Discover once the download completes; a run that dies before the reset leaves it to reset by
+  hand.
 
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.

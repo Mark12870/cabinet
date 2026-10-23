@@ -49,17 +49,36 @@ public sealed class SpliceInstrumentScenario(SpliceInstrumentScenario.Installed 
             await base.Install(display);
             var captured = Path.Combine(Harness.Home, "browser.txt");
             var capture = Path.Combine(Harness.Home, "browser.sh");
-            File.WriteAllText(capture, "#!/bin/sh\nprintf '%s\\n' \"$1\" > \"$HOME/browser.part\"\nmv \"$HOME/browser.part\" \"$HOME/browser.txt\"\n");
+            File.WriteAllText(capture, "#!/bin/sh\npart=$(mktemp \"$HOME/browser.XXXXXX\")\nprintf '%s\\n' \"$1\" > \"$part\"\nln \"$part\" \"$HOME/browser.txt\" 2>/dev/null\nrm -f \"$part\"\n");
             File.SetUnixFileMode(capture, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             Harness.Merge($"[Software\\\\Wine\\\\WineBrowser] 0\n\"Browsers\"=\"{capture}\"");
 
             using var manager = Harness.Open(display);
             var window = manager.Window(Window, Opening);
             manager.Until(() => manager.Shows(window, WelcomePage, WelcomeHeading), window, "Splice's welcome page", Opening);
-            await Harness.SendText(display, Window, 665, 555, "");
-            manager.Until(() => File.Exists(captured), window, "Splice's browser sign-in link", Answering);
+            await OpenSignIn(display, manager, window, captured);
             Assert.StartsWith(SignInPage, File.ReadAllText(captured).Trim(), StringComparison.Ordinal);
             await manager.Close();
+        }
+
+        private async Task OpenSignIn(Display display, Manager manager, string window, string captured)
+        {
+            var deadline = DateTime.UtcNow + Answering;
+            while (!File.Exists(captured))
+            {
+                if (DateTime.UtcNow >= deadline)
+                {
+                    manager.Capture(window, "gave-up");
+                    throw new TimeoutException($"Splice's browser sign-in link did not happen within {Answering}");
+                }
+
+                if (manager.Shows(window, WelcomePage, WelcomeHeading))
+                {
+                    await Harness.SendText(display, Window, 665, 555, "");
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(1));
+            }
         }
     }
 }

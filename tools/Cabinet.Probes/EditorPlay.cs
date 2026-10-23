@@ -170,15 +170,15 @@ internal sealed class EditorPlay
     private void Capture(string name)
     {
         var raw = Path.Combine(shots, name + ".xwd");
+        var window = Window();
 
-        if (desktop.Run("xwd", "-id", Window(), "-silent", "-out", raw).Code != 0)
+        if (desktop.Capture(window, shots, name) is null)
         {
-            Console.Error.WriteLine($"capture {name} failed");
-            return;
+            var target = window.Length == 0 ? "the visible editor window" : $"editor window {window}";
+            throw new InvalidOperationException(
+                $"could not capture {target} as {Path.Combine(shots, name + ".png")}; "
+                + $"inspect {raw} if present and check xwd and ImageMagick XWD/PNG support");
         }
-
-        desktop.Run("magick", raw, Path.Combine(shots, name + ".png"));
-        File.Delete(raw);
     }
 
     private double Hear(bool held)

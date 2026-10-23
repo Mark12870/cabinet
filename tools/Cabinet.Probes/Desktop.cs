@@ -106,9 +106,16 @@ internal sealed partial class Desktop(TimeSpan? limit = null, Action<string>? no
             return null;
         }
 
-        Run("magick", raw, "png:" + path);
+        var converted = Run("magick", raw, "png:" + path);
+
+        if (converted.Code != 0 || !File.Exists(path))
+        {
+            File.Delete(path);
+            return null;
+        }
+
         File.Delete(raw);
-        return File.Exists(path) ? path : null;
+        return path;
     }
 
     public int Colours(string path) =>

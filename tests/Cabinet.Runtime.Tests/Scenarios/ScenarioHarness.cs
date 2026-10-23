@@ -459,8 +459,12 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
     public Performance PlayThroughEditor(Bridge bridge, int note, string steps, string title, int release = 0) =>
         Played(PlayEditor(bridge, note, steps, title, "played", release), "PLAYED");
 
-    public Performance RestoreAfterPlayingThroughEditor(Bridge bridge, int note, string steps, string title, int release = 0) =>
-        Played(PlayEditor(bridge, note, steps, title, "restored", release, "restore"), "RESTORED");
+    public (Performance Played, Performance Restored) RestoreAfterPlayingThroughEditor(
+        Bridge bridge, int note, string steps, string title, int release = 0)
+    {
+        var said = PlayEditor(bridge, note, steps, title, "restored", release, "restore");
+        return (Played(said, "PLAYED"), Played(said, "RESTORED"));
+    }
 
     private string PlayEditor(Bridge bridge, int note, string steps, string title, string label, int release, params string[] extra)
     {

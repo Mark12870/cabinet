@@ -38,6 +38,12 @@ public class RuntimeSuiteTests
     }
 
     [Fact]
+    public void ParallelEditorProbesKeepTheirLaunchersBesideTheirOwnTrace()
+    {
+        Assert.Contains("var wrapper = log + \".bin\";", Repo.Read($"{Project}/EditorProbe.cs"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EveryPatchProbeIsOnePatchesMdReads()
     {
         var patches = Repo.Read("PATCHES.md");
