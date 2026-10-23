@@ -636,6 +636,7 @@ fn admit(
 
 fn end_descendants() {
     let session = unsafe { getpid() };
+    shut_down_wineservers(session, Instant::now() + IDLE_GRACE);
     let deadline = Instant::now() + IDLE_GRACE;
 
     loop {
@@ -653,6 +654,36 @@ fn end_descendants() {
 
         thread::sleep(TICK);
     }
+}
+
+fn shut_down_wineservers(session: i32, deadline: Instant) {
+    loop {
+        let left = wineservers(&process_snapshot(), session);
+        if left.is_empty() || Instant::now() >= deadline {
+            return;
+        }
+
+        for pid in left {
+            unsafe {
+                kill(pid, SIGINT);
+                waitpid(pid, ptr::null_mut(), WNOHANG);
+            }
+        }
+
+        thread::sleep(TICK);
+    }
+}
+
+fn wineservers(processes: &[ProcessInfo], root: i32) -> Vec<i32> {
+    let below = descendants(processes, root);
+
+    processes
+        .iter()
+        .filter(|process| {
+            below.contains(&process.pid) && process.comm == "wineserver" && process.state != b'Z'
+        })
+        .map(|process| process.pid)
+        .collect()
 }
 
 fn descendants(processes: &[ProcessInfo], root: i32) -> Vec<i32> {
@@ -1461,6 +1492,7 @@ impl Drop for PidFd {
 
 const PR_SET_PDEATHSIG: i32 = 1;
 const PR_SET_CHILD_SUBREAPER: i32 = 36;
+const SIGINT: i32 = 2;
 const SIGKILL: i32 = 9;
 const SIGTERM: i32 = 15;
 const WNOHANG: i32 = 1;
@@ -2051,6 +2083,19 @@ mod tests {
         ended.sort();
 
         assert_eq!(ended, [20, 21, 22]);
+    }
+
+    #[test]
+    fn a_retiring_session_shuts_down_only_its_own_live_wineservers() {
+        let processes = [
+            process(10, 1, b'S', "cabinet-wine", 0),
+            process(20, 10, b'S', "wineserver", 0),
+            process(21, 10, b'S', "services.exe", 0),
+            process(22, 10, b'Z', "wineserver", 0),
+            process(30, 1, b'S', "wineserver", 0),
+        ];
+
+        assert_eq!(wineservers(&processes, 10), [20]);
     }
 
     #[test]
