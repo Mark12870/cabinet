@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.32.5" date="2026-10-23">
+      <description>
+        <p>Clearer prefix update dialog</p>
+        <ul>
+          <li>When several prefixes have updates, a line now separates each prefix from the next</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.32.4" date="2026-10-22">
       <description>
         <p>Update catalogue plugins</p>
