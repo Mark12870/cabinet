@@ -277,6 +277,17 @@ install_newest() {
     installed_runner "$runner"
 }
 
+recorded_runners() {
+    local marker runner
+
+    for marker in "$data"/prefixes/*/.cabinet-runner; do
+        [ -f "$marker" ] || continue
+        runner=$(<"$marker")
+        [ -x "$data/runners/$runner/bin/wine" ] || cabinet runners install "$runner" >&2
+        installed_runner "$runner" >/dev/null
+    done
+}
+
 drag_drop_prefix() {
     local prefix=$1
     local runner=$2
@@ -316,6 +327,7 @@ if [ "${CABINET_RUNTIME_ENTRIES:-1}" = 1 ]; then
     install_entry sine-player
     install_entry fabfilter-total-bundle
     install_entry ik-product-manager
+    recorded_runners
 
     # Decent Sampler opens a modal welcome screen over its interface until it has shown it once,
     # and a sweep across that screen measures a window that takes no input. The plugin writes this

@@ -70,9 +70,9 @@ public sealed partial class WavesCentralScenario(WavesCentralScenario.Installed 
 
         private const string SelectedProducts = "1018,14 1148,36";
 
-        private const string OkButton = References + "waves-ok.png";
+        private const string CompletedTick = References + "waves-completed.png";
 
-        private const string Ok = "620,504 680,534";
+        private const string Completed = "622,378 678,434";
 
         private const string Account = "600,0 1000,50";
 
@@ -144,7 +144,7 @@ public sealed partial class WavesCentralScenario(WavesCentralScenario.Installed 
                 Account);
             manager.HoldClick(window, 1150, 740);
             manager.Until(
-                () => manager.Shows(window, OkButton, Ok), window, "the Free Plugin Pack installed", Downloading, Account);
+                () => manager.Shows(window, CompletedTick, Completed), window, "the Free Plugin Pack installed", Downloading, Account);
             manager.Capture(window, "installed", Account);
             manager.HoldClick(window, 650, 519);
             Assert.True(Harness.Holds("VST3", Shell), $"Waves Central installed no bridged {Shell}");
