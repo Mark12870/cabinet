@@ -3,7 +3,7 @@ Kind: windows
 Category: Manager
 Summary: UVI's manager for downloading, installing and updating its instruments and effects.
 Developer: UVI
-Version: 3.1.1
+Version: 3.1.2
 Licence: Freeware
 Licensing:
   The manager and UVI Player are free. Portal requires a UVI account;
@@ -11,8 +11,8 @@ Licensing:
 Formats: VST3, VST2
 Homepage: https://www.uvi.net/uvi-portal
 Source: download
-Url: https://cdn.uvi.net/PORTAL_Uvi_portal/files/3.1.1/soft/UVI_Portal.exe
-Sha256: a1706e2c1835ca84e2adff931d50517f3967116df1db9b8013e526f1adf88efa
+Url: https://cdn.uvi.net/PORTAL_Uvi_portal/files/3.1.2/soft/UVI_Portal.exe
+Sha256: 85e0823a3e623413002418122738b5e0044268be7dadfb67d6d76122270c8e86
 Launch: C:\Program Files (x86)\UVI Portal\UVI Portal.exe
 Script: uvi.sh
 Description:
