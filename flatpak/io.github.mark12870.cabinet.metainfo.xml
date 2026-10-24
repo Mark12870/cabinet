@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.32.8" date="2026-10-24">
+      <description>
+        <p>Komplete Kontrol works in DAWs</p>
+        <ul>
+          <li>Opening Komplete Kontrol's editor no longer crashes the DAW once the Native Access prefix is updated</li>
+          <li>Komplete Kontrol now loads Kontakt in saved projects: Cabinet scans its plugins when Native Access opens or closes</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.32.7" date="2026-10-24">
       <description>
         <p>Update catalogue plugins</p>
