@@ -106,6 +106,20 @@ release changes things.
   60 is held, silent after release, measured live through Carla's running engine. An offline
   render straight after loading gave silence.
 
+## Komplete Kontrol
+
+- **Its editor needs the Windows Qt theme.** Without `WINEQT_QPA_PLATFORMTHEME=windows` it
+  dereferences a null `QWindowsTheme` on opening, Wine's unwinder fails, and the DAW aborts.
+- **The plugin hosts only what its plugin list names.** Only the standalone writes that list,
+  `AppData/Local/Native Instruments/Komplete Kontrol/Plugin_kk3.data`. Without it a saved
+  project restores an empty slot (`Could not find Plug-in ""`) and plays silence.
+- **The standalone's scan takes about three minutes.** Kontakt 8 times out once and succeeds on
+  the retry; Massive X's scan crashes every time. The list never names Komplete Kontrol itself.
+  `komplete-kontrol.sh` runs the standalone minimised whenever the list lacks a prefix VST3.
+- **A project saved on Windows logs `CXDB3::getPresetIdentifier`.** The preset database stores
+  Wine's `C:\users`, the project `C:\Users`. It is harmless: Kontakt's own state brings the
+  instrument back.
+
 ## Raum
 
 - Installs through Native Access and bridges at once. It renders audio with its `Mix` parameter

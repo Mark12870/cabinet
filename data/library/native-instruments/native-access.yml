@@ -23,7 +23,7 @@ LaunchArgs:
 Scheme: native-access
 Script: native-access.sh
 Keep: drive_c/users/Public/Documents/Native Instruments/Downloads
-Recover: kontakt-8.sh
+Recover: recover.sh
 Description:
   Not a plugin but the door to Native Instruments' catalogue: Kontakt, Battery,
   Komplete Kontrol, Massive X, FM8, Reaktor and more. Sign in, then choose the

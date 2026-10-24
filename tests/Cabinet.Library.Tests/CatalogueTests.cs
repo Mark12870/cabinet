@@ -158,6 +158,16 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void NativeAccessUsesTheWindowsQtThemeWithoutDisablingDxvk()
+    {
+        var entry = Shipped.Single(entry => entry.Id == "native-access");
+
+        Assert.Equal(4, entry.Config.Revision);
+        Assert.Equal("windows", entry.Env["WINEQT_QPA_PLATFORMTHEME"]);
+        Assert.True(entry.Dxvk);
+    }
+
+    [Fact]
     public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
     {
         var writing = Directory
@@ -254,10 +264,11 @@ public class CatalogueTests
 
         var wrong = Shipped
             .Where(entry => entry.Kind == PluginKind.Windows)
-            .SelectMany(entry => new[] { entry.Script, entry.Recover }
-                .OfType<string>()
-                .Select(name => (entry.Vendor, Name: name)))
+            .Select(entry => entry.Vendor)
             .Distinct()
+            .SelectMany(
+                vendor => Directory.EnumerateFiles(Repo.Path($"data/library/{vendor}"), "*.sh"),
+                (vendor, path) => (Vendor: vendor, Name: Path.GetFileName(path)))
             .SelectMany(
                 script => Misspelt(
                     File.ReadAllText(layout.LibraryScript(script.Vendor, script.Name)),

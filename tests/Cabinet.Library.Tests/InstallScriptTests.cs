@@ -168,11 +168,67 @@ public sealed class InstallScriptTests : IDisposable
         Assert.Contains("wine: could not load kernel32.dll", said);
     }
 
+    [Fact]
+    public void KompleteKontrolScansUntilItsListNamesEveryVst3()
+    {
+        var kontakt = KompleteKontrol();
+        File.WriteAllText(Path.Combine(kontakt.Vst3, "Massive X.vst3"), "plugin");
+        Directory.CreateDirectory(Path.Combine(kontakt.Vst3, "iZotope", "Ozone 12 Equalizer.vst3", "Contents"));
+        File.Delete(kontakt.Wine);
+        File.WriteAllText(kontakt.Wine, $$"""
+            #!/bin/sh
+            printf '%s|' "$@" >>"{{kontakt.Calls}}"; echo >>"{{kontakt.Calls}}"
+            printf 'C:\\VST3\\Massive X.vst3 C:\\VST3\\iZotope\\Ozone 12 Equalizer.vst3' >"{{kontakt.PluginList}}"
+            """);
+        File.SetUnixFileMode(kontakt.Wine, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+        var said = kontakt.Recover();
+
+        Assert.Equal(
+            [@"start|/min|C:\Program Files\Native Instruments\Komplete Kontrol\Komplete Kontrol.exe|"],
+            File.ReadAllLines(kontakt.Calls));
+        Assert.Equal(
+            [
+                "Komplete Kontrol is scanning its plugins, so it can host them in a DAW. This takes a few minutes.",
+                "Komplete Kontrol finished scanning its plugins",
+            ],
+            said);
+    }
+
+    [Fact]
+    public void AKompleteKontrolListNamingEveryVst3ButItselfIsNotScannedAgain()
+    {
+        var kontakt = KompleteKontrol();
+        File.WriteAllText(Path.Combine(kontakt.Vst3, "Massive X.vst3"), "plugin");
+        File.WriteAllText(kontakt.PluginList, @"C:\VST3\Massive X.vst3");
+
+        var said = kontakt.Recover();
+
+        Assert.False(File.Exists(kontakt.Calls));
+        Assert.Empty(said);
+    }
+
+    private KontaktPrefix KompleteKontrol()
+    {
+        var kontakt = Kontakt();
+        File.WriteAllText(Path.Combine(kontakt.SysWow64, "msi.dll"), "stand-in");
+        File.WriteAllText(Path.Combine(kontakt.SysWow64, "msi_wine.dll"), "wine msi");
+        File.WriteAllText(Path.Combine(kontakt.Vst3, "Komplete Kontrol.vst3"), "plugin");
+        Directory.CreateDirectory(Path.GetDirectoryName(kontakt.Standalone)!);
+        File.WriteAllText(kontakt.Standalone, "app");
+        Directory.CreateDirectory(Path.GetDirectoryName(kontakt.PluginList)!);
+        return kontakt;
+    }
+
     private KontaktPrefix Kontakt()
     {
         var library = Path.Combine(root, "library", "native-instruments");
         Directory.CreateDirectory(library);
-        File.Copy(Repo.Path("data/library/native-instruments/kontakt-8.sh"), Path.Combine(library, "kontakt-8.sh"));
+        foreach (var script in new[] { "recover.sh", "kontakt-8.sh", "komplete-kontrol.sh" })
+        {
+            File.Copy(Repo.Path($"data/library/native-instruments/{script}"), Path.Combine(library, script));
+        }
+
         File.Copy(Repo.Path("data/library/native-instruments/native-access.yml"), Path.Combine(library, "native-access.yml"));
         File.WriteAllText(Path.Combine(library, "msi.dll"), "stand-in");
 
@@ -205,6 +261,12 @@ public sealed class InstallScriptTests : IDisposable
         public string SysWow64 => Path.Combine(DriveC, "windows", "syswow64");
 
         public string Vst3 => Path.Combine(DriveC, "Program Files", "Common Files", "VST3");
+
+        public string Standalone => Path.Combine(
+            DriveC, "Program Files", "Native Instruments", "Komplete Kontrol", "Komplete Kontrol.exe");
+
+        public string PluginList => Path.Combine(
+            DriveC, "users", "someone", "AppData", "Local", "Native Instruments", "Komplete Kontrol", "Plugin_kk3.data");
 
         public List<string> Recover() => Recover([]);
 

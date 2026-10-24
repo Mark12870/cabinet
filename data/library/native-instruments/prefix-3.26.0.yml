@@ -1,7 +1,9 @@
-Revision: 3
+Revision: 4
 Runner: d2d1-dcomp-11.0-777
 Dxvk: true
 Sync: fsync
+Env:
+  WINEQT_QPA_PLATFORMTHEME=windows
 Winetricks: powershell, corefonts, vcrun2022
 Registry:
   HKCU\Software\Wine\Version=win10
