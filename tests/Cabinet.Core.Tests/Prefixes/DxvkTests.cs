@@ -79,8 +79,9 @@ public sealed class DxvkTests : IDisposable
         new Dxvk(Layout, recorder).Remove("gadget");
 
         Assert.False(File.Exists(system32));
-        Assert.Equal(["wineboot", "--update", "--restart"], recorder.LastArguments);
-        Assert.Equal("mscoree=d;mshtml=d", recorder.Environment["WINEDLLOVERRIDES"]);
+        var update = recorder.Ran[^3];
+        Assert.Equal(["wineboot", "--update", "--restart"], update.Arguments);
+        Assert.Equal("mscoree=d;mshtml=d", update.Environment["WINEDLLOVERRIDES"]);
     }
 
     [Fact]
@@ -109,6 +110,9 @@ public sealed class DxvkTests : IDisposable
             .ToList();
 
         Assert.Equal(Dxvk.Libraries, deleted);
+        Assert.All(
+            recorder.Calls.Where(call => call.Arguments.Contains("reg")),
+            call => Assert.NotNull(call.LogTo));
     }
 
     [Fact]

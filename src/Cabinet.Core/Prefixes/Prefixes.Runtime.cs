@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+
 namespace Cabinet.Core;
 
 public sealed partial class Prefixes
@@ -8,6 +10,9 @@ public sealed partial class Prefixes
     public const string SessionMode = "--cabinet-session";
     public const string PathsMode = "--cabinet-paths";
     public const string SessionLiveWord = "live";
+
+    private static readonly ConcurrentDictionary<string, bool> WineStartedUnderClaim =
+        new(StringComparer.Ordinal);
 
     public ProcessResult Run(
         string name, string command, IReadOnlyList<string> arguments,
@@ -32,9 +37,29 @@ public sealed partial class Prefixes
     public PrefixClaim Claim(string name, string what) =>
         Claim(name, what, PrefixClaim.Settle);
 
-    internal PrefixClaim Claim(string name, string what, TimeSpan settle) =>
-        PrefixClaim.Take(
-            Session(name), name, what, apps: true, settle, () => SessionLive(name));
+    internal PrefixClaim Claim(string name, string what, TimeSpan settle)
+    {
+        var path = layout.PrefixPath(name);
+        var claim = PrefixClaim.Take(
+            Session(name), name, what, apps: true, settle, () => SessionLive(name),
+            () => EndWineStartedUnderClaim(name, path));
+
+        if (claim.Holds)
+        {
+            WineStartedUnderClaim.TryAdd(path, false);
+        }
+
+        return claim;
+    }
+
+    private void EndWineStartedUnderClaim(string name, string path)
+    {
+        if (WineStartedUnderClaim.TryRemove(path, out var started) && started)
+        {
+            Wine(name, "wineserver", ["-k"], null);
+            Wine(name, "wineserver", ["-w"], null);
+        }
+    }
 
     public PrefixClaim Guard(string name, string what) =>
         PrefixClaim.Take(
@@ -100,6 +125,42 @@ public sealed partial class Prefixes
         Action<string>? onOutput = null, string? logTo = null, bool interactive = false) =>
         Shim(name, [JoinMode, .. arguments], onOutput, logTo, interactive);
 
+    internal ProcessResult RunMaintenance(
+        string prefix, string command, IReadOnlyList<string> arguments,
+        Action<string>? onOutput = null, string? dllOverrides = null) =>
+        LoggedMaintenance(
+            logTo => Wine(prefix, command, arguments, null, dllOverrides, logTo), onOutput);
+
+    internal ProcessResult RunRegistry(
+        string name, IReadOnlyList<string> arguments, Action<string>? onOutput = null) =>
+        LoggedMaintenance(
+            logTo => Run(name, "wine", arguments, logTo: logTo), onOutput);
+
+    internal ProcessResult RunRegistryJoined(
+        string name, IReadOnlyList<string> arguments, Action<string>? onOutput = null) =>
+        LoggedMaintenance(
+            logTo => RunJoined(name, arguments, logTo: logTo), onOutput);
+
+    private ProcessResult LoggedMaintenance(Func<string, ProcessResult> run, Action<string>? onOutput)
+    {
+        using var staging = Staging.Create(layout.TempDir, "maintenance");
+        var log = Path.Combine(staging.Path, "maintenance.log");
+        var result = run(log);
+        var output = File.Exists(log) ? File.ReadAllText(log) : "";
+
+        if (output.Length > 0)
+        {
+            using var reader = new StringReader(output);
+
+            while (reader.ReadLine() is { } line)
+            {
+                onOutput?.Invoke(line);
+            }
+        }
+
+        return new ProcessResult(result.ExitCode, output, "");
+    }
+
     private ProcessResult Shim(
         string name, IReadOnlyList<string> arguments, Action<string>? onOutput, string? logTo,
         bool interactive = false) =>
@@ -139,6 +200,8 @@ public sealed partial class Prefixes
         }
 
         var selected = runners.Resolve(RunnerOf(prefix));
+        var starting = command != "wineserver";
+        WineStartedUnderClaim.TryUpdate(layout.PrefixPath(prefix), starting, !starting);
         var native = command.Contains('/') || command == "wineserver";
 
         return runner.Run(

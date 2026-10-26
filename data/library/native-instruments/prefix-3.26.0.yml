@@ -1,6 +1,6 @@
-Revision: 4
+Revision: 5
 Runner: d2d1-dcomp-11.0-777
-Dxvk: true
+WebView2: true
 Sync: fsync
 Env:
   WINEQT_QPA_PLATFORMTHEME=windows
@@ -10,3 +10,4 @@ Registry:
   HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\EnableLUA=dword:0
   HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System\ConsentPromptBehaviorAdmin=dword:0
   HKCU\Software\Native Instruments\Native Access\DownloadLocation=C:\users\Public\Documents\Native Instruments\Downloads
+  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\yabridge-host.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu

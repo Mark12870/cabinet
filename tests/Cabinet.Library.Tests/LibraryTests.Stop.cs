@@ -155,8 +155,8 @@ public partial class LibraryTests
 
         new Library(layout, new RecordingRunner(outputs: _ => Gone)).Stop(entry);
 
-        Assert.Equal(
-            "Opening Thing.\nClosing Thing.\nThing is closed.\n", File.ReadAllText(log));
+        Assert.StartsWith("Opening Thing.\nClosing Thing.\n", File.ReadAllText(log));
+        Assert.EndsWith("Thing is closed.\n", File.ReadAllText(log));
     }
 
     [Fact]

@@ -132,14 +132,14 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 
         if (!Directory.Exists(Path.Combine(path, "dosdevices")))
         {
-            var result = Wine(name, "wineboot", ["--init"], onOutput, Unattended);
+            var result = RunMaintenance(name, "wineboot", ["--init"], onOutput, Unattended);
             if (!result.Ok)
             {
                 throw new InvalidOperationException(
                     $"wineboot failed for '{name}' with exit code {result.ExitCode}");
             }
 
-            var quiet = Wine(name, "wine", NoCrashDialog, onOutput);
+            var quiet = RunRegistry(name, NoCrashDialog, onOutput);
             if (!quiet.Ok)
             {
                 throw new InvalidOperationException(
@@ -241,7 +241,7 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
     }
 
     internal ProcessResult Update(string name, Action<string>? onOutput) =>
-        Wine(name, "wineboot", UpdateWithoutStartupPrograms, onOutput, Unattended);
+        RunMaintenance(name, "wineboot", UpdateWithoutStartupPrograms, onOutput, Unattended);
 
     internal ProcessResult RunInstaller(string name, string installer, Action<string>? onOutput)
     {

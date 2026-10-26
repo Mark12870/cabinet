@@ -31,7 +31,8 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
     {
         if (Live(prefix) is { } wine)
         {
-            var result = wine.RunJoined(prefix, ["reg", "query", $@"HKCU\{key}", "/v", name]);
+            var result = wine.RunRegistryJoined(
+                prefix, ["reg", "query", $@"HKCU\{key}", "/v", name]);
 
             return result.Ok ? QueryValue(result.Stdout, name) : null;
         }
@@ -91,7 +92,7 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
 
     private ProcessResult Change(string prefix, IReadOnlyList<string> arguments) =>
         new Prefixes(layout, runner ?? throw new InvalidOperationException("a registry change needs Wine"))
-            .RunJoined(prefix, ["reg", .. arguments]);
+            .RunRegistryJoined(prefix, ["reg", .. arguments]);
 
     private Prefixes? Live(string prefix)
     {
@@ -114,7 +115,7 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
             foreach (var branch in Uninstall)
             {
                 var key = $@"{root}\{branch.TrimEnd('\\')}";
-                var result = wine.RunJoined(prefix, ["reg", "query", key, "/s"]);
+                var result = wine.RunRegistryJoined(prefix, ["reg", "query", key, "/s"]);
 
                 if (result.Ok)
                 {

@@ -191,7 +191,19 @@ public sealed class PrefixRegistryTests : IDisposable
         Assert.Contains(
             runner.Ran,
             call => call.Arguments is
-                [Prefixes.JoinMode, "reg", "query", @"HKCU\Software\Wine\Explorer", "/v", "Desktop"]);
+                [Prefixes.JoinMode, "reg", "query", @"HKCU\Software\Wine\Explorer", "/v", "Desktop"]
+                && call.LogTo is not null);
+    }
+
+    [Fact]
+    public void RegistryMaintenanceReadsWhatWineSaidFromItsLogInsteadOfAPipe()
+    {
+        var runner = new RecordingRunner(exits: _ => 7, outputs: _ => "registry said\n");
+
+        var result = new Prefixes(Layout, runner).RunRegistry("valhalla", ["reg", "query"]);
+
+        Assert.Equal(7, result.ExitCode);
+        Assert.Equal("registry said\n", result.Stdout);
     }
 
     [Fact]

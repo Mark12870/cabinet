@@ -134,6 +134,19 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void InitialisingAPrefixUsesLoggedWinebootWithUnattendedMode()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var recorder = new RecordingRunner();
+
+        new Prefixes(Layout, recorder).Prepare("gadget", null, null);
+
+        var initialise = Assert.Single(recorder.Ran, call => call.Arguments.Contains("--init"));
+        Assert.NotNull(initialise.LogTo);
+        Assert.Equal("mscoree=d;mshtml=d", initialise.Environment["WINEDLLOVERRIDES"]);
+    }
+
+    [Fact]
     public void CreatingAPrefixThatIsAlreadyThereLeavesItsRunnerAlone()
     {
         Directory.CreateDirectory(Layout.PrefixPath("gadget"));
@@ -225,11 +238,107 @@ public sealed class PrefixesTests : IDisposable
 
         new Prefixes(Layout, recorder).MoveToRunner("gadget", "wine-9.21");
 
-        var updated = Assert.Single(recorder.Ran);
+        var updated = recorder.Ran[0];
         Assert.Equal(Layout.RunnerWine("wine-9.21"), updated.File);
         Assert.Equal(["wineboot", "--update", "--restart"], updated.Arguments);
         Assert.Equal("mscoree=d;mshtml=d", updated.Environment["WINEDLLOVERRIDES"]);
-        Assert.Equal(["wine-9.21"], recordedFirst);
+        Assert.NotNull(updated.LogTo);
+        Assert.Equal("wine-9.21", recordedFirst[0]);
+    }
+
+    [Fact]
+    public void AChangeEndsTheWineItStartedBeforeItLetsThePrefixGo()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        Directory.CreateDirectory(Path.GetDirectoryName(Layout.RunnerWine("wine-9.21"))!);
+        File.WriteAllText(Layout.RunnerWine("wine-9.21"), "");
+        var recorder = new RecordingRunner();
+
+        new Prefixes(Layout, recorder).MoveToRunner("gadget", "wine-9.21");
+
+        Assert.Equal(
+            [["wineboot", "--update", "--restart"], ["-k"], ["-w"]],
+            recorder.Ran.Select(run => run.Arguments));
+        Assert.EndsWith("wineserver", recorder.Ran[1].File, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AChangeThatFailsAfterStartingWineStillEndsIt()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var recorder = new RecordingRunner();
+        var prefixes = new Prefixes(Layout, recorder);
+
+        void FailingChange()
+        {
+            using var claim = prefixes.Claim("gadget", "change gadget");
+            prefixes.Run("gadget", "wine", ["cmd"]);
+            throw new InvalidOperationException("the change failed");
+        }
+
+        Assert.Throws<InvalidOperationException>(FailingChange);
+
+        Assert.Equal([["cmd"], ["-k"], ["-w"]], recorder.Ran.Select(run => run.Arguments));
+    }
+
+    [Fact]
+    public void OnlyTheOutermostClaimEndsTheWineStartedUnderIt()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var recorder = new RecordingRunner();
+        var prefixes = new Prefixes(Layout, recorder);
+
+        using (prefixes.Claim("gadget", "change gadget"))
+        {
+            using (prefixes.Claim("gadget", "change gadget again"))
+            {
+                prefixes.Run("gadget", "wine", ["cmd"]);
+            }
+
+            Assert.Equal([["cmd"]], recorder.Ran.Select(run => run.Arguments));
+        }
+
+        Assert.Equal([["cmd"], ["-k"], ["-w"]], recorder.Ran.Select(run => run.Arguments));
+    }
+
+    [Fact]
+    public void WineAChangeJoinedInALiveSessionIsLeftToThatSession()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var recorder = new RecordingRunner(dawSession: true);
+        var prefixes = new Prefixes(Layout, recorder);
+
+        using (prefixes.Claim("gadget", "change gadget"))
+        {
+            prefixes.RunJoined("gadget", ["cmd"]);
+        }
+
+        Assert.Equal([[Prefixes.JoinMode, "cmd"]], recorder.Ran.Select(run => run.Arguments));
+    }
+
+    [Fact]
+    public void AChangeThatStartedNoWineEndsNone()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+        var recorder = new RecordingRunner();
+
+        new Prefixes(Layout, recorder).SetSync("gadget", SyncMode.Fsync);
+
+        Assert.Empty(recorder.Ran);
+    }
+
+    [Fact]
+    public void UpdatingAPrefixReturnsWinebootsExitStatusFromItsLoggedRun()
+    {
+        var recorder = new RecordingRunner(exits: _ => 7);
+
+        var result = new Prefixes(Layout, recorder).Update("gadget", null);
+
+        Assert.Equal(7, result.ExitCode);
+        var update = Assert.Single(recorder.Ran);
+        Assert.Equal(["wineboot", "--update", "--restart"], update.Arguments);
+        Assert.Equal("mscoree=d;mshtml=d", update.Environment["WINEDLLOVERRIDES"]);
+        Assert.NotNull(update.LogTo);
     }
 
     [Fact]

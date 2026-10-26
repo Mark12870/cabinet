@@ -29,6 +29,7 @@ public sealed class VirtualDesktopTests : IDisposable
                 "/v", "Desktop", "/d", "Default", "/f",
             ],
             runner.Ran[1].Arguments);
+        Assert.All(runner.Ran, call => Assert.NotNull(call.LogTo));
     }
 
     [Fact]

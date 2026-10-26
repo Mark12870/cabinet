@@ -364,7 +364,9 @@ public sealed partial class GrammarTests : IDisposable
         Assert.Equal(0, outcome.Exit);
         Assert.Equal("gadget now runs on bundled." + Environment.NewLine, outcome.Out);
         Assert.False(File.Exists(cli.Layout.PrefixRunnerFile("gadget")));
-        Assert.Equal(["wineboot", "--update", "--restart"], Assert.Single(cli.Runner.Ran).Arguments);
+        Assert.Equal(
+            [["wineboot", "--update", "--restart"], ["-k"], ["-w"]],
+            cli.Runner.Ran.Select(call => call.Arguments));
     }
 
     [Fact]

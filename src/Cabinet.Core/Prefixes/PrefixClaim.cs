@@ -42,20 +42,24 @@ public sealed class PrefixClaim : IDisposable
 
     private readonly string key;
     private readonly List<FileStream> holding;
+    private readonly Action? released;
 
-    private PrefixClaim(string key, List<FileStream> holding)
+    private PrefixClaim(string key, List<FileStream> holding, Action? released = null)
     {
         this.key = key;
         this.holding = holding;
+        this.released = released;
     }
 
     public static readonly TimeSpan Settle = TimeSpan.FromSeconds(15);
+
+    internal bool Holds => holding.Count > 0;
 
     private static readonly TimeSpan Beat = TimeSpan.FromMilliseconds(200);
 
     internal static PrefixClaim Take(
         SessionPaths paths, string prefix, string what, bool apps, TimeSpan settle,
-        Func<bool> live)
+        Func<bool> live, Action? released = null)
     {
         lock (Gate)
         {
@@ -99,7 +103,7 @@ public sealed class PrefixClaim : IDisposable
             throw;
         }
 
-        return new PrefixClaim(paths.Change, holding);
+        return new PrefixClaim(paths.Change, holding, released);
     }
 
     internal static PrefixApps Open(SessionPaths paths, string prefix, string what)
@@ -191,7 +195,16 @@ public sealed class PrefixClaim : IDisposable
 
     public void Dispose()
     {
-        if (holding.Count > 0)
+        if (holding.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            released?.Invoke();
+        }
+        finally
         {
             Release(key, holding);
         }

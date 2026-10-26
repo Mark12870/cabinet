@@ -16,5 +16,5 @@ public sealed class StubRunner(ProcessResult result) : IProcessRunner
         CancellationToken cancellationToken = default) =>
         args is [Prefixes.PathsMode]
             ? new ProcessResult(0, SessionFiles.Printed(env ?? new Dictionary<string, string>()), "")
-            : result;
+            : RecordingRunner.Logged(result, logTo);
 }

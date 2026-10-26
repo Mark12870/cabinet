@@ -86,11 +86,22 @@ public sealed class RecordingRunner(
         try
         {
             acts?.Invoke(args);
-            return new ProcessResult(exits?.Invoke(args) ?? 0, outputs?.Invoke(args) ?? "", "");
+            return Logged(new ProcessResult(exits?.Invoke(args) ?? 0, outputs?.Invoke(args) ?? "", ""), logTo);
         }
         finally
         {
             joining -= joins ? 1 : 0;
         }
+    }
+
+    internal static ProcessResult Logged(ProcessResult result, string? logTo)
+    {
+        if (logTo is null)
+        {
+            return result;
+        }
+
+        File.AppendAllText(logTo, result.Stdout + result.Stderr);
+        return result with { Stdout = "", Stderr = "" };
     }
 }

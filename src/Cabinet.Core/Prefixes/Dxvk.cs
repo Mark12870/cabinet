@@ -239,5 +239,5 @@ public sealed class Dxvk(Layout layout, IProcessRunner runner)
     }
 
     private ProcessResult Reg(string prefix, IReadOnlyList<string> arguments) =>
-        new Prefixes(layout, runner).Run(prefix, "wine", ["reg", .. arguments]);
+        new Prefixes(layout, runner).RunRegistry(prefix, ["reg", .. arguments]);
 }

@@ -158,13 +158,14 @@ public class CatalogueTests
     }
 
     [Fact]
-    public void NativeAccessUsesTheWindowsQtThemeWithoutDisablingDxvk()
+    public void NativeAccessUsesTheWindowsQtThemeAndWebView2WithWinesOwnDirect3D()
     {
         var entry = Shipped.Single(entry => entry.Id == "native-access");
 
-        Assert.Equal(4, entry.Config.Revision);
+        Assert.Equal(5, entry.Config.Revision);
         Assert.Equal("windows", entry.Env["WINEQT_QPA_PLATFORMTHEME"]);
-        Assert.True(entry.Dxvk);
+        Assert.False(entry.Dxvk);
+        Assert.True(entry.WebView2);
     }
 
     [Fact]

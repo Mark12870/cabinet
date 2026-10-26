@@ -82,10 +82,8 @@ release changes things.
   indefinitely; in that install the daemon's own `ping native-instruments.com` had hung as well.
   `sc stop NTKDaemonService` alone did not end a daemon left running. Cabinet ends the prefix's
   Wine after a direct run (`cabinet run`, winetricks) when it can claim the prefix, as a safety net.
-- **The editor draws through DXVK's Direct3D 11.** On a headless weston display on this
-  machine's GPU (RADV, no DRI3 in Xwayland) the plugin's Wine loses its X connection right after
-  the first swapchain is created. On lavapipe, which a GPU-less runner has anyway, the editor
-  opens, draws and reacts. Turning vsync off (`dxgi.syncInterval = 0`) was not needed.
+- **The editor draws through Wine's own Direct3D.** The prefix has no DXVK, which iZotope Trash
+  needs; Kontakt 8, Komplete Kontrol, Raum and Native Access itself all drew without it.
 - **The first click on a freshly opened Kontakt editor only focuses it.**
 - A "What's new in 8.13.1" overlay covers the browser on the first licensed load; its ✕ is at
   (727, 231) in the 1010×647 editor.
@@ -124,9 +122,14 @@ release changes things.
 
 - Installs through Native Access and bridges at once. It renders audio with its `Mix` parameter
   held fully wet.
-- **Its editor hangs on the test display**, on the GPU and on lavapipe alike. It draws through
-  DXVK's Direct3D 9, its swapchain throws, and Wine's unwinder loops on
-  `unknown CFA opcode` / `unhandled opcode` instead of returning the exception.
+- **Its editor draws without DXVK.** Through DXVK's Direct3D 9 its swapchain threw and Wine's
+  unwinder looped on `unknown CFA opcode` instead of returning the exception.
+
+## iZotope plugins
+
+- **Trash's editor is a WebView2 page.** Without the WebView2 Runtime in the prefix it stays
+  black, and with DXVK it stays black too. Without Splice's browser flags for `yabridge-host.exe`
+  the editor draws, but the host never exits once Trash is removed, and the DAW waits on it.
 
 ## Test environment notes
 

@@ -236,8 +236,8 @@ public partial class LibraryTests
         var script = Path.Combine(layout.PrefixPath("aalto"), "drive_c", "cabinet-uninstall.bat");
         Directory.CreateDirectory(Path.GetDirectoryName(script)!);
 
-        var ran = "";
-        var recording = new RecordingRunner(_ => ran = File.ReadAllText(script));
+        string? ran = null;
+        var recording = new RecordingRunner(_ => ran ??= File.ReadAllText(script));
         var library = new Library(layout, recording);
 
         Assert.Equal(3, library.Uninstallers("aalto").Count);
@@ -245,7 +245,7 @@ public partial class LibraryTests
             () => library.Remove(library.RemovalOf(library.Find("aalto"))));
 
         Assert.Equal(
-            [["cmd", "/c", @"C:\cabinet-uninstall.bat"]],
+            [["cmd", "/c", @"C:\cabinet-uninstall.bat"], ["-k"], ["-w"]],
             recording.Ran.Select(call => call.Arguments));
         Assert.Equal("C:\\aalto.exe\r\n", ran);
         Assert.False(File.Exists(script));
@@ -283,7 +283,9 @@ public partial class LibraryTests
         Assert.Equal("Aalto version 1.9.4", Assert.Single(library.PossibleUninstallers(removal)).Name);
         Assert.Throws<InvalidOperationException>(() => library.Remove(removal));
 
-        Assert.Single(recording.Ran);
+        Assert.Equal(
+            [["cmd", "/c", @"C:\cabinet-uninstall.bat"], ["-k"], ["-w"]],
+            recording.Ran.Select(call => call.Arguments));
         Assert.Contains("aaltoverb", library.Recorded("madrona"));
     }
 
@@ -339,7 +341,8 @@ public partial class LibraryTests
             () => library.Remove(removal, uninstaller: possible[1]));
 
         Assert.Equal(
-            ["cmd", "/c", @"C:\cabinet-uninstall.bat"], Assert.Single(recording.Ran).Arguments);
+            [["cmd", "/c", @"C:\cabinet-uninstall.bat"], ["-k"], ["-w"]],
+            recording.Ran.Select(call => call.Arguments));
     }
 
     [Fact]
@@ -414,7 +417,8 @@ public partial class LibraryTests
 
         Assert.Contains("nothing has been removed", refused.Message);
         Assert.Equal(
-            ["cmd", "/c", @"C:\cabinet-uninstall.bat"], recording.Ran.Single().Arguments);
+            [["cmd", "/c", @"C:\cabinet-uninstall.bat"], ["-k"], ["-w"]],
+            recording.Ran.Select(call => call.Arguments));
         Assert.Equal("gadget", Assert.Single(library.Installed()).Key);
     }
 
