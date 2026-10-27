@@ -31,6 +31,7 @@ public sealed class IzotopeProductPortalScenario(IzotopeProductPortalScenario.In
         var audio = await installed.Harness.Render(bridge, Mix, installed.Display);
 
         Assert.True(audio.Parameters > 0, $"{installed.Entry.Name} exposed no parameters");
+        Assert.True(audio.MixChanged, $"Vinyl's {Mix} did not hold at its maximum");
         Assert.InRange(audio.Before, 0.00025, 1);
         Assert.InRange(audio.Tail, 0.00024, 1);
         Assert.InRange(audio.Peak, 0.028, 1);

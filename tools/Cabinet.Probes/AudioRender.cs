@@ -179,7 +179,7 @@ internal static unsafe class AudioRender
 
         Reached("parameters enter");
 
-        if (!WriteParameters(Path.Combine(artefacts, "parameters.txt"), host, mix, out var parameterCount, out var mixChanged))
+        if (!WriteParameters(Path.Combine(artefacts, "parameters.txt"), host, mix, out var parameterCount, out var mixHeld))
         {
             return Error("setup", "could not report finite plugin parameters");
         }
@@ -297,6 +297,7 @@ internal static unsafe class AudioRender
             return Error("artefact", "could not write output.wav");
         }
 
+        var mixChanged = mixHeld();
         host.SetActive(0, false);
 
         if (!host.RemoveAllPlugins())
@@ -369,10 +370,10 @@ internal static unsafe class AudioRender
         return gesture.ExitCode == 0;
     }
 
-    private static bool WriteParameters(string path, Carla host, string mix, out uint count, out bool mixChanged)
+    private static bool WriteParameters(string path, Carla host, string mix, out uint count, out Func<bool> mixHeld)
     {
         count = host.ParameterCount(0);
-        mixChanged = false;
+        mixHeld = () => false;
         var parameters = new List<(string Name, ParameterRanges Ranges)>();
 
         for (uint index = 0; index < count; index++)
@@ -394,9 +395,11 @@ internal static unsafe class AudioRender
             if (data != null && data->Type == Carla.ParameterInput && (data->Hints & Carla.ParameterIsReadOnly) == 0
                 && mix.Length > 0 && name == mix && range.Min <= range.Max)
             {
+                var mixIndex = index;
                 var wanted = range.Max;
+                var tolerance = Math.Max(range.StepSmall, 0.0001f);
                 host.SetParameterValue(0, index, wanted);
-                mixChanged = Math.Abs(host.CurrentParameterValue(0, index) - wanted) <= Math.Max(range.StepSmall, 0.0001f);
+                mixHeld = () => Math.Abs(host.CurrentParameterValue(0, mixIndex) - wanted) <= tolerance;
             }
         }
 
