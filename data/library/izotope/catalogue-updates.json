@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"izotope-product-portal","path":"izotope/izotope-product-portal.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.IzotopeProductPortalScenario","allowedDownloadHosts":["www.izotope.com","downloads.izotope.com"],"source":{"type":"redirect","pageUrl":"https://www.izotope.com/in-app/pp/download/pc","downloadRegex":"^https://downloads\\.izotope\\.com/product_download/iZotope_Product_Portal_v(?<version>[0-9]+(?:_[0-9]+)+)\\.exe$"}}
+  ],
+  "blocked": [
+  ]
+}

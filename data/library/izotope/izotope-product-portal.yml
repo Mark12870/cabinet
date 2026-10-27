@@ -1,0 +1,28 @@
+Name: iZotope Product Portal
+Kind: windows
+Category: Manager
+Summary: iZotope's own manager, which downloads, installs and authorises their plugins.
+Developer: iZotope
+Version: 1.4.9
+Licence: Freeware
+Licensing:
+  The app is free and signs in with a Native ID. What it will install is what
+  that account owns; iZotope's subscriptions install through Native Access instead.
+Formats: VST3, VST2
+Homepage: https://www.izotope.com/pages/product-downloads
+Source: download
+Url: https://downloads.izotope.com/product_download/iZotope_Product_Portal_v1_4_9.exe
+Sha256: 29d08fa0a07c93eb81095d448271d0e64c6ddecf47115f1b0dd40091622062ed
+Launch: C:\Program Files\iZotope\Product Portal\x64\iZotope Product Portal.exe
+VersionFile: C:\Program Files\iZotope\Product Portal\x64\iZotope Product Portal.exe
+LaunchArgs:
+  --disable-gpu
+  --in-process-gpu
+Script: izotope.sh
+Description:
+  Not a plugin but the door to iZotope's catalogue: Ozone, Neutron, Nectar, RX
+  and the free Vinyl and Ozone Imager. You sign in, and the app downloads,
+  installs and authorises each product your account owns.
+
+  So installing this installs nothing you can play yet — it is the door, and
+  what you own arrives through it.

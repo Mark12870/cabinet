@@ -44,10 +44,12 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | roland-cloud-manager | Roland's product page, `roland.com/global/products/rc_roland_cloud_manager/`, `static.roland.com/assets/images/products/gallery/rc_roland_cloud_manager_01_all_legendary_gal.jpg` — the app's Legendary grid, from its macOS build; its icon is the app's own 256px music note out of `Roland Cloud Manager.exe` in the pinned installer, near-black, recoloured white |
 | pianoteq | the interface snapshot Modartt ship inside the Pianoteq 9.2.5 VST3 bundle, `Pianoteq 9.vst3/Contents/Resources/Snapshots/565354507439717069616E6F74657120_snapshot.png`; its icon is the pedals and keyboard cropped out of it |
 | cymatics-hub | Cymatics' official Hub download page, `cymatics.fm/pages/cymatics-hub-download-1`, `Capture2.jpg`; its icon is the 256px app icon shipped in the installer |
+| izotope-product-portal | captured here, from Product Portal 1.4.9's Trials tab in an isolated prefix; its icon is the 256px app icon in `iZotope Product Portal.exe` |
 
 | Vendor | Logo |
 | --- | --- |
 | uvi | UVI's official site header, the white UVI mark at `uvi.net/uvi-portal` |
+| izotope | the iZotope mark in `izotope.com/cdn/shop/files/iZotope-logo-mobile.svg`, recoloured white for contrast |
 | waves | Waves Central's bundled `res/images/logo/light/waves-logo.svg`, recoloured white for contrast |
 | novation | Novation's official white wordmark, `cdn11.bigcommerce.com/s-itgb7ssiy1/images/stencil/original/novation_logo_web_1746028470__81805.original.png` |
 | celemony | Celemony's official wordmark, `celemony.com/WebObjects/CMSApp.woa/Contents/WebServerResources/img/celemony_logo.png`, recoloured white for contrast |

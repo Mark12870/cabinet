@@ -13,6 +13,7 @@ is [yabridge](https://github.com/robbert-vdh/yabridge), with a few Cabinet patch
 - Arturia Software Center
 - Cymatics Hub
 - IK Product Manager
+- iZotope Product Portal
 - Klevgrand Helper
 - Native Access
 - Roland Cloud Manager

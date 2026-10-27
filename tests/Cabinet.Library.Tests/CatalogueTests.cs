@@ -169,6 +169,15 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void TheIzotopePrefixHasArialForTheLogInPageAndSendsNoAnalyticsThatHoldVinylOpen()
+    {
+        var entry = Shipped.Single(entry => entry.Id == "izotope-product-portal");
+
+        Assert.Contains("corefonts", entry.Config.Winetricks);
+        Assert.Equal("dword:0", entry.Config.Registry[@"HKCU\Software\iZotope\EnableAnalytics"]);
+    }
+
+    [Fact]
     public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
     {
         var writing = Directory

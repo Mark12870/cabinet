@@ -1,0 +1,6 @@
+Revision: 1
+Runner: d2d1-dcomp-11.0-887-p2
+Sync: fsync
+Winetricks: corefonts
+Registry:
+  HKCU\Software\iZotope\EnableAnalytics=dword:0

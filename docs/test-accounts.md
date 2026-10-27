@@ -45,6 +45,12 @@ the scenario counts no parameters. Nor does it assert a tail: a render is identi
 until 15 ms after the note-off, but under load the release decays faster, as if timed by the clock
 rather than the samples, and the tail fell from 3e-6 to 1e-11.
 
+iZotope Product Portal signs in with a Native ID, the Native Instruments account, on a page it
+embeds, and takes the same `EMAIL` and `PASSWORD` typed into it. The page is scrolled, and the
+password field must match its reference before anything is typed, and nothing is captured until the
+window has become the Portal itself. The account must own Vinyl's free licence; the scenario installs
+and authorises it through My Products, not the unregistered download in the Trials tab.
+
 Native Access signs in through a browser, and Native Instruments' login page refuses a browser
 driven by WebDriver, so its scenario does not sign in; it restores a session instead. Native
 Access keeps that session in Wine's Credential Manager, as `NTKDaemon/session_data` under
