@@ -46,6 +46,20 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.33.0" date="2026-10-27">
+      <description>
+        <p>iZotope Product Portal and iZotope plugins</p>
+        <ul>
+          <li>The Library offers iZotope Product Portal, which installs and authorises iZotope plugins in their own prefix</li>
+          <li>iZotope Trash, Ozone Imager 2 and Ozone 12 Equalizer installed through Native Access draw their editors once the Native Access prefix is updated</li>
+          <li>iZotope Trash draws its editor in the iZotope prefix</li>
+          <li>Plugins an installer puts in a vendor folder that already exists are bridged</li>
+          <li>Update all moves to the top bar and shows only when a prefix update is waiting</li>
+          <li>Library rows show installed and update marks as icons, and managers and players without extra tags</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.32.8" date="2026-10-24">
       <description>
         <p>Komplete Kontrol works in DAWs</p>
