@@ -82,6 +82,7 @@ internal sealed partial class LibraryPage
         updateAll.SetIconName(Icons.Update);
         updateAll.SetLabel("Update all…");
         UpdateAllButton.SetChild(updateAll);
+        UpdateAllButton.AddCssClass("warning");
         UpdateAllButton.SetTooltipText("Review and apply every pending prefix update");
         UpdateAllButton.SetVisible(false);
         UpdateAllButton.OnClicked += (_, _) => Ui.Guard(UpdateAll);
