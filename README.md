@@ -15,6 +15,7 @@ is [yabridge](https://github.com/robbert-vdh/yabridge), with a few Cabinet patch
 - IK Product Manager
 - iZotope Product Portal
 - Klevgrand Helper
+- Minimal Audio Hub
 - Native Access
 - Roland Cloud Manager
 - SINEplayer

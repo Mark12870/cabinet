@@ -45,6 +45,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | pianoteq | the interface snapshot Modartt ship inside the Pianoteq 9.2.5 VST3 bundle, `Pianoteq 9.vst3/Contents/Resources/Snapshots/565354507439717069616E6F74657120_snapshot.png`; its icon is the pedals and keyboard cropped out of it |
 | cymatics-hub | Cymatics' official Hub download page, `cymatics.fm/pages/cymatics-hub-download-1`, `Capture2.jpg`; its icon is the 256px app icon shipped in the installer |
 | izotope-product-portal | captured here, from Product Portal 1.4.9's Trials tab in an isolated prefix; its icon is the 256px app icon in `iZotope Product Portal.exe` |
+| minimal-audio-hub | captured here, from Minimal Hub 1.1.11 in an isolated prefix; its icon uses the vendor's signet below |
 
 | Vendor | Logo |
 | --- | --- |
@@ -78,3 +79,4 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | roland | the R symbol at the left of `commons.wikimedia.org/wiki/File:Roland_Corporation_logo.svg`, PD-textlogo; the wordmark beside it is nearly 5:1 and unreadable at this size, and Roland's own orange reads on the dark ground |
 | modartt | Modartt's own mark and wordmark, `modartt.com/images/logo/logo-modartt-v32-transparent-black.png`, 300×300, black on transparent, recoloured white |
 | cymatics | Cymatics' official white wordmark, `cymatics.fm/cdn/shop/files/Cymatics_Logotype_transparent_white.png` |
+| minimal-audio | the official vector signet at `minimal.audio/assets/shared/favicons/favicon-af14aa2427911958c2156eff3170eb519d0528f6972b4585b0edcea6e70c4b18.svg`, recoloured ivory on a black tile for contrast in both themes |

@@ -1,0 +1,6 @@
+Revision: 1
+Runner: d2d1-dcomp-11.0-887-p2
+WebView2: true
+Sync: fsync
+Registry:
+  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\Minimal Hub.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu

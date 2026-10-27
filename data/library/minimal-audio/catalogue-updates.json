@@ -1,0 +1,6 @@
+{
+  "entries": [],
+  "blocked": [
+    {"id":"minimal-audio-hub","reason":"The versioned Hub download was supplied manually; automatic discovery of new Hub releases is not configured."}
+  ]
+}

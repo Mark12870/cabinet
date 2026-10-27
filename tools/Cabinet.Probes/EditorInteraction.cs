@@ -131,6 +131,13 @@ internal sealed unsafe partial class EditorInteraction
                 var (x, y) = (at[0], at[1]);
                 var untyped = Look(window, $"type-{x}-{y}-still");
                 desktop.Run("xdotool", "mousemove", "--window", window, x, y, "click", "1");
+
+                if (line.Length == 1)
+                {
+                    Note(string.Create(CultureInfo.InvariantCulture, $"pressed {x} {y}, answered after {Answered(window, untyped):F1}s"));
+                    continue;
+                }
+
                 Turn(10);
                 desktop.Feed(line[1], "xdotool", "type", "--file", "-");
                 Turn(10);

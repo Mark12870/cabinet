@@ -198,6 +198,26 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void MinimalAudioHubUsesItsVersionedPortableAppAndPrefixSettings()
+    {
+        var entry = Shipped.Single(entry => entry.Id == "minimal-audio-hub");
+
+        Assert.Equal(@"C:\Program Files\Minimal\Minimal Hub.exe", entry.Launch);
+        Assert.Equal(entry.Launch, entry.VersionFile);
+        Assert.Equal("d2d1-dcomp-11.0-887-p2", entry.Config.Runner);
+        Assert.Equal(SyncMode.Fsync, entry.Config.Sync);
+        Assert.True(entry.WebView2);
+        Assert.Equal(
+            "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
+            entry.Registry[@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\Minimal Hub.exe"]);
+
+        var script = File.ReadAllText(Catalogue.Layout().LibraryScript(entry.Vendor, entry.Script!));
+        Assert.Contains("drive_c/Program Files/Minimal/Minimal Hub.exe", script, StringComparison.Ordinal);
+        Assert.Contains("cp \"$CABINET_ARCHIVE\" \"$destination\"", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("$WINE", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
     {
         var writing = Directory

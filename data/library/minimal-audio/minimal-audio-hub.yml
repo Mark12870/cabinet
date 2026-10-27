@@ -1,0 +1,24 @@
+Name: Minimal Audio Hub
+Kind: windows
+Category: Manager
+Summary: Minimal Audio's app for installing and updating its plugins and sound content.
+Developer: Minimal Audio
+Version: 1.1.11
+Licence: Freeware
+Licensing:
+  The Hub is free and requires a Minimal Audio account. Commercial products
+  need their own licences or an All Access subscription; Squash is free.
+Formats: VST3, VST2
+Homepage: https://www.minimal.audio
+Source: download
+Url: https://product-versions.minimal.audio/Minimal%20Hub/Versions/1.1.11/Windows/Minimal%20Hub.exe
+Sha256: 30bd23a4e51bdf05e5fd580d006d27bdd3cfdfd07c2391ecfa1ed18ce0700a78
+Launch: C:\Program Files\Minimal\Minimal Hub.exe
+VersionFile: C:\Program Files\Minimal\Minimal Hub.exe
+Script: minimal-audio-hub.sh
+Description:
+  Install and update Minimal Audio's instruments, effects and sound content
+  from one app, including Current, Rift and the free Squash compressor.
+
+  Sign in with your Minimal Audio account and choose what to install.
+  The Hub does not need to stay open while you use your plugins.

@@ -300,7 +300,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             !controlsAreParameters || found.Groups[14].Value != "none",
             $"no control moved under the pointer: {result.Said}");
         Assert.DoesNotContain("crashed while being torn down", result.Said, StringComparison.Ordinal);
-        return new EditorOrigin(found.Groups[15].Value, found.Groups[16].Value);
+        return new EditorOrigin(found.Groups[15].Value, found.Groups[16].Value, found.Groups[14].Value);
     }
 
     public void VerifyPopup(Bridge bridge, (int X, int Y) open, (int X, int Y) away)
@@ -509,7 +509,7 @@ internal sealed record Bridge(string Plugin, string Format)
     public string Label { get; init; } = Format;
 }
 
-internal sealed record EditorOrigin(string Wine, string Told);
+internal sealed record EditorOrigin(string Wine, string Told, string Aimed);
 
 internal sealed record Performance(double Before, double Held, double After);
 
