@@ -21,6 +21,9 @@ changes things.
   knob-dragging probes in a row then closed cleanly where every earlier one hung. The Portal asks
   on its first sign-in all the same, and Share writes `EnableAnalytics=1` back; Don't Share keeps
   it off.
+- **Trash's editor is a WebView2 page.** Installed from the Portal's TRIALS tab, it drew black on a
+  prefix without the WebView2 Runtime; with the Runtime and the browser flags the Native Instruments
+  prefix uses, three probes in a row drew it and closed cleanly.
 - **ACTIVATE answers only after the computer has been chosen.** On "Choose to authorize to:", a press
   on ACTIVATE alone is not logged by the Portal; the computer icon first, then ACTIVATE, reaches
   "Success!" and `Single-Authorize (comp) | Succeeded` in `ProductPortal.log`.

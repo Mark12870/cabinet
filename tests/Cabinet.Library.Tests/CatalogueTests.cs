@@ -178,6 +178,17 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void TheIzotopePrefixDrawsTrashsWebView2Editor()
+    {
+        var entry = Shipped.Single(entry => entry.Id == "izotope-product-portal");
+
+        Assert.True(entry.WebView2);
+        Assert.Equal(
+            "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
+            entry.Registry[@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\yabridge-host.exe"]);
+    }
+
+    [Fact]
     public void RegistryValuesLiveInPrefixConfigsUnlessAnInstallStepDecidesThem()
     {
         var writing = Directory
