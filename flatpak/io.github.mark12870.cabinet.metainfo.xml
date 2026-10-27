@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.34.0" date="2026-10-27">
+      <description>
+        <p>Minimal Audio Hub</p>
+        <ul>
+          <li>The Library offers Minimal Audio Hub, which installs and updates Minimal Audio's plugins and sound content in their own prefix</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.33.0" date="2026-10-27">
       <description>
         <p>iZotope Product Portal and iZotope plugins</p>
