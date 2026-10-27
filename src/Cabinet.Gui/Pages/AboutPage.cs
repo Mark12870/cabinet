@@ -105,9 +105,7 @@ internal sealed class AboutPage
         var body = Ui.Page();
         body.Append(Ui.Scrolled(releases));
 
-        var bars = Adw.ToolbarView.New();
-        bars.AddTopBar(Adw.HeaderBar.New());
-        bars.SetContent(body);
+        var bars = Ui.Bars(body);
 
         var dialog = Adw.Dialog.New();
         dialog.SetTitle("Changelog");

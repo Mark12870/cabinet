@@ -10,7 +10,6 @@ internal sealed class DoctorPage
     private readonly Action repaired;
     private readonly Action refreshAll;
     private readonly Operation operations;
-    private readonly Action updateAll;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
     private readonly Gtk.Box checks = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
     private readonly RefreshGeneration generation = new();
@@ -21,8 +20,7 @@ internal sealed class DoctorPage
         Gtk.Window window,
         Action repaired,
         Action refreshAll,
-        Operation operations,
-        Action updateAll)
+        Operation operations)
     {
         this.layout = layout;
         this.runner = runner;
@@ -30,7 +28,6 @@ internal sealed class DoctorPage
         this.repaired = repaired;
         this.refreshAll = refreshAll;
         this.operations = operations;
-        this.updateAll = updateAll;
 
         var page = Ui.Page();
         page.Append(Ui.Scrolled(list));
@@ -145,15 +142,6 @@ internal sealed class DoctorPage
             fix.SetTooltipText($"Show the command that enrols {dawId}");
             fix.OnClicked += (_, _) => Ui.Guard(() => new EnrolmentDialog(window, layout, dawId).Present());
             row.AddSuffix(fix);
-        }
-
-        if (check.Name == Doctor.PrefixUpdatesCheck)
-        {
-            var update = Gtk.Button.NewWithLabel("Update all…");
-            update.SetValign(Gtk.Align.Center);
-            update.SetTooltipText("Review and apply every pending prefix update");
-            update.OnClicked += (_, _) => Ui.Guard(updateAll);
-            row.AddSuffix(update);
         }
 
         return row;

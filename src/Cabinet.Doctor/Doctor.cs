@@ -11,8 +11,6 @@ public sealed record Check(string Name, Status Status, string Detail, string? Da
 
 public sealed partial class Doctor(Layout layout, IProcessRunner runner)
 {
-    public const string PrefixUpdatesCheck = "prefix updates";
-
     public IReadOnlyList<Check> Run()
     {
         var checks = new List<Check>
@@ -202,7 +200,7 @@ public sealed partial class Doctor(Layout layout, IProcessRunner runner)
             yield break;
         }
 
-        yield return new Check(PrefixUpdatesCheck, Status.Warn,
+        yield return new Check("prefix updates", Status.Warn,
             string.Join("; ", pending.Select(update =>
                 $"{update.Prefix} has a changed setup for {string.Join(", ", update.Members)}")));
     }

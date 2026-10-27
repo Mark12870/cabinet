@@ -22,9 +22,7 @@ internal sealed class VariablesDialog(
         var body = Ui.Page();
         body.Append(Ui.Scrolled(list));
 
-        var view = Adw.ToolbarView.New();
-        view.AddTopBar(Adw.HeaderBar.New());
-        view.SetContent(body);
+        var view = Ui.Bars(body);
         dialog.SetChild(view);
 
         Fill();

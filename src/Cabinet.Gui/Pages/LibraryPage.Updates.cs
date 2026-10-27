@@ -54,7 +54,7 @@ internal sealed partial class LibraryPage
         dialog.SetPreferWideLayout(true);
     }
 
-    public void UpdateAll() =>
+    private void UpdateAll() =>
         Task.Run(() => new Library(layout, runner).PendingPrefixUpdates()).ContinueWith(found =>
             Ui.OnMainLoop(() =>
             {

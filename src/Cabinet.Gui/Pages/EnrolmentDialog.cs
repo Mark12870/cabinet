@@ -34,9 +34,7 @@ internal sealed class EnrolmentDialog(Gtk.Window window, Layout layout, string d
         var body = Ui.Page();
         body.Append(Ui.Scrolled(steps));
 
-        var view = Adw.ToolbarView.New();
-        view.AddTopBar(Adw.HeaderBar.New());
-        view.SetContent(body);
+        var view = Ui.Bars(body);
         dialog.SetChild(view);
         dialog.Present(window);
         dialog.SetFocus(firstCopy);

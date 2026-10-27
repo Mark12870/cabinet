@@ -44,9 +44,7 @@ internal sealed class PluginPage
         var content = Ui.Page();
         content.Append(Ui.Scrolled(body));
 
-        var view = Adw.ToolbarView.New();
-        view.AddTopBar(Adw.HeaderBar.New());
-        view.SetContent(content);
+        var view = Ui.Bars(content);
 
         Page = Adw.NavigationPage.New(view, entry.Name);
     }

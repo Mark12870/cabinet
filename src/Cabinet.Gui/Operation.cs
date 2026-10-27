@@ -160,9 +160,7 @@ internal sealed class Operation(
             body.Append(Ui.Scrolled(log));
             body.Append(buttons);
 
-            var view = Adw.ToolbarView.New();
-            view.AddTopBar(Adw.HeaderBar.New());
-            view.SetContent(body);
+            var view = Ui.Bars(body);
             dialog.SetChild(view);
         }
 

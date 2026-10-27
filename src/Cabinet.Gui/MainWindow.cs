@@ -47,7 +47,7 @@ internal sealed class MainWindow
             prefixes.Open,
             operations);
         runners = new RunnersPage(layout, runner, window, RefreshRunners, operations);
-        doctor = new DoctorPage(layout, runner, window, RefreshDoctor, RefreshAll, operations, library.UpdateAll);
+        doctor = new DoctorPage(layout, runner, window, RefreshDoctor, RefreshAll, operations);
         about = new AboutPage(layout, runner, window);
 
         stack.AddTitledWithIcon(library.Widget, "library", "Library", Icons.Library);
@@ -56,10 +56,10 @@ internal sealed class MainWindow
         stack.AddTitledWithIcon(doctor.Widget, "doctor", "Doctor", Icons.Doctor);
         stack.AddTitledWithIcon(about.Widget, "about", "About", Icons.About);
 
-        var view = Adw.ToolbarView.New();
-        view.AddTopBar(Adw.HeaderBar.New());
+        var header = Adw.HeaderBar.New();
+        header.PackEnd(library.UpdateAllButton);
+        var view = Ui.Bars(stack, header);
         view.AddBottomBar(Switcher());
-        view.SetContent(stack);
 
         navigation.Add(Adw.NavigationPage.New(view, "Cabinet"));
         toasts.SetChild(navigation);
@@ -213,6 +213,8 @@ internal sealed class MainWindow
         var switcher = Adw.ViewSwitcherBar.New();
         switcher.SetStack(stack);
         switcher.SetReveal(true);
+        switcher.SetMarginTop(3);
+        switcher.SetMarginBottom(4);
         return switcher;
     }
 

@@ -192,9 +192,7 @@ internal sealed class RunnersPage
             body.Append(Ui.Scrolled(group));
         }
 
-        var view = Adw.ToolbarView.New();
-        view.AddTopBar(Adw.HeaderBar.New());
-        view.SetContent(body);
+        var view = Ui.Bars(body);
         dialog.SetChild(view);
         dialog.OnClosed += (_, _) =>
         {

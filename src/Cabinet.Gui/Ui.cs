@@ -86,6 +86,16 @@ internal static class Ui
         return box;
     }
 
+    public static Adw.ToolbarView Bars(Gtk.Widget content, Adw.HeaderBar? header = null)
+    {
+        var bars = Adw.ToolbarView.New();
+        bars.SetTopBarStyle(Adw.ToolbarStyle.Raised);
+        bars.SetBottomBarStyle(Adw.ToolbarStyle.Raised);
+        bars.AddTopBar(header ?? Adw.HeaderBar.New());
+        bars.SetContent(content);
+        return bars;
+    }
+
     public static Gtk.ScrolledWindow Scrolled(Gtk.Widget child)
     {
         var scrolled = Gtk.ScrolledWindow.New();
@@ -333,9 +343,7 @@ internal static class Ui
         var body = Page();
         body.Append(Scrolled(view));
 
-        var bars = Adw.ToolbarView.New();
-        bars.AddTopBar(Adw.HeaderBar.New());
-        bars.SetContent(body);
+        var bars = Bars(body);
         dialog.SetChild(bars);
 
         dialog.Present(parent);

@@ -78,6 +78,14 @@ internal sealed partial class LibraryPage
             }
         });
 
+        var updateAll = Adw.ButtonContent.New();
+        updateAll.SetIconName(Icons.Update);
+        updateAll.SetLabel("Update all…");
+        UpdateAllButton.SetChild(updateAll);
+        UpdateAllButton.SetTooltipText("Review and apply every pending prefix update");
+        UpdateAllButton.SetVisible(false);
+        UpdateAllButton.OnClicked += (_, _) => Ui.Guard(UpdateAll);
+
         var page = Ui.Page();
         page.Append(Filters());
         page.Append(Ui.Scrolled(list));
@@ -87,6 +95,8 @@ internal sealed partial class LibraryPage
     }
 
     public Gtk.Widget Widget { get; }
+
+    public Gtk.Button UpdateAllButton { get; } = Gtk.Button.New();
 
     public void Refresh()
     {
@@ -107,6 +117,7 @@ internal sealed partial class LibraryPage
 
             if (task.IsFaulted)
             {
+                UpdateAllButton.SetVisible(false);
                 ShowFailure(task.Exception!.InnerException!.Message);
                 return;
             }
@@ -116,6 +127,7 @@ internal sealed partial class LibraryPage
             retired = task.Result.Retired;
             opened = task.Result.Opened;
             reviews = task.Result.Reviews;
+            UpdateAllButton.SetVisible(reviews.Values.Any(review => review.Available));
             stopping.RemoveWhere(id => !Running(id));
             fillingFilters = true;
 
@@ -461,26 +473,38 @@ internal sealed partial class LibraryPage
     {
         var tags = Gtk.Box.New(Gtk.Orientation.Horizontal, 6);
         tags.SetValign(Gtk.Align.Center);
-        tags.Append(Ui.Tag(entry.Category));
-        tags.Append(Ui.Tag(entry.Kind == PluginKind.Native ? "Linux" : "Windows"));
-        tags.Append(Ui.Tag(entry.Licence == "Commercial" ? "Paid" : "Free"));
 
-        if (Obtained(entry) is { } obtained)
+        if (!entry.Manager)
         {
-            tags.Append(Ui.Tag(obtained));
+            tags.Append(Ui.Tag(entry.Category));
+            tags.Append(Ui.Tag(entry.Kind == PluginKind.Native ? "Linux" : "Windows"));
+            tags.Append(Ui.Tag(entry.Licence == "Commercial" ? "Paid" : "Free"));
+
+            if (Obtained(entry) is { } obtained)
+            {
+                tags.Append(Ui.Tag(obtained));
+            }
         }
 
         if (HasUpdate(entry.Id))
         {
-            tags.Append(Ui.Tag("Update", "warning"));
+            tags.Append(Mark(Icons.Update, "warning", "Prefix update available"));
         }
 
         if (here)
         {
-            tags.Append(Ui.Tag(prefix is null ? "Installed" : $"Installed in {prefix}", "success"));
+            tags.Append(Mark(Icons.Ok, "success", prefix is null ? "Installed" : $"Installed in {prefix}"));
         }
 
         return tags;
+    }
+
+    private static Gtk.Image Mark(string iconName, string appearance, string tooltip)
+    {
+        var mark = Gtk.Image.NewFromIconName(iconName);
+        mark.AddCssClass(appearance);
+        mark.SetTooltipText(tooltip);
+        return mark;
     }
 
     private static string? Obtained(LibraryEntry entry) =>
