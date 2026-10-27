@@ -415,6 +415,31 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void APluginLandingInAVendorFolderAlreadyThereIsNamed()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var vendor = Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Vendor");
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+            {
+                File.WriteAllText(Path.Combine(vendor, "Second.vst3"), "");
+            }
+        });
+
+        Directory.CreateDirectory(vendor);
+        File.WriteAllText(Path.Combine(vendor, "First.vst3"), "");
+        File.WriteAllText(layout.PrefixPluginsFile(entry.Prefix), entry.Id + "\n");
+
+        var library = new Library(layout, recorder);
+        library.Launch(entry);
+
+        Assert.Contains("Second.vst3 appeared", library.LaunchLog(entry));
+        Assert.DoesNotContain("First.vst3 appeared", library.LaunchLog(entry));
+    }
+
+    [Fact]
     public void BridgeAndAppFailuresAreBothReported()
     {
         var entry = Manager();

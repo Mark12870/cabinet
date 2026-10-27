@@ -179,8 +179,37 @@ public sealed partial class Library
     private IReadOnlySet<string> Bundled(string prefix) =>
         layout.PrefixPluginDirs(prefix)
             .Where(Directory.Exists)
-            .SelectMany(Directory.EnumerateFileSystemEntries)
+            .SelectMany(directory => Bundles(directory, BundleExtension(directory)))
             .ToHashSet(StringComparer.Ordinal);
+
+    private static string BundleExtension(string pluginDirectory) =>
+        Path.GetFileName(pluginDirectory) switch
+        {
+            "VST3" => ".vst3",
+            "CLAP" => ".clap",
+            _ => ".dll",
+        };
+
+    private static readonly EnumerationOptions Walk = new() { IgnoreInaccessible = true, AttributesToSkip = 0 };
+
+    private static IEnumerable<string> Bundles(string directory, string extension)
+    {
+        FileSystemInfo[] entries;
+
+        try
+        {
+            entries = new DirectoryInfo(directory).GetFileSystemInfos("*", Walk);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return [];
+        }
+
+        return entries.SelectMany(entry =>
+            entry.Name.EndsWith(extension, StringComparison.OrdinalIgnoreCase) ? [entry.FullName]
+            : entry is DirectoryInfo { LinkTarget: null } ? Bundles(entry.FullName, extension)
+            : []);
+    }
 
     private static void Discard(string directory)
     {

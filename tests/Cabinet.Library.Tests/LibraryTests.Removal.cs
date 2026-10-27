@@ -459,6 +459,36 @@ public partial class LibraryTests
     }
 
     [Fact]
+    public void RemovingAPluginFromAVendorFolderItSharesTakesOnlyThatPlugin()
+    {
+        Catalogue(("trash", "Name: Trash\nKind: windows\nPrefix: izotope\nSource: byo\n"));
+
+        var layout = Layout();
+        var vendor = Path.Combine(layout.PrefixVst3Dir("izotope"), "iZotope");
+        Directory.CreateDirectory(vendor);
+        File.WriteAllText(Path.Combine(vendor, "Trash.vst3"), "");
+        File.WriteAllText(Path.Combine(vendor, "Vinyl.vst3"), "");
+
+        var key = @"HKLM\Software\Microsoft\Windows\CurrentVersion\Uninstall\Trash";
+        File.WriteAllText(layout.PrefixPluginsFile("izotope"), $"trash\t{key}\nvinyl\n");
+        File.WriteAllText(layout.PrefixSystemReg("izotope"), """
+            WINE REGISTRY Version 2
+
+            [Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Trash] 1787390242
+            "DisplayName"="Trash"
+            "UninstallString"="C:\\Uninstall Trash.exe"
+            """);
+
+        var recording = new RecordingRunner(_ => File.Delete(Path.Combine(vendor, "Trash.vst3")));
+        var library = new Library(layout, recording);
+
+        library.Remove(library.RemovalOf(library.Find("trash")));
+
+        Assert.Equal("vinyl", Assert.Single(library.Installed()).Key);
+        Assert.True(File.Exists(Path.Combine(vendor, "Vinyl.vst3")));
+    }
+
+    [Fact]
     public void RemovalTakesOnlyTheLinksThatPointIntoThePluginsOwnDirectory()
     {
         var layout = Layout();
