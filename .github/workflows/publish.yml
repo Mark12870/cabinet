@@ -194,9 +194,12 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         if: steps.mirror.outputs.deploy == 'true'
         with:
+          name: github-pages-${{ github.run_attempt }}
           path: _site
           include-hidden-files: true
 
       - uses: actions/deploy-pages@v5
         if: steps.mirror.outputs.deploy == 'true'
         id: deploy
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
