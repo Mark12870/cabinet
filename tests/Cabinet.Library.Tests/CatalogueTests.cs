@@ -162,10 +162,19 @@ public class CatalogueTests
     {
         var entry = Shipped.Single(entry => entry.Id == "native-access");
 
-        Assert.Equal(5, entry.Config.Revision);
+        Assert.Equal(6, entry.Config.Revision);
         Assert.Equal("windows", entry.Env["WINEQT_QPA_PLATFORMTHEME"]);
         Assert.False(entry.Dxvk);
         Assert.True(entry.WebView2);
+    }
+
+    [Fact]
+    public void NativeAccessRunsIzotopePluginsOnTheRunnerThatDrawsTheirEditorsAndSendsNoAnalytics()
+    {
+        var nativeAccess = Shipped.Single(entry => entry.Id == "native-access");
+
+        Assert.Equal("d2d1-dcomp-11.0-887-p2", nativeAccess.Config.Runner);
+        Assert.Equal("dword:0", nativeAccess.Config.Registry[@"HKCU\Software\iZotope\EnableAnalytics"]);
     }
 
     [Fact]
