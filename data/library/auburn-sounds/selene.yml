@@ -1,7 +1,7 @@
 Name: Selene
 Kind: native
 Category: Effect
-Summary: Algorithmic reverb with adaptive diffusion.
+Summary: Algorithmic reverb with a freeze
 Developer: Auburn Sounds
 Version: 1.1
 Licence: Freeware
@@ -15,10 +15,6 @@ Url: https://www.auburnsounds.com/downloads/Selene-FREE-1.1.zip
 Sha256: 9fb0b02442cb81f3b419f8207fb63105a99b41f8845bb4f5aa3f8ab320366a12
 Script: auburn-sounds.sh
 Description:
-  Diffusion that runs from sparse to plate-like, a vintage knob for the
-  older sound, an eight-band damping EQ, a freeze for an infinite tail, and
-  ducking and gating inside rather than on a plugin after it.
-
-  The path is 64-bit throughout and the post-EQ is drawn as shelves you can
-  see, so fitting it into a mix is done by looking at it. Adaptive
-  diffusion is what keeps a transient — a piano, say — out of the noise.
+  Diffusion from sparse to plate-like, a vintage control, drive, an
+  eight-band damping EQ, a freeze for an endless tail, built-in ducking and
+  gating, and shelving EQ after the reverb.

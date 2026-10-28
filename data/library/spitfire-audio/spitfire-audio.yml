@@ -1,7 +1,7 @@
 Name: Spitfire Audio App
 Kind: windows
 Category: Manager
-Summary: Spitfire's own manager, which downloads and installs their libraries.
+Summary: Spitfire Audio's library installer
 Developer: Spitfire Audio
 Licence: Freeware
 Licensing:
@@ -14,9 +14,6 @@ Url: https://www2.spitfireaudio.com/library-manager/download/win/
 Launch: C:\Program Files\Spitfire Audio\Spitfire Audio.exe
 Script: spitfire-audio.sh
 Description:
-  Not a plugin but the door to Spitfire's catalogue: LABS, the Originals, the
-  BBC Symphony Orchestra. You sign in, pick from what your account owns, and
-  the app fetches each library and installs its plugin for you.
-
-  So installing this installs nothing you can play yet — it is the door, and
-  what you own arrives through it.
+  Spitfire's sampled orchestras and instruments, from the free LABS series
+  and the smaller Originals to the BBC Symphony Orchestra, recorded at Maida
+  Vale. Each library comes with its own plugin.

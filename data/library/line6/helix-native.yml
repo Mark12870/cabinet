@@ -1,7 +1,7 @@
 Name: Helix Native
 Kind: windows
 Category: Effect
-Summary: Line 6's guitar amp and effects modelling plugin.
+Summary: Line 6 Helix amps and effects
 Developer: Line 6
 Version: 3.82
 Licence: Commercial
@@ -15,9 +15,7 @@ Source: byo
 Account: https://line6.com/account/
 Script: helix-native.sh
 Description:
-  The HX modelling out of Line 6's Helix hardware, as a plugin: amps, cabs,
-  mics and effects wired together on a signal path you drag into shape, with
-  eight snapshots to switch between per preset.
-
-  It signs in to a Line 6 account to authorise, so you supply the installer
-  you downloaded from yours.
+  The amp, cabinet, microphone and effect models of Line 6's Helix hardware,
+  wired on a signal path you arrange, with snapshots that switch between
+  variations of a preset without a dropout. Presets move between Helix
+  Native and the hardware.

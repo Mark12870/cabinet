@@ -1,7 +1,7 @@
 Name: Valhalla Space Modulator
 Kind: windows
 Category: Effect
-Summary: Through-zero flanger with a barberpole mode.
+Summary: Through-zero and barberpole flanger
 Developer: Valhalla DSP
 Version: 1.1.6
 Licence: Freeware
@@ -12,6 +12,6 @@ Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/spacemod/ValhallaSpac
 Sha256: d4f48ef188f9f9c8128b0ecda38b7cf6df3cc01028f50d65507ca78d1d5b6ae7
 Script: valhalla.sh
 Description:
-  A flanger whose delay passes through zero, so the notch sweeps out the other
-  side the way two tape machines do and nothing else does. The barberpole modes
-  flange in one direction forever, up or down, without ever arriving.
+  A flanger whose delay can pass through zero, as with two tape machines,
+  and barberpole modes that sweep in one direction without end. It also
+  detunes and doubles.

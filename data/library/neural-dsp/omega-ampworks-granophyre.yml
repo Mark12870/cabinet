@@ -1,7 +1,7 @@
 Name: OMEGA Ampworks Granophyre
 Kind: windows
 Category: Effect
-Summary: Granophyre amplifier tones from dirty blues to crushing metal.
+Summary: Omega Ampworks Granophyre amp
 Developer: Neural DSP
 Version: 1.0.2
 Licence: Commercial
@@ -15,7 +15,7 @@ Url: https://downloads.neuraldsp.com/file/omega-granophyre-installers/v_1.0.2/wi
 Sha256: b64c590fc8bdfa7c47e286ea5e3d10eca525cb56d3f60770ddde976abc847552
 Script: neural-dsp.sh
 Description:
-  A single-channel Granophyre amp moves from dirty blues to saturated metal,
-  with selectable power tubes and low- and high-gain voicings.
-
-  A boost, nine-band EQ and cabinet simulation complete the chain.
+  The single-channel Granophyre, with low- and high-gain settings, a voice
+  switch that moves the midrange, and a choice of EL34, 6L6 or KT66 power
+  tubes. An overdrive with three clipping circuits and the amp's own cabinet
+  come with it.

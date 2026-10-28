@@ -1,7 +1,7 @@
 Name: Archetype Rabea X
 Kind: windows
 Category: Effect
-Summary: Guitar amps, effects and a playable guitar-controlled synth.
+Summary: Rabea Massaad's amps and guitar synth
 Developer: Neural DSP
 Version: 1.1.0
 Licence: Commercial
@@ -15,8 +15,8 @@ Url: https://downloads.neuraldsp.com/file/archetype-rabea-x-installers/v_1.1.0/w
 Sha256: 0b0e43c301d70cb9bea586e30309084369f000122c1072e475f3c6a1a1bbf6aa
 Script: neural-dsp.sh
 Description:
-  Three amps and a full effects chain cover classic cleans, edge-of-breakup
-  sounds and modern high gain.
-
-  The Overlord monosynth follows the guitar's pitch and dynamics and has an
-  arpeggiator.
+  Clean, rhythm and lead amps from Rabea Massaad, from a Cali-style clean to
+  modern high gain. Overlord is a monosynth that follows the guitar's notes
+  and dynamics, with two oscillators, a ladder filter, glide and an
+  arpeggiator, so synth parts need no MIDI pickup. Its reverb can freeze a
+  chord under what is played next.

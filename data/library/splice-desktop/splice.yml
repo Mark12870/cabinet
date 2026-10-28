@@ -1,7 +1,7 @@
 Name: Splice Desktop
 Kind: windows
 Category: Manager
-Summary: Splice's desktop app for browsing and downloading sounds.
+Summary: Splice sample browser and downloader
 Developer: Splice
 Version: 5.4.12
 Licence: Freeware
@@ -16,8 +16,6 @@ Sha256: 2eeeda730e45f6e371a304446121d520dd7677d4578a47f8cfc04b9e93d0fc27
 Launch: C:\Program Files\Splice\Splice.exe
 Script: splice.sh
 Description:
-  Browse Splice's sound catalogue, preview samples and download them to your
-  library from one desktop app, with tools for working alongside a DAW.
-
-  A free Splice account opens the catalogue; subscriptions add credits, premium
-  sounds and access to rent-to-own plugins.
+  Splice's catalogue of royalty-free samples, one-shots, loops and presets
+  across genres, previewed in the app and downloaded to a local folder for
+  use in a DAW.

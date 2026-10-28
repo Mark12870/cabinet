@@ -1,7 +1,7 @@
 Name: Renegate
 Kind: native
 Category: Effect
-Summary: Full-band gate that stays smooth.
+Summary: Gate with psychoacoustic detection
 Developer: Auburn Sounds
 Version: 1.6
 Licence: Freeware
@@ -16,11 +16,6 @@ Url: https://www.auburnsounds.com/downloads/Renegate-FREE-1.6.zip
 Sha256: 78071f42cad6ff2d90b36cb431d17758be755da1a5218ac1c39403d8993b506f
 Script: auburn-sounds.sh
 Description:
-  A gate with almost nothing on the surface, over a 43-band psychoacoustic
-  model doing the envelope detection, program-dependent hysteresis deciding
-  what counts as the sound, and look-ahead built in so the transient is
-  never the part that gets cut off.
-
-  That is what makes it quick to set: there is no threshold and hold pair
-  to retune for every source, and the LED can be clicked to open the gate
-  by hand where a part needs it.
+  A full-band gate whose envelope detection uses a 43-band model of hearing,
+  with hysteresis and release that follow the material and built-in
+  look-ahead, so the start of a note is not cut off.

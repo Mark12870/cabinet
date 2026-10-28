@@ -1,7 +1,7 @@
 Name: TyrellN6
 Kind: native
 Category: Synth
-Summary: Virtual analogue synth drawn from a hardware design never built.
+Summary: Analogue-style synth designed by Amazona
 Developer: u-he
 Version: 3.0 beta
 Licence: Freeware
@@ -13,8 +13,7 @@ Sha256: 4d7a4ebd124dc2f341d9f53bc585b0ca508806accc32469bfe185ae99ba4c916
 Script: u-he.sh
 Data: .u-he/TyrellN6
 Description:
-  Amazona.de designed a hardware synth that was never built; u-he wrote it in
-  software instead, out of an early version of what became Diva. Two
-  oscillators, a proper filter section and enough modulation to earn the name.
-
-  Given away for fourteen years through Amazona, and hosted by u-he since.
+  A synth Amazona.de designed as hardware that was never built; u-he wrote
+  its engine from an early version of Diva. Two oscillators, noise and ring
+  modulation into a Diva-style filter, two LFOs and up to eight-voice
+  unison. Amazona gave it away for fourteen years before u-he took it over.

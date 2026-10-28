@@ -1,7 +1,7 @@
 Name: Fortin Nameless Suite X
 Kind: windows
 Category: Effect
-Summary: Tight, aggressive Fortin high-gain tones with pedals and effects.
+Summary: Fortin's one-channel high-gain amp
 Developer: Neural DSP
 Version: 1.0.1
 Licence: Commercial
@@ -15,8 +15,6 @@ Url: https://downloads.neuraldsp.com/file/fortin-nameless-x/v_1.0.1/windows/Fort
 Sha256: 0ae1bdba788f4d201a7ad62de532a23d20ec959e3511288138c866e26a6acb0c
 Script: neural-dsp.sh
 Description:
-  A single-channel amplifier delivers tight, aggressive high gain while
-  retaining clarity and playing feel.
-
-  Grind, Zuul and Hexdrive pedals, cabinet and IR loading, delay, reverb,
-  transpose and a stereo doubler complete the chain.
+  One high-gain channel made with Mike Fortin, for tight, down-tuned rhythm
+  playing. Fortin's Grind boost, the Zuul noise gate and the Hexdrive
+  overdrive come with it. It replaces the 2018 Fortin Nameless Suite.

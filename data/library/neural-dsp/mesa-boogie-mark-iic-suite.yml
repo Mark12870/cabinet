@@ -1,7 +1,7 @@
 Name: Mesa Boogie Mark IIC+ Suite
 Kind: windows
 Category: Effect
-Summary: Mesa Boogie Mark IIC+ and IIC++ amplifiers with matching effects.
+Summary: Mesa/Boogie Mark IIC+ and IIC++
 Developer: Neural DSP
 Version: 1.0.0
 Licence: Commercial
@@ -15,8 +15,7 @@ Url: https://downloads.neuraldsp.com/file/Mesa-Boogie-Mark-IIC%2B-Suite-installe
 Sha256: af041fcf327bed93dc8d1812eb3fc973fa8133624ae9659c31078522888315ad
 Script: neural-dsp.sh
 Description:
-  Two closely related Mark IIC+ and IIC++ amplifier models pair switchable
-  rhythm and lead channels with Mesa Boogie's distinctive graphic EQ.
-
-  Chorus, delay, reverb and a cabinet section with microphone choices and
-  impulse-response loading complete the suite.
+  The Mark IIC+, the amp on Metallica's Master of Puppets, and the IIC++
+  factory modification, with lead and rhythm channels, the Mark series'
+  five-band graphic EQ and the Simul-Class switch. Three Mesa cabinets, a
+  compressor, two overdrives and a chorus come with them.

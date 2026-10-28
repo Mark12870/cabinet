@@ -1,7 +1,7 @@
 Name: Archetype Nolly X
 Kind: windows
 Category: Effect
-Summary: Four custom amp models for modern guitar and production.
+Summary: Nolly Getgood's four modified amps
 Developer: Neural DSP
 Version: 1.0.2
 Licence: Commercial
@@ -15,8 +15,8 @@ Url: https://downloads.neuraldsp.com/file/archetype-nolly-x-installers/v_1.0.2/w
 Sha256: dd766c0005ea7b40df250dc91dcaef3cdb419c5c1053a1305014a8d8be434259
 Script: neural-dsp.sh
 Description:
-  Four amp models based on Nolly's custom modifications cover clean through
-  high-gain guitar tones.
-
-  A cabinet section with microphone placement, IR loading and a nine-band
-  EQ completes the chain.
+  Four amps from the modified heads of Adam "Nolly" Getgood, the producer
+  whose cabinet captures most other Neural DSP suites use: a clean, a
+  British-style crunch, a rhythm amp and a high-gain lead. Its cabinets hold
+  640 impulse responses he captured, shaped by his "Nolly's Mod" EQ, with
+  few effects beyond two overdrives, a compressor, delay and reverb.

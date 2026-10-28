@@ -1,7 +1,7 @@
 Name: Fortin NTS Suite
 Kind: windows
 Category: Effect
-Summary: A versatile two-channel Fortin amp for clean and high-gain sounds.
+Summary: Fortin NTS two-channel amp
 Developer: Neural DSP
 Version: 2.0.1
 Licence: Commercial
@@ -15,8 +15,7 @@ Url: https://downloads.neuraldsp.com/file/fortin-nts-installers/v_2.0.1/windows/
 Sha256: bf432beb7ec5174f2b29806c633396ff4826f6a9a6dc59b61caa6d37eb40eeba
 Script: neural-dsp.sh
 Description:
-  Two channels pair a crisp clean voice with a versatile, high-gain lead amp.
-  Grind, Zuul and Hexdrive pedals add clarity, noise control and overdrive.
-
-  A cabinet and IR loader with six virtual microphones, a nine-band EQ,
-  delay and reverb complete the chain.
+  A clean channel and a high-gain lead whose gain is split over two controls
+  for different frequency ranges, so the gain can be placed where it bites.
+  Fortin's Grind boost, the Zuul noise gate and the Hexdrive overdrive come
+  with it.

@@ -1,7 +1,7 @@
 Name: Mantra
 Kind: windows
 Category: Effect
-Summary: An all-in-one vocal production suite for recording and mixing.
+Summary: Vocal chain from tuning to effects
 Developer: Neural DSP
 Version: 1.2.1
 Licence: Commercial
@@ -15,8 +15,9 @@ Url: https://downloads.neuraldsp.com/file/mantra-installers/v_1.2.1/windows/Mant
 Sha256: f70d974e1d1006ee9e0ed201a9094152d23ff2909540ade363edc7f8a6721be5
 Script: neural-dsp.sh
 Description:
-  Pitch correction, noise reduction, de-essing, compression and saturation
-  bring vocal recording and mixing tools together in one plugin.
-
-  Add harmonies, doubling, modulation, delay and reverb, with separate
-  tracking and mixing modes for recording and finishing vocals.
+  For vocals: pitch correction, a gate, a de-esser, an EQ that adapts to the
+  voice, compressors after the LA-2A and the Distressor, saturation, up to
+  eight harmony voices set by scale or MIDI, doubling, delay, reverb and
+  modulation in one plugin. Tracking mode adds no noticeable latency, so a
+  singer can hear themselves through it; Mixing mode runs at full
+  resolution.

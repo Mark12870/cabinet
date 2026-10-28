@@ -1,7 +1,7 @@
 Name: Dexed
 Kind: native
 Category: Synth
-Summary: Yamaha DX7 emulation that loads original cartridges.
+Summary: DX7 emulation that loads cartridges
 Developer: Digital Suburban
 Version: 1.0.1
 Licence: GPL-3.0
@@ -11,9 +11,7 @@ Source: download
 Url: https://github.com/asb2m10/dexed/releases/download/v1.0.1/Dexed-1.0.1-lnx.zip
 Sha256: 2bac3d0c4237e8c22c4274b6d5b59fe6329fcae72864f81b5830393eff354fc1
 Description:
-  Six-operator FM, modelled closely enough on the DX7 that it takes the
-  original SysEx cartridges — thousands of which are on the web — and sounds
-  like the hardware they were written for.
-
-  Every parameter is on one panel rather than behind the DX7's two-line
-  display, which is the part the original got wrong.
+  Six-operator FM after the Yamaha DX7, loading and saving original DX7 and
+  TX7 SysEx cartridges, with all 144 parameters on one panel. It doubles as
+  a patch editor and librarian for a hardware DX7, and has three engines,
+  from a modern one to an approximation of the original chips.

@@ -1,7 +1,7 @@
 Name: Triple Cheese
 Kind: native
 Category: Synth
-Summary: Comb filters instead of oscillators, for sounds nothing else makes.
+Summary: Synth made of comb filters
 Developer: u-he
 Version: 1.3
 Licence: Freeware
@@ -13,6 +13,6 @@ Sha256: 04ea1233fd64173746480c85e662f3e81d3e48c1149ca419f89a216e850fb3c4
 Script: u-he.sh
 Data: .u-he/TripleCheese
 Description:
-  Winner of the 2006 KVR Developer Challenge, and unlike anything else here:
-  no oscillators, no wavetables, no FM, no modelled analogue filter. Three
-  cascaded comb-filter modules make the sound instead.
+  Three comb-filter modules in series make the sound in place of
+  oscillators, each either generating sound or processing the module before
+  it. It won the 2006 KVR Developer Challenge.

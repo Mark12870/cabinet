@@ -1,7 +1,7 @@
 Name: Protoverb
 Kind: native
 Category: Effect
-Summary: Room simulator built out of resonances, from u-he's own research.
+Summary: Reverb built from room resonances
 Developer: u-he
 Version: 1.0.1
 Licence: Freeware
@@ -13,9 +13,7 @@ Sha256: 7b2c626b749a2a27f0aaeefe5e7fac43565e1df2e5a94f2b47a02c629a0a26d0
 Script: u-he.sh
 Data: .u-he/Protoverb
 Description:
-  A reverb that models a room rather than an impulse: it builds up resonances
-  the way a real space does, which gives it ghost echoes and keeps instruments
-  separated in the tail.
-
-  u-he call it researchware — it exists to feed their reverb research, and it
-  is free because of that.
+  Builds a room's resonances from networks of random delays instead of
+  modelling its reflections, so held notes build up and separate instruments
+  stay apart. A line of text seeds each room. u-he calls it researchware: it
+  is free, and users can send their settings to u-he's reverb research.

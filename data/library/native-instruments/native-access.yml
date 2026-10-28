@@ -1,7 +1,7 @@
 Name: Native Access
 Kind: windows
 Category: Manager
-Summary: Native Instruments' manager for downloading and activating its software.
+Summary: Native Instruments' installer
 Developer: Native Instruments
 Licence: Freeware
 Licensing:
@@ -25,6 +25,7 @@ Script: native-access.sh
 Keep: drive_c/users/Public/Documents/Native Instruments/Downloads
 Recover: recover.sh
 Description:
-  Not a plugin but the door to Native Instruments' catalogue: Kontakt, Battery,
-  Komplete Kontrol, Massive X, FM8, Reaktor and more. Sign in, then choose the
-  products and libraries your account owns.
+  Native Instruments' Komplete range: the Kontakt sampler and the libraries
+  that run in it, Battery for drums, the Massive X and FM8 synths, Reaktor,
+  Guitar Rig, and Komplete Kontrol for browsing them from NI keyboards, as
+  well as iZotope subscriptions.

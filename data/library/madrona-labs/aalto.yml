@@ -1,7 +1,7 @@
 Name: Aalto
 Kind: windows
 Category: Synth
-Summary: Semi-modular West Coast synthesizer you patch with cords.
+Summary: Semi-modular Buchla-style synth
 Developer: Madrona Labs
 Version: 1.9.4
 Licence: Commercial
@@ -15,6 +15,7 @@ Url: https://nyc3.digitaloceanspaces.com/madronalabs/installers/aalto/AaltoInsta
 Sha256: 4679b6edd6f6d0f4772c53ed16e5057d9a63644f071d73b4fef061bc083f8ac8
 Script: madrona-labs.sh
 Description:
-  A complex oscillator after Buchla's, with FM and waveshaping into a lowpass gate
-  that has a vactrol's slur, a sequencer inside every voice, and a waveguide short
-  enough to be a third oscillator. You wire it by dragging cords between the modules.
+  A semi-modular synth patched with cords: a Buchla-inspired oscillator with
+  FM and waveshaping, a lowpass gate with a vactrol response, a waveguide
+  short enough to serve as a second oscillator, an SEM-style filter and a
+  sequencer in every voice.

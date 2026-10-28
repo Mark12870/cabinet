@@ -1,7 +1,7 @@
 Name: Tone King Imperial MKII X
 Kind: windows
 Category: Effect
-Summary: Tone King's vintage American and tweed-inspired amplifier tones.
+Summary: Tone King Imperial MKII combo
 Developer: Neural DSP
 Version: 1.0.0
 Licence: Commercial
@@ -15,8 +15,6 @@ Url: https://downloads.neuraldsp.com/file/toneking-imperial-x/v_1.0.0/windows/To
 Sha256: a270e573badcb18a20d961dadc5b00f9cdfcf5554d259a9504b546892905227f
 Script: neural-dsp.sh
 Description:
-  Two channels pair American clarity with tweed-inspired grit, alongside
-  the Imperial's tremolo, spring reverb and reactive power-amp shaping.
-
-  Two speaker options, positionable microphones, pedal effects and studio
-  processing complete the chain.
+  Tone King's Imperial MKII, with a clean Rhythm channel and a thicker Lead
+  channel, its bias tremolo, tube spring reverb and built-in attenuator. A
+  wah, a compressor, two overdrives, chorus and delay come with it.

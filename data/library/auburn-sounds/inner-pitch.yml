@@ -1,7 +1,7 @@
 Name: Inner Pitch 2
 Kind: native
 Category: Effect
-Summary: Pitch and formant shifter that stays true to the source.
+Summary: Pitch and formant shifter
 Developer: Auburn Sounds
 Version: 2.1
 Licence: Freeware
@@ -16,10 +16,7 @@ Url: https://www.auburnsounds.com/downloads/Inner-Pitch-FREE-2.1.zip
 Sha256: eedbb307954ec38f87575d1e1807259645107d830779c3727aa9129465691fec
 Script: auburn-sounds.sh
 Description:
-  Pitch and formants shifted apart from each other, a dry and wet balance
-  that reinforces the bottom rather than replacing it, and an L/R pitch
-  difference that widens a mono track. The performance stays recognisable.
-
-  Pushed, it stops being polite: an internal delay limiter builds endlessly
-  ascending or descending sounds, and the distortion, EQ and diffusion in
-  the loop take it to the soundscape end of a pitch shifter.
+  Shifts pitch and formants separately. A dry and wet mix reinforces the
+  bass under the original, and different pitches left and right double or
+  widen a mono track. It can also make endlessly rising or falling sounds
+  and soundscapes.

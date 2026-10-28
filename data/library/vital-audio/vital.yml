@@ -1,7 +1,7 @@
 Name: Vital
 Kind: native
 Category: Synth
-Summary: Spectral warping wavetable synthesizer.
+Summary: Spectral warping wavetable synth
 Developer: Matt Tytel
 Version: 1.0.7 stable / 1.6.4 early access
 Licence: Freeware
@@ -17,11 +17,6 @@ Homepage: https://vital.audio
 Source: byo
 Account: https://account.vital.audio
 Description:
-  Two wavetable oscillators you can draw, import or resynthesise, warped as
-  they play by spectral modes that bend and fold the wave itself, over a
-  sample source, two filters and a modulation matrix you build by dragging.
-
-  Free, but it sits behind your account: you log in, download it, and hand
-  Cabinet the file. The stable 1.0.7 archive provides VST3, VST2 and LV2. The
-  1.6.4 early-access archive provides VST3, VST2 and CLAP, but may have display
-  or host-compatibility problems on some Linux systems.
+  Three wavetable oscillators whose waves can be drawn, imported or made
+  from samples, warped as they play by spectral modes that change their
+  harmonics, plus a sample source, two filters and drag-and-drop modulation.

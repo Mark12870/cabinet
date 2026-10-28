@@ -1,7 +1,7 @@
 Name: UVI Portal
 Kind: windows
 Category: Manager
-Summary: UVI's manager for downloading, installing and updating its instruments and effects.
+Summary: UVI's instrument and effect installer
 Developer: UVI
 Version: 3.1.2
 Licence: Freeware
@@ -16,10 +16,7 @@ Sha256: 85e0823a3e623413002418122738b5e0044268be7dadfb67d6d76122270c8e86
 Launch: C:\Program Files (x86)\UVI Portal\UVI Portal.exe
 Script: uvi.sh
 Description:
-  UVI Portal brings product registration, downloads, installation and updates
-  together for UVI instruments, sound libraries and effects, including Falcon
-  and UVI Player.
-
-  Installing Portal does not install a playable instrument. Sign in to your UVI
-  account to install the free UVI Player and its Starter soundpack, or manage
-  commercial products whose licences are activated through iLok License Manager.
+  UVI's sample-based instruments, from vintage synth and keyboard
+  collections such as Vintage Vault to orchestral, world and percussion
+  libraries, the Falcon hybrid instrument with its expansions, and effects.
+  The free UVI Player and its Starter soundpack come through it too.

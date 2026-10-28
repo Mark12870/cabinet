@@ -1,7 +1,7 @@
 Name: BazilleCM
 Kind: native
 Category: Synth
-Summary: Patchable digital oscillators and an analogue-style filter.
+Summary: Small modular synth from u-he's Bazille
 Developer: u-he
 Version: 1.0.1
 Licence: Freeware
@@ -13,9 +13,8 @@ Sha256: 0fb07bc7feff6301ca1f5653b9684a8517d5c642880c93b706edfa267435a2d8
 Script: u-he.sh
 Data: .u-he/BazilleCM
 Description:
-  The small brother of Bazille, u-he's modular monster: digital oscillators
-  doing phase distortion and fractal resonance, an analogue-style filter, and
-  patch cords between whatever you like.
-
-  Commissioned by Computer Music magazine for its readers. The magazine has
-  since closed, and the publisher let u-he keep giving it away.
+  A smaller Bazille: two digital oscillators running FM, phase distortion
+  and fractal resonance, one analogue-style multimode filter, a 16-step
+  sequencer and patch cords between all of it. Computer Music magazine
+  commissioned it for its readers; since the magazine closed, u-he gives it
+  away.

@@ -1,7 +1,7 @@
 Name: Waves Central
 Kind: windows
 Category: Manager
-Summary: Waves' manager for installing, updating and activating its products.
+Summary: Waves plugin installer
 Developer: Waves
 Licence: Freeware
 Licensing:
@@ -19,10 +19,7 @@ LaunchArgs:
 Scheme: waves-central
 Script: waves.sh
 Description:
-  Install and update Waves plugins, manage Creative Access subscriptions and
-  move licences between computers and USB drives. Central also creates and
-  installs offline product packages.
-
-  Installing the manager does not install any plugins. Sign in to choose the
-  products your account owns, then install and activate them through Central.
-  If the window opens blank, resize it once.
+  Waves' catalogue of mixing and mastering plugins, many of them modelled on
+  studio hardware such as SSL, API and Neve consoles, and signature chains
+  from engineers such as Chris Lord-Alge, with the Creative Access
+  subscription. If its window opens blank, resize it once.

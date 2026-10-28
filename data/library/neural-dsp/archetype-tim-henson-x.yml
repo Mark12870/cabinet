@@ -1,7 +1,7 @@
 Name: Archetype Tim Henson X
 Kind: windows
 Category: Effect
-Summary: Distinctive guitar amps, harmonies and expressive effects.
+Summary: Tim Henson's amps and harmoniser
 Developer: Neural DSP
 Version: 1.1.0
 Licence: Commercial
@@ -15,8 +15,7 @@ Url: https://downloads.neuraldsp.com/file/archetype-tim-henson-x/v_1.1.0/windows
 Sha256: 40ce802fdddc1cd8f86bf83d34298538703999cca5283f36aaae3f924337b353
 Script: neural-dsp.sh
 Description:
-  Three amps combine glassy cleans and acoustic-style sparkle with warm
-  crunch and lead tones.
-
-  A four-voice harmoniser, transpose, chorus, delay and reverb complete the
-  chain.
+  Three amps made with Tim Henson of Polyphia: Roses, an acoustic simulator
+  that gives ordinary pickups a piezo-like tone, the low-gain British-voiced
+  Cherubs, and the lead amp Pink. The Multivoicer stacks four pitch-shifted
+  voices into chords or modes, or follows MIDI notes.

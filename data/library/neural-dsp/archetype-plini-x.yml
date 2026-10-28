@@ -1,7 +1,7 @@
 Name: Archetype Plini X
 Kind: windows
 Category: Effect
-Summary: Versatile guitar amps and effects for progressive sounds.
+Summary: Plini's clean, crunch and lead amps
 Developer: Neural DSP
 Version: 1.0.2
 Licence: Commercial
@@ -15,7 +15,7 @@ Url: https://downloads.neuraldsp.com/file/archetype-plini-x-installers/v_1.0.2/w
 Sha256: cfef2d1c553ec2809b3e8add392f1682550fd29beb2236d700e25aa6af1eb83a
 Script: neural-dsp.sh
 Description:
-  Three amps cover clean, crunch and lead tones, with a cabinet section that
-  also loads impulse responses.
-
-  Octave, drive, chorus, delay and reverb complete the chain.
+  Three amps made with Plini: a clean, a crunch, and a lead that adds a gain
+  stage to the crunch. Its compressor keeps the output level as it is
+  pushed, the drive has a fuzz switch, and an octaver, chorus, tape delay
+  and reverb follow. It replaces the earlier Archetype: Plini.

@@ -1,7 +1,7 @@
 Name: Archetype Tom Morello
 Kind: windows
 Category: Effect
-Summary: Tom Morello's signature amp, pitch tools and effects.
+Summary: Tom Morello's amp and pitch effects
 Developer: Neural DSP
 Version: 1.0.0
 Licence: Commercial
@@ -15,6 +15,7 @@ Url: https://downloads.neuraldsp.com/file/archetype-tom-morello/v_1.0.0/windows/
 Sha256: 84b2afafab965c19eb5d80471738ecb8a5557a8c7ef06d4248d5dc9b1bfb0014
 Script: neural-dsp.sh
 Description:
-  Tom Morello's two-channel signature amp, modelled with him.
-
-  Pitch tools, wah, phaser, delay, reverb and cabinet IRs complete the chain.
+  The two-channel amp from Tom Morello's main rig in Rage Against the
+  Machine and Audioslave, through his own cabinet, with the effects in its
+  loop as he runs them. Wham-1 shifts pitch up to two octaves either way,
+  and Dive Bomb glides to a target note.

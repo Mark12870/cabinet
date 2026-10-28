@@ -1,7 +1,7 @@
 Name: Soldano SLO-100 X
 Kind: windows
 Category: Effect
-Summary: The Soldano SLO-100's American high-gain sound in a complete suite.
+Summary: Soldano SLO-100 high-gain head
 Developer: Neural DSP
 Version: 1.0.0
 Licence: Commercial
@@ -15,8 +15,6 @@ Url: https://downloads.neuraldsp.com/file/soldano-slo-x/v_1.0.0/windows/Soldano%
 Sha256: 7ecfe68f86d0c380e7c6e9df5acbde2c63b382bfee1352a5f439bf2a1da72c3d
 Script: neural-dsp.sh
 Description:
-  Clean and overdrive channels cover the SLO-100's clear cleans through
-  its renowned high-gain voice, with four complementary pre-effects.
-
-  Cabinet and IR loading, nine-band EQ, delay, reverb, transpose and a
-  stereo doubler complete the chain.
+  Mike Soldano's SLO-100 from 1987, with its Normal clean channel and the
+  overdrive channel with Bright and Crunch switches. A compressor, a boost,
+  an overdrive and a chorus come before it.

@@ -1,7 +1,7 @@
 Name: Psypan 2
 Kind: native
 Category: Effect
-Summary: Stereo multi-effect with seventeen pan modes.
+Summary: Stereo panner with 17 pan modes
 Developer: Auburn Sounds
 Version: 2.0
 Licence: Freeware
@@ -15,11 +15,7 @@ Url: https://www.auburnsounds.com/downloads/Psypan-FREE-2.0.zip
 Sha256: 3155d171183c389bd3140eb141ee30ca0202cd2afd8c043c8fbaef45b54eda19
 Script: auburn-sounds.sh
 Description:
-  Five binaural panners, three volume-based modes with the classic pan
-  laws, and nine that are frankly effects — Haas, doubler, chorus,
-  micro-shifting, a peak panner, a widener and three mid/side variants —
-  all behind the one control.
-
-  It grew out of GFM Psypan from 2011, whose binaural panner is still in
-  here beside a newer algorithm for front-facing rotation. The way to use
-  it is to pan first and browse the modes second.
+  Seventeen modes behind one pan control: five binaural panners, three
+  volume-based pan laws, and nine effect modes including Haas, doubler,
+  chorus, a widener and three mid/side variants. It grew out of GFM Psypan
+  from 2011.

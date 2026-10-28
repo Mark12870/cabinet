@@ -1,7 +1,7 @@
 Name: Serum 2
 Kind: windows
 Category: Synth
-Summary: Wavetable synthesizer from Xfer Records.
+Summary: Hybrid wavetable synthesizer
 Developer: Xfer Records
 Licence: Commercial
 Formats: VST3
@@ -9,8 +9,6 @@ Homepage: https://xferrecords.com/products/serum-2
 Source: byo
 Script: serum.sh
 Description:
-  The wavetable synth most of the last decade's electronic music was made
-  with: draw or import a wavetable, watch it move, and modulate anything by
-  dragging onto it.
-
-  Xfer sell it directly, so you supply the installer you bought.
+  Serum 2: wavetable, multisample, sample, granular and spectral
+  oscillators, modulation by dragging, an arpeggiator and a clip sequencer,
+  with over 600 presets and 288 wavetables.

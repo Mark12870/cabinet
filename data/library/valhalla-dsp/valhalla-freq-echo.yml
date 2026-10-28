@@ -1,7 +1,7 @@
 Name: Valhalla Freq Echo
 Kind: windows
 Category: Effect
-Summary: Bode frequency shifter in front of an analogue echo.
+Summary: Frequency shifter with analogue echo
 Developer: Valhalla DSP
 Version: 1.2.0
 Licence: Freeware
@@ -12,6 +12,6 @@ Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/freqecho/ValhallaFreq
 Sha256: c84a455e7efd88c7919bcd9e72ba2542d0099e8b905a4f4a34b0d9fb2537215b
 Script: valhalla.sh
 Description:
-  A frequency shifter after the Bode 735, feeding an echo that shifts again on
-  every repeat. Small shifts thicken a sound; larger ones send the tail sliding
-  off the scale, since nothing here is in tune with anything.
+  A Bode-style frequency shifter feeding an echo, so each repeat is shifted
+  again. Small shifts give chorusing and doubling; larger ones give
+  barberpole phasing, endless glissandos and runaway echoes.

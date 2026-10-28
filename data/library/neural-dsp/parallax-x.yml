@@ -1,7 +1,7 @@
 Name: Parallax X
 Kind: windows
 Category: Effect
-Summary: Parallel bass processing for powerful, defined tones.
+Summary: Bass distortion split by frequency
 Developer: Neural DSP
 Version: 1.0.0
 Licence: Commercial
@@ -15,8 +15,6 @@ Url: https://downloads.neuraldsp.com/file/parallax-x-installers/v_1.0.0/windows/
 Sha256: f7775c1ed71255b2a56a0ee0b718641cfdbc4ce21dc57d4604765d3a4bde386c
 Script: neural-dsp.sh
 Description:
-  Shape a bass signal in parallel, keeping low frequencies full and controlled
-  while adding distortion and articulation to the mids and highs.
-
-  A six-band EQ, cabinet simulation, pitch shifting and a tuner complete
-  the chain.
+  For bass: the lows are compressed on their own while the mids and highs
+  are distorted separately and sent through a cabinet, so the low end stays
+  clean under heavy distortion.

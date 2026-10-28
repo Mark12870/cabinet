@@ -1,7 +1,7 @@
 Name: iZotope Product Portal
 Kind: windows
 Category: Manager
-Summary: iZotope's own manager, which downloads, installs and authorises their plugins.
+Summary: iZotope's mixing and repair installer
 Developer: iZotope
 Version: 1.4.9
 Licence: Freeware
@@ -20,9 +20,6 @@ LaunchArgs:
   --in-process-gpu
 Script: izotope.sh
 Description:
-  Not a plugin but the door to iZotope's catalogue: Ozone, Neutron, Nectar, RX
-  and the free Vinyl and Ozone Imager. You sign in, and the app downloads,
-  installs and authorises each product your account owns.
-
-  So installing this installs nothing you can play yet — it is the door, and
-  what you own arrives through it.
+  iZotope's mixing and mastering software: Ozone for mastering, Neutron for
+  mixing, Nectar for vocals and RX for repairing recordings by removing
+  noise, clicks and hum, along with the free Vinyl and Ozone Imager.

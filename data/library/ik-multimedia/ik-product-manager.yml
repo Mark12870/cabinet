@@ -1,7 +1,7 @@
 Name: IK Product Manager
 Kind: windows
 Category: Manager
-Summary: IK Multimedia's own manager, which downloads and installs their plugins.
+Summary: IK's amp, sampler and mixing installer
 Developer: IK Multimedia
 Version: 1.1.16
 Licence: Freeware
@@ -18,10 +18,8 @@ Launch: C:\Program Files\IK Multimedia\IK Product Manager\IK Product Manager.exe
 VersionFile: C:\Program Files\IK Multimedia\IK Product Manager\IK Product Manager.exe
 Script: ik-multimedia.sh
 Description:
-  Not a plugin but the door to IK's catalogue: AmpliTube, SampleTank, T-RackS,
-  MODO. You sign in, register and authorise what you own, and the app fetches
-  each product and installs its plugin for you. The Custom Shop editions of
-  AmpliTube 5, SampleTank 4 and T-RackS 5 are free and live only in here.
-
-  So installing this installs nothing you can play yet — it is the door, and
-  what you own arrives through it.
+  IK Multimedia's range: AmpliTube's guitar and bass amp and effect models,
+  SampleTank's sampled instruments, T-RackS' mixing and mastering
+  processors, and MODO's physically modelled bass and drums. The free Custom
+  Shop editions of AmpliTube 5, SampleTank 4 and T-RackS 5 are available
+  only through it.

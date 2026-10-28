@@ -1,7 +1,7 @@
 Name: Archetype Abasi
 Kind: windows
 Category: Effect
-Summary: Versatile guitar tones shaped with Tosin Abasi.
+Summary: Tosin Abasi's three-amp guitar suite
 Developer: Neural DSP
 Version: 2.0.1
 Licence: Commercial
@@ -15,7 +15,8 @@ Url: https://downloads.neuraldsp.com/file/archetype-abasi-installers/v_2.0.1/win
 Sha256: 20e654b2af9bed532c249d91a4efd623cced92f483f1cb5724ee7aba24c54200
 Script: neural-dsp.sh
 Description:
-  Three amplifiers shaped with Tosin Abasi cover clean, dynamic rhythm and
-  high-gain lead tones, with a detailed cabinet section.
-
-  A compressor, overdrive, EQ, delay and reverb complete the chain.
+  Clean, rhythm and lead amps made with Tosin Abasi of Animals as Leaders.
+  The clean amp blends a tube sound with a piezo-like voice and the lead amp
+  has its own booster. Pathos is a lead channel in pedal form that adds
+  attack or stacks on the clean amp, and Logos is a compressor tuned to his
+  thumb-slap technique.

@@ -1,7 +1,7 @@
 Name: FabFilter Total Bundle
 Kind: windows
 Category: Bundle
-Summary: Every FabFilter plugin, on a 30-day trial.
+Summary: All FabFilter plugins, as a trial
 Developer: FabFilter
 Licence: Commercial
 Licensing:
@@ -13,7 +13,7 @@ Source: rolling
 Url: https://cdn-b.fabfilter.com/downloads/fftotalbundlex64.exe
 Script: fabfilter.sh
 Description:
-  All fourteen FabFilter plugins in one installer: Pro-Q 4, the equaliser other
-  equalisers are compared to, with Pro-C, Pro-L, Pro-R, Pro-MB, Pro-DS and Pro-G
-  beside it; Saturn, Timeless, Volcano and Twin for the creative half; and One,
-  Simplon and Micro for the basics.
+  All fourteen FabFilter plugins: Pro-Q (EQ), Pro-C (compressor), Pro-L
+  (limiter), Pro-R (reverb), Pro-MB (multiband dynamics), Pro-DS (de-esser),
+  Pro-G (gate), Saturn (distortion), Timeless (tape delay), Volcano
+  (filter), the synths Twin and One, and the filters Simplon and Micro.

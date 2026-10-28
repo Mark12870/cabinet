@@ -1,7 +1,7 @@
 Name: Cymatics Hub
 Kind: windows
 Category: Manager
-Summary: Cymatics' app for downloading and installing its plugins and samples.
+Summary: Cymatics' plugin and sample installer
 Developer: Cymatics
 Licence: Freeware
 Licensing:
@@ -19,8 +19,7 @@ LaunchArgs:
 Scheme: cymaticshub
 Script: cymatics.sh
 Description:
-  Browse Cymatics' plugins and sample packs, preview products and install the
-  ones attached to your account from a single app.
-
-  Installing the Hub does not install a plugin by itself. Sign in with the code
-  sent to your email address, then choose a product from your library.
+  Cymatics' royalty-free sample packs for hip-hop, trap, lo-fi, house and
+  other electronic music, and its plugins, such as the Diablo drum enhancer,
+  the Space reverb and the Origin lo-fi effect, several of them in free Lite
+  versions.

@@ -1,7 +1,7 @@
 Name: Archetype Cory Wong X
 Kind: windows
 Category: Effect
-Summary: Cory Wong's clean and edge-of-breakup guitar tones.
+Summary: Cory Wong's clean funk guitar rig
 Developer: Neural DSP
 Version: 1.0.1
 Licence: Commercial
@@ -15,7 +15,8 @@ Url: https://downloads.neuraldsp.com/file/archetype-cory-wong-x/v_1.0.1/windows/
 Sha256: 905fd8630e86fc4e0d2fc5a9cd13ae40356d68abf8a8174322561ffea427eaac
 Script: neural-dsp.sh
 Description:
-  Two amps and a direct-input console deliver clean and edge-of-breakup tones,
-  with a full pedal and cabinet section.
-
-  Wah, compressor, transpose, doubler, delay and reverb complete the chain.
+  Cory Wong of Vulfpeck plays mostly clean, and the suite has no high-gain
+  amp: a D.I. channel strip with tube saturation and compression, a blend of
+  clean amps, and a rare amp that breaks up as the gain rises. In front of
+  them sit his 4th Position Compressor, an envelope filter and a wah worked
+  by a pedal or by itself.

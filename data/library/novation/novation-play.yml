@@ -1,13 +1,14 @@
 Name: Novation Play
 Kind: windows
 Category: Synth
-Summary: Sampled synths, keys and drum kits with Novation controller integration.
+Summary: Sampled synths, keys and drums
 Developer: Novation
 Version: 1.1.2
 Licence: Commercial
 Licensing:
-  Included with Launchkey MK4 and FLkey 2 controllers. Requires an activation
-  code from your registered Novation account.
+  Included with Launchkey MK4 and FLkey 2 controllers. The installer ZIP and
+  the data files beside it come from the registered Novation account, and
+  Play activates with its code.
 Formats: VST3, VST2
 Homepage: https://novationmusic.com/software/novation-play
 Source: byo
@@ -15,8 +16,7 @@ Account: https://id.focusritegroup.com/my-software
 InstallInstructions: Choose the complete Windows installer ZIP (Play_1_1_2.zip).
 Script: novation-play.sh
 Description:
-  An instrument made with Klevgrand, combining sampled synths, keys and drums
-  with macro controls, performance effects and Novation controller integration.
-
-  Supply the complete Windows installer ZIP from your Novation account,
-  including its companion data files, and activate Play with your code.
+  An instrument made with Klevgrand, with over 100 presets sampled from
+  synths such as the Bass Station II, Peak, Prophet-5 and OB-6, plus keys
+  and drum kits, laid out for the encoders and pads of Launchkey MK4 and
+  FLkey 2 controllers.

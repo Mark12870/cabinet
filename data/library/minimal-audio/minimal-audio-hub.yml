@@ -1,7 +1,7 @@
 Name: Minimal Audio Hub
 Kind: windows
 Category: Manager
-Summary: Minimal Audio's app for installing and updating its plugins and sound content.
+Summary: Minimal Audio's plugin installer
 Developer: Minimal Audio
 Version: 1.1.11
 Licence: Freeware
@@ -17,8 +17,7 @@ Launch: C:\Program Files\Minimal\Minimal Hub.exe
 VersionFile: C:\Program Files\Minimal\Minimal Hub.exe
 Script: minimal-audio-hub.sh
 Description:
-  Install and update Minimal Audio's instruments, effects and sound content
-  from one app, including Current, Rift and the free Squash compressor.
-
-  Sign in with your Minimal Audio account and choose what to install.
-  The Hub does not need to stay open while you use your plugins.
+  Minimal Audio's instruments, effects and sound packs: the Current synth
+  and sound platform, Rift distortion with 30 algorithms, the Cluster Delay
+  multitap delay, the Fuse multiband compressor and the free Squash
+  compressor.

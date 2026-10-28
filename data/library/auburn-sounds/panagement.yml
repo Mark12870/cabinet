@@ -1,7 +1,7 @@
 Name: Panagement 2
 Kind: native
 Category: Effect
-Summary: Binaural distance panner with reverb and delay.
+Summary: Binaural distance panner
 Developer: Auburn Sounds
 Version: 2.8
 Licence: Freeware
@@ -15,10 +15,6 @@ Url: https://www.auburnsounds.com/downloads/Panagement-FREE-2.8.zip
 Sha256: 5d8cf4804d839de97a02bbee40cdd67fa13971813e506111aceaac87b6640078
 Script: auburn-sounds.sh
 Description:
-  A track placed anywhere in the field by a binaural panner, with early and
-  late reflections following it so that distance reads as distance, and
-  width, tilt and an LFO that reaches most of the panel.
-
-  Its reverb is sparse rather than diffuse, which is the decision the whole
-  thing turns on: it leaves headroom and stays out of the way, so it
-  survives being put on the master rather than only on a send.
+  Places a track by direction and distance with a binaural panner, and adds
+  early and late reflections to match the distance, with width, tilt and an
+  LFO.

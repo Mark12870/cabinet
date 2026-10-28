@@ -1,7 +1,7 @@
 Name: Morgan Amps Suite
 Kind: windows
 Category: Effect
-Summary: Three responsive Morgan amplifiers, with pedals and studio effects.
+Summary: Three Morgan boutique amps
 Developer: Neural DSP
 Version: 1.1.1
 Licence: Commercial
@@ -15,8 +15,7 @@ Url: https://downloads.neuraldsp.com/file/morgan-amps-suite-installers/v_1.1.1/w
 Sha256: 5214f438367424c3947f01c80faaac89b6cf71a66d0b67dcace85176d26aeedc
 Script: neural-dsp.sh
 Description:
-  Three amplifiers cover bright vintage cleans, touch-sensitive overdrive
-  and rich breakup, with distinct voices inspired by classic designs.
-
-  A compressor, two overdrives, tremolo, reverb, delay, EQ, cabinet and
-  impulse-response loading complete the chain.
+  Morgan's AC20, PR12 and SW50R, built after the Vox AC30, the Fender
+  Princeton Reverb and a Dumble clean channel, through a 1x12 cabinet with a
+  Celestion Creamback. They cover cleans and edge of breakup; a compressor,
+  two overdrives, tremolo and a tape-style delay come with them.

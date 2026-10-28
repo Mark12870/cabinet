@@ -1,7 +1,7 @@
 Name: Arturia Software Center
 Kind: windows
 Category: Manager
-Summary: Arturia's own manager, which activates, downloads and installs their software.
+Summary: Arturia's synth and effects installer
 Developer: Arturia
 Version: 2.13.0.3440
 Licence: Freeware
@@ -17,9 +17,7 @@ Launch: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software 
 VersionFile: C:\Program Files (x86)\Arturia\Arturia Software Center\Arturia Software Center.exe
 Script: arturia.sh
 Description:
-  Not a plugin but the door to Arturia's catalogue: V Collection, Pigments,
-  Analog Lab, the FX Collection and more. Sign in, activate what you own on up
-  to five computers, and the app downloads and installs each product for you.
-
-  So installing this installs nothing you can play yet — it is the door, and
-  what you own arrives through it.
+  Arturia's range: V Collection's recreations of classic synths and
+  keyboards such as the Minimoog, Jupiter-8, Prophet-5, CS-80, Mellotron and
+  B-3, the Pigments synth, Analog Lab's presets across them, and the FX
+  Collection's models of studio effects and preamps.

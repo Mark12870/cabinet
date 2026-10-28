@@ -1,7 +1,7 @@
 Name: Klevgrand Helper
 Kind: windows
 Category: Manager
-Summary: Klevgrand's own manager, which installs and authorises their plugins.
+Summary: Klevgrand's plugin installer
 Developer: Klevgrand
 Version: 1.0.12
 Licence: Freeware
@@ -16,8 +16,8 @@ Sha256: b510eccd3416c2623940d707578a41a552fff3ac456a3a10206563604568c415
 Launch: C:\Program Files (x86)\Klevgrand\Klevgrand Helper\Klevgrand Helper.exe
 Script: klevgrand-helper.sh
 Description:
-  Not a plugin but the door to Klevgrand's catalogue: sign in, install and
-  authorise the products your account owns, and keep them updated.
-
-  Every Klevgrand plugin can also be installed as a fully functional demo from
-  the Explore tab, with occasional audio interruptions.
+  Klevgrand's small, focused instruments and effects: drums and percussion
+  such as Slammer, OneShot and Borsta, the Hillman synth and the Pipa
+  singing synth, the Elpiano electric piano, and effects such as the Stark
+  amp simulator, the Revolv reverb of real spaces and DAW Cassette's tape
+  emulation.

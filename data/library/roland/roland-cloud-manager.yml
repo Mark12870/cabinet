@@ -1,7 +1,7 @@
 Name: Roland Cloud Manager
 Kind: windows
 Category: Manager
-Summary: Roland's own manager, which downloads and installs Roland Cloud software.
+Summary: Roland synth and drum machine installer
 Developer: Roland
 Version: 3.1.25
 Licence: Freeware
@@ -18,10 +18,7 @@ LaunchHelper: RCMservice.exe
 Scheme: rolandcloudmanager
 Script: roland.sh
 Description:
-  Not a plugin but the door to Roland Cloud: ZENOLOGY, the Legendary
-  recreations of the JUPITER-8, JUNO-106, TR-808 and D-50, the SRX expansions
-  and sample packs. Sign in, and the app installs what your account owns and
-  keeps it up to date.
-
-  So installing this installs nothing you can play yet — it is the door, and
-  what you own arrives through it.
+  Roland Cloud's software: ZENOLOGY, built on the ZEN-Core engine of
+  Roland's current hardware, the Legendary recreations of the JUPITER-8,
+  JUNO-106, TR-808, D-50 and other classic instruments, SRX expansions and
+  sample packs.

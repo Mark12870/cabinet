@@ -1,7 +1,7 @@
 Name: Podolski
 Kind: native
 Category: Synth
-Summary: Free virtual analogue synth with a delay and an arpeggiator.
+Summary: One-oscillator synth with arpeggiator
 Developer: u-he
 Version: 1.2.3
 Licence: Freeware
@@ -13,6 +13,6 @@ Sha256: 7dde7e9b77980b2785d0f317e5150d90f3e7947441955b751a7f8d027a33f126
 Script: u-he.sh
 Data: .u-he/Podolski
 Description:
-  Made in 2005 and still shipping. One oscillator, one filter, one envelope
-  and an arpeggiator that doubles as a step sequencer — simple enough to
-  learn in an afternoon, and cheap enough on the CPU to run a dozen of them.
+  One oscillator, one filter and one envelope, with two LFOs, an arpeggiator
+  that is also a 16-step sequencer, and delay and chorus. First released in
+  2005, with over 300 factory presets.

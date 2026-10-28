@@ -1,7 +1,7 @@
 Name: Archetype John Mayer X
 Kind: windows
 Category: Effect
-Summary: John Mayer's signature guitar amps and effects.
+Summary: John Mayer's clean amps and pedals
 Developer: Neural DSP
 Version: 1.1.0
 Licence: Commercial
@@ -15,7 +15,9 @@ Url: https://downloads.neuraldsp.com/file/archetype-john-mayer-x-installers/v_1.
 Sha256: 314079d391a5d67d43d6c1f9ca405d3c8515d1ad770e503ef3e129762814ccd8
 Script: neural-dsp.sh
 Description:
-  Three linked amplifiers recreate John Mayer's studio rig, from clean
-  headroom to warm breakup.
-
-  Overdrives, filters, delays, reverbs and cabinets complete the chain.
+  Three amps from John Mayer's own rig, a vintage clean with a 15-inch
+  speaker, the high-headroom amp from the Continuum sessions and a boutique
+  prototype built for him, played one at a time or all three in parallel.
+  His pedals come with them, from an always-on boost and an envelope filter
+  to two overdrives and a slapback delay, with spring reverb and harmonic
+  tremolo.

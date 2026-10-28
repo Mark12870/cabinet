@@ -1,7 +1,7 @@
 Name: Archetype Mateus Asato
 Kind: windows
 Category: Effect
-Summary: Boutique-style guitar tones for expressive playing.
+Summary: Mateus Asato's clean and lead amps
 Developer: Neural DSP
 Version: 1.1.0
 Licence: Commercial
@@ -15,8 +15,8 @@ Url: https://downloads.neuraldsp.com/file/archetype-mateus-asato/v_1.1.0/windows
 Sha256: c5779a0350555039891157b66ed11cc74a03fcca6537197a7be5600c9a204fd3
 Script: neural-dsp.sh
 Description:
-  Three boutique-style amplifiers cover warm cleans, edge-of-breakup sounds
-  and smooth lead tones.
-
-  Modulation, ambience, transpose, a doubler and a cabinet section complete
-  the chain.
+  Two clean amps, one British-voiced and one a boutique take on a
+  Fender-style amp, and a lead amp, made with Mateus Asato. In front of them
+  are an opto compressor, an overdrive with a mid boost set up for him, a
+  fuzz, tremolo, chorus and vibrato, and a tape echo that speeds up and
+  slows down.

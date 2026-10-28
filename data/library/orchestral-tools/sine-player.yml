@@ -1,7 +1,7 @@
 Name: SINEplayer
 Kind: windows
 Category: Sampler
-Summary: Free sample player for Orchestral Tools instruments.
+Summary: Orchestral Tools' sample player
 Developer: Orchestral Tools
 Version: 1.4.4
 Licence: Freeware
@@ -16,9 +16,7 @@ Sha256: d87fdca1cab341e0369441381e9ce7fb151928f3c7fee634c768f57ad1ef263a
 Launch: C:\Program Files\SINE Player\SINE Player.exe
 Script: sine-player.sh
 Description:
-  SINEplayer loads Orchestral Tools' orchestral, cinematic and contemporary
-  sample instruments, with articulation switching, mic-position mixing and a
-  browser for the sounds in its library.
-
-  The player is free and comes with SINEfactory instruments. Sign in with an
-  Orchestral Tools account to download those and any other collections you own.
+  Plays Orchestral Tools' libraries, with articulations loaded by dragging
+  and microphone positions mixed per instrument. Single instruments and
+  microphone positions can be downloaded instead of whole collections, and
+  the free SINEfactory instruments come with it.

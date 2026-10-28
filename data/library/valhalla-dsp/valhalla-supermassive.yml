@@ -1,7 +1,7 @@
 Name: Valhalla Supermassive
 Kind: windows
 Category: Effect
-Summary: Enormous delays and reverbs, given away for nothing.
+Summary: Huge reverbs and delays
 Developer: Valhalla DSP
 Version: 5.0.0
 Licence: Freeware
@@ -12,6 +12,6 @@ Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/supermassive/Valhalla
 Sha256: 67e0cedbed9e680b11dfb582618dd257e2dba8b8d10189d59811e4c10414911d
 Script: valhalla.sh
 Description:
-  Delays and reverbs at a scale nothing else gives away: up to 32 seconds of
-  feedback through modes named after things in the sky, from the short slapback
-  of Gemini out to Great Annihilator holding a chord until you stop it.
+  Reverbs and delays with very long feedback, in 22 modes named after things
+  in the sky, from Gemini, the fastest and densest, to Great Annihilator,
+  with a very long decay.

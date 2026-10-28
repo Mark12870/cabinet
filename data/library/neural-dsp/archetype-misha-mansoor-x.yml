@@ -1,7 +1,7 @@
 Name: Archetype Misha Mansoor X
 Kind: windows
 Category: Effect
-Summary: Modern metal amps, effects and experimental sound design.
+Summary: Misha Mansoor's metal amps and glitch FX
 Developer: Neural DSP
 Version: 1.1.0
 Licence: Commercial
@@ -15,8 +15,7 @@ Url: https://downloads.neuraldsp.com/file/archetype-misha-mansoor-x-installers/v
 Sha256: 93fc38c8ea55bd279c19f114d83aff3f174bdaead976efc10424f11a6387f865
 Script: neural-dsp.sh
 Description:
-  Three amps offer full-bodied cleans, tight modern metal rhythm and
-  sustained lead tones.
-
-  Granular effects, pitch shifting, stompboxes, delays and reverb complete
-  the chain.
+  Clean, rhythm and lead amps from Misha Mansoor of Periphery, with models
+  of the Horizon Devices compressor and Precision Drive he designed. Its own
+  effects are Laser, a ring modulator and pitch shifter played from a pedal
+  or by picking harder, and Glitch, a granular effect with a Chaos control.

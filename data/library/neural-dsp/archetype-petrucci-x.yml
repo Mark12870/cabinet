@@ -1,7 +1,7 @@
 Name: Archetype Petrucci X
 Kind: windows
 Category: Effect
-Summary: Four guitar amps and effects shaped with John Petrucci.
+Summary: John Petrucci's rig, with a piezo amp
 Developer: Neural DSP
 Version: 1.0.0
 Licence: Commercial
@@ -15,8 +15,8 @@ Url: https://downloads.neuraldsp.com/file/archetype-petrucci-x/v_1.0.0/windows/A
 Sha256: 75ceba01c7c2fc98d11f0b9739df1e95a97133d89e6d40b9a7f402d8d709460f
 Script: neural-dsp.sh
 Description:
-  Four amps cover piezo-inspired acoustic tones, clean sounds, tight rhythm
-  and sustained leads.
-
-  Wah, compressor, cabinets, rack-style effects and transpose complete the
-  chain.
+  Four amps made with John Petrucci of Dream Theater: one for piezo pickups
+  that gives back an acoustic guitar's body, a clean amp, a tight rhythm amp
+  and a lead amp built for sustain. His wah, a phaser and vibe, flanger and
+  chorus come with it, and the cabinet captures were made at Dream Theater's
+  studio.
