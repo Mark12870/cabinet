@@ -1,0 +1,21 @@
+Name: Archetype: Gojira X
+Kind: windows
+Category: Effect
+Summary: Gojira's signature guitar amps, cabinets and effects.
+Developer: Neural DSP
+Version: 1.0.2
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-gojira
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-gojira-x/v_1.0.2/windows/Archetype%20Gojira%20X%20v1.0.2.exe
+Sha256: d3903e86a701c149ef5a59e0e726e908307147a67b99b44f80816f09b239879d
+Script: neural-dsp.sh
+Description:
+  Three amplifiers, a cabinet section and effects developed with Gojira's
+  Joe Duplantier, covering clean passages through high-gain rhythm sounds.
+
+  Pitch shifting, an octave pedal, delay and reverb complete the chain.

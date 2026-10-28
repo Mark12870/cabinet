@@ -1,0 +1,22 @@
+Name: Archetype Mateus Asato
+Kind: windows
+Category: Effect
+Summary: Boutique-style guitar tones for expressive playing.
+Developer: Neural DSP
+Version: 1.1.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-mateus-asato
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-mateus-asato/v_1.1.0/windows/Archetype%20Mateus%20Asato%20v1.1.0.exe
+Sha256: c5779a0350555039891157b66ed11cc74a03fcca6537197a7be5600c9a204fd3
+Script: neural-dsp.sh
+Description:
+  Three boutique-style amplifiers cover warm cleans, edge-of-breakup sounds
+  and smooth lead tones.
+
+  Modulation, ambience, transpose, a doubler and a cabinet section complete
+  the chain.

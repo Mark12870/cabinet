@@ -1,0 +1,21 @@
+Name: Archetype Plini X
+Kind: windows
+Category: Effect
+Summary: Versatile guitar amps and effects for progressive sounds.
+Developer: Neural DSP
+Version: 1.0.2
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-plini
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-plini-x-installers/v_1.0.2/windows/Archetype%20Plini%20X%20v1.0.2.exe
+Sha256: cfef2d1c553ec2809b3e8add392f1682550fd29beb2236d700e25aa6af1eb83a
+Script: neural-dsp.sh
+Description:
+  Three amps cover clean, crunch and lead tones, with a cabinet section that
+  also loads impulse responses.
+
+  Octave, drive, chorus, delay and reverb complete the chain.

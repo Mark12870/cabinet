@@ -1,0 +1,22 @@
+Name: Morgan Amps Suite
+Kind: windows
+Category: Effect
+Summary: Three responsive Morgan amplifiers, with pedals and studio effects.
+Developer: Neural DSP
+Version: 1.1.1
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/morgan-amps-suite
+Source: download
+Url: https://downloads.neuraldsp.com/file/morgan-amps-suite-installers/v_1.1.1/windows/Morgan%20Amps%20Suite%20v1.1.1.exe
+Sha256: 5214f438367424c3947f01c80faaac89b6cf71a66d0b67dcace85176d26aeedc
+Script: neural-dsp.sh
+Description:
+  Three amplifiers cover bright vintage cleans, touch-sensitive overdrive
+  and rich breakup, with distinct voices inspired by classic designs.
+
+  A compressor, two overdrives, tremolo, reverb, delay, EQ, cabinet and
+  impulse-response loading complete the chain.

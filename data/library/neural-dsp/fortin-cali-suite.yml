@@ -1,0 +1,22 @@
+Name: Fortin Cali Suite
+Kind: windows
+Category: Effect
+Summary: Three-channel Fortin Cali tones from vintage cleans to high gain.
+Developer: Neural DSP
+Version: 2.0.1
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/fortin-cali-suite
+Source: download
+Url: https://downloads.neuraldsp.com/file/fortin-cali-installers/v_2.0.1/windows/Fortin%20Cali%20Suite%20v2.0.1.exe
+Sha256: 434da13b60101ffd7611a59634fad23e3b81866c6892c9edfdc1d423901af1f5
+Script: neural-dsp.sh
+Description:
+  Three amplifier channels cover vintage cleans, hot-rodded British tones and
+  rich high-gain distortion, with switches for shaping their response.
+
+  Grind, Zuul and Hexdrive pedals, a graphic EQ, delay, reverb and cabinet
+  simulation complete the chain.

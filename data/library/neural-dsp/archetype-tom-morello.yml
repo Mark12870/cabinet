@@ -1,0 +1,20 @@
+Name: Archetype Tom Morello
+Kind: windows
+Category: Effect
+Summary: Tom Morello's signature amp, pitch tools and effects.
+Developer: Neural DSP
+Version: 1.0.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-tom-morello
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-tom-morello/v_1.0.0/windows/Archetype%20Tom%20Morello%20v1.0.0.exe
+Sha256: 84b2afafab965c19eb5d80471738ecb8a5557a8c7ef06d4248d5dc9b1bfb0014
+Script: neural-dsp.sh
+Description:
+  Tom Morello's two-channel signature amp, modelled with him.
+
+  Pitch tools, wah, phaser, delay, reverb and cabinet IRs complete the chain.

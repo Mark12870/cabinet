@@ -1,0 +1,22 @@
+Name: Tone King Imperial MKII X
+Kind: windows
+Category: Effect
+Summary: Tone King's vintage American and tweed-inspired amplifier tones.
+Developer: Neural DSP
+Version: 1.0.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/tone-king-imperial-mkii
+Source: download
+Url: https://downloads.neuraldsp.com/file/toneking-imperial-x/v_1.0.0/windows/Tone%20King%20Imperial%20MKII%20X%20v1.0.0.exe
+Sha256: a270e573badcb18a20d961dadc5b00f9cdfcf5554d259a9504b546892905227f
+Script: neural-dsp.sh
+Description:
+  Two channels pair American clarity with tweed-inspired grit, alongside
+  the Imperial's tremolo, spring reverb and reactive power-amp shaping.
+
+  Two speaker options, positionable microphones, pedal effects and studio
+  processing complete the chain.

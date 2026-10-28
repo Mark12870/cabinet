@@ -1,0 +1,22 @@
+Name: Fortin NTS Suite
+Kind: windows
+Category: Effect
+Summary: A versatile two-channel Fortin amp for clean and high-gain sounds.
+Developer: Neural DSP
+Version: 2.0.1
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/fortin-nts-suite
+Source: download
+Url: https://downloads.neuraldsp.com/file/fortin-nts-installers/v_2.0.1/windows/Fortin%20NTS%20Suite%20v2.0.1.exe
+Sha256: bf432beb7ec5174f2b29806c633396ff4826f6a9a6dc59b61caa6d37eb40eeba
+Script: neural-dsp.sh
+Description:
+  Two channels pair a crisp clean voice with a versatile, high-gain lead amp.
+  Grind, Zuul and Hexdrive pedals add clarity, noise control and overdrive.
+
+  A cabinet and IR loader with six virtual microphones, a nine-band EQ,
+  delay and reverb complete the chain.

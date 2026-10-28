@@ -1,0 +1,22 @@
+Name: Mesa Boogie Mark IIC+ Suite
+Kind: windows
+Category: Effect
+Summary: Mesa Boogie Mark IIC+ and IIC++ amplifiers with matching effects.
+Developer: Neural DSP
+Version: 1.0.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/mesa-boogie-mark-iic-suite
+Source: download
+Url: https://downloads.neuraldsp.com/file/Mesa-Boogie-Mark-IIC%2B-Suite-installers/v_1.0.0/windows/Mesa%20Boogie%20Mark%20IIC%2B%20Suite%20v1.0.0.exe
+Sha256: af041fcf327bed93dc8d1812eb3fc973fa8133624ae9659c31078522888315ad
+Script: neural-dsp.sh
+Description:
+  Two closely related Mark IIC+ and IIC++ amplifier models pair switchable
+  rhythm and lead channels with Mesa Boogie's distinctive graphic EQ.
+
+  Chorus, delay, reverb and a cabinet section with microphone choices and
+  impulse-response loading complete the suite.

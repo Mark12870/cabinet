@@ -1,0 +1,21 @@
+Name: Archetype Abasi
+Kind: windows
+Category: Effect
+Summary: Versatile guitar tones shaped with Tosin Abasi.
+Developer: Neural DSP
+Version: 2.0.1
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-abasi
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-abasi-installers/v_2.0.1/windows/Archetype%20Abasi%20v2.0.1.exe
+Sha256: 20e654b2af9bed532c249d91a4efd623cced92f483f1cb5724ee7aba24c54200
+Script: neural-dsp.sh
+Description:
+  Three amplifiers shaped with Tosin Abasi cover clean, dynamic rhythm and
+  high-gain lead tones, with a detailed cabinet section.
+
+  A compressor, overdrive, EQ, delay and reverb complete the chain.

@@ -1,0 +1,22 @@
+Name: Archetype Nolly X
+Kind: windows
+Category: Effect
+Summary: Four custom amp models for modern guitar and production.
+Developer: Neural DSP
+Version: 1.0.2
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-nolly
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-nolly-x-installers/v_1.0.2/windows/Archetype%20Nolly%20X%20v1.0.2.exe
+Sha256: dd766c0005ea7b40df250dc91dcaef3cdb419c5c1053a1305014a8d8be434259
+Script: neural-dsp.sh
+Description:
+  Four amp models based on Nolly's custom modifications cover clean through
+  high-gain guitar tones.
+
+  A cabinet section with microphone placement, IR loading and a nine-band
+  EQ completes the chain.

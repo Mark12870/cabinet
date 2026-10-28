@@ -1,0 +1,22 @@
+Name: Archetype Rabea X
+Kind: windows
+Category: Effect
+Summary: Guitar amps, effects and a playable guitar-controlled synth.
+Developer: Neural DSP
+Version: 1.1.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-rabea
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-rabea-x-installers/v_1.1.0/windows/Archetype%20Rabea%20X%20v1.1.0.exe
+Sha256: 0b0e43c301d70cb9bea586e30309084369f000122c1072e475f3c6a1a1bbf6aa
+Script: neural-dsp.sh
+Description:
+  Three amps and a full effects chain cover classic cleans, edge-of-breakup
+  sounds and modern high gain.
+
+  The Overlord monosynth follows the guitar's pitch and dynamics and has an
+  arpeggiator.

@@ -1,0 +1,21 @@
+Name: Darkglass Ultimate
+Kind: windows
+Category: Effect
+Summary: Darkglass bass preamps, cabinets and effects in one complete suite.
+Developer: Neural DSP
+Version: 1.0.1
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/darkglass-ultimate
+Source: download
+Url: https://downloads.neuraldsp.com/file/darkglass-ultimate-installers/v_1.0.1/windows/Darkglass%20Ultimate%20v1.0.1.exe
+Sha256: c7f5811b4880c73eb50e84838a549f34720d700e83e2bac1e101963b51ff3072
+Script: neural-dsp.sh
+Description:
+  A complete bass suite built around the B7K Ultra and Vintage Ultra preamps,
+  with two cabinets, bass-focused EQ and a broad range of effects.
+
+  Compression, octave, fuzz, chorus and delay sit in the same chain.

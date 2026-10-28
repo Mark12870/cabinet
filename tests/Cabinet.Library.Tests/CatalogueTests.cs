@@ -20,6 +20,23 @@ public class CatalogueTests
     }
 
     [Fact]
+    public void NeuralDspEntriesShareTheForkRunnerAndIlokPrefix()
+    {
+        var entries = Shipped.Where(entry => entry.Vendor == "neural-dsp").ToArray();
+
+        Assert.NotEmpty(entries);
+        Assert.All(entries, entry =>
+        {
+            Assert.Equal(PluginKind.Windows, entry.Kind);
+            Assert.Equal("neural-dsp", entry.Prefix);
+            Assert.Equal("d2d1-dcomp-11.0-777", entry.Config.Runner);
+            Assert.True(entry.Ilok);
+            Assert.Equal(SyncMode.Fsync, entry.Config.Sync);
+            Assert.False(entry.Dxvk);
+        });
+    }
+
+    [Fact]
     public void EveryRunnerAnEntryNamesIsPinnedByCabinet()
     {
         var unpinned = Shipped

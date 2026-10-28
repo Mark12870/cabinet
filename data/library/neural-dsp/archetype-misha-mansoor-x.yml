@@ -1,0 +1,22 @@
+Name: Archetype Misha Mansoor X
+Kind: windows
+Category: Effect
+Summary: Modern metal amps, effects and experimental sound design.
+Developer: Neural DSP
+Version: 1.1.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-misha-mansoor
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-misha-mansoor-x-installers/v_1.1.0/windows/Archetype%20Misha%20Mansoor%20X%20v1.1.0.exe
+Sha256: 93fc38c8ea55bd279c19f114d83aff3f174bdaead976efc10424f11a6387f865
+Script: neural-dsp.sh
+Description:
+  Three amps offer full-bodied cleans, tight modern metal rhythm and
+  sustained lead tones.
+
+  Granular effects, pitch shifting, stompboxes, delays and reverb complete
+  the chain.

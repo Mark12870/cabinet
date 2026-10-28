@@ -1,0 +1,21 @@
+Name: Archetype Cory Wong X
+Kind: windows
+Category: Effect
+Summary: Cory Wong's clean and edge-of-breakup guitar tones.
+Developer: Neural DSP
+Version: 1.0.1
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-cory-wong
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-cory-wong-x/v_1.0.1/windows/Archetype%20Cory%20Wong%20X%20v1.0.1.exe
+Sha256: 905fd8630e86fc4e0d2fc5a9cd13ae40356d68abf8a8174322561ffea427eaac
+Script: neural-dsp.sh
+Description:
+  Two amps and a direct-input console deliver clean and edge-of-breakup tones,
+  with a full pedal and cabinet section.
+
+  Wah, compressor, transpose, doubler, delay and reverb complete the chain.

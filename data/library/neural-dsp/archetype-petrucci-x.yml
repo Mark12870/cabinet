@@ -1,0 +1,22 @@
+Name: Archetype Petrucci X
+Kind: windows
+Category: Effect
+Summary: Four guitar amps and effects shaped with John Petrucci.
+Developer: Neural DSP
+Version: 1.0.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-petrucci
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-petrucci-x/v_1.0.0/windows/Archetype%20Petrucci%20X%20v1.0.0.exe
+Sha256: 75ceba01c7c2fc98d11f0b9739df1e95a97133d89e6d40b9a7f402d8d709460f
+Script: neural-dsp.sh
+Description:
+  Four amps cover piezo-inspired acoustic tones, clean sounds, tight rhythm
+  and sustained leads.
+
+  Wah, compressor, cabinets, rack-style effects and transpose complete the
+  chain.

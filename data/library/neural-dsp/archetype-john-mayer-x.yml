@@ -1,0 +1,21 @@
+Name: Archetype John Mayer X
+Kind: windows
+Category: Effect
+Summary: John Mayer's signature guitar amps and effects.
+Developer: Neural DSP
+Version: 1.1.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-john-mayer
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-john-mayer-x-installers/v_1.1.0/windows/Archetype%20John%20Mayer%20X%20v1.1.0.exe
+Sha256: 314079d391a5d67d43d6c1f9ca405d3c8515d1ad770e503ef3e129762814ccd8
+Script: neural-dsp.sh
+Description:
+  Three linked amplifiers recreate John Mayer's studio rig, from clean
+  headroom to warm breakup.
+
+  Overdrives, filters, delays, reverbs and cabinets complete the chain.

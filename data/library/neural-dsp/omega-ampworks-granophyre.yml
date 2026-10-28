@@ -1,0 +1,21 @@
+Name: OMEGA Ampworks Granophyre
+Kind: windows
+Category: Effect
+Summary: Granophyre amplifier tones from dirty blues to crushing metal.
+Developer: Neural DSP
+Version: 1.0.2
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/omega-ampworks-granophyre
+Source: download
+Url: https://downloads.neuraldsp.com/file/omega-granophyre-installers/v_1.0.2/windows/OMEGA%20Ampworks%20Granophyre%20v1.0.2.exe
+Sha256: b64c590fc8bdfa7c47e286ea5e3d10eca525cb56d3f60770ddde976abc847552
+Script: neural-dsp.sh
+Description:
+  A single-channel Granophyre amp moves from dirty blues to saturated metal,
+  with selectable power tubes and low- and high-gain voicings.
+
+  A boost, nine-band EQ and cabinet simulation complete the chain.

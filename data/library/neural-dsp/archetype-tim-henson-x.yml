@@ -1,0 +1,22 @@
+Name: Archetype Tim Henson X
+Kind: windows
+Category: Effect
+Summary: Distinctive guitar amps, harmonies and expressive effects.
+Developer: Neural DSP
+Version: 1.1.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/archetype-tim-henson
+Source: download
+Url: https://downloads.neuraldsp.com/file/archetype-tim-henson-x/v_1.1.0/windows/Archetype%20Tim%20Henson%20X%20v1.1.0.exe
+Sha256: 40ce802fdddc1cd8f86bf83d34298538703999cca5283f36aaae3f924337b353
+Script: neural-dsp.sh
+Description:
+  Three amps combine glassy cleans and acoustic-style sparkle with warm
+  crunch and lead tones.
+
+  A four-voice harmoniser, transpose, chorus, delay and reverb complete the
+  chain.

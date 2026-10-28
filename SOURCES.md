@@ -12,6 +12,29 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 
 | Entry | Source |
 | --- | --- |
+| archetype-gojira-x | Neural DSP's official `neuraldsp.com/plugins/archetype-gojira`, `a-gojira-x-standalone.png`, cropped to the interface; icon `a-archetype-gojira-x-icon__1_.svg` from `neuraldsp.com/downloads` |
+| archetype-abasi | Neural DSP's `neuraldsp.com/plugins/archetype-abasi`, `Abasi_ui-2.png`; icon `Property_1_abasi.png` |
+| archetype-cory-wong-x | Neural DSP's `neuraldsp.com/plugins/archetype-cory-wong`, `cwx-ui-img.png`; icon `icwx-ico.png` |
+| archetype-john-mayer-x | Neural DSP's `neuraldsp.com/plugins/archetype-john-mayer`, `jmx-ui-1.1.0.webp`; icon `icon-archetype-john-mayer-x.png` |
+| archetype-mateus-asato | Neural DSP's `neuraldsp.com/plugins/archetype-mateus-asato`, `asato-ui.png`; icon `asato_icon.svg` |
+| archetype-misha-mansoor-x | Neural DSP's `neuraldsp.com/plugins/archetype-misha-mansoor`, `mm-ui.png`; icon `mm-icon.png` |
+| archetype-nolly-x | Neural DSP's `neuraldsp.com/plugins/archetype-nolly`, `archetype-nolly-x-ui.png`; icon `icon-archetype-nolly-x.png` |
+| archetype-petrucci-x | Neural DSP's `neuraldsp.com/plugins/archetype-petrucci`, `apx-ui.png`; icon `ico-archetype-petrucci-x.png` |
+| archetype-plini-x | Neural DSP's `neuraldsp.com/plugins/archetype-plini`, `plinix-plugin-ui.png`; icon `Plugin_icon.svg` |
+| archetype-rabea-x | Neural DSP's `neuraldsp.com/plugins/archetype-rabea`, `beax-ui-img.png`; icon `icon-archetype-rabea.png` |
+| archetype-tim-henson-x | Neural DSP's `neuraldsp.com/plugins/archetype-tim-henson`, `atimx-plugin-ui.png`; icon `icon-archetype-tim-henson-x.png` |
+| archetype-tom-morello | Neural DSP's `neuraldsp.com/plugins/archetype-tom-morello`, `archetype-tom-morello-ui.png`; icon `archetype-tom-morello-ico.svg` |
+| darkglass-ultimate | Neural DSP's `neuraldsp.com/plugins/darkglass-ultimate`, `darkglass-ultimate-standalone.png`, cropped to the interface; icon `dgu-icon.png` |
+| fortin-cali-suite | Neural DSP's `neuraldsp.com/plugins/fortin-cali-suite`, `laptop_fortin_cali.png`, cropped to the interface; icon `Property_1_Mask_group.png` |
+| fortin-nameless-suite-x | Neural DSP's `neuraldsp.com/plugins/fortin-nameless-suite`, `namelessx-standalone-blackout.png`, cropped to the interface; icon `Plugin_plugin-icon-nameless-x.svg` |
+| fortin-nts-suite | Neural DSP's `neuraldsp.com/plugins/fortin-nts-suite`, `laptop_fortin_nts.png`, cropped to the interface; icon `Property_1_nts.png` |
+| mantra | Neural DSP's `neuraldsp.com/plugins/mantra`, `mantra-standalone.png`, cropped to the interface; icon `plugin-icon-mantra.png` |
+| mesa-boogie-mark-iic-suite | Neural DSP's `neuraldsp.com/plugins/mesa-boogie-mark-iic-suite`, `laptop-mesa.png`, cropped to the interface; icon `icon-Mesa.svg` |
+| morgan-amps-suite | Neural DSP's `neuraldsp.com/plugins/morgan-amps-suite`, `mas-standalone.png`, cropped to the interface; icon `icon-morgan.svg` |
+| omega-ampworks-granophyre | Neural DSP's `neuraldsp.com/plugins/omega-ampworks-granophyre`, `laptop_omega.png`, cropped to the interface; icon `Property_1_granophyre.png` |
+| parallax-x | Neural DSP's `neuraldsp.com/plugins/parallax`, `parallaxx-standalone.png`, cropped to the interface; icon `parallax-x-icon.png` |
+| soldano-slo-100-x | Neural DSP's `neuraldsp.com/plugins/soldano-slo-100`, `soladnox-standalone.png`, cropped to the interface; icon `icon-soladano-slo-100-x.svg` |
+| tone-king-imperial-mkii-x | Neural DSP's `neuraldsp.com/plugins/tone-king-imperial-mkii`, `tkx-standalone.png`, cropped to the interface; icon `tkx-app-icon.png` |
 | uvi-portal | UVI's official Portal page, `cdn.uvi.net/PORTAL_Uvi_portal/medias/page/conversions/1766483808_GUI_PORTAL-responsive-webp-retina.webp`, cropped to the interface; its icon is `cdn.uvi.net/medias/order-confirmation/conversions/1765381467_Logo_Portal_rounded-responsive-webp-retina.webp` |
 | waves-central | Waves' official `assets.wavescdn.com/pdf/central/waves-central.pdf` guide, the interface image on page 2; its icon is `res/images/central-logo.svg` from the Waves Central installer |
 | novation-play | Novation's official Play announcement, `novationmusic.com/product_images/uploaded_images/novation-play-news-story-image-2-2400x1350.jpg`, cropped to the interface |
@@ -49,6 +72,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 
 | Vendor | Logo |
 | --- | --- |
+| neural-dsp | the white Neural DSP signet embedded in the official `neuraldsp.com/downloads` page |
 | uvi | UVI's official site header, the white UVI mark at `uvi.net/uvi-portal` |
 | izotope | the iZotope mark in `izotope.com/cdn/shop/files/iZotope-logo-mobile.svg`, recoloured white for contrast |
 | waves | Waves Central's bundled `res/images/logo/light/waves-logo.svg`, recoloured white for contrast |

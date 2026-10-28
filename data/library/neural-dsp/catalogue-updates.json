@@ -1,0 +1,28 @@
+{
+  "entries": [],
+  "blocked": [
+    {"id":"archetype-abasi","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-cory-wong-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-gojira-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-john-mayer-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-mateus-asato","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-misha-mansoor-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-nolly-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-petrucci-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-plini-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-rabea-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-tim-henson-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"archetype-tom-morello","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"darkglass-ultimate","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"fortin-cali-suite","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"fortin-nameless-suite-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"fortin-nts-suite","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"mantra","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"mesa-boogie-mark-iic-suite","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"morgan-amps-suite","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"omega-ampworks-granophyre","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"parallax-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"soldano-slo-100-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"tone-king-imperial-mkii-x","reason":"iLok activation prevents unattended editor qualification after the trial expires."}
+  ]
+}

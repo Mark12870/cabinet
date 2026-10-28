@@ -1,0 +1,22 @@
+Name: Fortin Nameless Suite X
+Kind: windows
+Category: Effect
+Summary: Tight, aggressive Fortin high-gain tones with pedals and effects.
+Developer: Neural DSP
+Version: 1.0.1
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/fortin-nameless-suite
+Source: download
+Url: https://downloads.neuraldsp.com/file/fortin-nameless-x/v_1.0.1/windows/Fortin%20Nameless%20Suite%20X%20v1.0.1.exe
+Sha256: 0ae1bdba788f4d201a7ad62de532a23d20ec959e3511288138c866e26a6acb0c
+Script: neural-dsp.sh
+Description:
+  A single-channel amplifier delivers tight, aggressive high gain while
+  retaining clarity and playing feel.
+
+  Grind, Zuul and Hexdrive pedals, cabinet and IR loading, delay, reverb,
+  transpose and a stereo doubler complete the chain.

@@ -269,6 +269,9 @@ reasons are here:
   until a licence key is entered, so their scenarios stop at that prompt: the editor opens where
   Wine says it is and answers input. Novation Play installs from the pinned Dropbox ZIP and also
   checks its factory content.
+- **Neural DSP.** Every plugin refuses to load until iLok activates it, and a trial is one-off
+  per account, so a fresh CI home can never reach an editor. Gojira X's scenario checks only that
+  the shared installer and iLok setup leave both bridges in place; the other entries have none.
 - **Account instruments.** SINEplayer signs in with the test account, downloads Lucent and
   checks its editor and flute playback in VST2 and VST3. Splice INSTRUMENT stops at its sign-in:
   Splice's login page challenges a WebDriver browser and a saved session lasts one run, so the

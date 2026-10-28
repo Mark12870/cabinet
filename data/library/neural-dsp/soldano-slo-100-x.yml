@@ -1,0 +1,22 @@
+Name: Soldano SLO-100 X
+Kind: windows
+Category: Effect
+Summary: The Soldano SLO-100's American high-gain sound in a complete suite.
+Developer: Neural DSP
+Version: 1.0.0
+Licence: Commercial
+Licensing:
+  A 14-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://neuraldsp.com/plugins/soldano-slo-100
+Source: download
+Url: https://downloads.neuraldsp.com/file/soldano-slo-x/v_1.0.0/windows/Soldano%20SLO-100%20X%20v1.0.0.exe
+Sha256: 7ecfe68f86d0c380e7c6e9df5acbde2c63b382bfee1352a5f439bf2a1da72c3d
+Script: neural-dsp.sh
+Description:
+  Clean and overdrive channels cover the SLO-100's clear cleans through
+  its renowned high-gain voice, with four complementary pre-effects.
+
+  Cabinet and IR loading, nine-band EQ, delay, reverb, transpose and a
+  stereo doubler complete the chain.
