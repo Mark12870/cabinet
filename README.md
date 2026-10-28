@@ -8,21 +8,18 @@ is [yabridge](https://github.com/robbert-vdh/yabridge), with a few Cabinet patch
 
 ![Cabinet application preview](site/screenshots/cabinet.png)
 
-## Managers & players
+## Supported vendors
 
-- Arturia Software Center
-- Cymatics Hub
-- IK Product Manager
-- iZotope Product Portal
-- Klevgrand Helper
-- Minimal Audio Hub
-- Native Access
-- Roland Cloud Manager
-- SINEplayer
-- Spitfire Audio App
-- Splice INSTRUMENT
-- UVI Portal
-- Waves Central
+<table>
+<tr><th>Managers &amp; players</th><th>Synths</th><th>Effects</th><th>Guitar &amp; bass</th><th>Samplers, drums &amp; keys</th></tr>
+<tr valign="top">
+<td>Arturia Software Center<br>Cymatics Hub<br>IK Product Manager<br>iZotope Product Portal<br>Klevgrand Helper<br>Minimal Audio Hub<br>Native Access<br>Roland Cloud Manager<br>SINEplayer<br>Spitfire Audio App<br>Splice INSTRUMENT<br>UVI Portal<br>Waves Central</td>
+<td>Digital Suburban (Dexed)<br>Madrona Labs<br>Surge Synth Team (Surge XT)<br>u-he<br>Vital Audio<br>Xfer Records (Serum)</td>
+<td>Auburn Sounds<br>Celemony (Melodyne)<br>FabFilter<br>TAL Software<br>Valhalla DSP</td>
+<td>Line 6 (Helix Native)<br>Neural Amp Modeler<br>Neural DSP</td>
+<td>Decent Samples<br>Decomposer (Sitala)<br>DrumGizmo<br>Manda Audio (MT Power Drum Kit)<br>Modartt (Pianoteq)<br>Novation (Play)</td>
+</tr>
+</table>
 
 ## Yabridge patches
 
