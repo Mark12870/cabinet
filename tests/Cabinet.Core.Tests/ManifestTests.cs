@@ -256,7 +256,7 @@ public class ManifestTests
         const string patch = "patches/yabridge/yabridge-teardown-guard.patch";
         var archive = Array.FindIndex(
             Lines,
-            line => line.Contains("github.com/robbert-vdh/yabridge/archive/", StringComparison.Ordinal));
+            line => line.Contains("/yabridge/archive/", StringComparison.Ordinal));
         var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
         var guard = File.ReadAllText(Repo.Path(patch));
 
@@ -341,6 +341,23 @@ public class ManifestTests
     }
 
     [Fact]
+    public void EachAraAudioReaderGetsABufferOfItsOwn()
+    {
+        const string patch = "patches/yabridge/yabridge-ara-unique-buffers.patch";
+        var sockets = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "path: ../patches/yabridge/yabridge-short-socket-names.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
+        var naming = File.ReadAllText(Repo.Path(patch));
+
+        Assert.True(sockets >= 0);
+        Assert.Equal(sockets + 2, applied);
+        Assert.Contains("+                    cfg.name = sockets_.base_dir_.filename().string() +", naming, StringComparison.Ordinal);
+        Assert.Contains("+                               \"-ara-\" + std::to_string(request.ara_dc_id) +", naming, StringComparison.Ordinal);
+        Assert.Contains("+                               \"-\" + std::to_string(reader_id);", naming, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheSocketsLandWhereTheSandboxCanReachThem()
     {
         Assert.Contains("--filesystem=xdg-run/yabridge:create", FinishArgs);
@@ -351,13 +368,49 @@ public class ManifestTests
     {
         var documented = File.ReadAllText(Repo.Path("PATCHES.md"));
         var source = Lines.Single(line =>
-            line.Contains("robbert-vdh/yabridge/archive/", StringComparison.Ordinal));
+            line.Contains("/yabridge/archive/", StringComparison.Ordinal));
         var reference = source
             .Split('/')[^1]
             .Replace(".tar.gz", "", StringComparison.Ordinal)
             .Trim();
 
         Assert.Contains($"## {reference}", documented, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheForksAraDependencyIsPinnedAndUsesItsPackageFiles()
+    {
+        var manifest = string.Join('\n', Lines);
+        var source = Array.FindIndex(
+            Lines,
+            line => line.Contains("github.com/Celemony/ARA_API/archive/", StringComparison.Ordinal));
+
+        Assert.Contains(Lines, line => line.Contains("-Dara=true", StringComparison.Ordinal));
+        Assert.True(source >= 0);
+        Assert.Matches(
+            @"^ *url: https://github\.com/Celemony/ARA_API/archive/[0-9a-f]{40}\.tar\.gz$",
+            Lines[source]);
+        Assert.Matches(@"^ *sha256: [0-9a-f]{64}$", Lines[source + 1]);
+        Assert.Equal("dest: subprojects/ara", Lines[source + 2].Trim());
+        Assert.Contains(Lines, line => line.Contains("for dependency in ara ", StringComparison.Ordinal));
+        var packagefiles = Array.FindIndex(
+            Lines,
+            line => line.Contains("subprojects/packagefiles/$dependency/meson.build", StringComparison.Ordinal));
+        var header = Array.FindIndex(
+            Lines,
+            line => line.Contains("subprojects/packagefiles/ara/ARAInterface.h", StringComparison.Ordinal));
+        var setup = Array.FindIndex(Lines, line => line.Contains("meson setup build", StringComparison.Ordinal));
+
+        Assert.Contains(
+            "cp \"subprojects/packagefiles/$dependency/meson.build\" \"subprojects/$dependency/meson.build\"",
+            manifest,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "cp subprojects/packagefiles/ara/ARAInterface.h subprojects/ara/ARAInterface.h",
+            manifest,
+            StringComparison.Ordinal);
+        Assert.InRange(packagefiles, 0, setup - 1);
+        Assert.InRange(header, 0, setup - 1);
     }
 
     [Fact]

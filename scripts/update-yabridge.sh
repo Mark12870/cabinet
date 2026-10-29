@@ -9,7 +9,6 @@
 set -euo pipefail
 
 manifest=$(realpath "$(dirname "$0")/..")/flatpak/io.github.mark12870.cabinet.yml
-archive=https://github.com/robbert-vdh/yabridge/archive
 
 commit=${1:-}
 [[ $# -eq 1 && $commit =~ ^[0-9a-f]{40}$ ]] || { echo "usage: $(basename "$0") COMMIT" >&2; exit 1; }
@@ -21,10 +20,13 @@ emit() {
   fi
 }
 
-line=$(grep -nE "^ *url: ${archive}/[0-9a-f]{40}\.tar\.gz$" "$manifest" | head -1) ||
+line=$(grep -nE '^ *url: https://github.com/[A-Za-z0-9-]+/yabridge/archive/[0-9a-f]{40}\.tar\.gz$' "$manifest" | head -1) ||
   { echo "cannot find the yabridge url in the manifest" >&2; exit 1; }
 number=${line%%:*}
-current=$(sed -E 's#.*/([0-9a-f]{40})\.tar\.gz$#\1#' <<< "$line")
+url=${line#*url: }
+archive=${url%/*}
+current=${url##*/}
+current=${current%.tar.gz}
 
 if [ "$current" = "$commit" ]; then
   emit false

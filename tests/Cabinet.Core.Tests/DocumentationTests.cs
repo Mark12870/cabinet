@@ -14,11 +14,9 @@ public class DocumentationTests
     public void TheReadmeNamesEveryManagerTheLibraryShips()
     {
         var listed = Repo.Lines("README.md")
-            .SkipWhile(line => line != "## Managers & players")
-            .Skip(1)
-            .TakeWhile(line => !line.StartsWith("## ", StringComparison.Ordinal))
-            .Where(line => line.StartsWith("- ", StringComparison.Ordinal))
-            .Select(line => line[2..]);
+            .SkipWhile(line => !line.Contains("<th>Managers &amp; players</th>", StringComparison.Ordinal))
+            .First(line => line.StartsWith("<td>", StringComparison.Ordinal))["<td>".Length..^"</td>".Length]
+            .Split("<br>");
         var shipped = Catalogue.Entries()
             .Where(entry => entry.Manager)
             .Where(entry => !Directory.EnumerateFiles(Repo.Path($"data/library/{entry.Vendor}"), "*.md").Any())

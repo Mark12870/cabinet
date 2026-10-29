@@ -153,13 +153,14 @@ modules:
       - chmod +x winegcc-flatpak
       - ln -s winegcc-flatpak wineg++-flatpak
       - |
-        for dependency in asio bitsery clap function2 ghc_filesystem; do
+        for dependency in ara asio bitsery clap function2 ghc_filesystem; do
           cp "subprojects/packagefiles/$dependency/meson.build" "subprojects/$dependency/meson.build"
         done
+        cp subprojects/packagefiles/ara/ARAInterface.h subprojects/ara/ARAInterface.h
       - sed -i "s/^c = 'winegcc'/c = 'winegcc-flatpak'/;s/^cpp = 'wineg++'/cpp = 'wineg++-flatpak'/;s/^pkg-config = 'pkg-config'/pkgconfig = 'pkg-config'\npkg-config = 'pkg-config'/" cross-wine.conf
       - |
         export PATH="$PWD:$PATH"
-        meson setup build --buildtype=release --cross-file=cross-wine.conf --unity=on --unity-size=1000 -Dbitbridge=true
+        meson setup build --buildtype=release --cross-file=cross-wine.conf --unity=on --unity-size=1000 -Dbitbridge=true -Dara=true
         meson compile -j1 -C build
       - install -Dm755 build/libyabridge-chainloader-clap.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-clap.so
       - install -Dm755 build/libyabridge-chainloader-vst2.so ${FLATPAK_DEST}/lib/yabridge/libyabridge-chainloader-vst2.so
@@ -184,8 +185,8 @@ modules:
       - rm libwine-dev-amd64.deb libwine-dev-i386.deb libgcc-dev-i386.deb libxcb1-i386.deb libxcb1-dev-i386.deb
     sources:
       - type: archive
-        url: https://github.com/robbert-vdh/yabridge/archive/ba7022df0aee1e91cde62d7f0e940d3bc43a82b0.tar.gz
-        sha256: d9acb1c85a4c9c8d418d371046747a5a052e073436ae755de3b2627af9884c9a
+        url: https://github.com/samuel-asleep/yabridge/archive/a38234ba3817aaa0a3a9cc46c3cd54b4a350a85d.tar.gz
+        sha256: 469cff16b5da8db9f594756a2714bf85323296601cce398eb8df8a9754b727cc
         strip-components: 1
       - type: patch
         path: ../patches/yabridge/yabridge-teardown-guard.patch
@@ -199,10 +200,17 @@ modules:
         path: ../patches/yabridge/yabridge-state-per-interface.patch
       - type: patch
         path: ../patches/yabridge/yabridge-short-socket-names.patch
+      - type: patch
+        path: ../patches/yabridge/yabridge-ara-unique-buffers.patch
       - type: archive
         url: https://github.com/robbert-vdh/yabridge/releases/download/5.1.1/yabridge-5.1.1.tar.gz
         sha256: d11f0307412b5566b09a75ed4aa191266db56d22f4de4d20e4fbde6296cd1a47
         dest: yabridgectl-release
+        strip-components: 1
+      - type: archive
+        url: https://github.com/Celemony/ARA_API/archive/65ec5c43b943a48cb5446f448a0492db6af8534b.tar.gz
+        sha256: cb4b2af9899095180186383bb1ca564e303bc51d5791b707c575282f263e796e
+        dest: subprojects/ara
         strip-components: 1
       - type: archive
         url: https://github.com/chriskohlhoff/asio/archive/ed6aa8a13d51dfc6c00ae453fc9fb7df5d6ea963.tar.gz

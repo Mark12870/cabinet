@@ -160,18 +160,39 @@ directory is two bytes longer than a DAW's, loads, plays and edits BBC Symphony 
 
 **When it can go.** When upstream yabridge keeps its socket paths within the limit.
 
+## yabridge-ara-unique-buffers.patch
+
+[ARA proposal: yabridge#500](https://github.com/robbert-vdh/yabridge/pull/500)
+
+**Failure.** Each ARA controller starts its reader IDs at 1, but shared-memory names contain only
+that ID. With `O_CREAT`, overlapping controllers open the same object. A controlled two-project
+REAPER/Melodyne test confirmed the shared inode. Wine or prefix settings cannot change names
+constructed inside the native DAW.
+
+**Patch.** Add bridge and controller identities to the reader's name. The Wine host already opens
+the name supplied in the reply, so no message format changes. Holding one reader open while
+starting another now produces distinct names and inodes.
+
+**When it can go.** When the pinned ARA branch names buffers uniquely. Native and Flatpak REAPER
+also reopened and rendered the saved Player-mode ARA projects successfully.
+
 # The yabridge Cabinet builds
 
 The manifest pins one yabridge commit, and `ManifestTests` requires that commit to be named
 here with a reason. Cabinet used to ship yabridge's prebuilt `5.1.1` release; `37a1dbe`
 (2026-09-05) moved to a source build, which is what makes the patches above possible.
 
-## ba7022df0aee1e91cde62d7f0e940d3bc43a82b0
+## a38234ba3817aaa0a3a9cc46c3cd54b4a350a85d
+
+[`samuel-asleep/yabridge`, `ara2-support`](https://github.com/samuel-asleep/yabridge/tree/ara2-support),
+the branch of [yabridge#500](https://github.com/robbert-vdh/yabridge/pull/500), adds VST3 ARA bridging for hosts such as REAPER. This experimental pin includes the former
+`ba7022df0aee1e91cde62d7f0e940d3bc43a82b0` pin, and every earlier Cabinet patch still applies.
+The manifest enables ARA and bundles its pinned API with the fork's ABI-adjusted header.
 
 [yabridge#409](https://github.com/robbert-vdh/yabridge/issues/409)
 
-`robbert-vdh/yabridge`, the `new-wine10-embedding` branch. It is not a release, and it
-was chosen deliberately: `5.1.1` (Nov 2024) predates Wine 9.22's editor-embedding changes, and on
+The former pin came from `robbert-vdh/yabridge`'s `new-wine10-embedding` branch:
+`5.1.1` (Nov 2024) predates Wine 9.22's editor-embedding changes, and on
 it a bridged editor drew but received absolute screen coordinates where it expected
 client-relative ones, so clicks landed offset by the window's distance from the screen origin.
 Cabinet's runners are Wine 9.21-tkg, 11.0 and 11.17-tkg.

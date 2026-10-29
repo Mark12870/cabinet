@@ -3,8 +3,10 @@
 Windows VST plugins on Linux as a Flatpak, aiming to work out of the box: install a plugin and it shows up in your DAW,
 with no Wine or yabridge to set up. Plugins get **Wine prefixes of their own**, one per vendor or product family,
 instead of a single prefix every installer fights over. Built for immutable systems like Fedora Silverblue. The bridging
-is [yabridge](https://github.com/robbert-vdh/yabridge), with a few Cabinet patches, and the compatibility layer is
-[Wine](https://www.winehq.org); Cabinet bundles both and wires the result to your DAW.
+is [yabridge](https://github.com/robbert-vdh/yabridge), built from the
+[ARA branch](https://github.com/robbert-vdh/yabridge/pull/500) with a few Cabinet patches, and the compatibility layer
+is [Wine](https://www.winehq.org); Cabinet bundles both and wires the result to your DAW. VST3 **ARA** plugins such as
+Melodyne work in hosts that support ARA, REAPER among them.
 
 ![Cabinet application preview](site/screenshots/cabinet.png)
 
@@ -31,6 +33,8 @@ is [yabridge](https://github.com/robbert-vdh/yabridge), with a few Cabinet patch
 - **chainloader-cabinet-first** (DAWs outside Flatpak) — loads Cabinet's own yabridge first, not another yabridge on
   the system.
 - **state-per-interface** (Kontakt 8 fix) — projects saved on Windows reopen with their instrument instead of empty.
+- **short-socket-names** (long plugin names) — a plugin with a long name loads instead of freezing the DAW.
+- **ara-unique-buffers** (ARA) — two projects or plugins using ARA at once no longer share one audio buffer.
 
 ## Install
 
