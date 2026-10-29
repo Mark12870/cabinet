@@ -18,6 +18,9 @@ public sealed partial class Ilok(Layout layout, IProcessRunner runner)
 
     public const string Service = "PaceLicenseDServices";
 
+    public const string Manager =
+        @"C:\Program Files (x86)\iLok License Manager\iLok License Manager.exe";
+
     public string? InstalledIn(string prefix)
     {
         var marker = layout.PrefixIlokFile(prefix);
@@ -96,6 +99,20 @@ public sealed partial class Ilok(Layout layout, IProcessRunner runner)
 
         File.Delete(layout.PrefixIlokFile(prefix));
         onOutput?.Invoke($"{prefix} no longer licenses through iLok.");
+    }
+
+    public ProcessResult Open(string prefix, Action<string>? onOutput = null)
+    {
+        Initialised(prefix);
+
+        if (InstalledIn(prefix) is null)
+        {
+            throw new InvalidOperationException(
+                $"'{prefix}' does not license through iLok — turn iLok on first");
+        }
+
+        return new Prefixes(layout, runner).Start(
+            prefix, layout.PrefixWindowsPath(prefix, Manager), onOutput);
     }
 
     private void Initialised(string prefix)

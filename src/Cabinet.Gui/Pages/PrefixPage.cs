@@ -70,6 +70,7 @@ internal sealed class PrefixPage
             Ui.ActionRow("Wine configuration", "", Icons.Configure, () => Run("winecfg", [])));
         actions.Add(Ui.ActionRow("Windows installer", "", Icons.Install, ChooseInstaller));
         actions.Add(Ui.ActionRow("Run a command", "", Icons.Command, AskForCommand));
+        actions.Add(Ui.ActionRow("Start a Windows program", "", Icons.Play, ChooseProgram));
         actions.Add(
             Ui.ActionRow("Delete", "", Icons.Delete, ConfirmDelete));
 
@@ -175,7 +176,19 @@ internal sealed class PrefixPage
                 {
                     new Dxvk(layout, runner).Remove(Name, output);
                 }
-            });
+            },
+            enabled => enabled
+                ? new Approval(
+                    $"Install DXVK in {Name}?",
+                    $"Cabinet replaces {Name}'s Direct3D libraries with DXVK {Dxvk.Version}, which "
+                    + "draws through Vulkan. Turning it off puts Wine's own back.",
+                    "Install",
+                    Adw.ResponseAppearance.Suggested)
+                : new Approval(
+                    $"Remove DXVK from {Name}?",
+                    $"Plugins in {Name} draw through Wine's own Direct3D again.",
+                    "Remove",
+                    Adw.ResponseAppearance.Destructive));
 
     private Adw.ActionRow IlokRow(Prefix prefix) =>
         ToggleRow(
@@ -192,7 +205,28 @@ internal sealed class PrefixPage
                 {
                     new Ilok(layout, runner).Remove(Name, output);
                 }
-            });
+            },
+            enabled => enabled
+                ? new Approval(
+                    $"Install iLok License Manager in {Name}?",
+                    $"Cabinet downloads PACE License Support and installs it into {Name} without "
+                    + "showing you its licence, so installing it accepts PACE's terms on your behalf.",
+                    "Install",
+                    Adw.ResponseAppearance.Suggested)
+                : new Approval(
+                    $"Uninstall iLok License Manager from {Name}?",
+                    $"Plugins in {Name} that license through iLok cannot reach their licences "
+                    + "until it is installed again.",
+                    "Uninstall",
+                    Adw.ResponseAppearance.Destructive),
+            prefix.Ilok is null ? null : IlokOpener());
+
+    private Gtk.Button IlokOpener()
+    {
+        var button = Ui.RowButton(Icons.Play, "Open iLok License Manager");
+        button.OnClicked += (_, _) => Ui.Guard(OpenIlok);
+        return button;
+    }
 
     private Adw.ActionRow WebView2Row(Prefix prefix) =>
         ToggleRow(
@@ -209,7 +243,21 @@ internal sealed class PrefixPage
                 {
                     new WebView2(layout, runner).Remove(Name, output);
                 }
-            });
+            },
+            enabled => enabled
+                ? new Approval(
+                    $"Install the WebView2 Runtime in {Name}?",
+                    $"Cabinet downloads Microsoft's WebView2 Runtime and installs it into {Name} "
+                    + "without showing you its licence, so installing it accepts Microsoft's terms "
+                    + "on your behalf.",
+                    "Install",
+                    Adw.ResponseAppearance.Suggested)
+                : new Approval(
+                    $"Uninstall the WebView2 Runtime from {Name}?",
+                    $"Plugins and apps in {Name} that show web pages through WebView2 cannot show "
+                    + "them until it is installed again.",
+                    "Uninstall",
+                    Adw.ResponseAppearance.Destructive));
 
     private Adw.ActionRow DesktopRow(Prefix prefix) =>
         ToggleRow(
@@ -228,13 +276,27 @@ internal sealed class PrefixPage
                 {
                     desktop.Unset(Name, output);
                 }
-            });
+            },
+            enabled => enabled
+                ? new Approval(
+                    $"Give {Name} a desktop of its own?",
+                    $"Every window from {Name} opens inside one Wine desktop, and the pointer stays "
+                    + "in it, until the desktop is turned off.",
+                    "Turn On",
+                    Adw.ResponseAppearance.Suggested)
+                : new Approval(
+                    $"Take {Name}'s own desktop away?",
+                    $"Windows from {Name} open straight on your desktop again.",
+                    "Turn Off",
+                    Adw.ResponseAppearance.Suggested));
 
     private Adw.ActionRow ToggleRow(
         string title,
         string subtitle,
         bool enabled,
-        Action<bool, Action<string>, Action<double>> operation)
+        Action<bool, Action<string>, Action<double>> operation,
+        Func<bool, Approval> approval,
+        Gtk.Widget? beside = null)
     {
         var spinner = Gtk.Spinner.New();
         var toggle = Gtk.Switch.New();
@@ -245,9 +307,29 @@ internal sealed class PrefixPage
         row.SetTitle(title);
         row.SetSubtitle(subtitle);
         row.AddSuffix(spinner);
+
+        if (beside is not null)
+        {
+            row.AddSuffix(beside);
+        }
+
         row.AddSuffix(toggle);
         row.SetActivatableWidget(toggle);
         toggle.SetActive(enabled);
+
+        void Change(bool wanted)
+        {
+            if (!tryBeginChange())
+            {
+                toggle.SetActive(enabled);
+                return;
+            }
+
+            body.SetSensitive(false);
+            spinner.SetVisible(true);
+            spinner.Start();
+            RunSetting(spinner, (output, progress) => operation(wanted, output, progress));
+        }
 
         toggle.OnNotify += (_, args) =>
         {
@@ -258,17 +340,21 @@ internal sealed class PrefixPage
                     return;
                 }
 
-                if (!tryBeginChange())
-                {
-                    toggle.SetActive(enabled);
-                    return;
-                }
-
                 var wanted = toggle.GetActive();
-                body.SetSensitive(false);
-                spinner.SetVisible(true);
-                spinner.Start();
-                RunSetting(spinner, (output, progress) => operation(wanted, output, progress));
+                var asked = approval(wanted);
+                var dialog = Ui.Confirm(
+                    window, asked.Heading, asked.Body, asked.Action, () => Change(wanted), asked.Appearance);
+
+                dialog.OnResponse += (_, response) =>
+                {
+                    Ui.Guard(() =>
+                    {
+                        if (response.Response != "ok")
+                        {
+                            toggle.SetActive(enabled);
+                        }
+                    });
+                };
             });
         };
 
@@ -344,15 +430,18 @@ internal sealed class PrefixPage
             changed);
 
     private void Run(string command, IReadOnlyList<string> arguments) =>
+        Run(command, (prefixes, output) => prefixes.Run(Name, command, arguments, output));
+
+    private void Run(string what, Func<Prefixes, Action<string>, ProcessResult> run) =>
         operations.Run(
-            $"{command} in {Name}",
+            $"{what} in {Name}",
             output =>
             {
                 var prefixes = new Prefixes(layout, runner);
-                var result = prefixes.Run(Name, command, arguments, output);
+                var result = run(prefixes, output);
                 prefixes.Bridge(output);
                 new Library(layout, runner).StopServices(Name);
-                Operation.Ensure(result, command);
+                Operation.Ensure(result, what);
             },
             changed);
 
@@ -374,6 +463,21 @@ internal sealed class PrefixPage
                     Ui.Report(window, "Could not read the command", exception.Message);
                 }
             });
+
+    private void ChooseProgram() =>
+        Ui.ChooseFile(
+            window,
+            "Choose a Windows program",
+            path => Run(
+                Path.GetFileName(path), (prefixes, output) => prefixes.Start(Name, path, output)),
+            layout.PrefixDriveC(Name));
+
+    private void OpenIlok() =>
+        operations.Run(
+            $"iLok License Manager in {Name}",
+            output => Operation.Ensure(
+                new Ilok(layout, runner).Open(Name, output), "iLok License Manager"),
+            changed);
 
     private void ChooseInstaller() =>
         Ui.ChooseFile(window, "Choose a Windows installer", path =>

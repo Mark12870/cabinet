@@ -180,6 +180,28 @@ public sealed class IlokTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => Subject.Remove("gadget"));
     }
 
+    [Fact]
+    public void OpeningTheManagerStartsItFromWherePaceInstallsIt()
+    {
+        Installed("gadget");
+        var manager = Layout.PrefixWindowsPath("gadget", Ilok.Manager);
+        Directory.CreateDirectory(Path.GetDirectoryName(manager)!);
+        File.WriteAllText(manager, "");
+        var recorder = new RecordingRunner();
+
+        new Ilok(Layout, recorder).Open("gadget");
+
+        Assert.Equal(["start", "/wait", "/unix", manager], recorder.Ran[^1].Arguments);
+    }
+
+    [Fact]
+    public void OpeningTheManagerOfAPrefixWithoutIlokIsRefused()
+    {
+        Booted("gadget");
+
+        Assert.Throws<InvalidOperationException>(() => Subject.Open("gadget"));
+    }
+
     private void Booted(string prefix) =>
         Directory.CreateDirectory(Path.Combine(Layout.PrefixPath(prefix), "dosdevices"));
 

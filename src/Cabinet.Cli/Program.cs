@@ -21,6 +21,7 @@ internal static partial class Program
           cabinet use <name> <runner>          move a prefix to a runner and update it
           cabinet dxvk <name>                  install DXVK, the Direct3D some editors want
           cabinet ilok <name>                  install iLok License Manager for PACE-licensed plugins
+          cabinet ilok <name> open             open iLok License Manager in that prefix
           cabinet show <name>                  everything a prefix is set to
           cabinet set <name> sync <mode>       system, esync, fsync or ntsync
           cabinet set <name> dxvk <on|off>     install DXVK, or put back what it replaced
@@ -48,6 +49,7 @@ internal static partial class Program
           cabinet runners rm <runner>          delete a runner no prefix uses
           cabinet sync                         bridge again what changed outside Cabinet
           cabinet run <name> <cmd> [args...]   run a command in a prefix (winecfg, regedit)
+          cabinet start <name> <program>       start a Windows .exe in a prefix, in its own folder
           cabinet doctor                       check the setup end to end
           cabinet about                        which Cabinet this is, and what it bundles
           cabinet changelog                    what changed in each release
@@ -127,7 +129,7 @@ internal static partial class Program
             "runners" => Runners(line, layout, runner),
             "use" => Use(line, layout, runner),
             "dxvk" => One(line, "a prefix name", name => InstallDxvk(layout, runner, name)),
-            "ilok" => One(line, "a prefix name", name => InstallIlok(layout, runner, name)),
+            "ilok" => IlokCommand(line, layout, runner),
             "show" => One(line, "a prefix name", name => Show(layout, runner, name)),
             "set" => Set(line, layout, runner),
             "winetricks" => RunWinetricks(line, layout, runner),
@@ -137,6 +139,7 @@ internal static partial class Program
             "list" => line.Then(json => List(layout, runner, json)),
             "sync" => line.Then(() => Sync(layout, runner)),
             "run" => Run(line, layout, runner),
+            "start" => Start(line, layout, runner),
             "doctor" => line.Then(json => RunDoctor(layout, runner, json)),
             "about" => line.Then(json => ShowAbout(layout, runner, json)),
             "changelog" => line.Then(json => ShowChangelog(json)),

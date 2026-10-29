@@ -19,6 +19,18 @@ public sealed partial class Prefixes
         Action<string>? onOutput = null, string? logTo = null, bool interactive = false) =>
         Wine(name, command, arguments, onOutput, logTo: logTo, interactive: interactive);
 
+    public ProcessResult Start(string name, string program, Action<string>? onOutput = null)
+    {
+        var full = Path.GetFullPath(program);
+
+        if (!File.Exists(full))
+        {
+            throw Layout.Missing(full);
+        }
+
+        return Run(name, "start", ["/wait", "/unix", full], onOutput);
+    }
+
     public bool SessionLive(string name) =>
         Ask(name, SessionMode).Stdout.Contains(SessionLiveWord, StringComparison.Ordinal);
 

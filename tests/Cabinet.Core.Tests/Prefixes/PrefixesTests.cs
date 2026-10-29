@@ -383,6 +383,28 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void AProgramStartsThroughWineStartSoItRunsInItsOwnFolder()
+    {
+        var program = Path.Combine(Layout.PrefixDriveC("gadget"), "Gadget", "Gadget.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(program)!);
+        File.WriteAllText(program, "");
+
+        var recorder = new RecordingRunner();
+        new Prefixes(Layout, recorder).Start("gadget", program);
+
+        Assert.Equal(["start", "/wait", "/unix", program], recorder.Ran[^1].Arguments);
+    }
+
+    [Fact]
+    public void AProgramThatIsNotThereIsNotStarted()
+    {
+        Directory.CreateDirectory(Layout.PrefixPath("gadget"));
+
+        Assert.Throws<FileNotFoundException>(
+            () => Subject.Start("gadget", Path.Combine(root, "Absent.exe")));
+    }
+
+    [Fact]
     public void APrefixVariableReachesTheWineItStarts()
     {
         Directory.CreateDirectory(Layout.PrefixPath("gadget"));

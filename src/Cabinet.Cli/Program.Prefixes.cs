@@ -45,6 +45,19 @@ internal static partial class Program
         return Exit.Ok;
     }
 
+    private static Func<int> IlokCommand(CommandLine line, Layout layout, IProcessRunner runner)
+    {
+        var name = line.Word("a prefix name");
+
+        return line.Subcommand() switch
+        {
+            null => line.Then(() => InstallIlok(layout, runner, name)),
+            "open" => line.Then(() => Exited(
+                "iLok License Manager", new Ilok(layout, runner).Open(name, Console.WriteLine))),
+            var unknown => throw line.Unknown($"ilok {name} {unknown}"),
+        };
+    }
+
     private static int InstallIlok(Layout layout, IProcessRunner runner, string name)
     {
         new Ilok(layout, runner).Install(name, Console.WriteLine);
@@ -300,6 +313,21 @@ internal static partial class Program
             prefixes.Bridge(Console.Error.WriteLine);
             new Library(layout, runner).StopServices(name);
             return result.ExitCode;
+        });
+    }
+
+    private static Func<int> Start(CommandLine line, Layout layout, IProcessRunner runner)
+    {
+        var name = line.Word("a prefix name");
+        var program = line.Word("a Windows program");
+
+        return line.Then(() =>
+        {
+            var prefixes = new Prefixes(layout, runner);
+            var result = prefixes.Start(name, program, Console.WriteLine);
+            prefixes.Bridge(Console.WriteLine);
+            new Library(layout, runner).StopServices(name);
+            return Exited(Path.GetFileName(program), result);
         });
     }
 }

@@ -349,10 +349,16 @@ internal static class Ui
         dialog.Present(parent);
     }
 
-    public static void ChooseFile(Gtk.Window parent, string title, Action<string> chosen)
+    public static void ChooseFile(
+        Gtk.Window parent, string title, Action<string> chosen, string? folder = null)
     {
         var chooser = Gtk.FileDialog.New();
         chooser.SetTitle(title);
+
+        if (Directory.Exists(folder))
+        {
+            chooser.SetInitialFolder(Gio.FileHelper.NewForPath(folder!));
+        }
 
         Observe(chooser.OpenAsync(parent), file =>
         {

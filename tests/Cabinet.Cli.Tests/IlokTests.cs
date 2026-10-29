@@ -69,4 +69,27 @@ public sealed class IlokTests : IDisposable
         Assert.Single(cli.Runner.Ran, call => call.Arguments is ["msiexec", "/x", Ilok.ProductCode, "/qn"]);
         Assert.Contains("ilok              off", cli.Run("show", "gadget").Out);
     }
+
+    [Fact]
+    public void IlokOpenStartsTheManagerOfAPrefixThatHasIt()
+    {
+        cli.Run("set", "gadget", "ilok", "on");
+        var manager = cli.Layout.PrefixWindowsPath("gadget", Ilok.Manager);
+        Directory.CreateDirectory(Path.GetDirectoryName(manager)!);
+        File.WriteAllText(manager, "");
+
+        var outcome = cli.Run("ilok", "gadget", "open");
+
+        Assert.Equal(0, outcome.Exit);
+        Assert.Single(cli.Runner.Ran, call => call.Arguments is ["start", "/wait", "/unix", var path] && path == manager);
+    }
+
+    [Fact]
+    public void AnythingButOpenAfterIlokIsAUsageError()
+    {
+        var outcome = cli.Run("ilok", "gadget", "close");
+
+        Assert.Equal(2, outcome.Exit);
+        Assert.Empty(cli.Runner.Ran);
+    }
 }

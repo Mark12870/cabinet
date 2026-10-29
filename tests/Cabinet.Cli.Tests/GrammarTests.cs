@@ -167,6 +167,27 @@ public sealed partial class GrammarTests : IDisposable
     }
 
     [Fact]
+    public void StartRunsAWindowsProgramByItsFile()
+    {
+        cli.Prefix("gadget");
+        var program = Path.Combine(cli.Layout.PrefixDriveC("gadget"), "Gadget.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(program)!);
+        File.WriteAllText(program, "");
+
+        cli.Run("start", "gadget", program);
+
+        Assert.Single(cli.Runner.Ran, call => call.Arguments is ["start", "/wait", "/unix", var path] && path == program);
+    }
+
+    [Fact]
+    public void StartingAProgramThatIsNotThereExitsAsAbsent()
+    {
+        cli.Prefix("gadget");
+
+        Assert.Equal(4, cli.Run("start", "gadget", "Absent.exe").Exit);
+    }
+
+    [Fact]
     public void ADelimiterAfterThePrefixOfRunLetsTheCommandStartWithADash()
     {
         cli.Prefix("gadget");
@@ -467,6 +488,7 @@ public sealed partial class GrammarTests : IDisposable
                  {
                      ("Parse(CommandLine", ""), ("Library(CommandLine", "library "),
                      ("Runners(CommandLine", "runners "), ("Set(CommandLine", "set "),
+                     ("IlokCommand(CommandLine", "ilok "),
                  })
         {
             var start = source.IndexOf("private static Func<int> " + method, StringComparison.Ordinal);

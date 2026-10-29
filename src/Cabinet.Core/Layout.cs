@@ -289,6 +289,9 @@ public sealed class Layout
     public string PrefixUserReg(string name) =>
         Path.Combine(PrefixPath(name), "user.reg");
 
+    public string PrefixDriveC(string name) =>
+        Path.Combine(PrefixPath(name), "drive_c");
+
     public string PrefixSystem32(string name) =>
         Path.Combine(PrefixPath(name), "drive_c", "windows", "system32");
 
@@ -314,7 +317,7 @@ public sealed class Layout
         return Path.Combine([
             drive switch
             {
-                'c' => Path.Combine(PrefixPath(name), "drive_c"),
+                'c' => PrefixDriveC(name),
                 'z' => "/",
                 _ => Path.Combine(PrefixPath(name), "dosdevices", $"{drive}:"),
             },
@@ -324,7 +327,7 @@ public sealed class Layout
 
     public IEnumerable<string> PrefixPluginDirs(string name)
     {
-        var driveC = Path.Combine(PrefixPath(name), "drive_c");
+        var driveC = PrefixDriveC(name);
 
         foreach (var programFiles in new[] { ProgramFiles64, ProgramFiles32 })
         {
