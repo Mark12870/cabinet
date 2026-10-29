@@ -46,6 +46,18 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.36.0" date="2026-10-29">
+      <description>
+        <p>Start Windows programs and iLok License Manager from Cabinet</p>
+        <ul>
+          <li>A prefix can start any Windows program by its file, from its own folder, with cabinet start or Start a Windows program</li>
+          <li>A prefix with iLok opens iLok License Manager from the button beside its iLok switch, or with cabinet ilok &lt;prefix&gt; open</li>
+          <li>Turning iLok, DXVK, WebView2 or a virtual desktop on or off asks first</li>
+          <li>VST3 plugins that use ARA are bridged through yabridge's ARA support</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.35.0" date="2026-10-28">
       <description>
         <p>Neural DSP</p>
