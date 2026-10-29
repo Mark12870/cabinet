@@ -132,6 +132,8 @@ public sealed class Layout
 
     public string ShimPath => Path.Combine(HostYabridgeDir, "cabinet-wine");
 
+    public string BuildManifest => Path.Combine(HostAppFiles, "manifest.json");
+
     public string DeployFile =>
         Path.Combine(Path.GetDirectoryName(HostAppFiles) ?? HostAppFiles, "deploy");
 

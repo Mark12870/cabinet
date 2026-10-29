@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 
 namespace Cabinet.Core;
 
@@ -34,7 +35,7 @@ public sealed class About(Layout layout, IProcessRunner runner)
             url,
             Layout.FlatpakInfo.Get("Instance", "app-commit") ?? "unknown",
             OriginOf(url),
-            new Yabridgectl(layout, runner).Version(),
+            ReadYabridge(),
             ReadWine(),
             metainfo.Homepage,
             metainfo.BugTracker);
@@ -75,6 +76,39 @@ public sealed class About(Layout layout, IProcessRunner runner)
         }
 
         return IniFile.Parse(File.ReadAllLines(config)).Get($"remote \"{remote}\"", "url");
+    }
+
+    private string ReadYabridge()
+    {
+        var version = new Yabridgectl(layout, runner).Version();
+
+        return ReadYabridgeSource() is { } source ? $"{version} from {source}" : version;
+    }
+
+    private string? ReadYabridgeSource()
+    {
+        if (!File.Exists(layout.BuildManifest))
+        {
+            return null;
+        }
+
+        using var manifest = JsonDocument.Parse(File.ReadAllText(layout.BuildManifest));
+        if (!manifest.RootElement.TryGetProperty("modules", out var modules))
+        {
+            return null;
+        }
+
+        return modules.EnumerateArray()
+            .Where(module => module.ValueKind == JsonValueKind.Object
+                             && module.TryGetProperty("name", out var name)
+                             && name.GetString() == "yabridge"
+                             && module.TryGetProperty("sources", out _))
+            .SelectMany(module => module.GetProperty("sources").EnumerateArray())
+            .Select(source => source.TryGetProperty("url", out var url) ? url.GetString()?.Split('/') : null)
+            .Select(parts => parts is [_, _, "github.com", var owner, "yabridge", "archive", _]
+                ? $"{owner}/yabridge"
+                : null)
+            .FirstOrDefault(origin => origin is not null);
     }
 
     private string ReadWine()
