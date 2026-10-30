@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.37.0" date="2026-10-30">
+      <description>
+        <p>Install AIR Music Technology plugins with inMusic Software Center</p>
+        <ul>
+          <li>The Library offers inMusic Software Center, which installs AIR Music Technology's instruments and effects and inMusic's other brands</li>
+          <li>VST2 plugins installed to Common Files\Steinberg\VST2 are bridged</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.36.0" date="2026-10-29">
       <description>
         <p>Start Windows programs and iLok License Manager from Cabinet</p>
