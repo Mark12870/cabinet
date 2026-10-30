@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.38.0" date="2026-10-30">
+      <description>
+        <p>Install Line 6's Helix Stadium Native</p>
+        <ul>
+          <li>The Library offers Helix Stadium Native, installed into the same prefix as Helix Native</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.37.0" date="2026-10-30">
       <description>
         <p>Install AIR Music Technology plugins with inMusic Software Center</p>
