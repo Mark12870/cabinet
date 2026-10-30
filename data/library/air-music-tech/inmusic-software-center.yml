@@ -1,0 +1,28 @@
+Name: inMusic Software Center
+Kind: windows
+Category: Manager
+Summary: AIR's instrument and effect installer
+Developer: inMusic Brands
+Version: 1.40.0
+Licence: Freeware
+Licensing:
+  The app is free and signs in to an inMusic account; installing a product
+  activates the licence that account holds, on up to three computers. Other
+  products install as unlicensed demos.
+Formats: VST3, VST2
+Homepage: https://www.airmusictech.com/downloads/
+Source: download
+Url: https://cdn.inmusicbrands.com/SI04/1400/inMusic%20Software%20Center-1.40.0%20Setup.exe
+Sha256: 7a97bda5fb2f90b25923e47bf93ccfa7d387ed7fa38caa4949abc4ea7fb64f29
+Launch: C:\Program Files\inMusic Software Center\inMusic Software Center.exe
+VersionFile: C:\Program Files\inMusic Software Center\inMusic Software Center.exe
+LaunchArgs:
+  --no-sandbox
+  --disable-gpu
+Script: air-music-tech.sh
+Description:
+  AIR Music Technology's instruments and effects: the Hybrid and Loom II
+  synths, Vacuum Pro's analogue polysynth model, Xpand!2's multitimbral
+  workstation, the Mini Grand piano, Velvet electric pianos, DB-33 organ,
+  Strike and Boom drums, Structure sampler and the Creative FX Collection.
+  The same app installs inMusic's other brands, such as Akai Professional.

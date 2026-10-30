@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"inmusic-software-center","path":"air-music-tech/inmusic-software-center.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.InmusicSoftwareCenterScenario","allowedDownloadHosts":["inmusic.to","cdn.inmusicbrands.com"],"source":{"type":"redirect","pageUrl":"https://inmusic.to/ISCPC","downloadRegex":"^https://cdn\\.inmusicbrands\\.com/SI04/[0-9]+/inMusic%20Software%20Center-(?<version>[0-9]+(?:\\.[0-9]+)+)%20Setup\\.exe$"}}
+  ],
+  "blocked": [
+  ]
+}
