@@ -18,7 +18,7 @@ Melodyne work in hosts that support ARA, REAPER among them.
 <td>Arturia Software Center<br>Cymatics Hub<br>IK Product Manager<br>inMusic Software Center<br>iZotope Product Portal<br>Klevgrand Helper<br>Minimal Audio Hub<br>Native Access<br>Roland Cloud Manager<br>SINEplayer<br>Spitfire Audio App<br>Splice INSTRUMENT<br>UVI Portal<br>Waves Central</td>
 <td>Digital Suburban (Dexed)<br>Madrona Labs<br>Surge Synth Team (Surge XT)<br>u-he<br>Vital Audio<br>Xfer Records (Serum)</td>
 <td>Auburn Sounds<br>Celemony (Melodyne)<br>FabFilter<br>TAL Software<br>Valhalla DSP</td>
-<td>Line 6 (Helix Native)<br>Neural Amp Modeler<br>Neural DSP</td>
+<td>Line 6 (Helix Native, Helix Stadium Native)<br>Neural Amp Modeler<br>Neural DSP</td>
 <td>Decent Samples<br>Decomposer (Sitala)<br>DrumGizmo<br>Manda Audio (MT Power Drum Kit)<br>Modartt (Pianoteq)<br>Novation (Play)</td>
 </tr>
 </table>

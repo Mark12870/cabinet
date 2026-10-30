@@ -3,7 +3,7 @@
 Scenarios for entries behind a vendor account sign in with a shared test account, or restore a
 session it saved.
 
-Helix Native is tested through a Line 6 test account. `secrets.env` at the repository root,
+Helix Native and Helix Stadium Native are tested through a Line 6 test account. `secrets.env` at the repository root,
 gitignored, holds its `EMAIL` and `PASSWORD`; the Plugins workflow writes the same file inside the
 container from the repository secrets of those names, owned by the test user and readable by no
 one else, and a push never sees them. The scenario signs in to line6.com, takes the Windows
@@ -17,6 +17,8 @@ Plugins workflow therefore starts its container as `ci`, so every CI run is one 
 toolbox's `toolbx`, and the account's devices say which ran; a run under any other name spends one
 for good.
 Signed out it passes the tone through untouched; signed in, the default amp preset leaves a tail.
+Helix Stadium Native presses Log In, then an empty spot so the probe waits out the sign-in spinner,
+then Continue with Intro; its empty New Preset passes the tone through untouched.
 
 Serum 2's demo sits behind an Xfer sign-in that Cloudflare Turnstile guards, which a test does not
 pass. Its installer is kept instead in a shared Dropbox folder whose read-only link is `DROPBOX`

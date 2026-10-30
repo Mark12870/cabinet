@@ -1,0 +1,21 @@
+Name: Helix Stadium Native
+Kind: windows
+Category: Effect
+Summary: Guitar amp and effect modeller, 48 blocks
+Developer: Line 6
+Version: 1.4.1
+Licence: Commercial
+Licensing:
+  Signing in to a Line 6 account opens either a 15-day trial of the full
+  licence or the free Intro tier of 5 Agoura amps, 5 cabinets and 15 effects.
+Formats: VST3
+Homepage: https://line6.com/helix-stadium-native/
+Source: byo
+Account: https://line6.com/account/
+Script: helix-stadium-native.sh
+Description:
+  The amp models, cabinets and effects of Line 6's Helix Stadium hardware:
+  Agoura, the amp modelling Line 6 built for Stadium, beside the HX models
+  carried over from Helix, on a signal path of up to 48 blocks you arrange.
+  Presets move between the plugin and Helix Stadium XL and Floor, and it
+  imports Helix Native presets, which do not go back the other way.
