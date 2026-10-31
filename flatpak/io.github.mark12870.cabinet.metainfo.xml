@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.38.1" date="2026-10-31">
+      <description>
+        <p>iZotope Trash keeps its editor while the preset list is open</p>
+        <ul>
+          <li>Trash's editor no longer turns black around its open preset list</li>
+          <li>Plugins that ran on two different builds of Cabinet's JUCE 8 Wine now share the newest one, so there is less to download</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.38.0" date="2026-10-30">
       <description>
         <p>Install Line 6's Helix Stadium Native</p>
