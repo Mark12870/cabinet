@@ -29,7 +29,7 @@ public class CatalogueTests
         {
             Assert.Equal(PluginKind.Windows, entry.Kind);
             Assert.Equal("neural-dsp", entry.Prefix);
-            Assert.Equal("d2d1-dcomp-11.0-777", entry.Config.Runner);
+            Assert.Equal("d2d1-dcomp-11.0-887-p3", entry.Config.Runner);
             Assert.True(entry.Ilok);
             Assert.Equal(SyncMode.Fsync, entry.Config.Sync);
             Assert.False(entry.Dxvk);
@@ -179,7 +179,7 @@ public class CatalogueTests
     {
         var entry = Shipped.Single(entry => entry.Id == "native-access");
 
-        Assert.Equal(6, entry.Config.Revision);
+        Assert.Equal(7, entry.Config.Revision);
         Assert.Equal("windows", entry.Env["WINEQT_QPA_PLATFORMTHEME"]);
         Assert.False(entry.Dxvk);
         Assert.True(entry.WebView2);
@@ -190,7 +190,7 @@ public class CatalogueTests
     {
         var nativeAccess = Shipped.Single(entry => entry.Id == "native-access");
 
-        Assert.Equal("d2d1-dcomp-11.0-887-p2", nativeAccess.Config.Runner);
+        Assert.Equal("d2d1-dcomp-11.0-887-p3", nativeAccess.Config.Runner);
         Assert.Equal("dword:0", nativeAccess.Config.Registry[@"HKCU\Software\iZotope\EnableAnalytics"]);
     }
 
@@ -201,6 +201,14 @@ public class CatalogueTests
 
         Assert.Contains("corefonts", entry.Config.Winetricks);
         Assert.Equal("dword:0", entry.Config.Registry[@"HKCU\Software\iZotope\EnableAnalytics"]);
+    }
+
+    [Fact]
+    public void SpitfireAudioStaysOnTheRunnerWhoseSignInTakesItsPassword()
+    {
+        var entry = Shipped.Single(entry => entry.Id == "spitfire-audio");
+
+        Assert.Equal("d2d1-dcomp-11.0-777", entry.Config.Runner);
     }
 
     [Fact]
@@ -221,7 +229,7 @@ public class CatalogueTests
 
         Assert.Equal(@"C:\Program Files\Minimal\Minimal Hub.exe", entry.Launch);
         Assert.Equal(entry.Launch, entry.VersionFile);
-        Assert.Equal("d2d1-dcomp-11.0-887-p2", entry.Config.Runner);
+        Assert.Equal("d2d1-dcomp-11.0-887-p3", entry.Config.Runner);
         Assert.Equal(SyncMode.Fsync, entry.Config.Sync);
         Assert.True(entry.WebView2);
         Assert.Equal(

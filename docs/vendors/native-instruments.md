@@ -84,7 +84,7 @@ release changes things.
   Wine after a direct run (`cabinet run`, winetricks) when it can claim the prefix, as a safety net.
 - **The editor draws through Wine's own Direct3D.** The prefix has no DXVK, which iZotope Trash
   needs; Kontakt 8, Komplete Kontrol, Raum and Native Access itself all drew without it.
-- **iZotope plugins need `wine-d2d1-dcomp-11.0-887-p2` here too.** On 11.0-777, Ozone Imager 2 and
+- **iZotope plugins need `wine-d2d1-dcomp-11.0-887-p3` here too.** On 11.0-777, Ozone Imager 2 and
   Ozone 12 Equalizer from Native Access opened black editors; on 887-p2 both drew, answered input,
   rendered and closed. `EnableAnalytics=0` is set for the reason `izotope.md` gives.
 - **The first click on a freshly opened Kontakt editor only focuses it.**

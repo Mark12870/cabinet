@@ -94,6 +94,12 @@ public sealed class RunnerIndex(IProcessRunner runner)
             "https://github.com/Mark12870/wine-d2d1-dcomp/releases/download/wine-d2d1-dcomp-11.0-887-p2/"
             + "wine-d2d1-dcomp-11.0-887-p2-x86_64.tar.zst",
             "d93e0833862f910a0619a320e00242825020c034498dff84483000dd95d0ac23"),
+        new(
+            new RunnerRelease(
+                RunnerFamily.D2D1Dcomp, "d2d1-dcomp-11.0-887-p3", RunnerFamily.D2D1Dcomp.AssetFor("11.0-887-p3"), ""),
+            "https://github.com/Mark12870/wine-d2d1-dcomp/releases/download/wine-d2d1-dcomp-11.0-887-p3/"
+            + "wine-d2d1-dcomp-11.0-887-p3-x86_64.tar.zst",
+            "4ec7750ba59b7a6e4ed686517831fc802ca4cd2f7cb590fe0f7d2655c9b4e52c"),
     ];
 
     private static readonly IReadOnlyDictionary<string, string> Retired =

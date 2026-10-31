@@ -51,7 +51,7 @@ process's window and calls the real function otherwise.
 each runner family: the bundled Wine, Kron4ek and Soda. It asserts that each still crashes. A
 failing case names the release that has the fix.
 
-The JUCE 8 runner, wine-d2d1-dcomp 11.0-777, is built from giang17's `d2d1-dcomp-11.0` after the fix
+Every JUCE 8 runner from wine-d2d1-dcomp 11.0-777 on is built from giang17's `d2d1-dcomp-11.0` after the fix
 (fafb443f85, 2026-07-23). Upstream Wine had not fixed this as of 2026-09.
 
 ## yabridge-editor-window-origin.patch

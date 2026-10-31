@@ -4,10 +4,11 @@ What was measured while building the Product Portal scenario (October 2026, Prod
 Vinyl 1.13.0). Each point says how it was established, so it can be checked again when a release
 changes things.
 
-- **The prefix needs `wine-d2d1-dcomp-11.0-887-p2` or a build with the same two patches.** Its
+- **The prefix needs `wine-d2d1-dcomp-11.0-887-p3` or a build with the same two patches.** Its
   crypt32 patch lets Vinyl import iZotope's certificate-only licence file; without it ACTIVATE ends
   in "Response Validation Failed". Its winex11 patch keeps iZotope's layered dialogs inside the
-  editor; without it they draw outside it, out of sight.
+  editor; without it they draw outside it, out of sight. 887-p2 blacked out Trash's editor around its
+  preset list.
 - **The Portal's log-in page needs a font called Arial.** The page is CEF. On a prefix where
   DirectWrite finds no Arial, it paints once in fallback fonts and never again: no caret, typed text
   never shows, and the sign-in never completes. The Kron4ek runners carry staging's Arial;

@@ -276,6 +276,9 @@ dependency changes.
   provenance in `SOURCES.md`.
 - A vendor directory that holds any `.md` stays in the tree and under test, the manifest's install loop leaves it out of
   the build, and the `.md` says why. `CatalogueTests` guards the pairing.
+- When a runner is pinned or updated, move every prefix that works on it to the newest runner, bumping
+  its `Revision:`, so users download as few runners as possible. Keep a prefix on an older one only for a
+  reason its vendor doc records.
 - Prefer a working native entry. Windows entries use a tagged, SHA-256-pinned download; a `rolling` source carries only
   a URL, and `byo` takes the file the user fetched from the vendor's page. Library scripts may only operate in the
   directories Cabinet passes them; Cabinet owns linking, recording, and removal.

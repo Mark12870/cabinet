@@ -14,8 +14,6 @@ crash was reproduced, and what was tried instead and did not help.
 - Splice's JUCE/WebView2 UI revokes drag-and-drop on its child windows, one of which belongs to
   `msedgewebview2.exe`. On Wine 11.0 the resulting fault recurses in the exception dispatcher until
   the host's main thread overflows; upstream fixed that recursion in Wine 11.7 (a55cddce98).
-- The JUCE 8 runner, wine-d2d1-dcomp 11.0-777, is built from giang17/wine `d2d1-dcomp-11.0` after the
-  fix itself (fafb443f85).
 
 An isolated REAPER, so the user's own setup is not touched:
 

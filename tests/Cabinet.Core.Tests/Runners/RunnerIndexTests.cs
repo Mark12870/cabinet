@@ -139,7 +139,7 @@ public sealed class RunnerIndexTests : IDisposable
     {
         var available = Answering("200", Index).Available(TestContext.Current.CancellationToken);
 
-        Assert.Equal(7, available.Count);
+        Assert.Equal(8, available.Count);
         Assert.Equal("wine-9.21-staging-tkg", Answering("200", Index).Find("9.21").Name);
     }
 
@@ -171,6 +171,7 @@ public sealed class RunnerIndexTests : IDisposable
     [InlineData("soda-11.0-5", "soda-11.0-5")]
     [InlineData("d2d1-dcomp-11.0-777", "wine-d2d1-dcomp-11.0-777")]
     [InlineData("d2d1-dcomp-11.0-887-p2", "wine-d2d1-dcomp-11.0-887-p2")]
+    [InlineData("d2d1-dcomp-11.0-887-p3", "wine-d2d1-dcomp-11.0-887-p3")]
     public void ARunnerTheCatalogueNamesIsFoundWithoutReadingTheIndex(string spec, string name)
     {
         var release = new RunnerIndex(new UnusedRunner()).Find(spec);
@@ -184,10 +185,10 @@ public sealed class RunnerIndexTests : IDisposable
     {
         var available = Answering("200", Index).Available(TestContext.Current.CancellationToken);
 
-        Assert.Equal(7, available.Count);
+        Assert.Equal(8, available.Count);
         Assert.Equal(
             ["soda-11.0-5", "wine-11.17-staging-tkg", "wine-9.21-staging-tkg", "wine-d2d1-dcomp-11.0-777",
-                "wine-d2d1-dcomp-11.0-887-p2"],
+                "wine-d2d1-dcomp-11.0-887-p2", "wine-d2d1-dcomp-11.0-887-p3"],
             available.Where(RunnerIndex.IsPinned).Select(release => release.Name).Order(StringComparer.Ordinal));
         Assert.All(available.Where(RunnerIndex.IsPinned), release => Assert.Empty(release.ManifestUrl));
     }
