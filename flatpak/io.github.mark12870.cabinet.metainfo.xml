@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.38.2" date="2026-11-01">
+      <description>
+        <p>iZotope Trash's preset list no longer flickers</p>
+        <ul>
+          <li>Trash's open preset list stays steady instead of flickering</li>
+          <li>A preset picked from the list shows in the editor behind it at once</li>
+          <li>The affected prefixes offer an update that moves them to the fixed Wine</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.38.1" date="2026-10-31">
       <description>
         <p>iZotope Trash keeps its editor while the preset list is open</p>
