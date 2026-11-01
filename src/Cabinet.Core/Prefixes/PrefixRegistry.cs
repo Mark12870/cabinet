@@ -77,10 +77,23 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
             ? (IReadOnlyList<string>)["/t", "REG_DWORD", "/d", data[Dword.Length..]]
             : ["/d", data];
 
-        if (!Change(prefix, ["add", .. Located(path), .. typed, "/f"]).Ok)
+        var result = Change(prefix, ["add", .. Located(path), .. typed, "/f"]);
+
+        if (!result.Ok)
         {
-            throw new InvalidOperationException($"could not set the registry value {path} in '{prefix}'");
+            throw new InvalidOperationException(
+                $"could not set the registry value {path} in '{prefix}': reg exited with {result.ExitCode}"
+                + LastLines(result.Stdout));
         }
+    }
+
+    private const int ReportedLines = 10;
+
+    private static string LastLines(string output)
+    {
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return lines.Length == 0 ? "" : ":\n" + string.Join('\n', lines.TakeLast(ReportedLines));
     }
 
     public void Remove(string prefix, string path) => Change(prefix, ["delete", .. Located(path), "/f"]);

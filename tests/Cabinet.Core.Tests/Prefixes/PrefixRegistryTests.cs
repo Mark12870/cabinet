@@ -207,6 +207,21 @@ public sealed class PrefixRegistryTests : IDisposable
     }
 
     [Fact]
+    public void AFailedRegistryWriteSaysWhatRegReturnedAndWhatWineSaid()
+    {
+        var said = string.Join('\n', Enumerable.Range(1, 12).Select(line => $"wine line {line}"));
+        var runner = new RecordingRunner(exits: _ => 5, outputs: _ => said + "\n");
+
+        var failure = Assert.Throws<InvalidOperationException>(
+            () => new PrefixRegistry(Layout, runner).Set("valhalla", @"HKCU\Software\Wine\Version", "win10"));
+
+        Assert.Equal(
+            @"could not set the registry value HKCU\Software\Wine\Version in 'valhalla': reg exited with 5:"
+            + "\n" + string.Join('\n', Enumerable.Range(3, 10).Select(line => $"wine line {line}")),
+            failure.Message);
+    }
+
+    [Fact]
     public void LiveUninstallEntriesAreReadFromWineInsteadOfAStaleFile()
     {
         System(FabFilter);
