@@ -36,5 +36,9 @@ public sealed class TalVocoderScenario(TalVocoderScenario.Installed installed)
         Assert.InRange(audio.Peak, 0.76, 100);
     }
 
-    public sealed class Installed() : InstalledEntry(Id);
+    public sealed class Installed() : InstalledEntry(Id)
+    {
+        private protected override async Task Install(Display display) =>
+            await Harness.InstallFrom(await Wayback.Download(Entry.Url!, Harness.Home), display);
+    }
 }

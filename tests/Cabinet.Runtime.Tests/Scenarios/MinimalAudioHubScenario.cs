@@ -77,7 +77,7 @@ public sealed class MinimalAudioHubScenario(MinimalAudioHubScenario.Installed in
 
         private const string Account = "180,0 1000,65";
 
-        private const string LogInThenLetsGo = "200 298 200 297";
+        private const string LogInReleaseASeatThenLetsGo = "200 298 272 298 272 297";
 
         private static readonly TimeSpan Opening = TimeSpan.FromMinutes(3);
 
@@ -124,7 +124,7 @@ public sealed class MinimalAudioHubScenario(MinimalAudioHubScenario.Installed in
                 Harness.Plugin("VST3", Bridges["VST3"]) with { Label = "activation" },
                 controlsAreParameters: false,
                 type: $"200 196\n200 180\t{credentials["EMAIL"]}\n200 225\t{credentials["PASSWORD"]}",
-                click: LogInThenLetsGo);
+                click: LogInReleaseASeatThenLetsGo);
             Assert.True(
                 File.Exists(Path.Combine(Harness.Prefix, "drive_c", "ProgramData", "Minimal", "Squash", "minimal.license")),
                 "Squash did not activate with the Minimal Audio account");

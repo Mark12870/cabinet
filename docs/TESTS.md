@@ -261,6 +261,8 @@ fill the tail. Input, output, parameters, captures and logs remain under
 unless `CABINET_RUNTIME_KEEP_HOMES=1` is set. Tools and the
 prepared Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and plugin into the
 new home before it creates the prefix and bridge. Carla only observes the resulting bridge as a DAW.
+TAL Software's Cloudflare refuses GitHub's runners, so the TAL scenarios have the Wayback Machine
+capture each entry's URL afresh and install that capture with `library install <id> <file>`.
 The render probe, `Cabinet.Probes audio-render` (`tools/`), opens Carla with `dlopen` the way
 the editor probes load Carla: linked into an executable, Carla's bundled asio takes the place of
 yabridge's own and the VST3 bridge crashes while it loads.

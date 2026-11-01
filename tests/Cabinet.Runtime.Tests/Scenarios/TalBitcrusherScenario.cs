@@ -34,5 +34,9 @@ public sealed class TalBitcrusherScenario(TalBitcrusherScenario.Installed instal
         Assert.InRange(audio.Peak, 0.025, 1);
     }
 
-    public sealed class Installed() : InstalledEntry(Id);
+    public sealed class Installed() : InstalledEntry(Id)
+    {
+        private protected override async Task Install(Display display) =>
+            await Harness.InstallFrom(await Wayback.Download(Entry.Url!, Harness.Home), display);
+    }
 }
