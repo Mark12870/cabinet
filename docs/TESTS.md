@@ -232,7 +232,7 @@ is not enough, because Helix Native stops drawing while it talks to Line 6's ser
 frame looks settled.
 
 How the account scenarios sign in, and what each vendor counts as a device, is in
-`docs/test-accounts.md`.
+`docs/TEST-ACCOUNTS.md`.
 
 A bundle is tested through two of its plugins, not all of them: FabFilter Total Bundle through
 Pro-Q 4 and Pro-L 2, each its own test with a `Label` on its bridge, so the two keep their

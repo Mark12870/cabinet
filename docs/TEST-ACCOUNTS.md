@@ -65,7 +65,7 @@ unwinder spins on that exception instead of returning it.
 
 The same scenario installs Kontakt 8 Player and the Acoustic Drums library in the same Native Access
 session. Kontakt's installer goes through Cabinet's `msi.dll` stand-in (see
-`docs/vendors/native-instruments.md`), so the scenario waits for the bridged `Kontakt 8.vst3`, for
+`docs/vendors/NATIVE-INSTRUMENTS.md`), so the scenario waits for the bridged `Kontakt 8.vst3`, for
 Native Access's own activation of it, and for its card to read Installed before it asks for a
 library that needs it. The prefix runs on lavapipe, as a runner does: on this machine's GPU the test
 display offers no DRI3 and Kontakt's editor loses its X connection at its first frame. Until it is
