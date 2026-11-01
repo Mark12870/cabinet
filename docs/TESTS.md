@@ -253,7 +253,9 @@ toolbox run --container cabinet-runtime \
 For each format, `ValhallaSupermassiveScenario` verifies the bridged editor and processes explicit
 stereo buffers through Carla's native rack with Mix fully wet, so only the plugin's own output can
 fill the tail. Input, output, parameters, captures and logs remain under
-`$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/{editor,audio}/<format>/`. Tools and the
+`$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/{editor,audio}/<format>/`, Cabinet's logs under
+`artefacts/logs/`. The scenario's home, several GB of runner and prefix, goes when its class ends
+unless `CABINET_RUNTIME_KEEP_HOMES=1` is set. Tools and the
 prepared Flatpak are reused, but Cabinet downloads and installs the runner, DXVK and plugin into the
 new home before it creates the prefix and bridge. Carla only observes the resulting bridge as a DAW.
 The render probe, `Cabinet.Probes audio-render` (`tools/`), opens Carla with `dlopen` the way

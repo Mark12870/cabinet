@@ -27,6 +27,9 @@ internal static class RuntimeTestEnvironment
 
     public static string TemporaryDirectory => Path.Combine(Root, "tmp");
 
+    public static bool KeepsScenarioHomes =>
+        Environment.GetEnvironmentVariable("CABINET_RUNTIME_KEEP_HOMES") == "1";
+
     public static string DataHome => Path.Combine(Home, ".local", "share");
 
     public static string ConfigHome => Path.Combine(Home, ".config");

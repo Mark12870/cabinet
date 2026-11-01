@@ -349,6 +349,28 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
 
         slot = -1;
+        KeepLogs();
+
+        if (!RuntimeTestEnvironment.KeepsScenarioHomes)
+        {
+            Directory.Delete(Home, recursive: true);
+        }
+    }
+
+    private void KeepLogs()
+    {
+        var logs = Path.Combine(Data, "logs");
+        if (!Directory.Exists(logs))
+        {
+            return;
+        }
+
+        var kept = Path.Combine(Artefacts, "logs");
+        Directory.CreateDirectory(kept);
+        foreach (var log in Directory.EnumerateFiles(logs, "*.log"))
+        {
+            File.Copy(log, Path.Combine(kept, Path.GetFileName(log)), overwrite: true);
+        }
     }
 
     private string Data => Path.Combine(Home, ".var", "app", Host.App, "data");
