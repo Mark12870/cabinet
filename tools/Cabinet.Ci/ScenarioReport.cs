@@ -208,7 +208,11 @@ internal static class ScenarioReport
         return minutes > 0 ? $"{minutes}m {rest:00}s" : $"{rest}s";
     }
 
-    private static IReadOnlyList<string> Timings(string trx, IReadOnlyDictionary<string, string> named)
+    public static IReadOnlyDictionary<string, double> Spent(string trx) =>
+        Rows(trx, Scenarios.Entries()).ToDictionary(row => row.Scenario, row => row.Total, StringComparer.Ordinal);
+
+    private static List<(string Scenario, double Total, string Entry, Dictionary<string, double> Taken, double? Tests)> Rows(
+        string trx, IReadOnlyDictionary<string, string> named)
     {
         var scenarios = Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(Path.GetFullPath(trx))!)!, "scenarios");
         var tested = new Dictionary<string, double>(StringComparer.Ordinal);
@@ -221,7 +225,7 @@ internal static class ScenarioReport
             }
         }
 
-        var rows = new List<(double Total, string Entry, Dictionary<string, double> Taken, double? Tests)>();
+        var rows = new List<(string, double, string, Dictionary<string, double>, double?)>();
 
         foreach (var (scenario, entry) in named)
         {
@@ -234,8 +238,15 @@ internal static class ScenarioReport
 
             double? tests = tested.TryGetValue(scenario, out var value) ? value : null;
             var total = Steps.Sum(step => taken.GetValueOrDefault(step)) + (tests ?? 0);
-            rows.Add((total, entry, taken, tests));
+            rows.Add((scenario, total, entry, taken, tests));
         }
+
+        return rows;
+    }
+
+    private static IReadOnlyList<string> Timings(string trx, IReadOnlyDictionary<string, string> named)
+    {
+        var rows = Rows(trx, named);
 
         if (rows.Count == 0)
         {

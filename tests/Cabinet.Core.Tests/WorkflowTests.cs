@@ -10,6 +10,7 @@ public class WorkflowTests
     private static readonly string[] Checks = Repo.Lines(".github/workflows/checks.yml");
     private static readonly string[] Publish = Repo.Lines(".github/workflows/publish.yml");
     private static readonly string[] Plugins = Repo.Lines(".github/workflows/plugins.yml");
+    private static readonly string[] Fixtures = Repo.Lines(".github/workflows/fixtures.yml");
     private static readonly string Driver = Repo.Read("scripts/runtime-ci.sh");
     private static readonly string[] Redistributable = ["GPL-3.0", "LGPL-3.0"];
 
@@ -51,18 +52,49 @@ public class WorkflowTests
     [Fact]
     public void TheImageIsStrippedBeforeItIsPublished()
     {
-        var stripped = Array.FindIndex(Runtime, line => line.Contains("runtime-ci.sh clean"));
-        var published = Array.FindIndex(Runtime, line => line.Contains("docker push"));
+        var stripped = Array.FindIndex(Fixtures, line => line.Contains("runtime-ci.sh clean"));
+        var published = Array.FindIndex(Fixtures, line => line.Contains("skopeo copy"));
 
         Assert.True(stripped >= 0, "the workflow publishes an image it never strips");
         Assert.True(published > stripped, "the workflow pushes the image before stripping it");
+        Assert.DoesNotContain(Runtime, line => line.Contains("skopeo copy") || line.Contains("docker commit"));
     }
 
     [Fact]
     public void TheImageNameIsLowercasedRatherThanInterpolated()
     {
-        Assert.DoesNotContain(Runtime, line => line.Contains("ghcr.io/${{"));
-        Assert.Contains(Runtime, line => line.Contains("IMAGE=ghcr.io/${owner,,}"));
+        Assert.All(new[] { Runtime, Fixtures }, workflow =>
+        {
+            Assert.DoesNotContain(workflow, line => line.Contains("ghcr.io/${{"));
+            Assert.Contains(workflow, line => line.Contains("IMAGE=ghcr.io/${owner,,}"));
+        });
+    }
+
+    [Fact]
+    public void AReleaseDoesNotWaitForTheFixtureImage()
+    {
+        var publish = Job(Ci, "publish");
+        var fixtures = Job(Ci, "fixtures");
+
+        Assert.DoesNotContain(publish, line => Names(line, "needs") && line.Contains("fixtures"));
+        Assert.Contains(fixtures, line => line.Contains("uses: ./.github/workflows/fixtures.yml"));
+        Assert.Contains(fixtures, line => line.Trim() == "packages: write");
+        Assert.Contains(Job(Ci, "runtime"), line => line.Trim() == "packages: read");
+    }
+
+    [Fact]
+    public void ThePluginScenariosRunInShardsDealtFromTheLastRunsTimings()
+    {
+        var plan = Job(Plugins, "plan");
+        var runtime = Job(Plugins, "runtime");
+
+        Assert.Contains(plan, line => line.Contains("scenario-shards previous", StringComparison.Ordinal));
+        Assert.Contains(runtime, line => line.Trim() == "include: ${{ fromJSON(needs.plan.outputs.shards) }}");
+        Assert.Contains(runtime, line => line.Trim() == "scenarios: ${{ matrix.classes }}");
+        Assert.Contains(runtime, line => line.Trim() == "artifact_name: runtime-${{ matrix.shard }}");
+        Assert.Contains(Job(Plugins, "diagnose"), line => line.Trim() == "pattern: runtime-*");
+        Assert.Contains(Runtime, line => line.Contains("CABINET_RUNTIME_CLASSES=\"${SCENARIOS}\"", StringComparison.Ordinal));
+        Assert.Contains("read -ra classes <<< \"$CABINET_RUNTIME_CLASSES\"", Driver, StringComparison.Ordinal);
     }
 
     [Fact]

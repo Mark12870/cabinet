@@ -42,11 +42,14 @@ internal static partial class ScenarioDiagnosis
         the evidence is not enough. Answer in at most fifteen lines of Markdown with no heading.
         """;
 
-    public static async Task<int> Diagnose(string artifact)
+    public static async Task<int> Diagnose(IReadOnlyList<string> artifacts)
     {
-        var failed = Failures(Path.Combine(artifact, "TestResults", "runtime.trx"));
+        var causes = artifacts
+            .Select(artifact => (artifact, failed: Failures(Path.Combine(artifact, "TestResults", "runtime.trx"))))
+            .SelectMany(found => Causes(found.artifact, found.failed))
+            .ToList();
 
-        if (failed.Count == 0)
+        if (causes.Count == 0)
         {
             Console.WriteLine(
                 "No scenario failed on its last attempt, so the run failed outside the scenarios. Its log says where.");
@@ -56,7 +59,7 @@ internal static partial class ScenarioDiagnosis
         using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(180) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("cabinet-scenario-diagnosis");
 
-        foreach (var (cause, index) in Causes(artifact, failed).Select((cause, index) => (cause, index)))
+        foreach (var (cause, index) in causes.Select((cause, index) => (cause, index)))
         {
             Console.WriteLine($"### {cause.Title}\n");
             Console.WriteLine(index < Requests

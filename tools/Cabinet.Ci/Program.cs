@@ -10,12 +10,14 @@ return args switch
     ["scenario-approve", var trx, var id] => ScenarioReport.Approve(trx, id),
     ["scenario-report", "--passed", var trx] => ScenarioReport.Passed(trx),
     ["scenario-report", var trx] => ScenarioReport.Summarise(trx),
-    ["scenario-diagnosis", var artifact] => await ScenarioDiagnosis.Diagnose(artifact),
+    ["scenario-diagnosis", .. var artifacts] when artifacts.Length > 0 => await ScenarioDiagnosis.Diagnose(artifacts),
+    ["scenario-shards", var previous, var count] when int.TryParse(count, out var shards) && shards > 0 =>
+        ScenarioShards.Plan(previous, shards),
     _ => Usage(),
 };
 
 static int Usage()
 {
-    Console.Error.WriteLine("usage: Cabinet.Ci scenario-report [--passed] TRX | scenario-diagnosis ARTIFACT | scenario-approve TRX ID | catalogue-updates discover|check|coverage OUTPUT | catalogue-updates validate BASE IDS_JSON_FILE | catalogue-updates release BASE IDS_JSON_FILE DATE");
+    Console.Error.WriteLine("usage: Cabinet.Ci scenario-report [--passed] TRX | scenario-diagnosis ARTIFACT... | scenario-shards PREVIOUS COUNT | scenario-approve TRX ID | catalogue-updates discover|check|coverage OUTPUT | catalogue-updates validate BASE IDS_JSON_FILE | catalogue-updates release BASE IDS_JSON_FILE DATE");
     return 2;
 }

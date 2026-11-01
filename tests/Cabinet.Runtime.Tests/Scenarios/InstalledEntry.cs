@@ -85,7 +85,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
 
     private void Record(string step, Stopwatch clock) => Harness.Time(step, clock.Elapsed);
 
-    private static LibraryEntry Find(string id) =>
+    internal static LibraryEntry Find(string id) =>
         new Library(
                 new Layout("/nonexistent", "/nonexistent", "/nonexistent", "/nonexistent", Repo.Path("data/library")),
                 new UnusedRunner())

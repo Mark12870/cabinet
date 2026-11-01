@@ -1,0 +1,113 @@
+name: Fixtures
+
+# The free half of the runtime fixtures, rebuilt into the public image beside the runtime suite
+# rather than inside it: publishing waits for the suite, and an image push has taken a quarter of
+# an hour. scripts/runtime-ci.sh drives every step inside the container, as it does for the suite.
+on:
+  workflow_call:
+    inputs:
+      rebuild_fixtures:
+        type: boolean
+        default: false
+      checkout_ref:
+        type: string
+        default: ''
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      BASE: registry.fedoraproject.org/fedora:44
+      CONTAINER: cabinet-runtime
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout_ref || github.sha }}
+          persist-credentials: false
+
+      - name: Name the fixture image
+        run: |
+          owner="${GITHUB_REPOSITORY%%/*}"
+          echo "IMAGE=ghcr.io/${owner,,}/cabinet-runtime:latest" >> "$GITHUB_ENV"
+
+      - name: Work out the fixture key
+        id: fixtures
+        run: |
+          hash=$(scripts/runtime-ci.sh key)
+          echo "key=runtime-fixtures-$(date -u +%Y%m)-${hash}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache/restore@v4
+        id: cached
+        if: ${{ !inputs.rebuild_fixtures }}
+        with:
+          path: fixtures.tar
+          key: ${{ steps.fixtures.outputs.key }}
+          lookup-only: true
+
+      # The image gains a layer only when the suite would install something it lacks: with no
+      # published tag, on a rebuild, or when the fixtures changed and their cache entry is new.
+      - name: Decide whether the image needs a new layer
+        id: image
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          printf '%s' "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
+
+          if [ '${{ inputs.rebuild_fixtures }}' = true ] || ! docker manifest inspect "${IMAGE}" >/dev/null 2>&1; then
+            echo "from=${BASE}" >> "$GITHUB_OUTPUT"
+          elif [ '${{ steps.cached.outputs.cache-hit }}' != true ]; then
+            echo "from=${IMAGE}" >> "$GITHUB_OUTPUT"
+          else
+            echo '::notice::the published image already holds these fixtures'
+          fi
+
+      - name: Make room for the image
+        if: steps.image.outputs.from != ''
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
+            /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
+
+      - name: Start the container
+        if: steps.image.outputs.from != ''
+        run: |
+          docker run --detach --name "${CONTAINER}" --hostname ci --privileged --device /dev/fuse \
+            --volume "${PWD}:/src" "${{ steps.image.outputs.from }}" sleep infinity
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
+
+      - uses: actions/download-artifact@v8
+        if: steps.image.outputs.from != ''
+        with:
+          name: repo
+
+      - name: Install the fixtures
+        if: steps.image.outputs.from != ''
+        run: |
+          tar -xf repo.tar
+          rm repo.tar
+          chmod -R a+rwX repo
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh sync
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh setup
+
+      # `clean` is what keeps a vendor's binaries out of the layer. The upload has wedged without a
+      # word before; an image that does not arrive only means the next run starts from the older one.
+      - name: Keep the free fixtures
+        if: steps.image.outputs.from != ''
+        timeout-minutes: 20
+        continue-on-error: true
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
+          docker commit "${CONTAINER}" "${IMAGE}"
+
+          command -v skopeo >/dev/null || {
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
+            sudo apt-get install -y --no-install-recommends skopeo
+          }
+
+          sudo skopeo copy --dest-compress-format zstd \
+            --dest-creds "${ACTOR}:${TOKEN}" \
+            "docker-daemon:${IMAGE}" "docker://${IMAGE}"

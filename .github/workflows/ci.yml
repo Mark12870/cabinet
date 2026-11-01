@@ -103,6 +103,19 @@ jobs:
     permissions:
       actions: read
       contents: read
+      packages: read
+    with:
+      rebuild_fixtures: ${{ inputs.rebuild_fixtures || false }}
+      checkout_ref: ${{ github.sha }}
+
+  fixtures:
+    needs: [scope, build]
+    if: >-
+      needs.scope.outputs.runtime == 'true'
+      && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.rebuild_fixtures)
+    uses: ./.github/workflows/fixtures.yml
+    permissions:
+      contents: read
       packages: write
     with:
       rebuild_fixtures: ${{ inputs.rebuild_fixtures || false }}

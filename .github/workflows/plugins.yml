@@ -29,7 +29,47 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
 
+  plan:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      shards: ${{ steps.deal.outputs.shards }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the timings of the last run that left them
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh run list --repo "${GITHUB_REPOSITORY}" --workflow plugins.yml --status completed \
+              --limit 10 --json databaseId --jq '.[].databaseId'); do
+            gh run download "${id}" --repo "${GITHUB_REPOSITORY}" --pattern 'runtime*' --dir previous && break
+            rm -rf previous
+          done
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the CI tools
+        run: dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+
+      - name: Deal the scenarios into shards
+        id: deal
+        run: |
+          shards="$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-shards previous 3)"
+          echo "shards=${shards}" >> "$GITHUB_OUTPUT"
+
   runtime:
+    name: runtime ${{ matrix.shard }}
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.shards) }}
     uses: ./.github/workflows/runtime.yml
     permissions:
       actions: read
@@ -37,6 +77,8 @@ jobs:
       packages: read
     with:
       suite: scenarios
+      scenarios: ${{ matrix.classes }}
+      artifact_name: runtime-${{ matrix.shard }}
     secrets:
       EMAIL: ${{ secrets.EMAIL }}
       PASSWORD: ${{ secrets.PASSWORD }}
@@ -59,7 +101,7 @@ jobs:
       - uses: actions/download-artifact@v8
         continue-on-error: true
         with:
-          name: runtime
+          pattern: runtime-*
           path: runtime
 
       - uses: actions/setup-dotnet@v5
@@ -84,9 +126,9 @@ jobs:
             echo '## AI summary'
             echo
             echo "The plugin scenarios failed in [run ${GITHUB_RUN_ID}](${run}) at commit ${GITHUB_SHA::7}."
-            echo "Its \`runtime\` artifact holds every log, and the captures of each failed scenario, until $(date -u -d '+7 days' +%F)."
+            echo "Its \`runtime-*\` artifacts hold every log, and the captures of each failed scenario, until $(date -u -d '+7 days' +%F)."
             echo
-            dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-diagnosis runtime
+            dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-diagnosis runtime/*
           } > diagnosis.md
           cat diagnosis.md >> "${GITHUB_STEP_SUMMARY}"
 

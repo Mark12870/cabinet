@@ -72,8 +72,9 @@ vendor installers, which need a display. That user gets `LANG=C.UTF-8`, as a des
 UTF-8 locale: a container sets none, and under the `C` locale Wine cannot name a file outside
 ASCII, so Virta's installer, which writes presets under `Mathias Brüssel`, failed to create that
 folder, took its suppressed Abort and exited 5 while every local run passed. A push restores the
-cache, runs the setup — where all that is left is the new Cabinet commit and a sync — and commits
-the free half back, so the next push starts from it. Both halves are kept whenever the setup
+cache and runs the setup — where all that is left is the new Cabinet commit and a sync. When the
+fixtures changed, CI's `fixtures` job (`fixtures.yml`) installs them again beside the suite and
+commits the free half back, so the next push starts from it and a release never waits for the push. Both halves are kept whenever the setup
 succeeded rather than when the tests passed: Decent Sampler fails the first time its editor opens
 on a root that has no config of its own yet, and gating on green would let one such plugin keep
 the fixtures from ever being kept, so every push would reinstall them and fail again.
@@ -185,7 +186,9 @@ and a format the entry gains fails until the scenario says which bridged file it
 Scenarios never run on a push: CI's runtime job runs the general suite, everything else in
 `Cabinet.Runtime.Tests`. The `Plugins` workflow runs only the scenarios, daily on a schedule or by
 hand, against a Cabinet built from main through the same `build.yml` and `runtime.yml` that CI
-calls. On its run page `Cabinet.Ci scenario-report` (`tools/`) puts one row per entry and format, with a
+calls. `Cabinet.Ci scenario-shards` deals them into three parallel jobs, longest first by the last
+run's `timing.txt` and test durations, and each job starts its share in that order; a scenario
+with no timings yet counts as the longest. Locally, the managers start first. On its run page `Cabinet.Ci scenario-report` (`tools/`) puts one row per entry and format, with a
 failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
 A failed run sends each failed entry's redacted logs to Groq through `Cabinet.Ci scenario-diagnosis`

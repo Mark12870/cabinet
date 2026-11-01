@@ -21,6 +21,10 @@ on:
         description: Runtime captures artifact name
         type: string
         default: runtime
+      scenarios:
+        description: The scenario classes of one shard, in the order to start them
+        type: string
+        default: ''
     secrets:
       EMAIL:
         required: false
@@ -211,6 +215,7 @@ jobs:
         env:
           SUITE: ${{ inputs.suite }}
           SELECTION: ${{ inputs.selection_json }}
+          SCENARIOS: ${{ inputs.scenarios }}
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
           DROPBOX: ${{ secrets.DROPBOX }}
@@ -222,6 +227,7 @@ jobs:
         run: |
           docker exec --env CABINET_RUNTIME_SUITE="${SUITE}" \
             --env CABINET_RUNTIME_SELECTION="${SELECTION}" \
+            --env CABINET_RUNTIME_CLASSES="${SCENARIOS}" \
             --env EMAIL --env PASSWORD --env DROPBOX --env USERNAME --env NATIVE_ACCESS --env WAVES \
             --env EMAIL_IMAP_HOST --env EMAIL_IMAP_PASSWORD \
             "${CONTAINER}" /src/scripts/runtime-ci.sh test
@@ -294,36 +300,3 @@ jobs:
         with:
           path: fixtures.tar
           key: ${{ steps.fixtures.outputs.key }}
-
-      # Only when this run made fixtures: otherwise the image it pulled is already what the next
-      # push wants, and pushing it back costs minutes and a layer for nothing. `clean` runs first,
-      # and it is what keeps a vendor's binaries out of the layer. The upload has wedged without a
-      # word before, and by now the suite has answered: an image that does not arrive only means
-      # the next run starts from the older one, so it is bounded and not allowed to fail the job.
-      - name: Keep the free fixtures
-        if: >-
-          !cancelled() && steps.setup.outcome == 'success' && inputs.suite == 'general'
-          && (github.event_name == 'push' || inputs.rebuild_fixtures)
-          && (steps.image.outputs.from == env.BASE
-          || steps.cached.outputs.cache-hit != 'true')
-        timeout-minutes: 20
-        continue-on-error: true
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTOR: ${{ github.actor }}
-        run: |
-          docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh clean
-          docker commit "${CONTAINER}" "${IMAGE}"
-
-          # Pushed as zstd rather than the gzip `docker push` writes: every run pulls this image,
-          # and two cores spend as long decompressing it as downloading it. A tag that cannot be
-          # pulled is not a trap either -- `Take the fixture image` falls back to the base and the
-          # run rebuilds the tag.
-          command -v skopeo >/dev/null || {
-            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
-            sudo apt-get install -y --no-install-recommends skopeo
-          }
-
-          sudo skopeo copy --dest-compress-format zstd \
-            --dest-creds "${ACTOR}:${TOKEN}" \
-            "docker-daemon:${IMAGE}" "docker://${IMAGE}"

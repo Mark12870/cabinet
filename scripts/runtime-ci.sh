@@ -22,6 +22,7 @@
 #   scripts/runtime-ci.sh clean          leave only what the image may carry
 #
 # CABINET_RUNTIME_SUITE=general, the default, is the plugin matrix; a push runs it.
+# CABINET_RUNTIME_CLASSES runs only those scenario classes, in that order: one shard of the suite.
 #
 # Wine refuses to run as root and the suite keys its sockets on XDG_RUNTIME_DIR, which has to
 # stay short and under /run/user/<uid>, so everything past `prepare` re-execs as that user with
@@ -272,6 +273,18 @@ run_test() {
 
     step 'dotnet build'
     cd "$WORK"
+
+    if [ -n "${CABINET_RUNTIME_CLASSES:-}" ]; then
+        [ "${CABINET_RUNTIME_SUITE:-}" = scenarios ] && [ -z "$selection" ] ||
+            die 'a shard splits the whole scenario suite and nothing else'
+        read -ra classes <<< "$CABINET_RUNTIME_CLASSES"
+        for class in "${classes[@]}"; do
+            [[ $class =~ ^Cabinet\.Runtime\.Tests\.Scenarios\.[A-Za-z0-9_]+$ ]] ||
+                die "invalid runtime scenario class ${class}"
+            filter+=(--filter-class "$class")
+        done
+    fi
+
     dotnet build tests/Cabinet.Runtime.Tests --nologo \
         -m:1 -p:BuildInParallel=false -p:RestoreDisableParallel=true
 
