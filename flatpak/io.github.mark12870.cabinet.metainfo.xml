@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.39.0" date="2026-11-04">
+      <description>
+        <p>Sound Radix's plugins join the Library</p>
+        <ul>
+          <li>POWAIR, Auto-Align 2, Auto-Align Post 2, Drum Leveler, Pi, SurferEQ 2 and Radical1 install into one shared prefix with iLok</li>
+          <li>Running an installer while a program Cabinet opened, such as iLok License Manager, is still running in that prefix now asks you to close it instead of hanging</li>
+          <li>The Library's category, developer, kind and state filters can be searched</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.38.3" date="2026-11-04">
       <description>
         <p>Update Decent Sampler</p>
