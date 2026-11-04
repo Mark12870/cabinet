@@ -181,6 +181,7 @@ internal sealed partial class LibraryPage
     {
         drop.SetTooltipText(what);
         drop.SetHexpand(true);
+        Ui.Searchable(drop);
         drop.OnNotify += (_, args) =>
         {
             if (!fillingFilters && args.Pspec.GetName() == "selected")

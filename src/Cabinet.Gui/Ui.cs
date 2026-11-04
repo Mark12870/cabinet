@@ -131,6 +131,15 @@ internal static class Ui
         return view;
     }
 
+    public static void Searchable(Gtk.DropDown drop)
+    {
+        using var property = GLib.Internal.NonNullableUtf8StringOwnedHandle.Create("string");
+        drop.SetExpression(new Gtk.PropertyExpression(
+            Gtk.Internal.PropertyExpression.New(Gtk.StringObject.GetGType(), IntPtr.Zero, property)));
+        drop.SetEnableSearch(true);
+        drop.SetSearchMatchMode(Gtk.StringFilterMatchMode.Substring);
+    }
+
     public static Gtk.Button IconButton(string iconName, string tooltip)
     {
         var button = Gtk.Button.NewFromIconName(iconName);
