@@ -28,6 +28,7 @@ public sealed partial class Prefixes
             throw Layout.Missing(full);
         }
 
+        using var open = OpenApp(name, $"open {Path.GetFileName(full)}");
         return Run(name, "start", ["/wait", "/unix", full], onOutput);
     }
 

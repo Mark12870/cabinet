@@ -106,6 +106,22 @@ public sealed class PrefixOwnershipTests : IDisposable
     }
 
     [Fact]
+    public void AProgramCabinetStartedKeepsAnInstallerOutOfItsPrefixUntilItCloses()
+    {
+        var program = Path.Combine(Layout.PrefixDriveC("gadget"), "Gadget", "Gadget.exe");
+        Directory.CreateDirectory(Path.GetDirectoryName(program)!);
+        File.WriteAllText(program, "");
+        var refusal = "";
+        var runner = new RecordingRunner(acts: _ => refusal = Assert.Throws<PrefixInUseException>(
+            () => Subject.Claim("gadget", "run an installer in gadget")).Message);
+
+        new Prefixes(Layout, runner).Start("gadget", program);
+        using var claim = Subject.Claim("gadget", "run an installer in gadget");
+
+        Assert.Contains("An app Cabinet opened is still running in gadget", refusal);
+    }
+
+    [Fact]
     public void AChangeUnderWayKeepsAnAppFromOpeningInThatPrefix()
     {
         using var claim = Subject.Claim("gadget", "delete gadget");
