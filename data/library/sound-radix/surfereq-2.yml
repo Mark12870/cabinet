@@ -1,0 +1,21 @@
+Name: SurferEQ 2
+Kind: windows
+Category: Effect
+Summary: Equaliser whose bands follow the pitch
+Developer: Sound Radix
+Version: 2.1.1
+Licence: Commercial
+Licensing:
+  A free trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://www.soundradix.com/products/surfereq/
+Source: download
+Url: https://assets.soundradix.com/downloads/SurferEQ%202.1.1%20Setup.exe
+Sha256: 19b9709da65f8d22e07d13f778ad3f780ede9d0321173e0ecc0ec312c5f61a38
+Script: sound-radix.sh
+Description:
+  Tracks the pitch of a monophonic vocal or instrument and moves any of its
+  seven bands with the note, so a boost or cut stays on the same harmonic
+  as the melody changes. MIDI notes can set the pitch instead, which plays
+  the bands from a keyboard. Needs a graphics card with OpenGL 2.1.

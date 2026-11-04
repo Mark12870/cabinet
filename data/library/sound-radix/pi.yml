@@ -1,0 +1,23 @@
+Name: Pi
+Kind: windows
+Category: Effect
+Summary: Phase optimiser working across tracks
+Developer: Sound Radix
+Version: 1.1.3
+Licence: Commercial
+Licensing:
+  A free trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://www.soundradix.com/products/pi/
+Source: download
+Url: https://assets.soundradix.com/downloads/Pi%201.1.3%20Setup.exe
+Sha256: 803a2c188d2741697bedd56a2100bb6e7a04270d7347cfdf1f05ef1a3180dc95
+Script: sound-radix.sh
+Description:
+  Goes on the last insert of every track; the instances share one
+  background process that keeps adjusting each track's phase, so sources
+  with overlapping frequencies, such as kick and bass, stop cancelling each
+  other. 64 groups bind multi-mic recordings or related instruments. Load
+  the VST3 on every track: VST2 instances cannot see each other here.
+  Needs a graphics card with OpenGL 2.1.

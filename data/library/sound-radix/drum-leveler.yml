@@ -1,0 +1,22 @@
+Name: Drum Leveler
+Kind: windows
+Category: Effect
+Summary: Per-hit drum compressor, expander and gate
+Developer: Sound Radix
+Version: 1.2.1
+Licence: Commercial
+Licensing:
+  A free trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://www.soundradix.com/products/drum-leveler/
+Source: download
+Url: https://assets.soundradix.com/downloads/Drum%20Leveler%201.2.1%20Setup.exe
+Sha256: 504fe18ab8a6e00854de27697c5c55cdaeb2bb14a3271266388be1d687e791ce
+Script: sound-radix.sh
+Description:
+  Detects each drum hit and gains it towards a target level instead of
+  following an envelope, compressing loud hits and raising soft ones, or
+  expanding them when the amount goes negative. A high and a low threshold
+  pick which hits it touches, so ghost notes or bleed can be left alone;
+  a side-chain filter and gate range narrow it to one drum of a kit.

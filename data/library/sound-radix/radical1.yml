@@ -1,0 +1,22 @@
+Name: Radical1
+Kind: windows
+Category: Synth
+Summary: Additive synth with layered modulation
+Developer: Sound Radix
+Version: 0.9.7
+Licence: Commercial
+Licensing:
+  An Early Access release: a free trial and early-access licences activate
+  in iLok License Manager, and a licence bought now includes the full
+  version when it ships.
+Formats: VST3
+Homepage: https://www.soundradix.com/products/radical1/
+Source: download
+Url: https://assets.soundradix.com/downloads/Radical1%20v0.9.7%20Preview%20Release%20Setup.exe
+Sha256: 3d789a6e7bcdd7e8826d3baf2a63f8bfbce1554f899d11495e60f0a728cfff8d
+Script: sound-radix.sh
+Description:
+  Builds each sound from harmonics that can be shaped, bent and animated,
+  with as many layers, blocks and modulators as the CPU allows, and shows
+  every modulation where it acts. Sound Radix's first instrument, still in
+  Early Access, so presets and features are still arriving.

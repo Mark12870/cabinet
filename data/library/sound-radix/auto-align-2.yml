@@ -1,0 +1,22 @@
+Name: Auto-Align 2
+Kind: windows
+Category: Effect
+Summary: Time and phase alignment for multi-mics
+Developer: Sound Radix
+Version: 2.2.2
+Licence: Commercial
+Licensing:
+  A free trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3
+Homepage: https://www.soundradix.com/products/auto-align/
+Source: download
+Url: https://assets.soundradix.com/downloads/Auto-Align%202.2.2%20Setup.exe
+Sha256: c5863a722054dc361c335896d8432c7d791172cdf6eb2d9bab74cbd6bc0f724c
+Script: sound-radix.sh
+Description:
+  Measures the delay and the spectral phase between microphones on one
+  source, such as a drum kit or a doubled amp, and aligns them in one pass,
+  picking the reference and grouping related tracks itself. Its spectral
+  module also corrects the phase shift filters add, which removes comb
+  filtering.

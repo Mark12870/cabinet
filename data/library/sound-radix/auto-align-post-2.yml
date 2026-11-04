@@ -1,0 +1,22 @@
+Name: Auto-Align Post 2
+Kind: windows
+Category: Effect
+Summary: Moving boom and lav mics kept in phase
+Developer: Sound Radix
+Version: 2.3.4
+Licence: Commercial
+Licensing:
+  A free trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3
+Homepage: https://www.soundradix.com/products/auto-align-post/
+Source: download
+Url: https://assets.soundradix.com/downloads/Auto-Align%20Post%202.3.4%20Setup.exe
+Sha256: 12b468c3b54a58427f63280d858bdb0ea8cc625458f4142e7056e327aa395752
+Script: sound-radix.sh
+Description:
+  For dialogue: keeps boom and lavalier mics aligned while actors and
+  cameras move, by up to ±100 ms, about 34 m. A static mode locks mics
+  that do not move, and spectral phase correction undoes the shift a
+  filter on one of them adds. It works on clips through ARA2, so the
+  DAW must host ARA, and it has a phase correlation meter.

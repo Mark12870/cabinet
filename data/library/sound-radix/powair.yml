@@ -1,0 +1,23 @@
+Name: POWAIR
+Kind: windows
+Category: Effect
+Summary: Compressor behind a K-weighted leveler
+Developer: Sound Radix
+Version: 1.1.4
+Licence: Commercial
+Licensing:
+  A free trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://www.soundradix.com/products/powair/
+Source: download
+Url: https://assets.soundradix.com/downloads/POWAIR%201.1.4%20Setup.exe
+Sha256: ca4af1df1fef8844b05dc36a8fd28bb19bc3a49ec1ac8aa3e1e9b07a0ee66833
+Script: sound-radix.sh
+Description:
+  A loudness leveler measuring K-weighted LKFS feeds Sound Radix's own
+  fast compression engine. Punch shapes transients apart from the attack
+  time, and Adaptive Compression holds the average gain reduction steady
+  so a performance keeps its dynamics. For riding vocals, dialogue and
+  mixes to a target loudness, with L/R or M/S linking and a band-pass or
+  band-reject side-chain filter.

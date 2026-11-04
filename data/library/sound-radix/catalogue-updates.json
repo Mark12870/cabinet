@@ -1,0 +1,12 @@
+{
+  "entries": [],
+  "blocked": [
+    {"id":"auto-align-2","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"auto-align-post-2","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"drum-leveler","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"pi","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"powair","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"radical1","reason":"iLok activation prevents unattended editor qualification after the trial expires."},
+    {"id":"surfereq-2","reason":"iLok activation prevents unattended editor qualification after the trial expires."}
+  ]
+}
