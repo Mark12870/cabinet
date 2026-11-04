@@ -4,4 +4,8 @@
     <RuntimeFrameworkVersion>10.0.8</RuntimeFrameworkVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-p3jp-9v83-76w9" />
+  </ItemGroup>
+
 </Project>
