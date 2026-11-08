@@ -22,14 +22,14 @@ public sealed record Lingering(IReadOnlyList<string> Programs, Action Stop)
             .OfType<string>()
             .ToHashSet(StringComparer.Ordinal);
 
-        var holders = Holders(pipes).Where(holder => !holder.System).ToList();
+        var holders = Holders(pipes).Where(holder => !holder.LeftToWineserver).ToList();
 
         return new Lingering(
             holders.Select(holder => holder.Name).Distinct(StringComparer.Ordinal).ToList(),
             () => End(holders.Select(holder => holder.Id)));
     }
 
-    private static IEnumerable<(int Id, string Name, bool System)> Holders(IReadOnlySet<string> pipes)
+    private static IEnumerable<(int Id, string Name, bool LeftToWineserver)> Holders(IReadOnlySet<string> pipes)
     {
         if (pipes.Count == 0)
         {
@@ -61,7 +61,7 @@ public sealed record Lingering(IReadOnlyList<string> Programs, Action Stop)
 
             if (Command(directory) is { } command)
             {
-                yield return (id, Name(command), IsSystem(command));
+                yield return (id, Name(command), IsLeftToWineserver(command));
             }
         }
     }
@@ -94,9 +94,10 @@ public sealed record Lingering(IReadOnlyList<string> Programs, Action Stop)
 
     private static string Name(string command) => command[(command.LastIndexOfAny(['/', '\\']) + 1)..];
 
-    private static bool IsSystem(string command) =>
+    private static bool IsLeftToWineserver(string command) =>
         command.StartsWith(@"C:\windows\", StringComparison.OrdinalIgnoreCase)
-        || Name(command) is "wineserver" or "wine" or "wine64" or "wine-preloader" or "wine64-preloader";
+        || Name(command) is "wineserver" or "wine" or "wine64" or "wine-preloader" or "wine64-preloader"
+        || Name(command).Equals("MicrosoftEdgeUpdate.exe", StringComparison.OrdinalIgnoreCase);
 
     private static void End(IEnumerable<int> ids)
     {

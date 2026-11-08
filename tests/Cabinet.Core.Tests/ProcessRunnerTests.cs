@@ -380,12 +380,36 @@ public sealed class ProcessRunnerTests : IDisposable
         }
     }
 
-    private string Wineserver()
+    [Fact]
+    public async Task OutputHeldByTheEdgeUpdaterAWebView2SetupStartedIsNotWaitedFor()
     {
-        var wineserver = Path.Combine(root, "wineserver");
-        File.Copy("/usr/bin/sleep", wineserver);
-        File.SetUnixFileMode(wineserver, UnixFileMode.UserRead | UnixFileMode.UserExecute);
-        return wineserver;
+        var held = Path.Combine(root, "updater-pid");
+
+        try
+        {
+            var result = await Task.Run(() => Subject.Run(
+                    "sh",
+                    ["-c", "\"$1\" 60 & echo $! > \"$2\"; echo done", "sh", Sleeper("MicrosoftEdgeUpdate.exe"), held],
+                    onOutput: _ => { }))
+                .WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
+
+            Assert.True(result.Ok);
+            Assert.Contains("done", result.Stdout);
+        }
+        finally
+        {
+            End(held);
+        }
+    }
+
+    private string Wineserver() => Sleeper("wineserver");
+
+    private string Sleeper(string name)
+    {
+        var sleeper = Path.Combine(root, name);
+        File.Copy("/usr/bin/sleep", sleeper);
+        File.SetUnixFileMode(sleeper, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+        return sleeper;
     }
 
     private static void End(string held)
