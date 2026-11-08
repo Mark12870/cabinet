@@ -1,0 +1,19 @@
+Name: LANDR Mastering Pro
+Kind: windows
+Category: Effect
+Summary: AI mastering with editable stages
+Developer: LANDR
+Licence: Commercial
+Licensing:
+  A three-day trial starts from a LANDR account, which shows the licence key
+  the plugin asks for.
+Formats: VST3
+Homepage: https://www.landr.com/plugins/mastering-plugin
+Source: rolling
+Url: https://plugins.landr.com/downloads/Mastering/Pro/windows/LANDRMasteringPro.msi
+Script: landr-mastering.sh
+Description:
+  Compares a mix with LANDR's library of mastered references and sets a
+  master in one of three styles, Warm, Balanced or Open, at a chosen
+  loudness on a LUFS meter. Its stages stay adjustable: a three-band EQ,
+  presence, a de-esser, compression, saturation and stereo width.

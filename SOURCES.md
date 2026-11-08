@@ -76,7 +76,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | powair, auto-align-2, auto-align-post-2, drum-leveler, pi, radical1, surfereq-2 | Sound Radix's product pages, `soundradix.com/products/<product>/`, `_app/immutable/assets/` — `product-v1.CyTGZy4m.webp`, `product-v2.BXmp-aH4.webp`, `product-v2.XV_D5ZqJ.webp`, `product-v1.C1uQelmJ.webp`, `product-v1.DbOUfwUW.webp`, `product-v1.sItLKxJc.webp`, `product-v2.DFJxm3b3.webp`, each the plugin's interface; each icon is a crop of its screenshot |
 | dseq3 | TBProAudio's product page, `tbproaudio.de/assets/content/screenshots/dseq3_bign.png`, the plugin's interface; its icon is the mark from `tbproaudio.de/assets/content/logos/dseq_logo.png` |
 | humanoid | Baby Audio's product page, `babyaud.io/humanoid`, `cdn.prod.website-files.com/687ee2fa7f073e59ed93f259/689b73785604d1b5353518bd_Humanoid_GUI_Light01.avif`; its icon is `689a2a021cdfcd220d32d20b_Humanoid%20Icon.avif` from the same page |
-| landr-desktop-app | captured here, from LANDR Desktop App 2.30.0's welcome screen in an isolated prefix; its icon uses the vendor's logo below |
+| landr-mastering-pro | captured here, from LANDR Mastering Pro's editor bridged in an isolated prefix; its icon uses the vendor's logo below |
 
 | Vendor | Logo |
 | --- | --- |
