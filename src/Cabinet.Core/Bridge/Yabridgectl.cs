@@ -126,10 +126,16 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
             result = SyncAndPublish(prefixes);
         }
 
-        foreach (var line in (result.Stdout + result.Stderr)
-                     .Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        if (onOutput is not null)
         {
-            onOutput?.Invoke(line.TrimEnd('\r'));
+            var lines = (result.Stdout + result.Stderr)
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.TrimEnd('\r'));
+
+            foreach (var line in WithTwinWarningsExplained(lines, Wow64Twins(prefixes)))
+            {
+                onOutput(line);
+            }
         }
 
         if (!result.Ok)
@@ -140,6 +146,90 @@ public sealed class Yabridgectl(Layout layout, IProcessRunner runner)
                 : $"yabridgectl exited with {result.ExitCode}; what it said is above");
         }
     }
+
+    private IReadOnlyList<string> Wow64Twins(IReadOnlyList<Prefix> prefixes)
+    {
+        var initialised = prefixes.Where(prefix => prefix.Initialised).ToList();
+        var heldByManyPrefixes = initialised
+            .SelectMany(prefix => layout.PrefixPluginDirs(prefix.Name)
+                .SelectMany(PluginsIn)
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            .GroupBy(relative => relative, StringComparer.OrdinalIgnoreCase)
+            .Where(holders => holders.Count() > 1)
+            .Select(holders => holders.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return initialised
+            .SelectMany(prefix => layout.PrefixPluginDirPairs(prefix.Name))
+            .SelectMany(pair => PluginsIn(pair.Wow64)
+                .Where(relative => File.Exists(Path.Combine(pair.Native, relative))))
+            .Where(relative => !heldByManyPrefixes.Contains(relative))
+            .ToList();
+    }
+
+    private static IEnumerable<string> PluginsIn(string directory) =>
+        Directory.Exists(directory)
+            ? Directory.EnumerateFiles(directory, "*.dll", new EnumerationOptions
+            {
+                RecurseSubdirectories = true,
+                IgnoreInaccessible = true,
+                MatchCasing = MatchCasing.CaseInsensitive,
+            })
+                .Select(file => Path.GetRelativePath(directory, file))
+            : [];
+
+    private static IEnumerable<string> WithTwinWarningsExplained(IEnumerable<string> lines, IReadOnlyList<string> twins)
+    {
+        var warningLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            if (warningLines.Count > 0 && line.StartsWith(' '))
+            {
+                warningLines.Add(line);
+                continue;
+            }
+
+            foreach (var explained in ExplainedWarning(warningLines, twins))
+            {
+                yield return explained;
+            }
+
+            warningLines.Clear();
+
+            if (line.StartsWith("WARNING:", StringComparison.Ordinal))
+            {
+                warningLines.Add(line);
+            }
+            else
+            {
+                yield return line;
+            }
+        }
+
+        foreach (var explained in ExplainedWarning(warningLines, twins))
+        {
+            yield return explained;
+        }
+    }
+
+    private static IEnumerable<string> ExplainedWarning(IReadOnlyList<string> warningLines, IReadOnlyList<string> twins)
+    {
+        var text = Squeezed(string.Concat(warningLines));
+        var twin = text.Contains(Squeezed(AlreadyProvided), StringComparison.Ordinal)
+            ? twins.FirstOrDefault(relative =>
+                text.Contains(Squeezed($"/yabridge/{relative}'"), StringComparison.Ordinal))
+            : null;
+
+        return twin is null
+            ? warningLines
+            : [$"{twin}: the 64-bit copy is bridged; the 32-bit one in Program Files (x86) is not needed."];
+    }
+
+    private const string AlreadyProvided = "has already been provided by another Wine prefix";
+
+    private static string Squeezed(string text) =>
+        string.Concat(text.Where(character => !char.IsWhiteSpace(character)));
 
     private ProcessResult Run(IReadOnlyList<string> arguments)
     {

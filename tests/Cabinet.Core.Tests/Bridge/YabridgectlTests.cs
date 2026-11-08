@@ -266,6 +266,79 @@ public sealed class YabridgectlTests : IDisposable
         Assert.Contains("yabridgectl exited with 3", failure.Message);
     }
 
+    [Fact]
+    public void BridgeExplainsAThirtyTwoBitTwinYabridgectlSkipped()
+    {
+        var layout = TestLayout();
+        var (native, wow64) = layout.PrefixPluginDirPairs("gadget").Last();
+        Install(native, "Vendor/Gadget One.dll");
+        Install(wow64, "Vendor/Gadget One.dll");
+        var said = Bridged(layout, "gadget", "Vendor/Gadget One.dll");
+
+        Assert.Equal(
+            ["Vendor/Gadget One.dll: the 64-bit copy is bridged; the 32-bit one in Program Files (x86) is not needed."],
+            said);
+    }
+
+    [Fact]
+    public void BridgeKeepsTheWarningForACopyAnotherPrefixProvides()
+    {
+        var layout = TestLayout();
+        var (native, _) = layout.PrefixPluginDirPairs("gadget").Last();
+        Install(native, "Vendor/Gadget One.dll");
+        var said = Bridged(layout, "gadget", "Vendor/Gadget One.dll");
+
+        Assert.Equal(DuplicateWarning(layout, "Vendor/Gadget One.dll").Split('\n'), said);
+    }
+
+    [Fact]
+    public void BridgeKeepsTheWarningForATwinAnotherPrefixAlsoProvides()
+    {
+        var layout = TestLayout();
+        var (native, wow64) = layout.PrefixPluginDirPairs("gadget").Last();
+        Install(native, "Vendor/Gadget One.dll");
+        Install(wow64, "Vendor/Gadget One.dll");
+        Install(layout.PrefixPluginDirPairs("widget").Last().Native, "Vendor/Gadget One.dll");
+        var said = Bridged(layout, ["gadget", "widget"], "Vendor/Gadget One.dll");
+
+        Assert.Equal(DuplicateWarning(layout, "Vendor/Gadget One.dll").Split('\n'), said);
+    }
+
+    private static void Install(string directory, string relative)
+    {
+        var file = Path.Combine(directory, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, "");
+    }
+
+    private static List<string> Bridged(Layout layout, string name, string relative) =>
+        Bridged(layout, [name], relative);
+
+    private static List<string> Bridged(Layout layout, IReadOnlyList<string> names, string relative)
+    {
+        var runner = new ResultRunner(args => args switch
+        {
+            ["sync", "--prune", "--no-verify"] => new(0, "", DuplicateWarning(layout, relative) + "\n"),
+            _ => new(0, "", ""),
+        });
+        var prefixes = names
+            .Select(name => new Prefix(
+                name, layout.PrefixPath(name), true, Cabinet.Core.Layout.BundledRunner,
+                null, null, SyncMode.System, false))
+            .ToList();
+        var said = new List<string>();
+
+        new Yabridgectl(layout, runner).Bridge(prefixes, said.Add);
+
+        return said.Skip(1).ToList();
+    }
+
+    private static string DuplicateWarning(Layout layout, string relative) =>
+        $"WARNING: '{layout.BridgeOutputDir(".vst")}/yabridge/\n"
+        + $"    {relative}'\n"
+        + "    has already been provided by another Wine prefix or plugin directory,\n"
+        + "    skipping it";
+
     public void Dispose() => Directory.Delete(root, recursive: true);
 
     private sealed class ResultRunner(Func<IReadOnlyList<string>, ProcessResult> result) : IProcessRunner

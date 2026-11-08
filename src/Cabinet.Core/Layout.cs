@@ -325,19 +325,22 @@ public sealed class Layout
         ]);
     }
 
-    public IEnumerable<string> PrefixPluginDirs(string name)
-    {
-        var driveC = PrefixDriveC(name);
+    public IEnumerable<string> PrefixPluginDirs(string name) =>
+        PluginDirsIn(name, ProgramFiles64).Concat(PluginDirsIn(name, ProgramFiles32));
 
-        foreach (var programFiles in new[] { ProgramFiles64, ProgramFiles32 })
-        {
-            yield return Path.Combine(driveC, programFiles, "Common Files", "VST2");
-            yield return Path.Combine(driveC, programFiles, "Common Files", "VST3");
-            yield return Path.Combine(driveC, programFiles, "Common Files", "CLAP");
-            yield return Path.Combine(driveC, programFiles, "Common Files", "Steinberg", "VST2");
-            yield return Path.Combine(driveC, programFiles, "VstPlugins");
-            yield return Path.Combine(driveC, programFiles, "Steinberg", "VstPlugins");
-        }
+    public IEnumerable<(string Native, string Wow64)> PrefixPluginDirPairs(string name) =>
+        PluginDirsIn(name, ProgramFiles64).Zip(PluginDirsIn(name, ProgramFiles32));
+
+    private IEnumerable<string> PluginDirsIn(string name, string programFiles)
+    {
+        var root = Path.Combine(PrefixDriveC(name), programFiles);
+
+        yield return Path.Combine(root, "Common Files", "VST2");
+        yield return Path.Combine(root, "Common Files", "VST3");
+        yield return Path.Combine(root, "Common Files", "CLAP");
+        yield return Path.Combine(root, "Common Files", "Steinberg", "VST2");
+        yield return Path.Combine(root, "VstPlugins");
+        yield return Path.Combine(root, "Steinberg", "VstPlugins");
     }
 
     private const string ProgramFiles64 = "Program Files";
