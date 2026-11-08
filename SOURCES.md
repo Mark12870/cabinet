@@ -74,6 +74,9 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | minimal-audio-hub | captured here, from Minimal Hub 1.1.11 in an isolated prefix; its icon uses the vendor's signet below |
 | inmusic-software-center | captured here, from inMusic Software Center 1.40.0's welcome screen in an isolated prefix; its icon is the 256px app icon its package names, `imb-si01.s3.amazonaws.com/SI04/Icon/imc-v3-icon.ico` |
 | powair, auto-align-2, auto-align-post-2, drum-leveler, pi, radical1, surfereq-2 | Sound Radix's product pages, `soundradix.com/products/<product>/`, `_app/immutable/assets/` — `product-v1.CyTGZy4m.webp`, `product-v2.BXmp-aH4.webp`, `product-v2.XV_D5ZqJ.webp`, `product-v1.C1uQelmJ.webp`, `product-v1.DbOUfwUW.webp`, `product-v1.sItLKxJc.webp`, `product-v2.DFJxm3b3.webp`, each the plugin's interface; each icon is a crop of its screenshot |
+| dseq3 | TBProAudio's product page, `tbproaudio.de/assets/content/screenshots/dseq3_bign.png`, the plugin's interface; its icon is the mark from `tbproaudio.de/assets/content/logos/dseq_logo.png` |
+| humanoid | Baby Audio's product page, `babyaud.io/humanoid`, `cdn.prod.website-files.com/687ee2fa7f073e59ed93f259/689b73785604d1b5353518bd_Humanoid_GUI_Light01.avif`; its icon is `689a2a021cdfcd220d32d20b_Humanoid%20Icon.avif` from the same page |
+| landr-desktop-app | captured here, from LANDR Desktop App 2.30.0's welcome screen in an isolated prefix; its icon uses the vendor's logo below |
 
 | Vendor | Logo |
 | --- | --- |
@@ -100,6 +103,9 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | klevgrand | Klevgrand's official 192px app mark, `klevgrand.com/android-icon-192x192.png` |
 | line6 | the LINE 6 pill mark, `commons.wikimedia.org/wiki/File:Line_6_logo.svg`, PD-textlogo; solid black ink on transparent, recoloured white |
 | sound-radix | the SR mark, Sound Radix's own `soundradix.com/apple-touch-icon.png`, 180×180, white on a dark grey square, keyed off it |
+| tbproaudio | the TBProAudio wordmark, `tbproaudio.de/img/logo.svg`, yellow and white on transparent, unchanged |
+| baby-audio | the BABY AUDIO wordmark from `babyaud.io`, `cdn.prod.website-files.com/687ee2fa7f073e59ed93f259/68991e75b856928cc94b7b46_67cf125388b687eb716d9939_baby%20audio%20logo%202025.svg`, white on transparent |
+| landr | the LANDR rings, `cdn.prod.website-files.com/66451c84f87c605764b3d93a/66462d9d89d9d497028b2864_logo.svg`, off-white on transparent |
 | drumgizmo | `drumgizmo-0.9.20.tar.gz` from `drumgizmo.org/releases/drumgizmo-0.9.20/`, `plugingui/resources/logo.png`, recoloured white |
 | neural-amp-modeler | `neuralampmodeler.com`, the project's 192px favicon containing the NAM mark |
 | manda-audio | `powerdrumkit.com/images/manda-audio.gif`, Manda Audio's own 300px logo, keyed off its black background |

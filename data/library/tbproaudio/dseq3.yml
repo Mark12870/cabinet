@@ -1,0 +1,23 @@
+Name: DSEQ3
+Kind: windows
+Category: Effect
+Summary: Dynamic EQ acting on every FFT bin
+Developer: TBProAudio
+Version: 3.9.16
+Licence: Commercial
+Licensing:
+  Until it is activated with a licence key, the plugin mutes the audio briefly
+  every 90 seconds.
+Formats: VST3, VST2
+Homepage: https://www.tbproaudio.de/products/dseq
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/DSEQ3_Installer_WIN_3916.zip
+Sha256: 49deeaec4890c2189fd681d29a88e7be6692f11880345f43846b480b597218d0
+Script: tbproaudio.sh
+Description:
+  Works in the frequency domain, triggering a dynamic equaliser for each
+  frequency of its FFT, which takes out harshness and single resonances in
+  drums, guitars, vocals or a master. A slope tilts the detector towards pink
+  noise, twelve pre-filter bands limit it to a region such as the highs for
+  de-essing, and a custom threshold from an audio file turns it into a
+  multiband compressor. An AI mode sets slope and threshold from the input.

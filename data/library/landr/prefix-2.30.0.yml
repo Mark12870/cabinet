@@ -1,0 +1,5 @@
+Revision: 1
+Runner: d2d1-dcomp-11.0-887-p4
+Sync: fsync
+Winetricks: corefonts
+Env: WINEDLLOVERRIDES=powershell.exe=d

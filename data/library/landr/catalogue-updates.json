@@ -1,0 +1,7 @@
+{
+  "entries": [
+    {"id":"landr-desktop-app","path":"landr/landr-desktop-app.yml","scenario":"Cabinet.Runtime.Tests.Scenarios.LandrDesktopAppScenario","allowedDownloadHosts":["desktop.landr.com"],"source":{"type":"document","pageUrl":"https://desktop.landr.com/latest.yml","releaseRegex":"path: (?<url>LANDR-Setup-(?<version>[0-9]+(?:\\.[0-9]+){2})\\.exe)","downloadRegex":"^https://desktop\\.landr\\.com/LANDR-Setup-(?<version>[0-9]+(?:\\.[0-9]+){2})\\.exe$"}}
+  ],
+  "blocked": [
+  ]
+}

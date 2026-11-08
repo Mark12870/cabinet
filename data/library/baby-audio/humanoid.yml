@@ -1,0 +1,20 @@
+Name: Humanoid
+Kind: windows
+Category: Effect
+Summary: Vocal resynthesis and hard tuning
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/humanoid
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/Humanoid+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Resynthesises a monophonic vocal with phase vocoding and an FFT re-tuner,
+  then morphs it towards one of 64 wavetables or one imported, up to a synth
+  played by the voice. Pitch follows a key and scale, or MIDI and automation,
+  which builds harmonies and new melodies from one take; formant shift,
+  freeze and robotify sit beside it. A small buffer lowers latency at the
+  cost of pitch tracking.
