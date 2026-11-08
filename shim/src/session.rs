@@ -34,6 +34,7 @@ macro_rules! note {
 
 const IDLE_GRACE: Duration = Duration::from_secs(10);
 const HOST_GRACE: Duration = Duration::from_secs(3);
+const LAUNCHER_GRACE: Duration = Duration::from_secs(3);
 const START_TIMEOUT: Duration = Duration::from_secs(30);
 pub(crate) const TICK: Duration = Duration::from_millis(20);
 pub(crate) const WATCH: Duration = Duration::from_secs(1);
@@ -1144,6 +1145,11 @@ fn supervise(
     let mut launcher = None;
     let mut launcher_ended = None;
     let launcher_exit = PidFd::of_child(child.id() as i32);
+    let collecting = if yabridge_host {
+        Duration::ZERO
+    } else {
+        LAUNCHER_GRACE
+    };
     let mut search = TICK;
 
     loop {
@@ -1179,11 +1185,7 @@ fn supervise(
                 let current: Vec<ProcessInfo> = process_info(observed.0.pid).into_iter().collect();
 
                 if !alive(observed, &current, yabridge_host) {
-                    terminate_tree(group);
-                    let status = match launcher {
-                        Some(status) => status,
-                        None => child.wait().map(exit_code).unwrap_or(127),
-                    };
+                    let status = finish(child, group, launcher, collecting);
                     return Ended::new(status, "the plugin host ended");
                 }
             } else if let Some(found) = find_host(
@@ -1195,8 +1197,7 @@ fn supervise(
                 |pid| std::fs::read(format!("/proc/{pid}/cmdline")).ok(),
             ) {
                 if found.state == b'Z' {
-                    terminate_tree(group);
-                    let status = child.wait().map(exit_code).unwrap_or(127);
+                    let status = finish(child, group, launcher, collecting);
                     return Ended::new(status, "the plugin host's main thread had died");
                 }
 
@@ -1234,6 +1235,30 @@ fn supervise(
         };
 
         wait_readable(&watched, wait);
+    }
+}
+
+fn finish(
+    child: &mut std::process::Child,
+    group: i32,
+    launcher: Option<i32>,
+    collecting: Duration,
+) -> i32 {
+    let reported = launcher.or_else(|| exited_within(child, collecting));
+    terminate_tree(group);
+
+    reported.unwrap_or_else(|| child.wait().map(exit_code).unwrap_or(127))
+}
+
+fn exited_within(child: &mut std::process::Child, grace: Duration) -> Option<i32> {
+    let deadline = Instant::now() + grace;
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => return Some(exit_code(status)),
+            Ok(None) if Instant::now() < deadline => thread::sleep(TICK),
+            _ => return None,
+        }
     }
 }
 
@@ -2156,6 +2181,31 @@ mod tests {
 
         ended.unwrap();
         assert!(host_ended);
+    }
+
+    #[test]
+    fn a_launcher_still_collecting_its_programs_status_reports_that_status() {
+        let program = "import ctypes, time\n\
+                       ctypes.CDLL(None).prctl(15, b'reg.exe', 0, 0, 0)\n\
+                       time.sleep(0.5)\n";
+        let script = format!(
+            "import ctypes, subprocess, sys, time\n\
+             ctypes.CDLL(None).prctl(15, b'start.exe', 0, 0, 0)\n\
+             status = subprocess.Popen([sys.executable, '-c', {program:?}]).wait()\n\
+             time.sleep(0.5)\n\
+             raise SystemExit(status)\n",
+        );
+        let mut child = Command::new("python3")
+            .args(["-c", &script])
+            .process_group(0)
+            .spawn()
+            .unwrap();
+        let group = child.id() as i32;
+        let (_client, mut session) = UnixStream::pair().unwrap();
+
+        let ended = supervise(&mut child, group, &[OsString::from("reg")], &mut session);
+
+        assert_eq!((ended.status, ended.why), (0, "the plugin host ended"));
     }
 
     #[test]
