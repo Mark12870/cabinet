@@ -25,6 +25,15 @@ public sealed class PrefixesTests : IDisposable
     }
 
     [Fact]
+    public void RunningInAPrefixThatIsNotThereLeavesNoPrefixBehind()
+    {
+        Assert.Throws<DirectoryNotFoundException>(() => Subject.RunInExisting("never-existed", "reg", ["query", "HKCU"]));
+        Assert.Throws<DirectoryNotFoundException>(() => Subject.Start("never-existed", Path.Combine(root, "setup.exe")));
+
+        Assert.False(Directory.Exists(Layout.PrefixPath("never-existed")));
+    }
+
+    [Fact]
     public void ANameThatWalksOutOfThePrefixesDirectoryIsRefused()
     {
         var outsider = Path.Combine(root, "data", "keep-me");

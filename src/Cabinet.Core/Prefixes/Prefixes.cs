@@ -47,10 +47,7 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 
     public void SetRunner(string name, string runnerName)
     {
-        if (!Directory.Exists(layout.PrefixPath(name)))
-        {
-            throw new DirectoryNotFoundException($"no such prefix: {name}");
-        }
+        RequireExisting(name);
 
         using var claim = Claim(name, $"give {name} a different Wine");
         var resolved = runners.Resolve(runnerName);
@@ -204,13 +201,8 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 
     public void Delete(string name, Action<string>? onOutput = null)
     {
+        RequireExisting(name);
         var path = layout.PrefixPath(name);
-
-        if (!Directory.Exists(path))
-        {
-            throw new DirectoryNotFoundException($"no such prefix: {name}");
-        }
-
         using var claim = Claim(name, $"delete {name}");
 
         using (var deleting = Staging.Create(layout.PrefixesDir, "prefix"))
@@ -220,6 +212,14 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 
         onOutput?.Invoke($"Deleted {path}");
         Bridge(onOutput);
+    }
+
+    private void RequireExisting(string name)
+    {
+        if (!Directory.Exists(layout.PrefixPath(name)))
+        {
+            throw new DirectoryNotFoundException($"no such prefix: {name}");
+        }
     }
 
     public void Bridge(Action<string>? onOutput = null) =>

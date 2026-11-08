@@ -430,7 +430,7 @@ internal sealed class PrefixPage
             changed);
 
     private void Run(string command, IReadOnlyList<string> arguments) =>
-        Run(command, (prefixes, output) => prefixes.Run(Name, command, arguments, output));
+        Run(command, (prefixes, output) => prefixes.RunInExisting(Name, command, arguments, output));
 
     private void Run(string what, Func<Prefixes, Action<string>, ProcessResult> run) =>
         operations.Run(

@@ -19,9 +19,18 @@ public sealed partial class Prefixes
         Action<string>? onOutput = null, string? logTo = null, bool interactive = false) =>
         Wine(name, command, arguments, onOutput, logTo: logTo, interactive: interactive);
 
+    public ProcessResult RunInExisting(
+        string name, string command, IReadOnlyList<string> arguments,
+        Action<string>? onOutput = null, bool interactive = false)
+    {
+        RequireExisting(name);
+        return Run(name, command, arguments, onOutput, interactive: interactive);
+    }
+
     public ProcessResult Start(string name, string program, Action<string>? onOutput = null)
     {
         var full = Path.GetFullPath(program);
+        RequireExisting(name);
 
         if (!File.Exists(full))
         {

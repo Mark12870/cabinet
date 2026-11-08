@@ -309,7 +309,7 @@ internal static partial class Program
         return line.Then(() =>
         {
             var prefixes = new Prefixes(layout, runner);
-            var result = prefixes.Run(name, command, arguments, interactive: true);
+            var result = prefixes.RunInExisting(name, command, arguments, interactive: true);
             prefixes.Bridge(Console.Error.WriteLine);
             new Library(layout, runner).StopServices(name);
             return result.ExitCode;
