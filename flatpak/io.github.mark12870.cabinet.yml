@@ -331,6 +331,9 @@ modules:
     build-commands:
       - sed -i 's/^\( *\*-w)\) w_warn "Running.*;;$/\1 ;;/' /app/bin/winetricks
       - grep -q '^ *\*-w) ;;$' /app/bin/winetricks
+      - sed -i 's|/web/20171225132744if_/\(https://download\.microsoft\.com/.*/PowerPointViewer\.exe\)|/web/20170912132139if_/\1|' /app/bin/winetricks
+      - grep -q '/web/20170912132139if_/https://download\.microsoft\.com/.*/PowerPointViewer\.exe' /app/bin/winetricks
+      - '! grep -q 20171225132744if_ /app/bin/winetricks'
 
   - name: cabinet
     buildsystem: simple
