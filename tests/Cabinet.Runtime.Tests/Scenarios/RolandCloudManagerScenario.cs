@@ -40,6 +40,10 @@ public sealed class RolandCloudManagerScenario(RolandCloudManagerScenario.Instal
 
         private const string Device = "00000000-0000-4000-8000-00000000cab1";
 
+        private const string ZenologyPage = "tests/Cabinet.Runtime.Tests/Scenarios/References/roland-zenology.png";
+
+        private const string Sidebar = "0,160 182,260";
+
         private static readonly TimeSpan Opening = TimeSpan.FromMinutes(3);
 
         private static readonly TimeSpan Answering = TimeSpan.FromMinutes(1);
@@ -78,10 +82,18 @@ public sealed class RolandCloudManagerScenario(RolandCloudManagerScenario.Instal
             Thread.Sleep(Step);
             manager.Click(window, 640, 254);
             Thread.Sleep(Step);
-            manager.Click(window, 258, 25);
-            Thread.Sleep(Step);
-            manager.Click(window, 112, 77);
-            Thread.Sleep(Step);
+            manager.Until(
+                () =>
+                {
+                    manager.Click(window, 258, 25);
+                    Thread.Sleep(Step);
+                    manager.Click(window, 112, 77);
+                    Thread.Sleep(Step);
+                    return manager.Shows(window, ZenologyPage, Sidebar);
+                },
+                window,
+                "the ZENOLOGY page",
+                Opening);
             manager.Click(window, 373, 459);
             manager.Until(() => Harness.Holds("VST3", Zenology), window, "ZENOLOGY Lite installed and bridged", Downloading);
             manager.Capture(window, "installed");
