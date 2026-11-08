@@ -34,6 +34,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
         Directory.CreateDirectory(Artefacts);
         Directory.CreateDirectory(Data);
+        LinkInstalledRunners();
         Directory.CreateDirectory(Path.Combine(Home, ".local", "share"));
 
         lock (Slots)
@@ -374,6 +375,32 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
     }
 
     private string Data => Path.Combine(Home, ".var", "app", Host.App, "data");
+
+    private static string InstalledRunners =>
+        Path.Combine(RuntimeTestEnvironment.Home, ".var", "app", Host.App, "data", "runners");
+
+    private void LinkInstalledRunners()
+    {
+        var runners = Path.Combine(Data, "runners");
+        Directory.CreateDirectory(runners);
+        var installed = Directory.Exists(InstalledRunners)
+            ? Directory.GetDirectories(InstalledRunners).Where(runner => !Path.GetFileName(runner).StartsWith('.')).ToList()
+            : [];
+
+        if (installed.Count == 0)
+        {
+            return;
+        }
+
+        using var link = Process.Start("cp", ["-al", .. installed, runners])
+            ?? throw new InvalidOperationException("could not start cp");
+        link.WaitForExit();
+
+        if (link.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"could not link the runners in {InstalledRunners} into {Data}");
+        }
+    }
 
     private string ScanDir(string extension)
     {
