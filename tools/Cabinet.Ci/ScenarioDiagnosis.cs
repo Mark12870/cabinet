@@ -84,7 +84,7 @@ internal static partial class ScenarioDiagnosis
                     failed[scenario] = formats = new Dictionary<string, XElement>(StringComparer.Ordinal);
                 }
 
-                formats[format] = result;
+                formats.TryAdd(format, result);
             }
         }
 

@@ -37,14 +37,27 @@ internal static partial class Scenarios
             yield break;
         }
 
+        var named = Entries();
+
         foreach (var result in XDocument.Load(trx).Descendants(Trx + "UnitTestResult"))
         {
-            if (TestPattern().Match((string?)result.Attribute("testName") ?? "") is { Success: true } found)
+            if (TestPattern().Match((string?)result.Attribute("testName") ?? "") is not { Success: true } found
+                || !named.TryGetValue(found.Groups[1].Value, out var entry))
             {
-                yield return (found.Groups[1].Value, found.Groups[2].Value, result);
+                continue;
+            }
+
+            IReadOnlyList<string> formats = found.Groups[2].Success ? [found.Groups[2].Value] : Formats(entry);
+
+            foreach (var format in formats)
+            {
+                yield return (found.Groups[1].Value, format, result);
             }
         }
     }
+
+    public static IReadOnlyList<string> Formats(string entry) =>
+        Field(entry, "Formats").Split(',').Select(format => format.Trim()).Where(format => format.Length > 0).ToArray();
 
     public static string Field(string entry, string name) =>
         Regex.Match(File.ReadAllText(entry), $"^{name}: *(.+)$", RegexOptions.Multiline) is { Success: true } found
@@ -81,7 +94,7 @@ internal static partial class Scenarios
     [GeneratedRegex("""const string Id = "([^"]+)";""")]
     private static partial Regex IdPattern();
 
-    [GeneratedRegex("""^Cabinet\.Runtime\.Tests\.Scenarios\.(\w+)\.\w+\(format: "([^"]+)"\)$""")]
+    [GeneratedRegex("""^Cabinet\.Runtime\.Tests\.Scenarios\.(\w+)\.\w+(?:\(format: "([^"]+)"\))?$""")]
     private static partial Regex TestPattern();
 
     [GeneratedRegex(@"\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\p{Zl}\p{Zp}]")]

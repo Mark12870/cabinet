@@ -106,6 +106,23 @@ public class ScenarioApprovalTests
         Assert.Equal(expected, ScenarioReport.Approve(trx, EntryId));
     }
 
+    [Fact]
+    public void ACaseWithoutAFormatCountsAgainstEveryDeclaredFormat()
+    {
+        var directory = TestRoot.Create(nameof(ACaseWithoutAFormatCountsAgainstEveryDeclaredFormat));
+        var trx = WriteTrx(directory, []);
+        var document = XDocument.Load(trx);
+        XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
+        document.Root!.Element(ns + "Results")!.Add(new XElement(ns + "UnitTestResult",
+            new XAttribute("testName", $"Cabinet.Runtime.Tests.Scenarios.{Scenario}.OpensAnotherEditor"),
+            new XAttribute("outcome", "Failed")));
+        document.Save(trx);
+
+        Assert.Equal(
+            Formats.Select(format => (Scenario, format, "Failed")),
+            Scenarios.Results(trx).Select(found => (found.Scenario, found.Format, (string)found.Result.Attribute("outcome")!)));
+    }
+
     private static Dictionary<string, string> Outcomes(params (string Format, string Outcome)[] results) =>
         results.ToDictionary(result => result.Format, result => result.Outcome, StringComparer.Ordinal);
 

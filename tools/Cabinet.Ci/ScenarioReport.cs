@@ -11,7 +11,7 @@ internal static class ScenarioReport
     public static int Approve(string trx, string id)
     {
         var entry = Scenarios.Entries().Single(pair => Scenarios.Stem(pair.Value) == id);
-        var formats = Scenarios.Field(entry.Value, "Formats").Split(',').Select(format => format.Trim()).ToArray();
+        var formats = Scenarios.Formats(entry.Value);
         var outcomes = Merged(trx).Where(pair => pair.Key.Scenario == entry.Key)
             .ToDictionary(pair => pair.Key.Format, pair => pair.Value, StringComparer.Ordinal);
 
@@ -59,11 +59,7 @@ internal static class ScenarioReport
 
         foreach (var (scenario, entry) in named)
         {
-            var formats = Scenarios.Field(entry, "Formats").Split(',')
-                .Select(format => format.Trim())
-                .Where(format => format.Length > 0);
-
-            foreach (var format in formats)
+            foreach (var format in Scenarios.Formats(entry))
             {
                 var outcome = outcomes.GetValueOrDefault((scenario, format), "Not run");
                 rows.Add((entry, format, outcome));
@@ -157,7 +153,7 @@ internal static class ScenarioReport
     {
         var spent = new Dictionary<string, double>(StringComparer.Ordinal);
 
-        foreach (var (scenario, _, result) in Scenarios.Results(trx))
+        foreach (var (scenario, _, result) in Scenarios.Results(trx).DistinctBy(found => found.Result))
         {
             if ((string?)result.Attribute("duration") is { Length: > 0 } duration)
             {
