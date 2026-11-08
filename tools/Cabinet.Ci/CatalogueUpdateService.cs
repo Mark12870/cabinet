@@ -408,8 +408,9 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
             ? CreateRegex(source.VersionRegex).Matches(WebUtility.HtmlDecode(html))
                 .Select(MatchedVersion).Distinct(StringComparer.Ordinal).Single()
             : null;
+        var page = DocumentBase(html, response.RequestMessage?.RequestUri ?? new Uri(source.PageUrl!));
         var links = DownloadLinks(html)
-            .Select(link => Uri.TryCreate(response.RequestMessage?.RequestUri ?? new Uri(source.PageUrl!), link, out var uri) ? uri : null)
+            .Select(link => Uri.TryCreate(page, link, out var uri) ? uri : null)
             .Where(uri => uri is not null)
             .Select(uri => uri!)
             .Select(uri => (Uri: uri, Match: CreateRegex(source.DownloadRegex!).Match(uri.AbsoluteUri)))
@@ -477,6 +478,7 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         ValidateOrigin(source.PageUrl!, allowedHosts);
         using var response = await Send(new Uri(source.PageUrl!), allowedHosts, cancellationToken);
         var document = Encoding.UTF8.GetString(await ReadDocument(response, cancellationToken)).Replace("\\/", "/", StringComparison.Ordinal);
+        var published = response.RequestMessage?.RequestUri ?? new Uri(source.PageUrl!);
         var releases = CreateRegex(source.ReleaseRegex!).Matches(document).Select(match =>
         {
             var url = WebUtility.HtmlDecode(match.Groups["url"].Value);
@@ -487,6 +489,10 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
                     throw new InvalidDataException("published download path does not match its configured prefix");
                 }
                 url = new Uri(new Uri(root), url[prefix.Length..]).AbsoluteUri;
+            }
+            else
+            {
+                url = new Uri(published, url).AbsoluteUri;
             }
             ValidateOrigin(url, allowedHosts);
             return new Release(MatchedVersion(match), url);
@@ -501,6 +507,12 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
                 .Select(name => match.Groups[name].Value));
         return NormaliseVersion(version);
     }
+
+    private static Uri DocumentBase(string html, Uri page) =>
+        CreateRegex("<base\\b[^>]*\\bhref\\s*=\\s*[\"'](?<href>[^\"']+)[\"']", RegexOptions.IgnoreCase).Match(html) is { Success: true } found
+        && Uri.TryCreate(page, WebUtility.HtmlDecode(found.Groups["href"].Value), out var declared)
+            ? declared
+            : page;
 
     private static IEnumerable<string> DownloadLinks(string html)
     {

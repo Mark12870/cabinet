@@ -173,6 +173,36 @@ public sealed class CatalogueUpdateTests
     }
 
     [Fact]
+    public async Task VendorPageLinksResolveAgainstThePagesBaseHref()
+    {
+        using var fixture = new Fixture();
+        fixture.ConfigureVendorPage(
+            "https://vendor.example/products/plugin",
+            "^https://vendor\\.example/assets/Plugin-(?<version>[0-9]+(?:\\.[0-9]+)*)\\.zip$",
+            "vendor.example");
+        using var client = new HttpClient(new StubHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/products/plugin" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    "<base href=\"https://vendor.example/\" /><a href=\"assets/Plugin-2.3.0.zip\">Download</a>",
+                    Encoding.UTF8,
+                    "text/html")
+            },
+            "/assets/Plugin-2.3.0.zip" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(Encoding.UTF8.GetBytes("vendor installer"))
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        }));
+
+        var candidates = await fixture.Service(client).Discover(Path.Combine(fixture.Root, "output"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("2.3.0", Assert.Single(candidates).Version);
+        Assert.Contains("Url: https://vendor.example/assets/Plugin-2.3.0.zip", File.ReadAllText(Path.Combine(fixture.Root, "output", "plugin.yml")));
+    }
+
+    [Fact]
     public async Task DiscoveryReportsRedirectsToDisallowedHostsBeforeRequestingThem()
     {
         using var fixture = new Fixture();
@@ -406,6 +436,38 @@ public sealed class CatalogueUpdateTests
         Assert.Equal("2.0.0", Assert.Single(candidates).Version);
         Assert.Equal(new[] { "vendor.example", "cdn.example" }, requests);
         Assert.Contains("Url: https://cdn.example/files/Plugin-2.0.0.zip",
+            File.ReadAllText(Path.Combine(output, "plugin.yml")));
+    }
+
+    [Fact]
+    public async Task DocumentPublishedFileNameResolvesAgainstTheDocument()
+    {
+        using var fixture = new Fixture();
+        fixture.ConfigureSource(new
+        {
+            Type = "document",
+            PageUrl = "https://vendor.example/feed/latest.yml",
+            ReleaseRegex = "path: (?<url>Plugin-Setup-(?<version>[0-9.]+)\\.exe)",
+            DownloadRegex = "^https://vendor\\.example/feed/Plugin-Setup-(?<version>[0-9.]+)\\.exe$"
+        }, "vendor.example");
+        using var client = new HttpClient(new StubHandler(request => request.RequestUri!.AbsolutePath switch
+        {
+            "/feed/latest.yml" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("version: 2.0.0\npath: Plugin-Setup-2.0.0.exe\n")
+            },
+            "/feed/Plugin-Setup-2.0.0.exe" => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(Encoding.UTF8.GetBytes("document installer"))
+            },
+            _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+        }));
+        var output = Path.Combine(fixture.Root, "output");
+
+        var candidates = await fixture.Service(client).Discover(output, TestContext.Current.CancellationToken);
+
+        Assert.Equal("2.0.0", Assert.Single(candidates).Version);
+        Assert.Contains("Url: https://vendor.example/feed/Plugin-Setup-2.0.0.exe",
             File.ReadAllText(Path.Combine(output, "plugin.yml")));
     }
 
