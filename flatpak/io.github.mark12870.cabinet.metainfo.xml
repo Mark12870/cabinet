@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.39.2" date="2026-11-08">
+      <description>
+        <p>Fix intermittent install failures</p>
+        <ul>
+          <li>Installs no longer fail now and then with "exited with 143" after a Windows step had succeeded, as seen with UVI Portal, Native Access, iZotope Product Portal and Minimal Audio Hub</li>
+          <li>Waves Central installs again: the Calibri and Consolas fonts it needs now download from a copy that passes their checksum</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.39.1" date="2026-11-05">
       <description>
         <p>Update inMusic Software Center</p>
