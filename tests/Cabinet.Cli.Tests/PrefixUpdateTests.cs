@@ -1,6 +1,6 @@
+using System.Text.Json;
 using Cabinet.Core;
 using Cabinet.Core.Tests;
-using System.Text.Json;
 
 namespace Cabinet.Cli.Tests;
 
@@ -232,7 +232,7 @@ public sealed class PrefixUpdateTests : IDisposable
         Installed(Plugin + "Env: TEST_OPTION=enabled\n");
         File.WriteAllText(cli.Layout.PrefixSetupFile("thing"),
             "{\"version\":2,\"configVersion\":\"\",\"revision\":1,\"software\":null,\"runner\":null,"
-            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{\"TEST_OPTION\":\"enabled\"},\"desktop\":false}");
+            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{\"TEST_OPTION\":\"enabled\"},\"registry\":" + SavedBaseline + ",\"desktop\":false}");
         new PrefixSettings(cli.Layout).SetVariable("thing", "TEST_OPTION", "personal");
 
         var shown = cli.Run("library", "show", "thing");
@@ -251,7 +251,7 @@ public sealed class PrefixUpdateTests : IDisposable
         Installed(Plugin + "Env: TEST_OPTION=enabled\n");
         File.WriteAllText(cli.Layout.PrefixSetupFile("thing"),
             "{\"version\":2,\"configVersion\":\"\",\"revision\":1,\"software\":null,\"runner\":null,"
-            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{\"TEST_OPTION\":\"enabled\"},\"desktop\":false}");
+            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{\"TEST_OPTION\":\"enabled\"},\"registry\":" + SavedBaseline + ",\"desktop\":false}");
         var settings = new PrefixSettings(cli.Layout);
         settings.SetVariable("thing", "TEST_OPTION", "personal");
 
@@ -361,8 +361,10 @@ public sealed class PrefixUpdateTests : IDisposable
         RecordedBareSetup("thing");
     }
 
+    private static readonly string SavedBaseline = JsonSerializer.Serialize(WebView2.Baseline);
+
     private void RecordedBareSetup(string prefix) =>
         File.WriteAllText(cli.Layout.PrefixSetupFile(prefix),
             "{\"version\":2,\"configVersion\":\"\",\"revision\":1,\"software\":null,\"runner\":null,"
-            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{},\"desktop\":false}");
+            + "\"dxvk\":false,\"sync\":\"system\",\"winetricks\":[],\"env\":{},\"registry\":" + SavedBaseline + ",\"desktop\":false}");
 }

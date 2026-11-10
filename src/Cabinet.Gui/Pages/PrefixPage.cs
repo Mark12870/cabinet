@@ -481,11 +481,12 @@ internal sealed class PrefixPage
 
     private void ChooseInstaller() =>
         Ui.ChooseFile(window, "Choose a Windows installer", path =>
-            operations.Run(
+            operations.RunCancellableOnceStuck(
                 $"Installing into {Name}",
-                output =>
+                Operation.StuckInstall,
+                (output, _, token) =>
                 {
-                    var result = new Prefixes(layout, runner).Install(Name, path, output);
+                    var result = new Prefixes(layout, runner).Install(Name, path, output, token);
                     Operation.Ensure(result, Path.GetFileName(path));
                 },
                 changed));

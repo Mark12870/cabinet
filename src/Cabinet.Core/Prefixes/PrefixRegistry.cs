@@ -37,16 +37,38 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
             return result.Ok ? QueryValue(result.Stdout, name) : null;
         }
 
-        var path = layout.PrefixUserReg(prefix);
+        return SavedIn(layout.PrefixUserReg(prefix), key, name);
+    }
 
-        if (!File.Exists(path))
+    internal string? Saved(string prefix, string path)
+    {
+        var file = path.StartsWith(@"HKLM\", StringComparison.Ordinal)
+            ? layout.PrefixSystemReg(prefix)
+            : layout.PrefixUserReg(prefix);
+        var leaf = path.LastIndexOf('\\');
+        var key = path[@"HKLM\".Length..leaf];
+
+        return SavedIn(file, Stored(key), path[(leaf + 1)..]);
+    }
+
+    private static string Stored(string key) =>
+        key.StartsWith(CurrentControlSet, StringComparison.OrdinalIgnoreCase)
+            ? SavedControlSet + key[CurrentControlSet.Length..]
+            : key;
+
+    private const string CurrentControlSet = @"System\CurrentControlSet\";
+    private const string SavedControlSet = @"System\ControlSet001\";
+
+    private static string? SavedIn(string file, string key, string name)
+    {
+        if (!File.Exists(file))
         {
             return null;
         }
 
         string? section = null;
 
-        foreach (var line in File.ReadLines(path))
+        foreach (var line in File.ReadLines(file))
         {
             if (line.StartsWith('['))
             {
@@ -71,14 +93,20 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
         !data.StartsWith(Dword, StringComparison.Ordinal)
         || uint.TryParse(data[Dword.Length..], NumberStyles.None, CultureInfo.InvariantCulture, out _);
 
-    public void Set(string prefix, string path, string data)
+    public void Set(string prefix, string path, string data) =>
+        EnsureSet(Change(prefix, Adding(path, data)), prefix, path);
+
+    internal static IReadOnlyList<string> Adding(string path, string data)
     {
         var typed = data.StartsWith(Dword, StringComparison.Ordinal)
             ? (IReadOnlyList<string>)["/t", "REG_DWORD", "/d", data[Dword.Length..]]
             : ["/d", data];
 
-        var result = Change(prefix, ["add", .. Located(path), .. typed, "/f"]);
+        return ["add", .. Located(path), .. typed, "/f"];
+    }
 
+    internal static void EnsureSet(ProcessResult result, string prefix, string path)
+    {
         if (!result.Ok)
         {
             throw new InvalidOperationException(
@@ -274,13 +302,22 @@ public sealed class PrefixRegistry(Layout layout, IProcessRunner? runner = null)
     {
         if (Quoted(line, 0) is not { } name
             || name.After >= line.Length
-            || line[name.After] != '='
-            || Quoted(line, Untyped(line, name.After + 1)) is not { } text)
+            || line[name.After] != '=')
         {
             return null;
         }
 
-        return (name.Text, text.Text);
+        var data = name.After + 1;
+
+        if (line.AsSpan(data).StartsWith(Dword)
+            && uint.TryParse(
+                line.AsSpan(data + Dword.Length), NumberStyles.HexNumber, CultureInfo.InvariantCulture,
+                out var number))
+        {
+            return (name.Text, "0x" + number.ToString("x", CultureInfo.InvariantCulture));
+        }
+
+        return Quoted(line, Untyped(line, data)) is { } text ? (name.Text, text.Text) : null;
     }
 
     private static int Untyped(string line, int at)

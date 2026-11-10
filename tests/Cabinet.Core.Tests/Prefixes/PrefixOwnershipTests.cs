@@ -91,7 +91,7 @@ public sealed class PrefixOwnershipTests : IDisposable
         using var plugin = SessionFiles.HeldByAPlugin(Busy);
 
         Assert.Throws<PrefixInUseException>(
-            () => new Prefixes(Layout, runner).Install("gadget", installer));
+            () => new Prefixes(Layout, runner).Install("gadget", installer, cancellationToken: TestContext.Current.CancellationToken));
         Assert.Empty(runner.Ran);
     }
 

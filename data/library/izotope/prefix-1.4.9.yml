@@ -1,8 +1,7 @@
-Revision: 4
+Revision: 5
 Runner: d2d1-dcomp-11.0-887-p4
 WebView2: true
 Sync: fsync
 Winetricks: corefonts
 Registry:
   HKCU\Software\iZotope\EnableAnalytics=dword:0
-  HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\yabridge-host.exe=--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu

@@ -271,10 +271,11 @@ internal sealed partial class LibraryPage
             return;
         }
 
-        operations.Run(
+        operations.RunCancellableOnceStuck(
             $"Installing {entry.Name}",
-            (output, progress) =>
-                new Library(layout, runner).Install(entry, prefix, installer, output, progress),
+            Operation.StuckInstall,
+            (output, progress, token) =>
+                new Library(layout, runner).Install(entry, prefix, installer, output, progress, token),
             changed);
     }
 }

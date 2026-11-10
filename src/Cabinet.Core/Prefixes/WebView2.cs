@@ -14,6 +14,18 @@ public sealed class WebView2(Layout layout, IProcessRunner runner)
 
     public const string LowestWindows = "win10";
 
+    public const string BrowserFlags =
+        "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu";
+
+    public const string BrowserFlagsKey = @"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments";
+
+    public static readonly IReadOnlyDictionary<string, string> Baseline =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [$@"{BrowserFlagsKey}\yabridge-host.exe"] = BrowserFlags,
+            [@"HKLM\System\CurrentControlSet\Services\edgeupdate\Start"] = "dword:4",
+        };
+
     public string? InstalledIn(string prefix)
     {
         var runtime = layout.PrefixWebView2Dir(prefix);

@@ -145,6 +145,7 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
         }
 
         ContainProfile(name);
+        HoldWebView2Baseline(name);
 
         foreach (var directory in layout.PrefixPluginDirs(name))
         {
@@ -152,6 +153,16 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
         }
 
         return Describe(name);
+    }
+
+    private void HoldWebView2Baseline(string name)
+    {
+        var saved = new PrefixRegistry(layout);
+
+        foreach (var (path, data) in WebView2.Baseline.Where(pair => saved.Saved(name, pair.Key) is null))
+        {
+            PrefixRegistry.EnsureSet(RunRegistry(name, ["reg", .. PrefixRegistry.Adding(path, data)]), name, path);
+        }
     }
 
     public void ContainProfile(string name)
@@ -225,7 +236,8 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
     public void Bridge(Action<string>? onOutput = null) =>
         new Yabridgectl(layout, runner).Bridge(List(), onOutput);
 
-    public ProcessResult Install(string name, string installer, Action<string>? onOutput = null)
+    public ProcessResult Install(
+        string name, string installer, Action<string>? onOutput = null, CancellationToken cancellationToken = default)
     {
         var full = Path.GetFullPath(installer);
         if (!File.Exists(full))
@@ -234,7 +246,7 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
         }
 
         Prepare(name, null, onOutput);
-        var result = RunInstaller(name, installer, onOutput);
+        var result = RunInstaller(name, installer, onOutput, cancellationToken);
         Bridge(onOutput);
 
         return result;
@@ -243,11 +255,12 @@ public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
     internal ProcessResult Update(string name, Action<string>? onOutput) =>
         RunMaintenance(name, "wineboot", UpdateWithoutStartupPrograms, onOutput, Unattended);
 
-    internal ProcessResult RunInstaller(string name, string installer, Action<string>? onOutput)
+    internal ProcessResult RunInstaller(
+        string name, string installer, Action<string>? onOutput, CancellationToken cancellationToken = default)
     {
         using var claim = Claim(name, $"run an installer in {name}");
 
-        return Wine(name, "wine", [Path.GetFullPath(installer)], onOutput);
+        return Wine(name, "wine", [Path.GetFullPath(installer)], onOutput, cancellationToken: cancellationToken);
     }
 
     public void SetSync(string name, SyncMode mode, Action<string>? onOutput = null)

@@ -37,7 +37,7 @@ public partial class LibraryTests
         File.WriteAllText(installer, "");
 
         var library = new Library(layout, recorder);
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Single(
             recorder.Calls,
@@ -62,7 +62,7 @@ public partial class LibraryTests
 
         var library = new Library(layout, recorder);
         var refused = Assert.Throws<PrefixInUseException>(
-            () => library.Install(library.Find("thing"), installer: installer));
+            () => library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("install Thing into thing", refused.Message);
         Assert.Empty(recorder.Ran);
@@ -74,7 +74,7 @@ public partial class LibraryTests
         Catalogue(("gadget", "Name: Gadget\nKind: windows\nSource: byo\n"));
 
         var refused = Assert.Throws<InvalidOperationException>(
-            () => Subject().Install(Subject().Find("gadget")));
+            () => Subject().Install(Subject().Find("gadget"), cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "Gadget cannot be downloaded, so it needs the file you have", refused.Message);
@@ -91,7 +91,7 @@ public partial class LibraryTests
             """));
 
         var refused = Assert.Throws<InvalidOperationException>(
-            () => Subject().Install(Subject().Find("vital")));
+            () => Subject().Install(Subject().Find("vital"), cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "Vital cannot be downloaded, so it needs the file you have from "
@@ -105,7 +105,7 @@ public partial class LibraryTests
         Catalogue(("vital", "Name: Vital\nKind: native\nSource: byo\n"));
 
         Assert.Throws<FileNotFoundException>(() => Subject()
-            .Install(Subject().Find("vital"), installer: Path.Combine(root, "gone.zip")));
+            .Install(Subject().Find("vital"), installer: Path.Combine(root, "gone.zip"), cancellationToken: TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public partial class LibraryTests
         var library = new Library(layout, real);
         var said = new List<string>();
 
-        library.Install(library.Find("vital"), installer: archive, onOutput: said.Add);
+        library.Install(library.Find("vital"), installer: archive, onOutput: said.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Vital.vst3")));
         Assert.True(File.Exists(archive));
@@ -163,7 +163,7 @@ public partial class LibraryTests
         var library = new Library(layout, real);
         var said = new List<string>();
 
-        library.Install(library.Find("thing"), onOutput: said.Add);
+        library.Install(library.Find("thing"), onOutput: said.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
         Assert.Contains(said, line => line.StartsWith("Checking sha256", StringComparison.Ordinal));
@@ -197,7 +197,7 @@ public partial class LibraryTests
         var library = new Library(layout, real);
         var said = new List<string>();
 
-        library.Install(library.Find("vital"), installer: archive, onOutput: said.Add);
+        library.Install(library.Find("vital"), installer: archive, onOutput: said.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         var loose = File.ReadAllBytes(Path.Combine(layout.NativePath("vital"), "Vital.so"));
         var inside = File.ReadAllBytes(Path.Combine(
@@ -227,9 +227,53 @@ public partial class LibraryTests
             """));
 
         var refused = Assert.Throws<ArgumentException>(
-            () => Subject().Install(Subject().Find("dexed"), "somewhere"));
+            () => Subject().Install(Subject().Find("dexed"), "somewhere", cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("needs no prefix", refused.Message);
+    }
+
+    [Fact]
+    public void AnInstallerInAPrefixThatPinsItsWindowsVersionSeesWhatAFreshPrefixShowsIt()
+    {
+        Catalogue(("player", "Name: Player\nKind: windows\nSource: byo\nRegistry: HKCU\\Software\\Wine\\Version=win7\n"));
+        Directory.CreateDirectory(Path.Combine(Layout().PrefixPath("player"), "dosdevices"));
+        var installer = Path.Combine(root, "Player.exe");
+        File.WriteAllText(installer, "");
+        var recording = new RecordingRunner();
+        var library = new Library(Layout(), recording);
+
+        library.Install(library.Find("player"), null, installer, cancellationToken: TestContext.Current.CancellationToken);
+
+        var ran = recording.Ran.Select(call => string.Join(' ', call.Arguments)).ToList();
+        int[] order =
+        [
+            ran.FindIndex(line => line.Contains(@"reg delete HKCU\Software\Wine /v Version /f")),
+            ran.FindIndex(line => line.Contains(installer)),
+            ran.FindIndex(line => line.Contains(@"reg add HKCU\Software\Wine /v Version /d win7 /f")),
+        ];
+
+        Assert.DoesNotContain(-1, order);
+        Assert.Equal(order.Order(), order);
+    }
+
+    [Fact]
+    public void AFailedInstallGivesThePrefixBackTheWindowsVersionItPins()
+    {
+        Catalogue(("player", "Name: Player\nKind: windows\nSource: byo\nRegistry: HKCU\\Software\\Wine\\Version=win7\n"));
+        Directory.CreateDirectory(Path.Combine(Layout().PrefixPath("player"), "dosdevices"));
+        var installer = Path.Combine(root, "Player.exe");
+        File.WriteAllText(installer, "");
+        var recording = new RecordingRunner(exits: arguments => Convert.ToInt32(arguments.Contains(installer)));
+        var library = new Library(Layout(), recording);
+
+        Assert.Throws<InvalidOperationException>(() =>
+            library.Install(library.Find("player"), null, installer, cancellationToken: TestContext.Current.CancellationToken));
+
+        var ran = recording.Ran.Select(call => string.Join(' ', call.Arguments)).ToList();
+        Assert.True(
+            ran.FindIndex(line => line.Contains(@"reg add HKCU\Software\Wine /v Version /d win7 /f"))
+            > ran.FindIndex(line => line.Contains(installer)));
+        Assert.Contains(ran, line => line.Contains(installer));
     }
 
     [Fact]
@@ -243,17 +287,21 @@ public partial class LibraryTests
         var recording = new RecordingRunner();
         var library = new Library(Layout(), recording);
 
-        library.Install(library.Find("dexed"), null, installer);
+        library.Install(library.Find("dexed"), null, installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(
-            ["wineboot", "reg", Path.GetFileName(installer)],
+            ["wineboot", "reg", "reg", "reg", Path.GetFileName(installer)],
             recording.Ran
                 .TakeWhile(call => Path.GetFileName(call.File) != "yabridgectl")
                 .Select(call => Path.GetFileName(call.Arguments[0])));
         Assert.Equal(
             ["reg", "add", @"HKCU\Software\Wine\WineDbg", "/v", "ShowCrashDialog", "/t", "REG_DWORD", "/d", "0", "/f"],
             recording.Ran[1].Arguments);
-        Assert.Equal([installer], recording.Ran[2].Arguments);
+        Assert.Equal(
+            WebView2.Baseline.Keys.Order(StringComparer.Ordinal),
+            recording.Ran.Skip(2).Take(2).Select(call => $@"{call.Arguments[2]}\{call.Arguments[4]}")
+                .Order(StringComparer.Ordinal));
+        Assert.Equal([installer], recording.Ran[4].Arguments);
         Assert.Contains(recording.Ran, Synced);
         Assert.Equal("dexed", library.Installed()["dexed"]);
     }
@@ -289,8 +337,8 @@ public partial class LibraryTests
         var library = new Library(layout, recording);
         var entry = library.Find("thing");
 
-        library.Install(entry, "demo");
-        library.Install(entry, installer: own);
+        library.Install(entry, "demo", cancellationToken: TestContext.Current.CancellationToken);
+        library.Install(entry, installer: own, cancellationToken: TestContext.Current.CancellationToken);
 
         var scripts = recording.Calls.Where(call => call.File == "sh").ToList();
 
@@ -316,7 +364,7 @@ public partial class LibraryTests
         var recorder = new RecordingRunner(IlokDownload.Serving, outputs: IlokDownload.Answering());
         var library = new Library(layout, recorder);
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Single(recorder.Ran, call => call.Arguments is ["msiexec", "/i", _, "/qn", "NODRIVER=1"]);
         Assert.Equal(IlokDownload.Version, new Ilok(layout, recorder).InstalledIn("thing"));
@@ -334,7 +382,7 @@ public partial class LibraryTests
         var recorder = new RecordingRunner();
         var library = new Library(layout, recorder);
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(recorder.Ran, call => call.Arguments is ["msiexec", ..]);
     }
@@ -350,7 +398,7 @@ public partial class LibraryTests
         var recorder = new RecordingRunner(WebView2Download.Serving(layout, "thing"));
         var library = new Library(layout, recorder);
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Single(recorder.Ran, call => call.Arguments is [.., "/silent", "/install"]);
         Assert.Equal(WebView2Download.Version, new WebView2(layout, recorder).InstalledIn("thing"));
@@ -368,7 +416,7 @@ public partial class LibraryTests
         var recorder = new RecordingRunner();
         var library = new Library(layout, recorder);
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(recorder.Calls, call => call.Arguments is [.., WebView2.Url]);
     }
@@ -384,7 +432,7 @@ public partial class LibraryTests
         File.WriteAllText(layout.PrefixPluginsFile("elsewhere"), "thing\n");
         var library = new Library(layout, new RecordingRunner());
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.False(Directory.Exists(layout.PrefixPath("thing")));
         Assert.Equal("elsewhere", library.Installed()["thing"]);
@@ -403,7 +451,7 @@ public partial class LibraryTests
         var library = new Library(layout, recording);
 
         var refused = Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing"), "second", installer));
+            () => library.Install(library.Find("thing"), "second", installer, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(
             "Thing is installed in first already — install it again there, or remove it first",
@@ -426,7 +474,7 @@ public partial class LibraryTests
         using var first = Underway.Begin(layout.InstallLockPath("thing"));
 
         var refused = Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing"), "second", installer));
+            () => library.Install(library.Find("thing"), "second", installer, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal("Cabinet is installing Thing right now — wait for that to finish", refused.Message);
         Assert.Equal("first install\n", File.ReadAllText(layout.InstallLogPath("thing")));
@@ -443,7 +491,7 @@ public partial class LibraryTests
         var library = new Library(Layout(), recording);
 
         var thrown = Assert.Throws<FileNotFoundException>(() =>
-            library.Install(library.Find("thing"), installer: missing));
+            library.Install(library.Find("thing"), installer: missing, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(missing, thrown.FileName);
         Assert.DoesNotContain(recording.Calls, call => call.Arguments.Contains("wineboot"));
@@ -465,7 +513,7 @@ public partial class LibraryTests
         var library = new Library(layout, recording);
         var said = new List<string>();
 
-        library.Install(library.Find("dexed"), null, installer, said.Add);
+        library.Install(library.Find("dexed"), null, installer, said.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Contains(recording.Calls, Synced);
         Assert.DoesNotContain(recording.Calls, call => call.File == "curl");
@@ -486,7 +534,7 @@ public partial class LibraryTests
 
         var recording = new RecordingRunner();
         new Library(layout, recording).Install(
-            new Library(layout, recording).Find("thing"), installer: installer);
+            new Library(layout, recording).Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.DoesNotContain(recording.Calls, call => call.File == "curl");
         Assert.Contains(recording.Calls, call => call.Arguments.FirstOrDefault() == "wineboot");
@@ -518,7 +566,7 @@ public partial class LibraryTests
 
         var layout = Layout();
         var library = new Library(layout, real);
-        library.Install(library.Find("thing"));
+        library.Install(library.Find("thing"), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".lv2"), "Thing.lv2")));
         Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
@@ -550,7 +598,7 @@ public partial class LibraryTests
         var library = new Library(layout, new ProcessRunner());
         var said = new List<string>();
 
-        library.Install(library.Find("thing"), onOutput: said.Add);
+        library.Install(library.Find("thing"), onOutput: said.Add, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.True(Path.Exists(Path.Combine(layout.NativeScanDir(".vst3"), "Thing.vst3")));
         Assert.Contains(said, line => line.Contains("nothing here can verify what arrives"));
@@ -573,7 +621,7 @@ public partial class LibraryTests
 
         Assert.Contains(
             "failed its checksum",
-            Assert.Throws<InvalidOperationException>(() => library.Install(library.Find("thing")))
+            Assert.Throws<InvalidOperationException>(() => library.Install(library.Find("thing"), cancellationToken: TestContext.Current.CancellationToken))
                 .Message);
     }
 
@@ -589,13 +637,13 @@ public partial class LibraryTests
             exits: args => fails && args.SequenceEqual([installer]) ? 1 : 0));
 
         Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing"), installer: installer));
+            () => library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Empty(library.Installed());
         Assert.Equal([("thing", "thing")], library.Unfinished());
 
         fails = false;
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(SyncMode.Fsync, new PrefixSettings(layout).Sync("thing"));
         Assert.Equal("thing", library.Installed()["thing"]);
@@ -630,12 +678,12 @@ public partial class LibraryTests
         Assert.Contains(
             "yabridgectl exited with 1",
             Assert.Throws<InvalidOperationException>(
-                () => library.Install(library.Find("gadget"), installer: installer)).Message);
+                () => library.Install(library.Find("gadget"), installer: installer, cancellationToken: TestContext.Current.CancellationToken)).Message);
         Assert.Equal("gadget", library.Installed()["gadget"]);
         Assert.Equal([("gadget", "gadget")], library.Unfinished());
 
         bridges = true;
-        library.Install(library.Find("gadget"), installer: installer);
+        library.Install(library.Find("gadget"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal($"gadget\t{key}\n", File.ReadAllText(layout.PrefixPluginsFile("gadget")));
         Assert.Empty(library.Unfinished());
@@ -652,10 +700,10 @@ public partial class LibraryTests
             exits: args => args.SequenceEqual([installer]) ? 1 : 0));
 
         Assert.Throws<InvalidOperationException>(
-            () => failing.Install(failing.Find("thing"), "first", installer));
+            () => failing.Install(failing.Find("thing"), "first", installer, cancellationToken: TestContext.Current.CancellationToken));
 
         var library = new Library(layout, new RecordingRunner());
-        library.Install(library.Find("thing"), "second", installer);
+        library.Install(library.Find("thing"), "second", installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("second", library.Installed()["thing"]);
         Assert.Empty(library.Unfinished());
@@ -672,10 +720,10 @@ public partial class LibraryTests
             exits: args => args.SequenceEqual([installer]) ? 1 : 0));
 
         Assert.Throws<InvalidOperationException>(
-            () => failing.Install(failing.Find("thing"), "chosen", installer));
+            () => failing.Install(failing.Find("thing"), "chosen", installer, cancellationToken: TestContext.Current.CancellationToken));
 
         var library = new Library(layout, new RecordingRunner());
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("chosen", library.Installed()["thing"]);
         Assert.False(Directory.Exists(layout.PrefixPath("thing")));
@@ -695,7 +743,7 @@ public partial class LibraryTests
         var library = new Library(layout, new ProcessRunner());
 
         var refused = Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing"), installer: archive));
+            () => library.Install(library.Find("thing"), installer: archive, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("is not one of Cabinet's plugins", refused.Message);
         Assert.Equal(theirs, new FileInfo(link).LinkTarget);
@@ -717,7 +765,7 @@ public partial class LibraryTests
         var library = new Library(layout, new ProcessRunner());
 
         Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing"), installer: archive));
+            () => library.Install(library.Find("thing"), installer: archive, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(other, new FileInfo(link).LinkTarget);
     }
@@ -730,7 +778,7 @@ public partial class LibraryTests
         var layout = Layout();
         var library = new Library(layout, new ProcessRunner());
 
-        library.Install(library.Find("sampler"), installer: archive);
+        library.Install(library.Find("sampler"), installer: archive, cancellationToken: TestContext.Current.CancellationToken);
 
         var folder = Path.Combine(layout.NativePath("sampler"), "Sampler-Linux");
         var vst3 = Path.Combine(layout.NativeScanDir(".vst3"), "Sampler.vst3");
@@ -758,7 +806,7 @@ public partial class LibraryTests
         var layout = Layout();
         var library = new Library(layout, new ProcessRunner());
 
-        library.Install(library.Find("synth"), installer: archive);
+        library.Install(library.Find("synth"), installer: archive, cancellationToken: TestContext.Current.CancellationToken);
 
         var clap = Path.Combine(layout.NativeScanDir(".clap"), "Synth.clap");
         Assert.Equal("module", File.ReadAllText(clap));
@@ -778,7 +826,7 @@ public partial class LibraryTests
         var library = new Library(layout, new ProcessRunner());
 
         Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing"), installer: archive));
+            () => library.Install(library.Find("thing"), installer: archive, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal([Path.Combine(scan, "B.vst3")], Directory.EnumerateFileSystemEntries(scan));
         Assert.Empty(library.Installed());
@@ -804,7 +852,7 @@ public partial class LibraryTests
         Assert.Empty(library.Installed());
         Assert.Equal([("thing", (string?)null)], library.Unfinished());
 
-        library.Install(library.Find("thing"), installer: archive);
+        library.Install(library.Find("thing"), installer: archive, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(library.Installed()["thing"]);
         Assert.Empty(library.Unfinished());
@@ -838,7 +886,7 @@ public partial class LibraryTests
 
         var layout = Layout();
         var library = new Library(layout, new ProcessRunner());
-        library.Install(library.Find("thing"));
+        library.Install(library.Find("thing"), cancellationToken: TestContext.Current.CancellationToken);
 
         var data = Path.Combine(root, ".thing", "Thing");
 
@@ -873,7 +921,7 @@ public partial class LibraryTests
         var library = new Library(layout, new ProcessRunner());
 
         var thrown = Assert.Throws<InvalidOperationException>(
-            () => library.Install(library.Find("thing")));
+            () => library.Install(library.Find("thing"), cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("fixture.sh exited with 3", thrown.Message);
         Assert.False(Directory.Exists(layout.NativePath("thing")));
@@ -898,7 +946,7 @@ public partial class LibraryTests
 
         Assert.Contains(
             "absent.sh",
-            Assert.Throws<FileNotFoundException>(() => library.Install(library.Find("thing")))
+            Assert.Throws<FileNotFoundException>(() => library.Install(library.Find("thing"), cancellationToken: TestContext.Current.CancellationToken))
                 .Message);
     }
 
@@ -922,7 +970,7 @@ public partial class LibraryTests
 
         var library = new Library(Layout(), new UnusedRunner());
 
-        Assert.Throws<InvalidOperationException>(() => library.Install(library.Find("thing")));
+        Assert.Throws<InvalidOperationException>(() => library.Install(library.Find("thing"), cancellationToken: TestContext.Current.CancellationToken));
         Assert.True(File.Exists(Path.Combine(data, "mine.txt")));
     }
 
@@ -946,7 +994,7 @@ public partial class LibraryTests
 
         var library = new Library(layout, recording);
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         var script = Assert.Single(recording.Calls, call => call.File == "sh");
 
@@ -981,7 +1029,7 @@ public partial class LibraryTests
             _ => Directory.CreateDirectory(Path.Combine(layout.PrefixPath("thing"), "dosdevices")));
 
         new Library(layout, recording).Install(
-            new Library(layout, recording).Find("thing"), installer: installer);
+            new Library(layout, recording).Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         var winetricks = Assert.Single(
             recording.Calls, call => call.File == Cabinet.Core.Layout.Winetricks);
@@ -1013,7 +1061,7 @@ public partial class LibraryTests
 
         var library = new Library(layout, recording);
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         var script = Assert.Single(recording.Calls, call => call.File == "sh");
 
@@ -1043,7 +1091,7 @@ public partial class LibraryTests
 
         var library = new Library(layout, new RecordingRunner());
 
-        library.Install(library.Find("thing"), installer: installer);
+        library.Install(library.Find("thing"), installer: installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("custom", new PrefixSettings(layout).Variables("thing")["TEST_SETTING"]);
         Assert.Equal("added", new PrefixSettings(layout).Variables("thing")["OTHER_SETTING"]);

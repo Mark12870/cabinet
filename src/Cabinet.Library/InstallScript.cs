@@ -12,7 +12,8 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
         string work,
         string where,
         IReadOnlyDictionary<string, string> variables,
-        Action<string>? onOutput)
+        Action<string>? onOutput,
+        CancellationToken cancellationToken = default)
     {
         var environment = new Dictionary<string, string>(StringComparer.Ordinal)
         {
@@ -28,7 +29,7 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
         }
 
         Directory.CreateDirectory(work);
-        Execute(entry, entry.Script!, environment, where, onOutput);
+        Execute(entry, entry.Script!, environment, where, onOutput, cancellationToken: cancellationToken);
     }
 
     public void Recover(
@@ -59,7 +60,8 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
         IReadOnlyDictionary<string, string> environment,
         string where,
         Action<string>? onOutput,
-        bool announce = true)
+        bool announce = true,
+        CancellationToken cancellationToken = default)
     {
         var script = layout.LibraryScript(entry.Vendor, name);
 
@@ -76,7 +78,8 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
         }
 
         var result = Detached(
-            entry.Id, script, new Dictionary<string, string>(environment) { [Claimed] = where }, where, onOutput);
+            entry.Id, script, new Dictionary<string, string>(environment) { [Claimed] = where }, where, onOutput,
+            cancellationToken);
 
         if (!result.Ok)
         {
@@ -91,7 +94,8 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
         string script,
         IReadOnlyDictionary<string, string> environment,
         string where,
-        Action<string>? onOutput)
+        Action<string>? onOutput,
+        CancellationToken cancellationToken)
     {
         using var staging = Staging.Create(layout.TempDir, "script");
         var log = Path.Combine(staging.Path, id + ".log");
@@ -109,7 +113,8 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
 
         try
         {
-            return runner.Run("sh", ["-e", script], environment, null, where, log);
+            return runner.Run(
+                "sh", ["-e", script], environment, null, where, log, cancellationToken: cancellationToken);
         }
         finally
         {

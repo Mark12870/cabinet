@@ -20,7 +20,8 @@ public sealed partial class Library
         string? prefix = null,
         string? installer = null,
         Action<string>? onOutput = null,
-        Action<double>? onProgress = null)
+        Action<double>? onProgress = null,
+        CancellationToken cancellationToken = default)
     {
         using var installing = Underway.Begin(layout.InstallLockPath(entry.Id))
                                ?? throw new InvalidOperationException(
@@ -60,7 +61,7 @@ public sealed partial class Library
                     + "directly", nameof(prefix));
             }
 
-            InstallNative(entry, installer, Say, onProgress);
+            InstallNative(entry, installer, Say, onProgress, cancellationToken);
             return;
         }
 
@@ -71,7 +72,7 @@ public sealed partial class Library
                 + $"{entry.Name} — install {entry.Name} into a prefix of its own");
         }
 
-        InstallWindows(entry, where, installer, Say, onProgress);
+        InstallWindows(entry, where, installer, Say, onProgress, cancellationToken);
     }
 
     public string DefaultPrefix(LibraryEntry entry)
@@ -116,7 +117,8 @@ public sealed partial class Library
         string prefix,
         string? installer,
         Action<string>? onOutput,
-        Action<double>? onProgress)
+        Action<double>? onProgress,
+        CancellationToken cancellationToken)
     {
         if (entry.Source == PluginSource.Byo && installer is null && entry.DemoUrl is null)
         {
@@ -153,6 +155,7 @@ public sealed partial class Library
                 ? EnsureRunner(spec, onOutput, onProgress)
                 : null,
             onOutput);
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (entry.Env.Count > 0)
         {
@@ -182,43 +185,70 @@ public sealed partial class Library
             }
         }
 
-        using (var staging = Staging.Create(layout.TempDir, "library"))
+        var pinned = created
+            ? null
+            : entry.Registry
+                .FirstOrDefault(pair => pair.Key.Equals(WebView2.WindowsVersion, StringComparison.OrdinalIgnoreCase))
+                .Value;
+        var versions = new PrefixRegistry(layout, runner);
+
+        if (pinned is not null)
         {
-            var chosen = installer ?? Fetch(entry, staging.Path, onOutput, onProgress);
-            var before = Registered(prefix);
+            versions.Remove(prefix, WebView2.WindowsVersion);
+        }
 
-            if (entry.Script is null)
+        try
+        {
+            using (var staging = Staging.Create(layout.TempDir, "library"))
             {
-                var result = prefixes.RunInstaller(prefix, chosen, onOutput);
+                var chosen = installer ?? Fetch(entry, staging.Path, onOutput, onProgress, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                var before = Registered(prefix);
 
-                if (!result.Ok)
+                if (entry.Script is null)
                 {
-                    throw new InvalidOperationException(
-                        $"the {entry.Name} installer exited with {result.ExitCode}");
+                    var result = prefixes.RunInstaller(prefix, chosen, onOutput, cancellationToken);
+
+                    if (!result.Ok)
+                    {
+                        throw new InvalidOperationException(
+                            $"the {entry.Name} installer exited with {result.ExitCode}");
+                    }
                 }
+                else
+                {
+                    prefixes.StartingWineElsewhere(prefix);
+                    new InstallScript(layout, runner).Run(
+                        entry,
+                        chosen,
+                        staging.Path,
+                        layout.PrefixPath(prefix),
+                        prefixes.Variables(prefix),
+                        onOutput,
+                        cancellationToken);
+
+                    Settle(prefixes, prefix);
+                }
+
+                var appeared = Registered(prefix).Except(before, StringComparer.Ordinal).ToList();
+
+                pending = pending with
+                {
+                    Keys = appeared.Count > 0 ? appeared
+                        : pending.Keys.Count > 0 ? pending.Keys
+                        : [.. RecordedKeys(prefix, entry.Id)],
+                };
+                underway.Note(pending.ToString());
             }
-            else
+        }
+        catch
+        {
+            if (pinned is not null)
             {
-                new InstallScript(layout, runner).Run(
-                    entry,
-                    chosen,
-                    staging.Path,
-                    layout.PrefixPath(prefix),
-                    prefixes.Variables(prefix),
-                    onOutput);
-
-                Settle(prefixes, prefix);
+                versions.Set(prefix, WebView2.WindowsVersion, pinned);
             }
 
-            var appeared = Registered(prefix).Except(before, StringComparer.Ordinal).ToList();
-
-            pending = pending with
-            {
-                Keys = appeared.Count > 0 ? appeared
-                    : pending.Keys.Count > 0 ? pending.Keys
-                    : [.. RecordedKeys(prefix, entry.Id)],
-            };
-            underway.Note(pending.ToString());
+            throw;
         }
 
         if (entry.Registry.Count > 0)
@@ -290,7 +320,8 @@ public sealed partial class Library
         LibraryEntry entry,
         string? supplied,
         Action<string>? onOutput,
-        Action<double>? onProgress)
+        Action<double>? onProgress,
+        CancellationToken cancellationToken)
     {
         if (entry.Source == PluginSource.Byo && supplied is null && entry.DemoUrl is null)
         {
@@ -338,7 +369,7 @@ public sealed partial class Library
             }
 
             using var staging = Staging.Create(layout.TempDir, "library");
-            var archive = supplied ?? Fetch(entry, staging.Path, onOutput, onProgress);
+            var archive = supplied ?? Fetch(entry, staging.Path, onOutput, onProgress, cancellationToken);
             Directory.CreateDirectory(root);
 
             if (data is not null)
@@ -349,7 +380,7 @@ public sealed partial class Library
                 onOutput?.Invoke($"Its presets and resources go in {data}.");
             }
 
-            Lay(entry, archive, root, data, staging.Path, onOutput);
+            Lay(entry, archive, root, data, staging.Path, onOutput, cancellationToken);
             Relink(entry, root, onOutput);
             Publish(entry, root, placed, onOutput);
         }
@@ -416,7 +447,8 @@ public sealed partial class Library
         LibraryEntry entry,
         string staging,
         Action<string>? onOutput,
-        Action<double>? onProgress)
+        Action<double>? onProgress,
+        CancellationToken cancellationToken)
     {
         var url = entry.DemoUrl ?? entry.Url!;
         var checksum = entry.DemoSha256 ?? entry.Sha256;
@@ -426,12 +458,12 @@ public sealed partial class Library
         {
             var cookies = Path.Combine(staging, "cookies.txt");
             http.ToFile(
-                ModarttTrial.Resolve(http, url, cookies), target, onOutput, onProgress,
-                cookies: cookies);
+                ModarttTrial.Resolve(http, url, cookies), target, onOutput, onProgress, cancellationToken,
+                cookies);
         }
         else
         {
-            http.ToFile(url, target, onOutput, onProgress);
+            http.ToFile(url, target, onOutput, onProgress, cancellationToken);
         }
 
         if (checksum is { } expected)
@@ -476,7 +508,8 @@ public sealed partial class Library
         string root,
         string? data,
         string staging,
-        Action<string>? onOutput)
+        Action<string>? onOutput,
+        CancellationToken cancellationToken)
     {
         if (entry.Script is null)
         {
@@ -494,7 +527,7 @@ public sealed partial class Library
             variables["CABINET_DATA"] = data;
         }
 
-        new InstallScript(layout, runner).Run(entry, archive, staging, root, variables, onOutput);
+        new InstallScript(layout, runner).Run(entry, archive, staging, root, variables, onOutput, cancellationToken);
     }
 
     private void Unpack(string archive, string root, Action<string>? onOutput)

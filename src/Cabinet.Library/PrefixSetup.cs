@@ -29,7 +29,10 @@ internal sealed record PrefixSetup(
         config.Sync,
         [.. config.Winetricks.Select(verb => verb.ToLowerInvariant()).Order(StringComparer.Ordinal)],
         config.Env,
-        config.Registry,
+        new Dictionary<string, string>(
+            Core.WebView2.Baseline.Concat(config.Registry).GroupBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.Last()),
+            StringComparer.OrdinalIgnoreCase),
         config.Desktop,
         config.WebView2);
 

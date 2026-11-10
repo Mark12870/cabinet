@@ -212,7 +212,8 @@ public sealed partial class Prefixes
         Action<string>? onOutput,
         string? dllOverrides = null,
         string? logTo = null,
-        bool interactive = false)
+        bool interactive = false,
+        CancellationToken cancellationToken = default)
     {
         if (dllOverrides is null && command != "wineserver" && SessionLive(prefix))
         {
@@ -233,8 +234,12 @@ public sealed partial class Prefixes
             onOutput,
             logTo: logTo,
             blankEnvironment: Blanked,
-            interactive: interactive);
+            interactive: interactive,
+            cancellationToken: cancellationToken);
     }
+
+    internal void StartingWineElsewhere(string prefix) =>
+        WineStartedUnderClaim.TryUpdate(layout.PrefixPath(prefix), true, false);
 
     private Dictionary<string, string> WineVariables(
         string prefix, Runner selected, string? dllOverrides)

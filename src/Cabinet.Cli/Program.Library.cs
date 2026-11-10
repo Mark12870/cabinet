@@ -286,7 +286,9 @@ internal static partial class Program
         {
             Console.WriteLine(Wrapped(entry.Consent));
             Console.WriteLine();
-            library.Install(entry, prefix, file, Console.WriteLine);
+            Interrupt.Cancels(
+                $"installing {entry.Name}",
+                token => library.Install(entry, prefix, file, Console.WriteLine, cancellationToken: token));
 
             Console.WriteLine();
             Console.WriteLine(entry.Kind == PluginKind.Native

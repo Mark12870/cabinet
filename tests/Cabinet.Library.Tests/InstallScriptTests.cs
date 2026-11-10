@@ -19,7 +19,7 @@ public sealed class InstallScriptTests : IDisposable
         Assert.Throws<InvalidOperationException>(() =>
             new InstallScript(layout, new ProcessRunner()).Run(
                 entry, Path.Combine(root, "Play Installer.exe"), Path.Combine(root, "work"),
-                root, new Dictionary<string, string>(), said.Add));
+                root, new Dictionary<string, string>(), said.Add, cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains(entry.InstallInstructions!, said);
         Assert.False(Directory.Exists(Path.Combine(root, "work", "unpacked")));
@@ -63,7 +63,7 @@ public sealed class InstallScriptTests : IDisposable
         var started = DateTime.UtcNow;
 
         new InstallScript(layout, new ProcessRunner()).Run(
-            entry, "archive", work, root, new Dictionary<string, string>(), said.Add);
+            entry, "archive", work, root, new Dictionary<string, string>(), said.Add, cancellationToken: TestContext.Current.CancellationToken);
         var took = DateTime.UtcNow - started;
         File.WriteAllText(Path.Combine(work, "release"), "");
 

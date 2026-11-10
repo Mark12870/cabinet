@@ -134,12 +134,67 @@ public sealed class PrefixesTests : IDisposable
             Layout.PrefixUserReg("gadget"),
             "[Software\\\\Wine\\\\Explorer]\n\"Desktop\"=\"Default\"\n"
             + "[Software\\\\Wine\\\\Explorer\\\\Desktops]\n\"Default\"=\"1280x720\"\n");
+        File.WriteAllText(Layout.PrefixSystemReg("gadget"), SavedWebView2Baseline);
 
         var expected = new Prefix(
             "gadget", path, true, Layout.BundledRunner, "2.7.1", null, SyncMode.Fsync, true);
 
         Assert.Equal(expected, Subject.Prepare("gadget", null, null));
         Assert.Equal(expected, Assert.Single(Subject.List()));
+    }
+
+    private const string SavedWebView2Baseline =
+        "[Software\\\\Policies\\\\Microsoft\\\\Edge\\\\WebView2\\\\AdditionalBrowserArguments] 1730000000\n"
+        + $"\"yabridge-host.exe\"=\"{WebView2.BrowserFlags}\"\n"
+        + "[System\\\\ControlSet001\\\\Services\\\\edgeupdate] 1730000000\n"
+        + "\"Start\"=dword:00000004\n";
+
+    [Fact]
+    public void APreparedPrefixGetsTheWebView2SettingsItIsMissing()
+    {
+        Directory.CreateDirectory(Path.Combine(Layout.PrefixPath("gadget"), "dosdevices"));
+        var recorder = new RecordingRunner();
+
+        new Prefixes(Layout, recorder).Prepare("gadget", null, null);
+
+        Assert.Equal(
+            [
+                ["reg", "add", WebView2.BrowserFlagsKey, "/v", "yabridge-host.exe", "/d", WebView2.BrowserFlags, "/f"],
+                ["reg", "add", @"HKLM\System\CurrentControlSet\Services\edgeupdate", "/v", "Start", "/t", "REG_DWORD",
+                    "/d", "4", "/f"],
+            ],
+            recorder.Ran.Select(call => call.Arguments).Where(arguments => arguments[0] == "reg"));
+    }
+
+    [Fact]
+    public void APrefixKeepsItsOwnValuesForTheWebView2Settings()
+    {
+        Directory.CreateDirectory(Path.Combine(Layout.PrefixPath("gadget"), "dosdevices"));
+        File.WriteAllText(
+            Layout.PrefixSystemReg("gadget"),
+            SavedWebView2Baseline.Replace(WebView2.BrowserFlags, "--own-flag").Replace("00000004", "00000002"));
+        var recorder = new RecordingRunner();
+
+        new Prefixes(Layout, recorder).Prepare("gadget", null, null);
+
+        Assert.DoesNotContain(recorder.Ran, call => call.Arguments[0] == "reg");
+    }
+
+    [Fact]
+    public void CancellingAnInstallerEndsTheWineItStartedInThePrefix()
+    {
+        Directory.CreateDirectory(Path.Combine(Layout.PrefixPath("gadget"), "dosdevices"));
+        var installer = Path.Combine(root, "setup.exe");
+        File.WriteAllText(installer, "");
+        using var cancellation = new CancellationTokenSource();
+        var recorder = new RecordingRunner(acts: _ => cancellation.Cancel());
+
+        new Prefixes(Layout, recorder).RunInstaller("gadget", installer, null, cancellation.Token);
+
+        Assert.Equal(
+            [[installer], ["-k"]],
+            recorder.Ran.Take(2).Select(call => call.Arguments));
+        Assert.Equal("wineserver", Path.GetFileName(recorder.Ran[1].File));
     }
 
     [Fact]
@@ -496,7 +551,7 @@ public sealed class PrefixesTests : IDisposable
 
         prefixes.Run("gadget", "winecfg", []);
         prefixes.Run("gadget", "wine", ["cmd", "/c", "exit"]);
-        prefixes.RunInstaller("gadget", installer, null);
+        prefixes.RunInstaller("gadget", installer, null, cancellationToken: TestContext.Current.CancellationToken);
         prefixes.Run("gadget", "wineserver", ["-w"]);
 
         var ran = recorder.Ran.Select(call => call.Arguments).ToList();

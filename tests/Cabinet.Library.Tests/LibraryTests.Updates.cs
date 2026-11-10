@@ -117,7 +117,7 @@ public partial class LibraryTests
         File.WriteAllText(installer, "");
         var library = new Library(layout, new RecordingRunner());
 
-        library.Install(library.Find("thing"), "chosen", installer);
+        library.Install(library.Find("thing"), "chosen", installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("1.0, revision 1", library.PrefixUpdateOf(library.Find("thing"))!.Applied);
         Assert.Single(library.PrefixUpdates());
@@ -340,7 +340,7 @@ public partial class LibraryTests
         var recorder = Winetricked(layout);
         var library = new Library(layout, recorder);
 
-        library.Install(library.Find("thing"), "chosen", installer);
+        library.Install(library.Find("thing"), "chosen", installer, cancellationToken: TestContext.Current.CancellationToken);
 
         var calls = recorder.Ran.Select(call => string.Join(" ", call.Arguments)).ToList();
         var written = calls.IndexOf($@"{Prefixes.JoinMode} reg add HKCU\Software\Thing /v Mode /d on /f");
@@ -997,7 +997,7 @@ public partial class LibraryTests
         var library = new Library(layout, new RecordingRunner(exits: _ => 7));
 
         Assert.Throws<InvalidOperationException>(() => library.Install(
-            library.Find("thing"), installer: Path.Combine(root, SetupInstaller)));
+            library.Find("thing"), installer: Path.Combine(root, SetupInstaller), cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Equal(receipt, File.ReadAllText(layout.PrefixSetupFile("chosen")));
     }
@@ -1280,7 +1280,7 @@ public partial class LibraryTests
             }
         }));
 
-        library.Install(library.Find("thing"), "chosen", installer);
+        library.Install(library.Find("thing"), "chosen", installer, cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal(SyncMode.Fsync, new PrefixSettings(layout).Sync("chosen"));
         Assert.Empty(library.PrefixUpdates());
@@ -1293,7 +1293,7 @@ public partial class LibraryTests
         Write("another-vendor", "stray.yml", "Name: Stray\nKind: windows\nSource: byo\nPrefix: custom\n");
         var library = new Library(layout, new RecordingRunner());
 
-        library.Install(library.Find("stray"), installer: Path.Combine(root, SetupInstaller));
+        library.Install(library.Find("stray"), installer: Path.Combine(root, SetupInstaller), cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Equal("stray", library.Installed()["stray"]);
     }
@@ -1307,7 +1307,7 @@ public partial class LibraryTests
         var library = new Library(layout, recorder);
 
         var refused = Assert.Throws<InvalidOperationException>(() => library.Install(
-            library.Find("thing"), "custom", Path.Combine(root, SetupInstaller)));
+            library.Find("thing"), "custom", Path.Combine(root, SetupInstaller), cancellationToken: TestContext.Current.CancellationToken));
 
         Assert.Contains("custom holds one", refused.Message);
         Assert.Empty(recorder.Ran);

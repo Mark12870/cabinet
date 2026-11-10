@@ -520,7 +520,7 @@ public partial class LibraryTests
         Catalogue(("sampler", "Name: Sampler\nKind: native\nSource: byo\n"));
         var layout = Layout();
         var library = new Library(layout, new ProcessRunner());
-        library.Install(library.Find("sampler"), installer: archive);
+        library.Install(library.Find("sampler"), installer: archive, cancellationToken: TestContext.Current.CancellationToken);
 
         library.Remove(library.RemovalOf(library.Find("sampler")));
 

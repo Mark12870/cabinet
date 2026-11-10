@@ -34,6 +34,18 @@ internal sealed class Operation(
         Action? onFinished = null) =>
         Start(title, work, onFinished, cancellable: true);
 
+    public void RunCancellableOnceStuck(
+        string title,
+        string stuck,
+        Action<Action<string>, Action<double>, CancellationToken> work,
+        Action? onFinished = null) =>
+        Start(title, work, onFinished, cancellable: true, stuck: (StuckAfter, stuck));
+
+    private static readonly TimeSpan StuckAfter = TimeSpan.FromMinutes(1);
+
+    public const string StuckInstall =
+        "This is taking a while. If the installer is stuck, cancel the install.";
+
     public static void Ensure(ProcessResult result, string what)
     {
         if (!result.Ok)
@@ -47,9 +59,10 @@ internal sealed class Operation(
         Action<Action<string>, Action<double>, CancellationToken> work,
         Action? onFinished,
         bool cancellable,
-        bool closeWhenDone = false)
+        bool closeWhenDone = false,
+        (TimeSpan After, string Message)? stuck = null)
     {
-        var dialog = new OperationDialog(title, cancellable);
+        var dialog = new OperationDialog(title, cancellable, stuck);
         hold();
 
         try
@@ -121,8 +134,11 @@ internal sealed class Operation(
         private Lingering? lingering;
         private string? waiting;
 
-        public OperationDialog(string title, bool cancellable)
+        private readonly (TimeSpan After, string Message)? stuck;
+
+        public OperationDialog(string title, bool cancellable, (TimeSpan After, string Message)? stuck)
         {
+            this.stuck = stuck;
             dialog.SetTitle(title);
             dialog.SetContentWidth(640);
             dialog.SetContentHeight(420);
@@ -141,7 +157,7 @@ internal sealed class Operation(
             stop.AddCssClass("destructive-action");
             stop.OnClicked += (_, _) => Ui.Guard(Stop);
 
-            cancel.SetVisible(cancellable);
+            cancel.SetVisible(cancellable && stuck is null);
             cancel.OnClicked += (_, _) => Ui.Guard(Cancel);
 
             close.SetSensitive(false);
@@ -169,6 +185,16 @@ internal sealed class Operation(
         public void Present(Gtk.Widget parent)
         {
             dialog.Present(parent);
+
+            if (stuck is { } slow)
+            {
+                GLib.Functions.TimeoutAdd(0, (uint)slow.After.TotalMilliseconds, () =>
+                {
+                    Ui.Guard(() => OfferCancel(slow.Message));
+                    return false;
+                });
+            }
+
             GLib.Functions.TimeoutAdd(0, (uint)RedrawMilliseconds, () =>
             {
                 if (finished)
@@ -299,8 +325,24 @@ internal sealed class Operation(
             lingering?.Stop();
         }
 
+        private void OfferCancel(string message)
+        {
+            if (finished)
+            {
+                return;
+            }
+
+            Write(message);
+            cancel.SetVisible(true);
+        }
+
         private void Cancel()
         {
+            if (finished)
+            {
+                return;
+            }
+
             cancel.SetSensitive(false);
             status.SetText("Cancelling…");
             cancellation.Cancel();

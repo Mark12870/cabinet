@@ -232,7 +232,9 @@ internal static partial class Program
 
         return line.Then(() => Exited(
             Path.GetFileName(installer),
-            new Prefixes(layout, runner).Install(name, installer, Console.WriteLine)));
+            Interrupt.Cancels(
+                $"installing into {name}",
+                token => new Prefixes(layout, runner).Install(name, installer, Console.WriteLine, token))));
     }
 
     private static Func<int> Msi(CommandLine line, Layout layout, IProcessRunner runner)

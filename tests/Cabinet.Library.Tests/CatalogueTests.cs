@@ -147,12 +147,18 @@ public class CatalogueTests
     {
         var registry = Shipped.Single(entry => entry.Id == id).Registry;
 
-        foreach (var host in new[] { "yabridge-host.exe", app })
-        {
-            Assert.Equal(
-                "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
-                registry[$@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\{host}"]);
-        }
+        Assert.Equal(WebView2.BrowserFlags, registry[$@"{WebView2.BrowserFlagsKey}\{app}"]);
+    }
+
+    [Fact]
+    public void NoPrefixConfigRepeatsTheWebView2BaselineEveryPrefixHolds()
+    {
+        var repeated = Shipped
+            .SelectMany(entry => entry.Configs)
+            .SelectMany(config => config.Registry.Keys)
+            .Where(WebView2.Baseline.ContainsKey);
+
+        Assert.Empty(repeated);
     }
 
     [Fact]
@@ -171,7 +177,7 @@ public class CatalogueTests
         var entry = Shipped.Single(entry => entry.Id == "sine-player");
 
         Assert.Equal("11.17", entry.Runner);
-        Assert.Equal(3, entry.Config.Revision);
+        Assert.Equal(4, entry.Config.Revision);
     }
 
     [Fact]
@@ -179,7 +185,7 @@ public class CatalogueTests
     {
         var entry = Shipped.Single(entry => entry.Id == "native-access");
 
-        Assert.Equal(8, entry.Config.Revision);
+        Assert.Equal(9, entry.Config.Revision);
         Assert.Equal("windows", entry.Env["WINEQT_QPA_PLATFORMTHEME"]);
         Assert.False(entry.Dxvk);
         Assert.True(entry.WebView2);
@@ -217,9 +223,6 @@ public class CatalogueTests
         var entry = Shipped.Single(entry => entry.Id == "izotope-product-portal");
 
         Assert.True(entry.WebView2);
-        Assert.Equal(
-            "--no-sandbox --disable-gpu-sandbox --disable-gpu --disable-gpu-compositing --in-process-gpu",
-            entry.Registry[@"HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments\yabridge-host.exe"]);
     }
 
     [Fact]
