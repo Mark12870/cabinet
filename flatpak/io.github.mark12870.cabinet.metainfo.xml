@@ -46,6 +46,20 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.40.0" date="2026-11-10">
+      <description>
+        <p>New Library plugins, cancellable installs and fewer install problems</p>
+        <ul>
+          <li>DSEQ3, Humanoid and LANDR Mastering Pro are in the Library; Humanoid installs without showing its installer</li>
+          <li>An install that runs for over a minute can be cancelled from its dialog instead of force-closing Cabinet</li>
+          <li>Installers that set up WebView2 no longer leave the install waiting on Microsoft's Edge updater</li>
+          <li>Every prefix now gets the WebView2 settings only some Library prefixes had; installed Library prefixes are offered them as an update</li>
+          <li>A skipped 32-bit copy of a plugin is explained instead of shown as a warning at the end of an install</li>
+          <li>SINE Player can be reinstalled into an existing Orchestral Tools prefix</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.39.2" date="2026-11-08">
       <description>
         <p>Fix intermittent install failures</p>
