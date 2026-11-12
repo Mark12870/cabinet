@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.40.1" date="2026-11-12">
+      <description>
+        <p>Update catalogue plugins</p>
+        <ul>
+          <li>Install Decent Sampler 1.42.1 from the updated catalogue</li>
+          <li>Install inMusic Software Center 1.40.2 from the updated catalogue</li>
+          <li>Install SINEplayer 1.4.5 from the updated catalogue</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.40.0" date="2026-11-10">
       <description>
         <p>New Library plugins, cancellable installs and fewer install problems</p>
