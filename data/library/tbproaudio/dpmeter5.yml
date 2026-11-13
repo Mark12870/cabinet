@@ -1,0 +1,19 @@
+Name: dpMeter5
+Kind: windows
+Category: Effect
+Summary: RMS, EBU R128 and dialogue-gated meter
+Developer: TBProAudio
+Version: 5.3.11
+Licence: Freeware
+Formats: VST3, VST2, CLAP
+Homepage: https://www.tbproaudio.de/products/dpmeter
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/dpMeter5nogpu_Installer_WIN_5311.zip
+Sha256: d30e7c172477469f3a9db07de46f9e2d348b5a290737a09c1a221ee54de89f80
+Script: tbproaudio.sh
+Description:
+  Measures RMS, EBU R128 loudness or dialogue-gated loudness on up to six
+  channels, from stereo to 5.1, with true peak after ITU BS.1770-4,
+  loudness range and K, A, B, C or M weighting. Results can be written as
+  automation, and a match function sets the gain to reach a reference
+  loudness or peak. This is the build without GPU drawing.

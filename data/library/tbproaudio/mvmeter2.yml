@@ -1,0 +1,18 @@
+Name: mvMeter2
+Kind: windows
+Category: Effect
+Summary: VU, PPM, RMS and EBU R128 meter
+Developer: TBProAudio
+Version: 2.7.3
+Licence: Freeware
+Formats: VST3, VST2
+Homepage: https://www.tbproaudio.de/products/mvmeter2
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/mvMeter2nogpu_Installer_WIN_273.zip
+Sha256: 1ba0106b1c2e0f9e1514b2159dd34ef0d2402887053ae2465873b62022e4f275
+Script: tbproaudio.sh
+Description:
+  Meters in the manner of analogue VU and PPM needles, BBC or EBU, or as
+  peak, RMS and EBU R128 loudness, on stereo, L, R, M or S, in one or two
+  displays. The reference level, meter delay, hold and overload level are
+  set per instance. This is the build without GPU drawing.

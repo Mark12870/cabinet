@@ -1,0 +1,17 @@
+Name: GSatPlus
+Kind: windows
+Category: Effect
+Summary: Tube saturation from the CS-5501 strip
+Developer: TBProAudio
+Version: 1.3.12
+Licence: Freeware
+Formats: VST3, VST2
+Homepage: https://www.tbproaudio.de/products/gsatplus
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/GSatPlusnogpu_Installer_WIN_1312.zip
+Sha256: 3920424aab0ecd90a6f0b3cc434a2cf7d314fb727c8beca8c711ac550e7c704d
+Script: tbproaudio.sh
+Description:
+  The saturation module of the CS-5501 channel strip on its own,
+  with three tube-based characters, oversampling, a mix knob and clip
+  protection, watched on VU meters. This is the build without GPU drawing.

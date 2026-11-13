@@ -1,0 +1,19 @@
+Name: sTiltV2
+Kind: windows
+Category: Effect
+Summary: Tilt EQ around a chosen centre frequency
+Developer: TBProAudio
+Version: 2.3.14
+Licence: Freeware
+Formats: VST3, VST2
+Homepage: https://www.tbproaudio.de/products/stilt
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/sTiltV2nogpu_Installer_WIN_2314.zip
+Sha256: 86e126d926f604da14660c5511a517bf1d9f45de58bd623ddcc0efd7c772a811
+Script: tbproaudio.sh
+Description:
+  Tilts the whole spectrum around a chosen centre frequency, from -6 to
+  +6 dB per octave, in linear phase, natural phase or zero delay filters
+  with five quality modes, on stereo, L/R or M/S. Auto gain keeps the
+  level steady for comparison. Its linear phase modes add latency that
+  the DAW compensates. This is the build without GPU drawing.

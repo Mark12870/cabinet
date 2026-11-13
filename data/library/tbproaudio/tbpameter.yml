@@ -1,0 +1,18 @@
+Name: TBPAMeter
+Kind: windows
+Category: Effect
+Summary: Peak and RMS meter with custom colours
+Developer: TBProAudio
+Version: 1.0.3
+Licence: Freeware
+Formats: VST3, VST2, CLAP
+Homepage: https://www.tbproaudio.de/products/tbpameter
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/TBPAMeter_Installer_WIN_103.zip
+Sha256: c81ff4f0ef0af3970b3a4cc1ec53aebaeb7f7c973586a17c88dcbfb1931c1f5e
+Script: tbproaudio.sh
+Description:
+  Shows peak and RMS levels side by side with readouts of the maximum
+  peak, maximum RMS and the crest factor, the ratio of peak to integrated
+  RMS. The colour of each level range can be set, the RMS window size is
+  adjustable, and hold or maximum lines mark the loudest moment.

@@ -1,0 +1,19 @@
+Name: TBPAVolume
+Kind: windows
+Category: Effect
+Summary: Gain stage with L/R and M/S faders
+Developer: TBProAudio
+Version: 1.1.3
+Licence: Freeware
+Formats: VST3, VST2, CLAP
+Homepage: https://www.tbproaudio.de/products/tbpavolume
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/TBPAVolume_Installer_WIN_113.zip
+Sha256: 3188455ff3ed76e9ff23232f90f48c5038ef5da449afbc22e98b2deaae211ad6
+Script: tbproaudio.sh
+Description:
+  Sets the level of a signal apart from the mixer's fader, with a master
+  fader beside left/mid and right/side faders that work on L/R or M/S. It
+  sits between plugins in a chain to adjust gain or to carry volume
+  automation; changes are interpolated with little aliasing, and sample
+  accurate in VST3 and CLAP.

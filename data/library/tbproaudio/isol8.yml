@@ -1,0 +1,19 @@
+Name: ISOL8
+Kind: windows
+Category: Effect
+Summary: Five-band solo and mute for monitoring
+Developer: TBProAudio
+Version: 2.9.4
+Licence: Freeware
+Formats: VST3, VST2
+Homepage: https://www.tbproaudio.de/products/isol8
+Source: download
+Url: https://www.tbproaudio.de/assets/content/download/ISOL8nogpu_Installer_WIN_294.zip
+Sha256: dd2a489469f92ced38bdb9ed495dd99f75aeed52e9d044a438b969634d27a984
+Script: tbproaudio.sh
+Description:
+  Splits the spectrum into five bands with Linkwitz-Riley crossovers, IIR,
+  FIR or linear phase, so each can be soloed or muted while mixing or
+  mastering, on stereo, L/R, M/S or the side-chain. It also works as a
+  multiband splitter feeding later plugins in the chain. This is the build
+  without GPU drawing.
