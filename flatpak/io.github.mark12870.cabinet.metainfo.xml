@@ -46,6 +46,16 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.41.0" date="2026-11-13">
+      <description>
+        <p>Seven free TBProAudio plugins and sturdier Winetricks downloads</p>
+        <ul>
+          <li>Add TBPAVolume, TBPAMeter, dpMeter5, GSatPlus, sTiltV2, ISOL8 and mvMeter2 to the Library</li>
+          <li>Wait longer for slow download mirrors when Winetricks installs fonts and other components</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.40.1" date="2026-11-12">
       <description>
         <p>Update catalogue plugins</p>
