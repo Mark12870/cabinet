@@ -40,6 +40,31 @@ public sealed class WinetricksTests : IDisposable
     }
 
     [Fact]
+    public void WinetricksWaitsOutSlowDownloadMirrors()
+    {
+        var recorder = new RecordingRunner();
+
+        new Winetricks(Layout, recorder).Apply("gadget", ["calibri"]);
+
+        var winetricks = Assert.Single(recorder.Calls, call => call.File == Layout.Winetricks);
+        Assert.Equal("60", winetricks.Environment["WINETRICKS_DOWNLOADER_TIMEOUT"]);
+        Assert.Equal("10", winetricks.Environment["WINETRICKS_DOWNLOADER_RETRIES"]);
+    }
+
+    [Fact]
+    public void APrefixVariableOverridesTheDownloaderTimeout()
+    {
+        File.WriteAllLines(Layout.PrefixEnvFile("gadget"), ["WINETRICKS_DOWNLOADER_TIMEOUT=300"]);
+        var recorder = new RecordingRunner();
+
+        new Winetricks(Layout, recorder).Open("gadget");
+
+        var winetricks = Assert.Single(recorder.Calls, call => call.File == Layout.Winetricks);
+        Assert.Equal("300", winetricks.Environment["WINETRICKS_DOWNLOADER_TIMEOUT"]);
+        Assert.Equal("10", winetricks.Environment["WINETRICKS_DOWNLOADER_RETRIES"]);
+    }
+
+    [Fact]
     public void OpeningWinetricksShowsItsMenuWithWarningsThatCloseThemselves()
     {
         var recorder = new RecordingRunner();

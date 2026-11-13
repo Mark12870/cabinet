@@ -36,10 +36,14 @@ public sealed class Winetricks(Layout layout, IProcessRunner runner)
         var prefixes = new Prefixes(layout, runner);
         using var claim = prefixes.Claim(prefix, $"let Winetricks change {prefix}");
 
+        var environment = new Dictionary<string, string>(prefixes.Variables(prefix));
+        environment.TryAdd("WINETRICKS_DOWNLOADER_TIMEOUT", "60");
+        environment.TryAdd("WINETRICKS_DOWNLOADER_RETRIES", "10");
+
         return runner.Run(
             Layout.Winetricks,
             ["--unattended", .. verbs],
-            prefixes.Variables(prefix),
+            environment,
             onOutput,
             layout.PrefixPath(prefix));
     }
