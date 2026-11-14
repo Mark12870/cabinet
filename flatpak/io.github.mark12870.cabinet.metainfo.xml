@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.41.1" date="2026-11-14">
+      <description>
+        <p>A steadier ZENOLOGY and current TBProAudio and UVI downloads</p>
+        <ul>
+          <li>Stop ZENOLOGY from occasionally crashing while it loads</li>
+          <li>Install dpMeter5, TBPAMeter and TBPAVolume again, now that their old downloads are gone</li>
+          <li>Install UVI Portal 3.1.4, which no longer opens on a forced update screen</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.41.0" date="2026-11-13">
       <description>
         <p>Seven free TBProAudio plugins and sturdier Winetricks downloads</p>
