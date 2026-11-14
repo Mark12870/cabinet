@@ -3,13 +3,13 @@ Kind: windows
 Category: Effect
 Summary: RMS, EBU R128 and dialogue-gated meter
 Developer: TBProAudio
-Version: 5.3.11
+Version: 5.3.12
 Licence: Freeware
 Formats: VST3, VST2, CLAP
 Homepage: https://www.tbproaudio.de/products/dpmeter
 Source: download
-Url: https://www.tbproaudio.de/assets/content/download/dpMeter5nogpu_Installer_WIN_5311.zip
-Sha256: d30e7c172477469f3a9db07de46f9e2d348b5a290737a09c1a221ee54de89f80
+Url: https://www.tbproaudio.de/assets/content/download/dpMeter5nogpu_Installer_WIN_5312.zip
+Sha256: ebbc1433d4a2af4b4fb6a5324446a1232683c8761e778d2d49ec126f5782ef6a
 Script: tbproaudio.sh
 Description:
   Measures RMS, EBU R128 loudness or dialogue-gated loudness on up to six

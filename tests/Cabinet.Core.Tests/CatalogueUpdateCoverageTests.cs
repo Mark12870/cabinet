@@ -15,6 +15,22 @@ public sealed class CatalogueUpdateCoverageTests
     }
 
     [Fact]
+    public void EveryVendorPageDownloadPatternCapturesAVersion()
+    {
+        var patterns = Directory.GetFiles(Repo.Path("data/library"), "catalogue-updates.json", SearchOption.AllDirectories)
+            .SelectMany(file => JsonDocument.Parse(File.ReadAllText(file)).RootElement.GetProperty("entries").EnumerateArray())
+            .Select(rule => rule.GetProperty("source"))
+            .Where(source => source.GetProperty("type").GetString() == "vendor-page")
+            .Select(source => source.GetProperty("downloadRegex").GetString()!)
+            .ToList();
+
+        Assert.NotEmpty(patterns);
+        Assert.All(patterns, pattern => Assert.True(
+            new System.Text.RegularExpressions.Regex(pattern).GetGroupNames().Intersect(["version", "compact", "major"]).Any(),
+            $"{pattern} captures no version, so the update bot can never accept a download it finds"));
+    }
+
+    [Fact]
     public void UnclassifiedPinnedDownloadFails()
     {
         using var fixture = new CoverageFixture();
