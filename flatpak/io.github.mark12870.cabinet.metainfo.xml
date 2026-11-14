@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.41.1" date="2026-11-14">
+      <description>
+        <p>Update catalogue plugins</p>
+        <ul>
+          <li>Install inMusic Software Center 1.41.0 from the updated catalogue</li>
+          <li>Install MT Power Drum Kit 2 2.1.5.2 from the updated catalogue</li>
+          <li>Install UVI Portal 3.1.4 from the updated catalogue</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.41.0" date="2026-11-13">
       <description>
         <p>Seven free TBProAudio plugins and sturdier Winetricks downloads</p>
