@@ -1,5 +1,5 @@
 diff --git a/src/wine-host/host.cpp b/src/wine-host/host.cpp
-index 072c003..31d28da 100644
+index 6676015..d5951f4 100644
 --- a/src/wine-host/host.cpp
 +++ b/src/wine-host/host.cpp
 @@ -196,6 +196,8 @@ int YABRIDGE_EXPORT
@@ -12,7 +12,7 @@ index 072c003..31d28da 100644
          // potentially unsafe events that should always be run from the UI
          // thread will be posted to `main_context`.
 diff --git a/src/wine-host/utils.cpp b/src/wine-host/utils.cpp
-index feb57b1..6b95dc5 100644
+index 4328420..ba8d80b 100644
 --- a/src/wine-host/utils.cpp
 +++ b/src/wine-host/utils.cpp
 @@ -19,6 +19,9 @@
@@ -25,7 +25,7 @@ index feb57b1..6b95dc5 100644
  #include "bridges/common.h"
  
  using namespace std::literals::chrono_literals;
-@@ -192,6 +195,87 @@ void MainContext::async_handle_watchdog_timer(
+@@ -192,6 +195,102 @@ void MainContext::async_handle_watchdog_timer(
      });
  }
  
@@ -102,9 +102,24 @@ index feb57b1..6b95dc5 100644
 +    module.dwSize = sizeof(module);
 +    for (BOOL found = Module32FirstW(snapshot, &module); found;
 +         found = Module32NextW(snapshot, &module)) {
-+        if (module.hModule != host && !wine_builtin(module.modBaseAddr)) {
++        HMODULE pinned = nullptr;
++        if (module.hModule == host ||
++            !GetModuleHandleExW(
++                GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
++                reinterpret_cast<LPCWSTR>(module.modBaseAddr), &pinned)) {
++            continue;
++        }
++
++        if (reinterpret_cast<BYTE*>(pinned) != module.modBaseAddr) {
++            FreeLibrary(pinned);
++            continue;
++        }
++
++        if (!wine_builtin(module.modBaseAddr)) {
 +            redirect_revoke_drag_drop(module.modBaseAddr, original);
 +        }
++
++        FreeLibrary(pinned);
 +    }
 +
 +    CloseHandle(snapshot);
@@ -113,7 +128,7 @@ index feb57b1..6b95dc5 100644
  #ifdef __x86_64__
  
  namespace {
-@@ -200,14 +284,8 @@ thread_local CONTEXT* access_violation_recovery = nullptr;
+@@ -200,14 +299,8 @@ thread_local CONTEXT* access_violation_recovery = nullptr;
  
  bool inside_native_code(const void* address) {
      MEMORY_BASIC_INFORMATION region{};
@@ -131,7 +146,7 @@ index feb57b1..6b95dc5 100644
  
  LONG CALLBACK recover_from_access_violation(EXCEPTION_POINTERS* exception) {
 diff --git a/src/wine-host/utils.h b/src/wine-host/utils.h
-index 60722aa..17b0441 100644
+index ff94794..f83299b 100644
 --- a/src/wine-host/utils.h
 +++ b/src/wine-host/utils.h
 @@ -370,3 +370,5 @@ class MainContext {

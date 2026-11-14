@@ -282,6 +282,9 @@ public class ManifestTests
         Assert.Contains("GetWindowThreadProcessId(window, &owner)", redirect, StringComparison.Ordinal);
         Assert.Contains("return DRAGDROP_E_INVALIDHWND;", redirect, StringComparison.Ordinal);
         Assert.Contains("+        redirect_foreign_drag_drop_revocations();", redirect, StringComparison.Ordinal);
+        Assert.Contains("GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS", redirect, StringComparison.Ordinal);
+        Assert.Contains("FreeLibrary(pinned);", redirect, StringComparison.Ordinal);
+        Assert.Contains("reinterpret_cast<BYTE*>(pinned) != module.modBaseAddr", redirect, StringComparison.Ordinal);
     }
 
     [Fact]

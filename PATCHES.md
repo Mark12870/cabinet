@@ -44,7 +44,9 @@ described above.
 
 **Patch.** After the plugin loads, the host redirects every native module's import of
 `ole32!RevokeDragDrop` to a wrapper. The wrapper returns `DRAGDROP_E_INVALIDHWND` for another
-process's window and calls the real function otherwise.
+process's window and calls the real function otherwise. Each module stays pinned while its image is
+read: JUCE plugins such as ZENOLOGY load and free `iphlpapi.dll` on other threads during their load,
+and reading a freed image overflowed the host's stack.
 
 **When it can go.** Pinned runners never change, so the fix can only arrive in a new release.
 `DragAndDropTests` in `Cabinet.Runtime.Tests` runs a small probe program on the newest release of
