@@ -112,6 +112,8 @@ public sealed class SpitfireAudioScenario(SpitfireAudioScenario.Installed instal
 
         private static readonly TimeSpan Settling = TimeSpan.FromSeconds(3);
 
+        private static readonly TimeSpan Patience = TimeSpan.FromSeconds(10);
+
         private protected override async Task Install(Display display)
         {
             await base.Install(display);
@@ -159,23 +161,34 @@ public sealed class SpitfireAudioScenario(SpitfireAudioScenario.Installed instal
             manager.Until(
                 () => manager.Shows(window, ProductPage, ProductTitle),
                 window, "BBCSO Discover's product page", Answering, Account);
-            manager.Choose(window, 991, 620);
-            manager.Until(
-                () => manager.Shows(window, GearMenu, GearItems),
-                window, "the installed product's menu with Reset", Answering, Account);
-            manager.Choose(window, 901, 695);
-            manager.Until(
-                () => manager.Shows(window, ResetDialog, ResetQuestion),
-                window, "the reset dialog", Answering, Account);
-            manager.Choose(window, 504, 488);
-            manager.Until(
-                () => manager.Shows(window, ResetPage, InstallButton),
-                window, "the account's BBCSO Discover reset to install again", Answering, Account);
+            Reset(manager, window);
 
             manager.Until(
                 () => Harness.Holds("VST3", Bridges["VST3"]),
                 window, "BBCSO Discover bridged", Answering, Account);
             await manager.Close();
+        }
+
+        private static void Reset(Manager manager, string window)
+        {
+            manager.Until(
+                () => manager.Shows(window, GearMenu, GearItems) || Opens(manager, window, 991, 620, GearMenu, GearItems),
+                window, "the installed product's menu with Reset", Answering, Account);
+            manager.Until(
+                () => manager.Shows(window, ResetDialog, ResetQuestion)
+                      || Opens(manager, window, 901, 695, ResetDialog, ResetQuestion),
+                window, "the reset dialog", Answering, Account);
+            manager.Choose(window, 504, 488);
+            manager.Until(
+                () => manager.Shows(window, ResetPage, InstallButton),
+                window, "the account's BBCSO Discover reset to install again", Answering, Account);
+        }
+
+        private static bool Opens(Manager manager, string window, int x, int y, string page, string region)
+        {
+            manager.Choose(window, x, y);
+            Thread.Sleep(Patience);
+            return manager.Shows(window, page, region);
         }
 
         private string Plugin =>
