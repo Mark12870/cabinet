@@ -361,9 +361,12 @@ clean() {
         rm -rf "${ROOT:?}/$path"
     done
 
-    HOME="$ROOT/home" \
-        FLATPAK_USER_DIR="$ROOT/home/.local/share/flatpak" \
-        flatpak uninstall --user --noninteractive "$DAW" >/dev/null 2>&1 || true
+    local ref
+    for ref in "$DAW" "$APP"; do
+        HOME="$ROOT/home" \
+            FLATPAK_USER_DIR="$ROOT/home/.local/share/flatpak" \
+            flatpak uninstall --user --noninteractive "$ref" >/dev/null 2>&1 || true
+    done
 }
 
 # Only the vendors whose entries the setup installs: an entry only a plugin scenario uses is
