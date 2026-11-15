@@ -202,11 +202,12 @@ The manifest pins one yabridge commit, and `ManifestTests` requires that commit 
 here with a reason. Cabinet used to ship yabridge's prebuilt `5.1.1` release; `37a1dbe`
 (2026-09-05) moved to a source build, which is what makes the patches above possible.
 
-## a38234ba3817aaa0a3a9cc46c3cd54b4a350a85d
+## 6b59b7af8e5f183481ccc559148d7a03f9e8673f
 
 [`samuel-asleep/yabridge`, `ara2-support`](https://github.com/samuel-asleep/yabridge/tree/ara2-support),
 the branch of [yabridge#500](https://github.com/robbert-vdh/yabridge/pull/500), adds VST3 ARA bridging for hosts such as REAPER. This experimental pin includes the former
-`ba7022df0aee1e91cde62d7f0e940d3bc43a82b0` pin, and every earlier Cabinet patch still applies.
+`ba7022df0aee1e91cde62d7f0e940d3bc43a82b0` pin and upstream master up to 2026-11-08, and every
+earlier Cabinet patch still applies.
 The manifest enables ARA and bundles its pinned API with the fork's ABI-adjusted header.
 
 [yabridge#409](https://github.com/robbert-vdh/yabridge/issues/409)

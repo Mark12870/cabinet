@@ -185,8 +185,8 @@ modules:
       - rm libwine-dev-amd64.deb libwine-dev-i386.deb libgcc-dev-i386.deb libxcb1-i386.deb libxcb1-dev-i386.deb
     sources:
       - type: archive
-        url: https://github.com/samuel-asleep/yabridge/archive/a38234ba3817aaa0a3a9cc46c3cd54b4a350a85d.tar.gz
-        sha256: 469cff16b5da8db9f594756a2714bf85323296601cce398eb8df8a9754b727cc
+        url: https://github.com/samuel-asleep/yabridge/archive/6b59b7af8e5f183481ccc559148d7a03f9e8673f.tar.gz
+        sha256: 7dea23118aa14378d976e487ed1a94794383eb7d3f794c329b5d31c1a2736c20
         strip-components: 1
       - type: patch
         path: ../patches/yabridge/yabridge-teardown-guard.patch
