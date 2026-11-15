@@ -1,12 +1,14 @@
 # Cabinet
 
-Windows VST plugins on Linux as a Flatpak, aiming to work out of the box: install a plugin and it shows up in your DAW,
-with no Wine or yabridge to set up. Plugins get **Wine prefixes of their own**, one per vendor or product family,
-instead of a single prefix every installer fights over. Built for immutable systems like Fedora Silverblue. The bridging
-is [yabridge](https://github.com/robbert-vdh/yabridge), built from the
-[ARA branch](https://github.com/robbert-vdh/yabridge/pull/500) with a few Cabinet patches, and the compatibility layer
-is [Wine](https://www.winehq.org); Cabinet bundles both and wires the result to your DAW. VST3 **ARA** plugins such as
-Melodyne work in hosts that support ARA, REAPER among them.
+Cabinet is a Flatpak application that makes it easy to install and use Windows VST plugins in Linux DAWs, without
+manually configuring Wine or yabridge. **ARA plugins such as Melodyne work too**, in DAWs that support ARA. Designed
+with immutable Linux systems like Fedora Silverblue in mind.
+
+## Goals
+
+- **Ease of use:** Install and use plugins without manually configuring Wine, yabridge, or compatibility settings.
+- **Reliability:** Keep vendors in isolated Wine environments, use compatible runners, and detect regressions through
+  automated plugin testing.
 
 ![Cabinet application preview](site/screenshots/cabinet.png)
 
@@ -25,16 +27,14 @@ Melodyne work in hosts that support ARA, REAPER among them.
 
 ## Yabridge patches
 
-[PATCHES.md](PATCHES.md) explains each patch in more detail.
-
 - **teardown-guard** (Splice crash on removal) — a plugin crashing while removed no longer takes the DAW down.
 - **foreign-drag-drop** (WebView2 editors) — stops a Wine drag-and-drop bug crashing them when they open or close.
 - **editor-window-origin** (VST2 editors) — keeps the editor in its window, so it shows and clicks land right.
-- **chainloader-cabinet-first** (DAWs outside Flatpak) — loads Cabinet's own yabridge first, not another yabridge on
-  the system.
+- **chainloader-cabinet-first** (DAWs outside Flatpak) — loads Cabinet's own yabridge before any other installed.
 - **state-per-interface** (Kontakt 8 fix) — projects saved on Windows reopen with their instrument instead of empty.
 - **short-socket-names** (long plugin names) — a plugin with a long name loads instead of freezing the DAW.
 - **ara-unique-buffers** (ARA) — two projects or plugins using ARA at once no longer share one audio buffer.
+- **ara-full-reads** (ARA analysis) — ARA plugins such as Auto-Align Post 2 analyse each clip to its end.
 
 ## Install
 
@@ -82,7 +82,17 @@ flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://
 flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet
 ```
 
+## Built on
+
+Cabinet builds on these open-source projects:
+
+- **[Wine](https://www.winehq.org/)** — Runs Windows installers, applications, and plugins on Linux.
+- **[yabridge](https://github.com/robbert-vdh/yabridge)** — Bridges Windows VST2, VST3, and CLAP plugins into Linux
+  DAWs. Cabinet builds it from the [ARA support branch](https://github.com/robbert-vdh/yabridge/pull/500), with
+  additional [compatibility patches](PATCHES.md).
+
 ## License
 
 GPL-3.0-or-later, matching yabridge. See [LICENSE](LICENSE). The app icon combines the *dresser* and *piano-keys* icons
-from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT, see [flatpak/LICENSE.phosphor](flatpak/LICENSE.phosphor).
+from [Phosphor Icons](https://phosphoricons.com), recoloured — MIT,
+see [flatpak/LICENSE.phosphor](flatpak/LICENSE.phosphor).
