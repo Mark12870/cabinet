@@ -6,6 +6,7 @@
 #   scripts/checks.sh --staged   what .githooks/pre-commit runs: reformat the staged code
 #                                and stage the fix, skip what nothing is staged for, and
 #                                skip dotnet test
+#   scripts/checks.sh --format-json   rewrite every tracked JSON file with jq
 #
 # Neither toolchain is on a Silverblue host, so this re-execs itself inside
 # org.gnome.Sdk//50, which carries the same org.freedesktop.Sdk.Extension branch (25.08).
@@ -40,6 +41,28 @@ step() { printf '  %s\n' "$*" >&2; }
 # otherwise, and on CI the checkout's root belongs to the runner, not to the sandbox's user.
 unit_tests() { dotnet test --project "tests/$1" --no-progress --results-directory "tests/$1/TestResults" --timeout 10m; }
 
+json_files() { git -c safe.directory="$root" ls-files '*.json' ':!flatpak/nuget-sources.json'; }
+
+format_json() {
+  local f formatted
+  for f in "$@"; do
+    formatted=$(jq --indent 2 . "$f")
+    printf '%s\n' "$formatted" > "$f"
+  done
+}
+
+verify_json() {
+  local f unformatted=()
+  while read -r f; do
+    jq --indent 2 . "$f" | cmp -s - "$f" || unformatted+=("$f")
+  done < <(json_files)
+  if [ ${#unformatted[@]} -gt 0 ]; then
+    printf 'not formatted with jq --indent 2: %s\n' "${unformatted[*]}" >&2
+    printf 'run scripts/checks.sh --format-json\n' >&2
+    return 1
+  fi
+}
+
 runtime_pin() {
   local sdk props pinned bundled
   sdk=$(dotnet --list-sdks | tail -1)
@@ -53,7 +76,14 @@ runtime_pin() {
   fi
 }
 
+if [ "${1:-}" = --format-json ]; then
+  mapfile -t json < <(json_files)
+  format_json "${json[@]}"
+  exit 0
+fi
+
 if [ "${1:-}" != --staged ]; then
+  step 'jq';              verify_json
   step 'runtime pin';     runtime_pin
   step 'dotnet format';   dotnet format --verify-no-changes
   step 'dotnet build';    dotnet build src/Cabinet.Cli --nologo -v q
@@ -82,16 +112,18 @@ declare -A is_staged=() is_dirty=()
 for f in "${staged[@]}"; do is_staged[$f]=1; done
 while read -r f; do [ -n "$f" ] && is_dirty[$f]=1; done < <(git diff --name-only)
 
-cs=(); rust=no; metainfo=no
+cs=(); json=(); rust=no; metainfo=no
 for f in "${staged[@]}"; do
   case $f in
     *.cs) cs+=("$f") ;;
+    flatpak/nuget-sources.json) ;;
+    *.json) json+=("$f") ;;
     shim/*) rust=yes ;;
     flatpak/io.github.mark12870.cabinet.metainfo.xml) metainfo=yes ;;
   esac
 done
 
-watched=("${cs[@]}")
+watched=("${cs[@]}" "${json[@]}")
 if [ "$rust" = yes ]; then watched+=(shim/src/main.rs); fi
 
 declare -A before=()
@@ -102,6 +134,11 @@ done
 if [ ${#cs[@]} -gt 0 ]; then
   step 'dotnet format'
   dotnet format --no-restore --include "${cs[@]}"
+fi
+
+if [ ${#json[@]} -gt 0 ]; then
+  step 'jq'
+  format_json "${json[@]}"
 fi
 
 if [ "$rust" = yes ]; then
