@@ -1,6 +1,6 @@
 ---
 name: gui-shot
-description: Capture and inspect Cabinet's installed GTK4/libadwaita GUI.
+description: Capture and inspect Cabinet's installed GTK4/libadwaita GUI. Use to confirm a GUI change visually or to see what a page shows.
 ---
 
 # Capture a GUI screenshot

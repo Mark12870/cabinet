@@ -23,7 +23,7 @@ Ids stay unique across the whole catalogue — they are what `cabinet library in
 does the whole install from the entry: download, checksum, unpack, link, record, bridge. Only
 the unpack-or-install step in the middle is replaceable, by naming a shipped `sh` script;
 everything else is fields, and a plugin needing more of them is a gap in `Library.Install` to
-raise. `data/library/surge-xt.yml` is the worked example — copy it.
+raise. `data/library/surge-synth-team/surge-xt.yml` is the worked example — copy it.
 
 ## Add one, step by step
 
@@ -86,45 +86,7 @@ Description:                 # indented block, blank line between paragraphs
 ships one binary that is a VST3 for every product and also a CLAP for two of them, so
 `grep -qa clap_entry` on the binary decides it, and AU and AAX never appear.
 
-**Write the texts as reference, not as sales copy.** Cabinet sells nothing. The reader often
-owns the plugin already, or found it elsewhere, and needs to recognise it and know what installing
-it involves. The list row shows the name, then `Developer · Summary`. The plugin page shows
-`Description`, then `Licensing` next to the version, formats, licence and homepage. Repeat nothing
-those fields already say, and quote no prices.
-
-**`Summary`** says what the plugin is, in at most 40 characters.
-- Name the kind of plugin and what sets it apart: `Plate reverb after the EMT 140`, not
-  `A versatile reverb for every mix`.
-- Do not repeat the name or the developer, do not start with "A" or "The", and leave off the
-  final full stop.
-
-**`Description`** is three to six lines, in one paragraph unless the topic changes. Put the
-most useful fact in the first sentence, because it may be the only one read.
-- Start with what it models or how it works, concretely: the hardware, artist or technique
-  behind it. If the vendor does not say what a model is based on, do not guess.
-- Then say what it is for, meaning the instrument, the job or the style. Name a style only
-  when the vendor or players agree on it.
-- Then say how it differs from its neighbours in the Library. Give entries in one family the
-  same kinds of fact, so that they can be told apart.
-- End with any cost that comes after installing it, such as a sign-in, a large content
-  download or a heavy CPU load.
-- Explain any product-line name the reader cannot be expected to know.
-- For a manager, describe the vendor's range: the kinds of instruments and effects and the
-  product lines it installs. Leave out sign-in, demos and that it installs nothing by itself;
-  those are true of every manager or belong in `Licensing`.
-
-Write facts, not judgements or persuasion. How good it sounds is for reviews. Leave out:
-- features every plugin of its kind has, such as presets, a tuner, a resizable window, or a
-  standalone app the DAW never sees;
-- adjectives no fact backs up ("versatile", "expressive", "complete", "detailed control");
-- endings that say nothing ("…complete the chain", "…for exploring the collection");
-- negatives nobody asked about ("no USB dongle is required");
-- how Cabinet runs it, such as runners, DXVK or Wine.
-
-Every claim comes from the vendor's page, its manual or a review.
-
-**`Licensing`** is one sentence, and only where the licence word alone would mislead: the trial
-length, an account it needs, or what the free version lacks.
+Write `Summary`, `Description` and `Licensing` by the rules in [`TEXTS.md`](TEXTS.md).
 
 **5. Decide the four fields that are judgements.** Everything above is a lookup; these are
 decisions, and getting one wrong shows up much later as a plugin that installs and then cannot
@@ -135,17 +97,20 @@ version the installed software reports as `DisplayVersion` in its prefix's unins
 key, and start it at `Revision: 1`. Raise `Revision` when you edit that file; add a new
 `prefix-<version>.yml` when newer software needs other settings.
 
-- **`Runner: 9.21`** for anything with a plugin editor. From Wine 9.22 on, clicks land offset by
-  the window's distance from the screen origin — yabridge#382, acknowledged upstream and
-  unfixed. Leave `Runner` out only for a plugin with no editor at all.
+- **`Runner:`** comes from the vendor's existing `prefix-<version>.yml` when there is one. Otherwise use the newest
+  pinned runner that works for it: start from the runner of the nearest working entry, one on the same framework or
+  installer family, since every working prefix is kept on the newest runner, and change it only for a reason the
+  step 9 editor check shows. The known cases: a JUCE 8 editor needs the newest `d2d1-dcomp-*`
+  runner (https://github.com/Mark12870/wine-d2d1-dcomp); from Wine 9.22 on, clicks land offset by the window's
+  distance from the screen origin (yabridge#382), which `9.21` avoids. Leave `Runner` out only for a plugin with no
+  editor at all.
 - **`Dxvk: true`** for a JUCE editor on a *stock* runner. The symptom without it is a UI that
   draws once and then only when the window is moved; Surge XT and Dexed both need it, and DXVK
   backs up the DLLs it replaces, so the switch reverses. It is an **alternative** to the
-  Direct2D runner below, never a pair: DXVK replaces the `d3d11` and `dxgi` that build's
+  `d2d1-dcomp-*` runner, never a pair: DXVK replaces the `d3d11` and `dxgi` that build's
   Direct2D sits on, and together they stop the editor painting at all.
-- **`Sync: fsync`** alongside `Runner: 9.21`, which is a TkG build and has fsync. Do **not** set
-  it for a runner that lacks fsync — Soda reports `( TkG Plain )` — and leave it out entirely to
-  inherit whatever launched the DAW.
+- **`Sync: fsync`** only on a runner that has fsync, such as the TkG `9.21`; Soda reports `( TkG Plain )` and has
+  none. Leave it out to inherit whatever launched the DAW.
 - **`Env: KEY=VALUE`** for a variable the plugin needs in its Wine environment; indent one a
   line under a bare `Env:` for several. Cabinet sets it on the prefix before the installer runs,
   so it reaches the install too. Prefer it to a script writing
@@ -153,7 +118,6 @@ key, and start it at `Revision: 1`. Raise `Revision` when you edit that file; ad
 - Put whatever the prefix should hold in a config key rather than the script: `library update`
   re-applies a changed key to installed prefixes, and a script never runs again. A script keeps
   only the steps that depend on what its install did.
-- Always use **`Runner: d2d1-dcomp-11.0-777`** when the plugin uses the JUCE-8 framework. More info here: https://github.com/Mark12870/wine-d2d1-dcomp
 
 `Kind: native` refuses every one of those outright: a Linux plugin is loaded by the DAW
 directly, so there is no prefix, runner, DXVK, sync or environment to set.
@@ -168,8 +132,8 @@ magick shot.jpg -strip -resize '1000x600>' -quality 80 data/library/<vendor>/<id
 magick shot.jpg -strip -gravity center -crop 1:1 +repage -resize 192x192 data/library/<vendor>/<id>.png
 ```
 
-The logo must be in high quality image found on internet. Prefer icons without background. Remove the background if possible.
-Also change the logo color if the contrast with #222226 is bad - Probably to white color. 
+Take the logo from the highest-quality image the vendor publishes, preferably one without a background; key out a
+background where there is one, and recolour the mark (usually to white) where it lacks contrast against `#222226`.
 
 Record where every image came from in `SOURCES.md` at the repo root. Give the entry a row
 naming the URL the screenshot was taken from, or `captured here` and what was running; add the
@@ -178,18 +142,19 @@ near-copy. A new vendor takes a row in the second table too, naming what was key
 recoloured out of its logo.
 
 **7. Check the entry, then install it and read what landed.** `scripts/checks.sh` reads the
-real `data/library`; `CatalogueTests` fails an entry before you spend an install on it.
+real `data/library`; `CatalogueTests` fails an entry before you spend an install on it. Then
+install it with `rt` from `runtime-test` step 4:
 
 ```sh
-flatpak run io.github.mark12870.cabinet library install <id>
+rt library install <id>
 ```
 
 An installer that never ran still exits 0, so read the prefix or the links rather than the
 status. For a native entry check both directions:
 
 ```sh
-ls -l ~/.vst3 ~/.clap ~/.vst
-flatpak run io.github.mark12870.cabinet library remove <id>
+ls -l "$ROOT/home/.vst3" "$ROOT/home/.clap" "$ROOT/home/.vst"
+rt library remove <id>
 ```
 
 Removal must take its own links and its `Data:` directory and leave every other one alone.
@@ -206,7 +171,7 @@ the only step that catches it. It is what the `Runner` and `Dxvk` choices in ste
 neither is verifiable any other way. This step belongs to whoever is adding the entry;
 verification from here stops at what the disk shows.
 
-**10. Install it.** Install the updated flatpak locally.
+**10. Install it.** Build the Flatpak and install it to the host as `build-and-test` describes.
 
 ## For these cases
 

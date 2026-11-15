@@ -5,83 +5,64 @@ description: Build and verify Cabinet with CI checks, focused .NET/Rust commands
 
 # Building and checking Cabinet
 
-`scripts/checks.sh` is what `.github/workflows/ci.yml` runs: a check that only CI runs is a
-check that only fails after a push, which is why the script exists rather than a block to copy.
-Both toolchains come from SDK extensions the script enters on its own.
-
-You must use the code-tester subagent for this.
-
 ## Run the checks
 
-**1. Enable the hook, once per clone.**
+1. Enable the hook, once per clone:
 
-```sh
-git config core.hooksPath .githooks
-```
+   ```sh
+   git config core.hooksPath .githooks
+   ```
 
-`.githooks/pre-commit` runs the script as `--staged`: it reformats the staged code and stages
-the fix, skips the halves nothing is staged for, and skips `dotnet test` to stay under about
-seven seconds. A file that is only partly staged is reformatted but *not* staged, and the
-commit stops so the diff can be looked at.
+   `.githooks/pre-commit` runs `scripts/checks.sh --staged`: it reformats the staged code and stages the fix, skips the
+   halves nothing is staged for, and skips `dotnet test`. A partly staged file is reformatted but not staged, and the
+   commit stops so the diff can be looked at.
 
-**2. Run everything CI runs.**
+2. Run everything CI runs, from the repository root:
 
-```sh
-scripts/checks.sh            # tests included
-```
+   ```sh
+   scripts/checks.sh
+   ```
 
-The two formatters are the half that is easy to forget — `dotnet format` failed CI on a
-four-space overhang no test could catch.
+   It enters `org.gnome.Sdk//50` itself and runs formatting, both front-end builds, the unit tests, AppStream
+   validation, and shim fmt/clippy/tests. Work is verified only once the full script passes; the hook alone is not
+   enough.
 
-**3. Compile both front ends.** Neither is reached by anything else in the list: `dotnet test`
-reaches no front end, and `dotnet format` does not fail on a broken build. A CLI that
-would not compile once passed every check and died in the flatpak build twenty minutes later.
-That is what the two `dotnet build` steps in the script are for.
+3. For a focused loop, use host `dotnet 10`:
 
-**4. Verify catalogue runtime behaviour.**
+   ```sh
+   dotnet test --project tests/Cabinet.Library.Tests --filter-class '*CatalogueTests'
+   dotnet build src/Cabinet.Cli --nologo -v q
+   dotnet build src/Cabinet.Gui --nologo -v q -p:UseSharedCompilation=false
+   ```
 
-The runtime test writes a private `.carxp` project and Carla settings for each case,
-then runs the full Carla frontend with `--no-gui`, the Dummy audio driver, and no
-display variables. Windows plugins are loaded from their yabridge wrapper paths;
-native plugins use their installed paths or LV2 URI. Run the complete matrix with
-the `runtime-test` skill after setup.
+   No test project compiles a front end, so a front-end change needs its `dotnet build`. A shim test runs in the SDK
+   shell, where `cargo` comes from the `rust-stable` extension:
 
-Never install, launch, or remove a catalogue entry through the host-installed
-Cabinet Flatpak during verification. Build the current Flatpak first, pass its
-exact OSTree commit to `scripts/setup-runtime-tests.sh`, and run all mutating
-catalogue operations in that isolated Toolbox.
+   ```sh
+   flatpak run --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c \
+     'export PATH=/usr/lib/sdk/rust-stable/bin:$PATH; cd shim; cargo test <name>'
+   ```
 
-```sh
-COMMIT=$(ostree --repo=repo rev-parse app/io.github.mark12870.cabinet/x86_64/stable)
-CABINET_RUNTIME_CABINET_REF="io.github.mark12870.cabinet/x86_64/stable/$COMMIT" \
-  scripts/setup-runtime-tests.sh
-```
+## Build and install the Flatpak
 
-The host Flatpak may be installed or rebuilt for GUI smoke shots, but do not use
-its normal user data for catalogue or runtime tests.
+1. Build it in the background and wait for the completion event:
 
-## Build and install the flatpak
+   ```sh
+   flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
+     --default-branch=stable build flatpak/io.github.mark12870.cabinet.yml
+   ```
 
-```sh
-flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
-  --default-branch=stable build flatpak/io.github.mark12870.cabinet.yml
-BUILD_EXIT=$?
-printf 'BUILD_EXIT=%s\n' "$BUILD_EXIT"
-if [ "$BUILD_EXIT" -ne 0 ]; then exit "$BUILD_EXIT"; fi
-```
+   The build is done when the builder exits 0. yabridge compiles with `meson compile -j1`: its 64- and 32-bit hosts
+   are each one `--unity-size=1000` translation unit, and in parallel they take about 10 GB, the OOM killer takes
+   `cc1plus`, and the builder dies at yabridge's final link looking like a timeout. A serial build takes about ten
+   minutes.
 
-- Capture and inspect the builder exit status before using the repository.
-- Never poll the build; wait for the event.
+2. Install the new commit to the host:
 
-For a host GUI shot only, add the local repository with
-`flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://$PWD/repo"`,
-then install with `flatpak install --user --or-update cabinet-local io.github.mark12870.cabinet`.
-Do not use that host installation for catalogue runtime tests.
+   ```sh
+   flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://$PWD/repo"
+   flatpak install --user -y --or-update cabinet-local io.github.mark12870.cabinet
+   ```
 
-Confirm the test ref with:
-`ostree --repo=repo rev-parse app/io.github.mark12870.cabinet/x86_64/stable`.
-
-```sh
-# Look at a page of the installed GUI. Needs the toolbox its header describes, once.
-scripts/gui-shot.sh About about.png
-```
+   The host install is for using the app and for `gui-shot`. Catalogue installs and runtime tests go through the
+   `runtime-test` skill's isolated Toolbox, built from this same commit.

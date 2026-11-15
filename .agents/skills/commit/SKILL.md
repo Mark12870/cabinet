@@ -1,15 +1,11 @@
 ---
 name: commit
-description: Commit repository changes with the pre-commit hook enabled. Use only when the user explicitly asks to create a commit.
+description: Commit the working tree with the pre-commit hook.
+disable-model-invocation: true
 ---
 
 # Commit the code
 
-Commit all the code including my edits if not specified otherwise with a short commit message. You may split it into
-multiple commits.
-
-Be sure to execute it with pre-commit hooks. That means to never pass `--no-verify`.
-
-Report the errors if the commit fails.
-
-Thats all. Don't do any review or test! This is not a code change!
+1. Stage everything, the user's own edits included, unless the user named what to commit.
+2. Commit with a short message, split into several commits where the changes are unrelated.
+3. Report the hook's errors if a commit fails.

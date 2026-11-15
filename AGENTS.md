@@ -3,18 +3,25 @@
 Cabinet is a `linux-x64` Flatpak (`io.github.mark12870.cabinet`) that gives Windows VST plugins Wine prefixes of their
 own, one per vendor or product family, and bridges them with patched upstream yabridge.
 
+## Goals
+
+- **Ease of use:** plugins install and work without the user configuring Wine, yabridge or compatibility settings.
+  Prefer a catalogue entry or a default to a manual command.
+- **Reliability:** vendors stay in isolated prefixes on known-good runners, and every fix gets a test or scenario that
+  catches it regressing.
+
 ## Important
 
-- Don't create a new branch if not asked for that!
-- Never modify my Cabinet data and prefixes without asking and approval. You must let me know in separate question,
-  otherwise it is forbidden.
-- Every feature must be available over GUI and over CLI
-- README.md must be under 100 lines
-- Every other *.md file must be under 500 lines
-- Never commit personal, account or machine-specific data, including usernames, home paths, credentials or local tool
-  state, in source, tests, fixtures, documentation, generated files or commit messages; use neutral synthetic values
-  instead.
-- Look for your permissions in opencode.json
+- Branch only when asked; commits go on `main`.
+- Each harness takes its permissions from its own config: `opencode.json`, `.codex/config.toml`,
+  `.claude/settings.local.json`.
+- Cabinet data and prefixes on this machine are the user's. Ask in a separate question before changing any of them.
+- AGENTS.md and the skills change only after the user approves it in a separate question. A skill holds the steps of its
+  procedure and only the reference those steps need.
+- Every feature is available over both the GUI and the CLI.
+- README.md stays under 100 lines; every other `*.md` under 500.
+- Source, tests, fixtures, docs, generated files and commit messages carry neutral synthetic values only: no
+  usernames, home paths, credentials or local tool state.
 
 ### Code style
 
@@ -24,12 +31,6 @@ not come out longer than what it replaced. Follow the basic Clean Code rules.
 **The code carries no comments.** Not XML doc tags, not a header on every member, and above all not a note arguing for
 why the code is written the way it is - that is a message to a reviewer, not to whoever maintains this next. Say it in
 the name or the structure instead. Anything that genuinely will not fit there is a *gotcha*.
-
-### SKILLS
-
-- Never modify the AGENTS.md or skills without asking and approval. You must let me know in separate
-  question, otherwise it is forbidden.
-- Skills should always include only the steps to produce the skill.
 
 ## Boundaries
 
@@ -47,80 +48,20 @@ the name or the structure instead. Anything that genuinely will not fit there is
   Wine's msi.dll only in Kontakt 8's installer, whose Windows Installer call wedges under Wine, and forwards everything
   else to the runner's own msi.dll. Keep it that narrow.
 - Every project sets `TreatWarningsAsErrors`; a warning fails the build.
-- **A yabridge patch is the last resort, never the first fix.** Every patch in `patches/` is a build Cabinet has to
-  carry, rebase and retire by hand. Exhaust what Cabinet already owns first: a prefix runner, DXVK, a Wine virtual
-  desktop (`set <name> desktop`), a per-prefix variable (`set <name> env`), a `yabridge.toml` option beside the plugin,
-  a manifest grant, or the shim. Patch only once those are shown not to work, say which were tried and why they failed,
-  and ask before writing one.
+- **A yabridge patch is the last resort.** Load `upstream-patch` before touching `patches/`; it lists what Cabinet
+  already owns to try first, and the user approves every new patch.
 - Identifiers and user-facing text use British spelling: `Enrolment`, `Licence`, `catalogue`.
   `enroll` exists only as a CLI alias for `enrol`.
 - `flatpak/io.github.mark12870.cabinet.svg` is the recoloured Phosphor dresser icon; retain
   `flatpak/LICENSE.phosphor` and the README credit if it changes.
-- `scripts/`, `site/` and `.github/workflows/` own packaging and publishing; `.claude/skills/`
-  holds one procedural skill per repository procedure. Skills should contain only the steps to produce the skill.
+- `scripts/`, `site/` and `.github/workflows/` own packaging and publishing; `.agents/skills/` (linked as
+  `.claude/skills`) holds one procedural skill per repository procedure.
 
-## Runtime architecture
+## Architecture and filesystem boundary
 
-- `Bootstrap.Ensure` runs from both entry points, creates Cabinet's prefixes directory plus the yabridgectl link,
-  and clears `Staging` directories whose owner's lock is free.
-- Only Wine runs inside the Cabinet sandbox for the yabridge bridge. The DAW reads yabridge's host-side halves from the
-  installed Flatpak's `current/active/files`; `enrol` writes nothing and prints the required `flatpak override` for the
-  user to apply, because the DAW then loads what Cabinet's Windows code can write. A sandboxed DAW starts a session by
-  activating `io.github.mark12870.cabinet.Bridge` (`shim/src/dispatch.rs`), which starts the broker in Cabinet's own
-  sandbox, so the DAW needs no host access. Older enrolments grant `org.freedesktop.Flatpak` and cannot reach the
-  bridge; the shim then falls back to `flatpak-spawn --host flatpak run`, and so does a Cabinet a test control
-  redirects (`REDIRECTS`), which must never reach the installed bridge. The chainloader patch finds Cabinet's yabridge
-  by its installed path, so a DAW needs no `data/yabridge` link and the manifest grants nothing under `~/.var/app`.
-- The crossing is `$WINELOADER`: yabridge's winegcc wrapper execs `shim/src/main.rs`, which hands the plugin to a Wine
-  session and exits with that job's status, so yabridge's liveness check on the loader PID tracks the real host. The
-  manifest rewrites that wrapper's fallback from bare `wine` to the shim beside it, so every DAW reaches the shim,
-  whatever its own `WINELOADER`; the shim in turn forces `YABRIDGE_NO_WATCHDOG=1` (`FORCED`), because the watchdog is
-  PID-based and misfires across the boundary. Preserve `YABRIDGE_TEMP_DIR`. The shim duplicates three sets of constants,
-  and
-  `ShimParityTests` compares each against its C# side: marker names against `Layout`, sync and Cabinet-owned variables
-  against
-  `PrefixSettings`, blanked sockets against `Prefixes`. yabridge finds a plugin's prefix by walking from its `.dll` to
-  the `dosdevices` directory.
-- One Wine session per prefix. Flatpak gives every `flatpak run` its own PID namespace but binds
-  `/tmp` per app, so two sandboxes over one `WINEPREFIX` reach the same wineserver socket from either side of a
-  namespace boundary and wedge the DAW; that is what froze REAPER on a project holding five Klevgrand plugins.
-  `shim/src/session.rs` keys a session on the canonical `WINEPREFIX`, starts it once behind an `flock` in
-  `YABRIDGE_TEMP_DIR`, and every later plugin sends its argv to that session over the session socket. The session
-  outlives the shim that started it, and its sandbox stays up while it runs; the bridge holds every session it started
-  in one sandbox. Once idle a session retires and, still holding the session lock, kills its own descendants, so
-  Windows services a plugin started end with it and the next session on that prefix starts clean. Wine that Cabinet
-  started itself lives outside that tree and keeps running, and Cabinet's own commands join a live session.
-- One owner changes a prefix at a time, and the locks beside the socket in `YABRIDGE_TEMP_DIR` say who it is.
-  `cabinet-wine --cabinet-paths` prints every one of them, and Core reads that rather than deriving the names itself. A
-  plugin-side shim holds `<key>.busy` shared for its whole life; a Cabinet change takes `<key>.change` and
-  `<key>.busy` exclusively, plus `<key>.apps`, which `Library.Launch` holds shared while a manager runs, and then waits
-  for `<key>.sock` to go away, because a session fixes the runner and sync mode it started with. A shim that joins takes
-  no lock, so Cabinet's own jobs and a change never collide. Every refusal is a `PrefixInUseException`
-  naming who holds the prefix, and both front ends print its message. The claim is what makes the check atomic: while it
-  is held, a plugin load fails at once with a diagnostic instead of racing the change. Never reach past it with direct
-  Wine, and never let a shipped script end Wine itself; `Library.Settle` does that under the claim, once the script has
-  exited. A script's output goes to a log Cabinet follows rather than a pipe, because a Wine process the script leaves
-  behind inherits that pipe and would hold the install open until it died. Two paths take no claim on purpose:
-  `cabinet run`, which is the user's own job and joins a session like a plugin, and the runner version probe, which
-  reads a runner in its own `.probe` prefix.
-- A session writes `<key>.session` with its prefix and runner, and takes it away when it retires, so
-  `runners rm` can see a live broker still using a runner that no prefix marker names. It also points its own stderr at
-  `<key>.log` and writes every diagnostic without panicking, including a copy to the failing job's own error stream; a
-  broker that wrote to a client's closed pipe used to abort and take every other job in the session with it.
-- A session reads `.cabinet-env` again for every job it starts, so `cabinet set <prefix> env` reaches the next plugin in
-  a running session. `.cabinet-sync` is fixed when the session starts, on the outer shim's `flatpak run`: every Wine
-  process must use the sync mode of the wineserver it joins, and staging-based runners exit on a mismatch.
-- Wine re-parents a job's processes away from the process that started them, so a session finds and kills a job by its
-  process group. `wineserver` and `winedevice.exe` put themselves in their own groups and so survive between jobs, which
-  is exactly what sharing a session requires.
-- A yabridge host is dead once its main thread is. Wine can lose that thread, to a stack overflow for one, while other
-  threads keep the process and its pidfd alive; the leader shows as a zombie (`Zl`) and the DAW waits on it forever.
-  `supervise` ends a job whose `yabridge-host` leader is a zombie; any other program may outlive its main thread.
-  yabridge's plugin side then aborts the DAW at teardown, so this turns a hang into a crash.
-- A program an installer starts on its way out (a "launch now" box) inherits the installer's stdout and stderr, so
-  draining them would wait until the user quits it. `ProcessRunner` names such holders once the started process has
-  exited and hands `Lingering.Watcher` a way to stop them; Wine's own system processes are left to wineserver. Do not
-  stop waiting on exit alone: a bootstrapper that exits early keeps the real installer running on the same pipes.
+Read `docs/ARCHITECTURE.md` before changing the shim, sessions, prefix locks, the bridge, enrolment, process
+supervision, or yabridge's sockets and `YABRIDGE_TEMP_DIR`. Two rules bind every change:
+
 - Everything Cabinet owns, including prefixes and runners, stays under `~/.var/app/io.github.mark12870.cabinet/`;
   use that Bottles-style boundary for new code. The exception is what a DAW loads: yabridgectl's output and the
   native plugin bundles live in the DAW scan paths themselves (`cabinet/windows` and `cabinet/native` in `~/.vst3`,
@@ -128,8 +69,8 @@ the name or the structure instead. Anything that genuinely will not fit there is
   Cabinet's data for them. yabridgectl still writes through `bridge/<scan dir>/yabridge`, a link to the scan path,
   and each native install keeps links to its bundles under `native/<id>`. yabridge sockets use
   `$XDG_RUNTIME_DIR/yabridge`. Other intentional external locations are the per-file links older releases left in
-  `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared `Data:` directory. Do not add
-  arbitrary writes in `$HOME`.
+  `~/.local/share/yabridge`, which bridging removes, and a Library entry's declared `Data:` directory. Add no other
+  writes in `$HOME`.
 - The manifest grants no `home`: Wine maps `Z:` to `/`, so every installer and plugin would read all of `$HOME`. A
   new path Cabinet reads or writes needs its own grant; a new Library `Data:` root needs a matching
   `--filesystem=~/<root>:create` grant in `flatpak/io.github.mark12870.cabinet.yml`. Files the user picks come through the
@@ -143,10 +84,9 @@ the name or the structure instead. Anything that genuinely will not fit there is
   end's `Program` constructs a real `ProcessRunner`, which keeps Core testable; do not call `Process.Start` or write a
   path literal in an operation.
 - Tests are xunit, one project per source project, sharing helpers from `tests/Cabinet.Testing`. `Repo` walks up to
-  `Cabinet.slnx`, so `CatalogueTests`, `ManifestTests` and
-  `ShimParityTests` read the real tree. Substitute a runner with
-  `StubRunner`, `RecordingRunner` or `StreamingRunner` instead of a mocking library.
-- Tests must be always deterministic. No conditions are allowed in them.
+  `Cabinet.slnx`, so `CatalogueTests`, `ManifestTests` and `ShimParityTests` read the real tree. Substitute a runner
+  with `StubRunner`, `RecordingRunner` or `StreamingRunner` instead of a mocking library.
+- Tests are deterministic and straight-line: no conditions in them.
 - A new CLI verb also belongs in `Program.Usage`. Every command parses its arguments through `CommandLine` before
   bootstrap or any side effect; `--json` is accepted only where a command asks for it with `Then(json => …)`, and
   nothing after `run <name>` or `winetricks <name>` is parsed. JSON is written by hand with `Utf8JsonWriter` in
@@ -157,123 +97,30 @@ the name or the structure instead. Anything that genuinely will not fit there is
 
 ## Checks and builds
 
-Enable the hook once in a clone:
-
-```sh
-git config core.hooksPath .githooks
-```
-
-Run the complete CI-equivalent check from the repository root:
-
-```sh
-scripts/checks.sh
-```
-
-It enters `org.gnome.Sdk//50` itself and runs formatting, both front-end builds, the unit tests, AppStream validation,
-and shim fmt/clippy/tests. The GUI build needs `-p:UseSharedCompilation=false`; no test project compiles a front end.
-
-A focused test runs against host `dotnet 10`:
-
-```sh
-dotnet test --project tests/Cabinet.Library.Tests --filter-class '*CatalogueTests'
-```
-
-On the intended Silverblue host, `cargo` comes from the `rust-stable` SDK extension. Run a focused shim test in the same
-SDK shell:
-
-```sh
-flatpak run --filesystem="$PWD" --command=sh org.gnome.Sdk//50 -c \
-  'export PATH=/usr/lib/sdk/rust-stable/bin:$PATH; cd shim; cargo test native_daw_does_not_hop_through_the_host'
-```
-
-`Cabinet.Runtime.Tests` holds three kinds of test, and `RuntimeSuiteTests` refuses any other. `CarlaTests`, the plugin
-matrix, is the quick check the runtime job runs on every push (`--filter-not-namespace Cabinet.Runtime.Tests.Scenarios
---filter-not-namespace Cabinet.Runtime.Tests.Patches`). The plugin scenarios in `Scenarios/` test the catalogue entries
-themselves in the `Plugins` workflow. The probes in `Patches/` say when a `PATCHES.md` patch can go and run only on
-demand (`patches.yml`). Never run all the scenarios locally: verify only the plugins a change touches, several at once
-with `--parallel collections`, and leave the rest to that workflow.
-
-For a front-end-only compile, use `dotnet build src/Cabinet.Cli --nologo -v q` or
-`dotnet build src/Cabinet.Gui --nologo -v q -p:UseSharedCompilation=false`.
-
-The pre-commit hook invokes `scripts/checks.sh --staged`; it checks only what is staged and leaves `dotnet test` to the
-full script, so run the full script before declaring work verified. Commit with the hook enabled; never pass
+Load `build-and-test` to check, build or install Cabinet; `scripts/checks.sh` is the full CI-equivalent check, and the
+pre-commit hook (`git config core.hooksPath .githooks`) runs it on what is staged. Commit with the hook; never pass
 `--no-verify`.
 
-For a local Flatpak build, use `--disable-rofiles-fuse` and update the installed app to the new commit:
-
-```sh
-flatpak run org.flatpak.Builder --repo=repo --force-clean --disable-rofiles-fuse \
-  --default-branch=stable build flatpak/io.github.mark12870.cabinet.yml
-flatpak remote-add --user --if-not-exists --no-gpg-verify cabinet-local "file://$PWD/repo"
-flatpak install --user -y --or-update cabinet-local io.github.mark12870.cabinet
-```
-
-yabridge compiles with `meson compile -j1`. Its 64- and 32-bit hosts are each one `--unity-size=1000` translation unit;
-compiled in parallel they take about 10 GB, the OOM killer takes `cc1plus`, and the builder dies at yabridge's final
-link looking like a timeout. A serial build of the whole Flatpak takes about ten minutes.
-
-GUI changes need visual confirmation against the installed Flatpak:
-`scripts/gui-shot.sh About about.png` (or `Prefixes/<row>`); its header and the `gui-shot` skill describe the required
-toolbox.
+GUI changes need visual confirmation against the installed Flatpak: load `gui-shot`.
 
 `flatpak/nuget-sources.json` feeds the Flatpak's offline build and is generated by
 `flatpak-dotnet-generator.py`. NativeAOT pulls ILCompiler from NuGet, so every build needs it; regenerate it whenever a
 dependency changes.
 
-## Runtime diagnosis
+## Runtime testing
 
-- Load `build-and-test` and `runtime-test` before any mutating catalogue runtime operation.
-- Never install, launch, migrate, reconfigure or remove a catalogue entry through the host Cabinet data while testing.
-  Use the isolated Toolbox and runtime root prepared by `scripts/setup-runtime-tests.sh`.
-- Never change an existing host prefix for an experiment. Use a fresh isolated prefix for each runner or settings
-  comparison, and change one variable at a time.
-- Test managers through `cabinet library launch <id>`, not `cabinet run`; their launch and standard-stream paths differ.
-- Before adding flags or changing configuration, compare the complete configuration of the nearest working entry. Check
-  a relevant upstream or community installer when one exists.
-- Treat a manager launch as successful only when its expected window and renderer or helper processes are present and
-  its launch log has no fatal error. Process survival alone is insufficient.
-- After two substantially different runtime attempts fail, use the debugger subagent before trying more runners or
-  flags.
-- An editor can be exercised without a DAW: drive Carla's `carla_backend` from Python in the isolated runtime
-  (`engine_init("Dummy")`, `add_plugin`, `show_custom_ui`, a timed `engine_idle` loop, `engine_close`) with `DISPLAY`
-  kept, under `timeout`. A stall in `engine_close` is the DAW freeze.
-- An editor that exists is not an editor that works. Judge one by pixels and input: capture the window and require
-  more than one colour in it, then move, click and drag the pointer inside it and require the frame to change by more
-  than it changes with the pointer held still. A blank frame and a dead frame are both invisible in every log.
-- Give anything that sends synthetic input its own display, never the session one, and make it a headless `weston`
-  with `--xwayland --refresh-rate=60000`. A display with no refresh rate has no vblank, and a plugin that presents
-  through DXGI dies in Wine's unwinder on one. Capture with `xwd`: ImageMagick's `import` grabs the X server, so a
-  plugin holding a menu wedges it. End the compositor with `SIGTERM`; killed, it cannot unlink its own socket. Take
-  the client window, the one with `WM_STATE`, not the frame the compositor wraps it in, or every coordinate is off by
-  the title bar.
-- yabridge puts its sockets in `$XDG_RUNTIME_DIR` when `YABRIDGE_TEMP_DIR` is unset, and a manifest grants only
-  `xdg-run` subdirectories. The shim grants that path by value on every `flatpak run`, so every DAW reaches its sockets.
-- Every successful bridge sets up native DAWs: it makes `cabinet/windows` in `~/.vst3`, `~/.clap` and `~/.vst`
-  Cabinet's own yabridgectl output (never native plugins inside it: `sync` prunes them), reports a path something
-  else owns and leaves it in place, and takes out the per-file links older releases left in `~/.local/share/yabridge`.
-  yabridge's chainloader searches `$PATH` and `~/.local/share/yabridge`, where every yabridge puts the same names, so
-  `patches/yabridge/yabridge-chainloader-cabinet-first.patch` makes Cabinet's copies load Cabinet's installed library and host
-  first; both stay in Cabinet's installed files, because `yabridgectl sync` prunes every `.so` beside the plugins that
-  lacks its own `.dll`. A findable bridge with an unreachable loader aborts the DAW from yabridge's launch thread; the
-  manifest's `WINELOADER` fallback rewrite keeps the loader reachable. A long `YABRIDGE_TEMP_DIR` breaks the sockets
-  with `File name too long`, so leave it under `/run/user/<uid>`. Redirecting `XDG_DATA_HOME` to isolate it also hides
-  the user Flatpak installation from the shim's `flatpak run`
-  (`app/io.github.mark12870.cabinet/x86_64/master not installed`); set `FLATPAK_USER_DIR=~/.local/share/flatpak`
-  beside it. Native REAPER quit from a ReaScript (`Main_OnCommand(40004)`) with a bridged plugin loaded stalled for 9 s
-  to over 100 s while `YABRIDGE_DEBUG_LEVEL=1` showed every bridge call answered; run it under `timeout` and read the
-  ReaScript's own output.
-- Run `library install` with `DISPLAY` set: a vendor installer needs a display to install its plugin.
-- Wine runs every process elevated, and WebView2 reads an elevated host's browser flags from
-  `HKLM\Software\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments`, valued by host executable
-  (`yabridge-host.exe`); `CatalogueTests` enforces that location. Read `msedgewebview2.exe`'s
-  `/proc/<pid>/cmdline` before crediting a flag with any effect.
+Load `runtime-test` before any runtime test or diagnosis, and `plugin-scenario` for one entry's scenario. Every mutating
+catalogue operation runs in the isolated Toolbox that `scripts/setup-runtime-tests.sh` prepares, never against the
+host Cabinet data. `Cabinet.Runtime.Tests` holds three kinds of test, and `RuntimeSuiteTests` refuses
+any other: `CarlaTests`, the plugin matrix run on every push; the plugin scenarios in `Scenarios/`, run by the `Plugins`
+workflow; and the probes in `Patches/`, which say when a `PATCHES.md` patch can go. Locally, run only the scenarios a
+change touches, together with `--parallel collections`.
 
 ## Catalogue and safeguards
 
 - `data/library/<vendor>/` contains that vendor's `.yml` entries, optional shared `.sh` installer, and artwork; the
   manifest installs the directory to `/app/share/cabinet/library/<vendor>/`. Entry IDs are global. Keep artwork
-  provenance in `SOURCES.md`.
+  provenance in `SOURCES.md`. Load `library-entry` to add or change an entry.
 - A vendor directory that holds any `.md` stays in the tree and under test, the manifest's install loop leaves it out of
   the build, and the `.md` says why. `CatalogueTests` guards the pairing.
 - When a runner is pinned or updated, move every prefix that works on it to the newest runner, bumping
@@ -294,41 +141,31 @@ version in a project file. `scripts/update-yabridge.sh` updates the manifest URL
 
 Publishing is automatic and irreversible: every push to `main` runs `ci.yml`, which, once its checks pass, builds, signs
 and deploys to Pages only when that newest `<release>` differs from the version already published, keeping ten commits
-of rollback. So a metainfo bump on `main` is the release. Read the `bump` skill before changing the metainfo, signing,
-or the published OSTree repository.
+of rollback. So a metainfo bump on `main` is the release. Read `.agents/skills/bump/SKILL.md` before changing the
+metainfo, signing, or the published OSTree repository.
 
 Flatpak fetches an app's `add-extensions` only from the remote the app came from, so `scripts/mirror-extensions.sh`
 re-commits the auto-downloaded Flathub ones into Cabinet's repo on every release, and a manual run
 republishes the repo already out when one of them changed. That refresh never rebuilds the app, but it renders the
 site from `main`. `ManifestTests` keeps the mirrored list in step with the manifest.
 
-## When stuck
+## Subagents and escalation
 
-If progress depends on information, a runtime observation, or a decision that only the user can provide, ask the user
-instead of guessing.
+Use whatever agents the harness offers for these roles; the names in brackets are OpenCode's and Claude Code's.
 
-If two substantially different attempts fail, stop and either:
-
-- delegate to the debugger subagent, or
-- ask the user a focused question if user input could resolve the blocker.
-
-Do not consume the remaining step budget repeating similar investigations.
-
-## Subagents
-
-- Use the `explore` subagent for open-ended repository searches or when the relevant files and conventions are not yet
-  known.
-- Use the `general` subagent for complex, independent multi-step work that can be completed without duplicating the main
+- **Explorer** (`explore`, `Explore`), read-only, for open-ended searches when the relevant files and conventions are
+  not yet known.
+- **General** (`general`, `general-purpose`) for complex, independent multi-step work that does not duplicate the main
   task.
-- Use the `implementer` subagent as the default worker for well-scoped implementation tasks with clear acceptance
-  criteria. Keep implementation in build when the change is trivial, tightly coupled to broader integration work, or all
-  necessary context is already available.
-- You MUST use the `debugger` subagent for difficult or uncertain reasoning, when verification or user feedback indicates
-  that acceptance criteria are not met, when an attempted fix fails, or when the root cause of a bug or unexpected
-  behavior is not clear after an initial focused investigation. Escalate before making repeated speculative fixes.
-- You MUST use the `code-tester` subagent to design or run verification for a new feature or fix. Use it also for GUI
-  verifications.
-- You MUST run the `code-reviewer` subagent exactly once after all implementation, testing, and resulting fixes are
-  complete, immediately before the final response, and never during intermediate changes. Run it only when you changed
-  the code!
-- Run independent subagent tasks in parallel when possible, except `code-reviewer`.
+- **Implementer** (`implementer`, `general-purpose`) for a well-scoped change with clear acceptance criteria; keep
+  trivial or tightly coupled work inline.
+- **Tester** (`code-tester`, `general-purpose`) to design and run verification for a feature or fix, GUI checks
+  included.
+- **Debugger** (`debugger`, `general-purpose`), an independent second opinion, when the root cause is unclear after one
+  focused investigation, when a fix or verification fails, or after two substantially different attempts fail.
+  Escalate rather than repeat speculative fixes; ask the user instead when only they hold the missing fact,
+  observation or decision.
+- **Reviewer** (`code-reviewer`, `general-purpose`), exactly once, after a code change is implemented, tested and
+  fixed, immediately before the final response.
+
+Run independent subagent tasks in parallel, the reviewer excepted.

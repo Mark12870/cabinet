@@ -1,6 +1,7 @@
 ---
 name: bump
 description: Bump Cabinet's version by adding a release to the metainfo. Use when asked to bump, raise or cut Cabinet's version number.
+disable-model-invocation: true
 ---
 
 # Bumping Cabinet's version

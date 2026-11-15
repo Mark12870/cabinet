@@ -5,8 +5,8 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
 
 # Plugin scenarios
 
-1. Prepare the isolated runtime as `runtime-test` step 2 describes. Never install, open or remove the entry through the
-   host Cabinet data, and never drive a DAW.
+1. Prepare the isolated runtime as `runtime-test` step 2 describes. Install, open and remove the entry only there, and
+   leave every DAW alone.
 
 2. Create `tests/Cabinet.Runtime.Tests/Scenarios/<Entry>Scenario.cs`. The entry id appears only as `Id`. The download,
    the pinned version and the formats come from the `.yml` through `InstalledEntry`.
@@ -96,5 +96,5 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    scripts/scenario-coverage.sh
    ```
 
-9. Confirm no scenario sandbox is still running (`toolbox run --container cabinet-runtime flatpak ps`), then commit on
-   main.
+9. Confirm no scenario sandbox is still running (`toolbox run --container cabinet-runtime flatpak ps`), then report the
+   result. Commit only when the user asks.
