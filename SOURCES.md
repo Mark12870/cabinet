@@ -78,6 +78,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | powair, auto-align-2, auto-align-post-2, drum-leveler, pi, radical1, surfereq-2 | Sound Radix's product pages, `soundradix.com/products/<product>/`, `_app/immutable/assets/` — `product-v1.CyTGZy4m.webp`, `product-v2.BXmp-aH4.webp`, `product-v2.XV_D5ZqJ.webp`, `product-v1.C1uQelmJ.webp`, `product-v1.DbOUfwUW.webp`, `product-v1.sItLKxJc.webp`, `product-v2.DFJxm3b3.webp`, each the plugin's interface; each icon is a crop of its screenshot |
 | dseq3 | TBProAudio's product page, `tbproaudio.de/assets/content/screenshots/dseq3_bign.png`, the plugin's interface; its icon is the mark from `tbproaudio.de/assets/content/logos/dseq_logo.png` |
 | tbpavolume, tbpameter, gsatplus, dpmeter5, stilt2, isol8, mvmeter2 | TBProAudio's product pages, `tbproaudio.de/assets/content/screenshots/` — `TBPAVolume_bign.png`, `TBPAMeter_bign.png`, `gsatplus_bign.png`, `dpmeter5_bign.png`, `stiltv2_bign.png`, `isol8_bign.png`, `mvmeter2_bign.png`, each the plugin's interface; each icon is a crop of its screenshot |
+| kick-3 | Sonic Academy's product page, `sonicacademy.com/products/kick-3`, `images.sonicacademy.com/assets/plugins/kick3/gui.png`, the plugin's interface; its icon is the square interface image `images.sonicacademy.com/images/medium/2549_KICK_3_Square_GUI.jpg` from the same page |
 | humanoid | Baby Audio's product page, `babyaud.io/humanoid`, `cdn.prod.website-files.com/687ee2fa7f073e59ed93f259/689b73785604d1b5353518bd_Humanoid_GUI_Light01.avif`; its icon is `689a2a021cdfcd220d32d20b_Humanoid%20Icon.avif` from the same page |
 | landr-mastering-pro | captured here, from LANDR Mastering Pro's editor bridged in an isolated prefix; its icon uses the vendor's logo below |
 
@@ -108,6 +109,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | line6 | the LINE 6 pill mark, `commons.wikimedia.org/wiki/File:Line_6_logo.svg`, PD-textlogo; solid black ink on transparent, recoloured white |
 | sound-radix | the SR mark, Sound Radix's own `soundradix.com/apple-touch-icon.png`, 180×180, white on a dark grey square, keyed off it |
 | tbproaudio | the TBProAudio wordmark, `tbproaudio.de/img/logo.svg`, yellow and white on transparent, unchanged |
+| sonic-academy | the SONIC wordmark from `sonicacademy.com`'s header, `/assets/logo-sonic-white-….svg`, vector and already white on transparent |
 | baby-audio | the BABY AUDIO wordmark from `babyaud.io`, `cdn.prod.website-files.com/687ee2fa7f073e59ed93f259/68991e75b856928cc94b7b46_67cf125388b687eb716d9939_baby%20audio%20logo%202025.svg`, white on transparent |
 | landr | the LANDR rings, `cdn.prod.website-files.com/66451c84f87c605764b3d93a/66462d9d89d9d497028b2864_logo.svg`, off-white on transparent |
 | drumgizmo | `drumgizmo-0.9.20.tar.gz` from `drumgizmo.org/releases/drumgizmo-0.9.20/`, `plugingui/resources/logo.png`, recoloured white |

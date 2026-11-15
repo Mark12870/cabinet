@@ -1,0 +1,21 @@
+Name: KICK 3
+Kind: windows
+Category: Drums
+Summary: Kick drum synth with sample analysis
+Developer: Sonic Academy
+Version: 1.1.6
+Licence: Commercial
+Licensing:
+  The 14-day trial and the full version both download from a Sonic Academy account.
+Formats: VST3
+Homepage: https://www.sonicacademy.com/products/kick-3
+Source: byo
+Account: https://www.sonicacademy.com/users/sign_in
+InstallInstructions: Choose the KICK 3 ZIP from your Sonic Academy account, or the Windows installer inside it.
+Script: sonic-academy.sh
+Description:
+  Builds a kick from up to five layers of synthesised sub and sampled click,
+  drawn as pitch and amplitude envelopes, with harmonics, phase locking and
+  key tracking per node. A kick sample, or one isolated from a full track,
+  can be analysed into an editable click and sub. Two insert effect chains
+  and a master channel add distortion, compression, EQ, delay and reverb.
