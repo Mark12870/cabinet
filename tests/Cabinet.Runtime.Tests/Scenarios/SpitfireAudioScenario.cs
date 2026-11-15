@@ -148,8 +148,9 @@ public sealed class SpitfireAudioScenario(SpitfireAudioScenario.Installed instal
                 window, "BBC Symphony Orchestra Discover to install", Answering, Account);
             manager.Choose(window, 193, 398);
             manager.Until(
-                () => manager.Shows(window, DownloadPage, DownloadHeading),
-                window, "the BBCSO Discover download", Answering, Account);
+                () => manager.Shows(window, DownloadPage, DownloadHeading)
+                      || (manager.Shows(window, ProductPage, ProductTitle) && Reinstalls(manager, window)),
+                window, "the BBCSO Discover download", Opening, Account);
             manager.Choose(window, 673, 577);
             manager.Until(
                 () => Directory.Exists(Plugin) && manager.Shows(window, DownloadsPage, NoDownloads),
@@ -172,16 +173,20 @@ public sealed class SpitfireAudioScenario(SpitfireAudioScenario.Installed instal
         private static void Reset(Manager manager, string window)
         {
             manager.Until(
-                () => manager.Shows(window, GearMenu, GearItems) || Opens(manager, window, 991, 620, GearMenu, GearItems),
-                window, "the installed product's menu with Reset", Answering, Account);
-            manager.Until(
                 () => manager.Shows(window, ResetDialog, ResetQuestion)
-                      || Opens(manager, window, 901, 695, ResetDialog, ResetQuestion),
+                      || (Opens(manager, window, 991, 620, GearMenu, GearItems)
+                          && Opens(manager, window, 901, 695, ResetDialog, ResetQuestion)),
                 window, "the reset dialog", Answering, Account);
             manager.Choose(window, 504, 488);
             manager.Until(
                 () => manager.Shows(window, ResetPage, InstallButton),
                 window, "the account's BBCSO Discover reset to install again", Answering, Account);
+        }
+
+        private static bool Reinstalls(Manager manager, string window)
+        {
+            Reset(manager, window);
+            return Opens(manager, window, 827, 621, DownloadPage, DownloadHeading);
         }
 
         private static bool Opens(Manager manager, string window, int x, int y, string page, string region)
