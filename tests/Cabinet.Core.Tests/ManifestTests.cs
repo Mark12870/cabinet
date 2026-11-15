@@ -361,6 +361,23 @@ public class ManifestTests
     }
 
     [Fact]
+    public void AnAraReadLargerThanItsBufferIsReadInFull()
+    {
+        const string patch = "patches/yabridge/yabridge-ara-full-reads.patch";
+        var buffers = Array.FindIndex(
+            Lines,
+            line => line.Trim() == "path: ../patches/yabridge/yabridge-ara-unique-buffers.patch");
+        var applied = Array.FindIndex(Lines, line => line.Trim() == "path: ../" + patch);
+        var reading = File.ReadAllText(Repo.Path(patch));
+
+        Assert.True(buffers >= 0);
+        Assert.Equal(buffers + 2, applied);
+        Assert.Contains("+            static_cast<int64_t>(pos + done),", reading, StringComparison.Ordinal);
+        Assert.Contains("+                            static_cast<size_t>(done) * bytes_per_sample,", reading, StringComparison.Ordinal);
+        Assert.Contains("+    } while (done < count);", reading, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheSocketsLandWhereTheSandboxCanReachThem()
     {
         Assert.Contains("--filesystem=xdg-run/yabridge:create", FinishArgs);

@@ -1,0 +1,65 @@
+diff --git a/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp b/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp
+index ba104c6..bfc6f6c 100644
+--- a/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp
++++ b/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp
+@@ -228,31 +228,36 @@ ARA::ARABool ARA_CALL AraHostInstanceProxy::read_audio_samples(
+     }
+     if (!shm || !buffers)
+         return ARA::kARAFalse;
+-    ARA::ARASampleCount clamped_count = count;
+-    if (capacity > 0 &&
+-        static_cast<uint32_t>(clamped_count) > capacity)
+-        clamped_count = static_cast<ARA::ARASampleCount>(capacity);
+-    const auto resp = p->bridge_.send_message(YaAra::ReadAudioSamples{
+-        p->ara_dc_id_,
+-        id,
+-        static_cast<int64_t>(pos),
+-        static_cast<int32_t>(clamped_count),
+-        use64});
+-    if (!resp.success)
+-        return ARA::kARAFalse;
++    // The shared buffer holds at most `capacity` frames, so a larger request
++    // is read in chunks of that size, each copied to its offset in `buffers`
+     const size_t bytes_per_sample = use64 ? sizeof(double) : sizeof(float);
+-    for (int32_t c = 0; c < ch; ++c) {
+-        if (!buffers[static_cast<size_t>(c)])
+-            continue;
+-        const void* src =
+-            use64
+-                ? static_cast<const void*>(
+-                      shm->input_channel_ptr<double>(0, static_cast<uint32_t>(c)))
+-                : static_cast<const void*>(
+-                      shm->input_channel_ptr<float>(0, static_cast<uint32_t>(c)));
+-        std::memcpy(buffers[static_cast<size_t>(c)], src,
+-                    static_cast<size_t>(clamped_count) * bytes_per_sample);
+-    }
++    ARA::ARASampleCount done = 0;
++    do {
++        ARA::ARASampleCount chunk = count - done;
++        if (capacity > 0 && static_cast<uint32_t>(chunk) > capacity)
++            chunk = static_cast<ARA::ARASampleCount>(capacity);
++        const auto resp = p->bridge_.send_message(YaAra::ReadAudioSamples{
++            p->ara_dc_id_,
++            id,
++            static_cast<int64_t>(pos + done),
++            static_cast<int32_t>(chunk),
++            use64});
++        if (!resp.success)
++            return ARA::kARAFalse;
++        for (int32_t c = 0; c < ch; ++c) {
++            if (!buffers[static_cast<size_t>(c)])
++                continue;
++            const void* src =
++                use64 ? static_cast<const void*>(shm->input_channel_ptr<double>(
++                            0, static_cast<uint32_t>(c)))
++                      : static_cast<const void*>(shm->input_channel_ptr<float>(
++                            0, static_cast<uint32_t>(c)));
++            std::memcpy(static_cast<char*>(buffers[static_cast<size_t>(c)]) +
++                            static_cast<size_t>(done) * bytes_per_sample,
++                        src, static_cast<size_t>(chunk) * bytes_per_sample);
++        }
++        done += chunk;
++    } while (done < count);
+     return ARA::kARATrue;
+ }
+ 
