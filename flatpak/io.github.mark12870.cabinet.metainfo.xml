@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.42.0" date="2026-11-15">
+      <description>
+        <p>Plugin Alliance in the Library</p>
+        <ul>
+          <li>Install the Plugin Alliance Installation Manager, which installs and activates Brainworx and other Plugin Alliance plugins</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.41.1" date="2026-11-14">
       <description>
         <p>A steadier ZENOLOGY and current TBProAudio and UVI downloads</p>
