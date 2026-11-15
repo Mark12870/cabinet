@@ -1,0 +1,18 @@
+{
+  "entries": [
+    {
+      "id": "pa-installation-manager",
+      "path": "plugin-alliance/pa-installation-manager.yml",
+      "scenario": "Cabinet.Runtime.Tests.Scenarios.PaInstallationManagerScenario",
+      "allowedDownloadHosts": [
+        "www.plugin-alliance.com"
+      ],
+      "source": {
+        "type": "vendor-page",
+        "pageUrl": "https://www.plugin-alliance.com/pages/installation-manager",
+        "downloadRegex": "^https://www\\.plugin-alliance\\.com/cdn/shop/files/pa_installation_manager_win_(?<version>[0-9]+(?:_[0-9]+)+)\\.zip$"
+      }
+    }
+  ],
+  "blocked": []
+}

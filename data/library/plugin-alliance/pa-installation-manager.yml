@@ -1,0 +1,23 @@
+Name: Plugin Alliance Installation Manager
+Kind: windows
+Category: Manager
+Summary: Plugin Alliance's plugin installer
+Developer: Plugin Alliance
+Version: 1.4.0
+Licence: Freeware
+Licensing:
+  The manager is free and requires a Plugin Alliance account. Each plugin is activated
+  with that account on first use; a product without a licence runs as a 14-day trial.
+Formats: VST3, VST2
+Homepage: https://www.plugin-alliance.com/pages/installation-manager
+Source: download
+Url: https://www.plugin-alliance.com/cdn/shop/files/pa_installation_manager_win_1_4_0.zip
+Sha256: 0ff7eca91d657e0e16c470dd260548b3bb3576c3c489905fe5c2a7f84b3eb8c5
+Launch: C:\Program Files\Plugin Alliance\Installation Manager\PA-InstallationManager.exe
+VersionFile: C:\Program Files\Plugin Alliance\Installation Manager\PA-InstallationManager.exe
+Script: plugin-alliance.sh
+Description:
+  Mixing and mastering plugins from Brainworx and the brands it models or
+  licenses, such as AMEK, Ampeg, ADA and ADPTR Audio: console channel
+  strips, EQ and compressor models, amp simulators, reverbs and delays,
+  and synths.
