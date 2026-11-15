@@ -122,6 +122,27 @@ public sealed partial class Doctor
                 + "Not limits.conf: pam_limits does not reach a systemd-started app.");
     }
 
+    private const string InotifyInstancesLimit = "/proc/sys/fs/inotify/max_user_instances";
+
+    private static Check InotifyInstances() =>
+        InotifyInstances(File.Exists(InotifyInstancesLimit) ? File.ReadAllText(InotifyInstancesLimit) : null);
+
+    internal static Check InotifyInstances(string? limit)
+    {
+        if (!int.TryParse(limit, out var instances))
+        {
+            return new Check("inotify instances", Status.Warn, $"could not read {InotifyInstancesLimit}");
+        }
+
+        const int comfortable = 512;
+        return instances >= comfortable
+            ? new Check("inotify instances", Status.Ok, $"{instances} per user")
+            : new Check("inotify instances", Status.Warn,
+                $"{instances} per user — a manager such as Native Access may not open once other apps "
+                + "hold the rest. Run `sudo sysctl fs.inotify.max_user_instances=1024` and put "
+                + "`fs.inotify.max_user_instances=1024` in /etc/sysctl.d/99-inotify-instances.conf.");
+    }
+
     private static long? ReadMemlockLimit()
     {
         if (!File.Exists("/proc/self/limits"))

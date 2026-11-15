@@ -2,33 +2,62 @@ namespace Cabinet.Core;
 
 public sealed class PluginMonitor : IDisposable
 {
+    internal static readonly TimeSpan Rescan = TimeSpan.FromSeconds(2);
+
     private readonly string[] directories;
     private readonly TimeSpan quiet;
     private readonly AutoResetEvent signal = new(false);
     private readonly object gate = new();
+    private readonly Func<string, FileSystemWatcher> watch;
     private FileSystemWatcher[] watchers = [];
+    private bool rescanning;
     private bool recovering;
     private bool disposed;
     private readonly Func<WaitHandle[], TimeSpan, int> wait;
 
     public PluginMonitor(IEnumerable<string> directories, TimeSpan? quiet = null)
+        : this(directories, quiet ?? TimeSpan.FromMilliseconds(250), Watch, WaitHandle.WaitAny)
     {
-        this.directories = [.. directories.Select(Path.GetFullPath)];
-        this.quiet = quiet ?? TimeSpan.FromMilliseconds(250);
-        wait = WaitHandle.WaitAny;
-        watchers = CreateWatchers();
     }
 
     internal PluginMonitor(TimeSpan quiet, Func<WaitHandle[], TimeSpan, int> wait)
+        : this([], quiet, Watch, wait)
     {
-        directories = [];
+    }
+
+    internal PluginMonitor(
+        IEnumerable<string> directories,
+        TimeSpan quiet,
+        Func<string, FileSystemWatcher> watch,
+        Func<WaitHandle[], TimeSpan, int> wait)
+    {
+        this.directories = [.. directories.Select(Path.GetFullPath)];
         this.quiet = quiet;
+        this.watch = watch;
         this.wait = wait;
+
+        try
+        {
+            watchers = CreateWatchers();
+        }
+        catch (IOException)
+        {
+            rescanning = true;
+        }
     }
 
     public bool Wait(CancellationToken cancellationToken, TimeSpan timeout)
     {
         var handles = new WaitHandle[] { signal, cancellationToken.WaitHandle };
+
+        lock (gate)
+        {
+            if (rescanning && timeout == Timeout.InfiniteTimeSpan)
+            {
+                timeout = Rescan;
+            }
+        }
+
         var result = wait(handles, timeout);
 
         if (result == 1)
@@ -84,7 +113,9 @@ public sealed class PluginMonitor : IDisposable
         {
             foreach (var directory in directories)
             {
-                created.Add(Watch(directory));
+                var watcher = watch(directory);
+                created.Add(watcher);
+                Follow(watcher);
             }
 
             return [.. created];
@@ -100,9 +131,8 @@ public sealed class PluginMonitor : IDisposable
         }
     }
 
-    private FileSystemWatcher Watch(string path)
-    {
-        var watcher = new FileSystemWatcher(path)
+    private static FileSystemWatcher Watch(string path) =>
+        new(path)
         {
             IncludeSubdirectories = true,
             NotifyFilter = NotifyFilters.FileName
@@ -110,13 +140,15 @@ public sealed class PluginMonitor : IDisposable
                 | NotifyFilters.LastWrite
                 | NotifyFilters.Size,
         };
+
+    private void Follow(FileSystemWatcher watcher)
+    {
         watcher.Created += (_, _) => Signal();
         watcher.Changed += (_, _) => Signal();
         watcher.Deleted += (_, _) => Signal();
         watcher.Renamed += (_, _) => Signal();
         watcher.Error += (_, _) => Recover();
         watcher.EnableRaisingEvents = true;
-        return watcher;
     }
 
     private void Recover()
@@ -145,6 +177,7 @@ public sealed class PluginMonitor : IDisposable
             lock (gate)
             {
                 recovering = false;
+                rescanning = true;
             }
 
             Signal();
@@ -163,6 +196,7 @@ public sealed class PluginMonitor : IDisposable
             {
                 watchers = replacement;
                 recovering = false;
+                rescanning = false;
             }
         }
 

@@ -21,6 +21,7 @@ public sealed partial class Doctor(Layout layout, IProcessRunner runner)
             SocketDirectory(),
             SharedMemory(),
             MemoryLock(),
+            InotifyInstances(),
         };
 
         checks.AddRange(ThirtyTwoBit(Layout.FlatpakInfo));

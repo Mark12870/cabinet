@@ -8,6 +8,21 @@ public sealed class DoctorTests : IDisposable
         IniFile.Parse(["[Instance]", $"app-extensions={app}", $"runtime-extensions={runtime}"]);
 
     [Fact]
+    public void ADefaultInotifyInstanceLimitWarnsWithTheSysctlFix()
+    {
+        var check = Doctor.InotifyInstances("128\n");
+
+        Assert.Equal(Status.Warn, check.Status);
+        Assert.Contains("fs.inotify.max_user_instances=1024", check.Detail);
+    }
+
+    [Fact]
+    public void AGenerousInotifyInstanceLimitPasses()
+    {
+        Assert.Equal(Status.Ok, Doctor.InotifyInstances("8192\n").Status);
+    }
+
+    [Fact]
     public void MountedCompatAndMatchingGraphicsPass()
     {
         var checks = Doctor.ThirtyTwoBit(Info(
