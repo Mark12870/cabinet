@@ -74,6 +74,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | izotope-product-portal | captured here, from Product Portal 1.4.9's Trials tab in an isolated prefix; its icon is the 256px app icon in `iZotope Product Portal.exe` |
 | minimal-audio-hub | captured here, from Minimal Hub 1.1.11 in an isolated prefix; its icon uses the vendor's signet below |
 | inmusic-software-center | captured here, from inMusic Software Center 1.40.0's welcome screen in an isolated prefix; its icon is the 256px app icon its package names, `imb-si01.s3.amazonaws.com/SI04/Icon/imc-v3-icon.ico` |
+| mtm-installer-manager | captured here, from Installer Manager 1.0.22 at its first-run licence agreement in an isolated prefix; its icon is the 256px app icon in `Installer Manager.exe` |
 | powair, auto-align-2, auto-align-post-2, drum-leveler, pi, radical1, surfereq-2 | Sound Radix's product pages, `soundradix.com/products/<product>/`, `_app/immutable/assets/` — `product-v1.CyTGZy4m.webp`, `product-v2.BXmp-aH4.webp`, `product-v2.XV_D5ZqJ.webp`, `product-v1.C1uQelmJ.webp`, `product-v1.DbOUfwUW.webp`, `product-v1.sItLKxJc.webp`, `product-v2.DFJxm3b3.webp`, each the plugin's interface; each icon is a crop of its screenshot |
 | dseq3 | TBProAudio's product page, `tbproaudio.de/assets/content/screenshots/dseq3_bign.png`, the plugin's interface; its icon is the mark from `tbproaudio.de/assets/content/logos/dseq_logo.png` |
 | tbpavolume, tbpameter, gsatplus, dpmeter5, stilt2, isol8, mvmeter2 | TBProAudio's product pages, `tbproaudio.de/assets/content/screenshots/` — `TBPAVolume_bign.png`, `TBPAMeter_bign.png`, `gsatplus_bign.png`, `dpmeter5_bign.png`, `stiltv2_bign.png`, `isol8_bign.png`, `mvmeter2_bign.png`, each the plugin's interface; each icon is a crop of its screenshot |
@@ -120,3 +121,4 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | cymatics | Cymatics' official white wordmark, `cymatics.fm/cdn/shop/files/Cymatics_Logotype_transparent_white.png` |
 | air-music-tech | AIR's official white vector logo, `airmusictech.com/svg/air-logo-white.svg` |
 | minimal-audio | the official vector signet at `minimal.audio/assets/shared/favicons/favicon-af14aa2427911958c2156eff3170eb519d0528f6972b4585b0edcea6e70c4b18.svg`, recoloured ivory on a black tile for contrast in both themes |
+| mastering-the-mix | the headphone mark from the official logo, `masteringthemix.com/cdn/shop/files/Mastering_The_Mix_2026_LOGO_PNG_Black.png`, cropped from its wordmark, keyed off white and recoloured white |

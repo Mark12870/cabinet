@@ -291,7 +291,8 @@ reasons are here:
   Sign-in screens are recognised by reference crops under `Scenarios/References/` before the
   password is typed. Spitfire's account remembers what it installed, so its scenario resets BBCSO
   Discover once the download completes; a run that dies before the reset leaves it to reset by
-  hand.
+  hand. Mastering the Mix's Installer Manager stops at its licence agreement, the first page
+  that asks the user to agree to something.
 
 Neural Amp Modeler has a scenario but no editor check: its LV2 declares no UI a host can open,
 and with no model loaded the scenario proves the plugin's output gain rather than an amp.

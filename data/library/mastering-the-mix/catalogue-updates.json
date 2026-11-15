@@ -1,0 +1,9 @@
+{
+  "entries": [],
+  "blocked": [
+    {
+      "id": "mtm-installer-manager",
+      "reason": "The versioned installer was taken from the manager's own product manifest; automatic discovery of new releases is not configured."
+    }
+  ]
+}

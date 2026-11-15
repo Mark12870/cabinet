@@ -26,12 +26,15 @@ internal sealed class Manager(
     public string VersionedWindow(string title, TimeSpan patience) =>
         WindowMatching($@"^{Regex.Escape(title)} [0-9]+(\.[0-9]+)+$", patience);
 
-    private string WindowMatching(string pattern, TimeSpan patience)
+    public string UntitledWindow(string program, TimeSpan patience) =>
+        WindowMatching($"^{Regex.Escape(program)}$", patience, "--classname");
+
+    private string WindowMatching(string pattern, TimeSpan patience, string field = "--name")
     {
         var deadline = DateTime.UtcNow + patience;
         while (DateTime.UtcNow < deadline)
         {
-            var found = Xdotool("search", "--onlyvisible", "--name", pattern).Output.Trim();
+            var found = Xdotool("search", "--onlyvisible", field, pattern).Output.Trim();
             if (found.Length > 0)
             {
                 return found.Split('\n')[0];

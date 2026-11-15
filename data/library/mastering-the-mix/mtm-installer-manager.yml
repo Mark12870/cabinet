@@ -1,0 +1,23 @@
+Name: Mastering the Mix Installer Manager
+Kind: windows
+Category: Manager
+Summary: Mastering the Mix's plugin installer
+Developer: Mastering the Mix
+Version: 1.0.22
+Licence: Freeware
+Licensing:
+  The manager is free; each plugin it installs needs its own Mastering the Mix
+  licence.
+Formats: VST3
+Homepage: https://www.masteringthemix.com
+Source: download
+Url: https://29palms.blob.core.windows.net/mtm-installers/releases/installer-manager-1.0.22-win-setup.exe
+Sha256: 111da4f429fc803986758bd6b73f679ff3f9c27c292c458159b63fc589c5ec18
+Launch: C:\Program Files\MasteringTheMix\Installer Manager.exe
+VersionFile: C:\Program Files\MasteringTheMix\Installer Manager.exe
+Script: mastering-the-mix.sh
+Description:
+  Mixing and mastering plugins built around analysis: REFERENCE 3 compares a
+  mix with reference tracks, LEVELS and EXPOSE 2 check loudness, peaks and
+  stereo, BASSROOM and MIXROOM set EQ against genre targets, and RESO,
+  FUSER, LIMITER and FASTERMASTER treat resonances, clashes and the master.
