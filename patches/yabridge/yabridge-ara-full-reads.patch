@@ -1,8 +1,8 @@
 diff --git a/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp b/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp
-index ba104c6..bfc6f6c 100644
+index ba104c6..3899952 100644
 --- a/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp
 +++ b/src/wine-host/bridges/vst3-impls/ara-host-callback-proxies.cpp
-@@ -228,31 +228,36 @@ ARA::ARABool ARA_CALL AraHostInstanceProxy::read_audio_samples(
+@@ -228,31 +228,37 @@ ARA::ARABool ARA_CALL AraHostInstanceProxy::read_audio_samples(
      }
      if (!shm || !buffers)
          return ARA::kARAFalse;
@@ -36,7 +36,8 @@ index ba104c6..bfc6f6c 100644
 +    ARA::ARASampleCount done = 0;
 +    do {
 +        ARA::ARASampleCount chunk = count - done;
-+        if (capacity > 0 && static_cast<uint32_t>(chunk) > capacity)
++        if (capacity > 0 &&
++            chunk > static_cast<ARA::ARASampleCount>(capacity))
 +            chunk = static_cast<ARA::ARASampleCount>(capacity);
 +        const auto resp = p->bridge_.send_message(YaAra::ReadAudioSamples{
 +            p->ara_dc_id_,

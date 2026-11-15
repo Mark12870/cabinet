@@ -25,4 +25,21 @@ public class DocumentationTests
 
         Assert.Equal(shipped, listed);
     }
+
+    [Fact]
+    public void TheReadmeNamesEveryYabridgePatchCabinetCarries()
+    {
+        var listed = Repo.Lines("README.md")
+            .SkipWhile(line => line != "## Yabridge patches")
+            .Skip(1)
+            .TakeWhile(line => !line.StartsWith("## ", StringComparison.Ordinal))
+            .Where(line => line.StartsWith("- **", StringComparison.Ordinal))
+            .Select(line => line["- **".Length..line.IndexOf("**", "- **".Length, StringComparison.Ordinal)])
+            .Order(StringComparer.Ordinal);
+        var carried = Directory.EnumerateFiles(Repo.Path("patches/yabridge"), "yabridge-*.patch")
+            .Select(path => System.IO.Path.GetFileNameWithoutExtension(path)["yabridge-".Length..])
+            .Order(StringComparer.Ordinal);
+
+        Assert.Equal(carried, listed);
+    }
 }

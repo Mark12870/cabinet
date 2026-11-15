@@ -63,6 +63,25 @@ public sealed class PluginMonitorTests
         Assert.Equal([PluginMonitor.Rescan], timeouts);
     }
 
+    [Fact]
+    public void AChangeSeenWhileRescanningSettlesAfterTheQuietInterval()
+    {
+        var waits = new Queue<int>([0, WaitHandle.WaitTimeout]);
+        var timeouts = new List<TimeSpan>();
+        using var monitor = new PluginMonitor(
+            ["/plugins"],
+            Quiet,
+            _ => throw new IOException("The configured user limit (128) on the number of inotify instances has been reached"),
+            (_, timeout) =>
+            {
+                timeouts.Add(timeout);
+                return waits.Dequeue();
+            });
+
+        Assert.True(monitor.Wait(CancellationToken.None, Timeout.InfiniteTimeSpan));
+        Assert.Equal([PluginMonitor.Rescan, Quiet], timeouts);
+    }
+
     private static PluginMonitor Monitor(Queue<int> waits, List<TimeSpan> timeouts) =>
         new(Quiet, (_, timeout) =>
         {

@@ -133,6 +133,9 @@ Wine loads no display driver, so winevulkan offers no surface extension, `vkCrea
 with `-7`, and DXVK's failure goes through Wine's unwinder — `unknown CFA opcode`, repeatedly —
 into a stack overflow that takes the host with it. SINE Player died that way on every CI run. A
 DAW has a display; the matrix now says so, at two seconds across the nine cases.
+A case has 30 s to load and SINE Player 60 s: its `createInstance` fetches
+`www.orchestraltools.com/robots.txt` before it returns, with a 30 s timeout, so a slow server
+stalls it that long.
 
 | Host side | Plugin | Format | Purpose |
 | --- | --- | --- | --- |

@@ -25,7 +25,7 @@ public sealed class CarlaTests : IDisposable
             [new PluginCase("windows-vst3-valhalla", "wv3", "vst3",
                 Fixtures.Windows(".vst3", "ValhallaSupermassive.vst3"), false, "Finished initializing")],
             [new PluginCase("windows-vst3-sine", "wsine", "vst3",
-                Fixtures.Windows(".vst3", "SINE Player.vst3"), false, "Finished initializing")],
+                Fixtures.Windows(".vst3", "SINE Player.vst3"), false, "Finished initializing", LoadSeconds: 60)],
             [new PluginCase("windows-clap-fabfilter", "wfc", "clap",
                 Fixtures.Windows(".clap", "FabFilter Micro.clap"), true, "Finished initializing")],
         ];
@@ -65,7 +65,8 @@ public sealed record PluginCase(
     string Plugin,
     bool Testing,
     string Success,
-    string? Fixture = null)
+    string? Fixture = null,
+    int LoadSeconds = 30)
 {
     public string FixturePath => Fixture ?? Plugin;
 }
@@ -504,12 +505,12 @@ internal static class CarlaProcess
         info.ArgumentList.Add(plugin.Format);
         info.ArgumentList.Add(plugin.Plugin);
         info.ArgumentList.Add(plugin.Testing ? "1" : "0");
-        info.ArgumentList.Add("30s");
+        info.ArgumentList.Add($"{plugin.LoadSeconds}s");
         info.ArgumentList.Add(configuration.CabinetFiles);
 
         using var process = Process.Start(info)
                             ?? throw new InvalidOperationException("could not start supervisor");
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(plugin.LoadSeconds + 90));
         var output = process.StandardOutput.ReadToEndAsync(timeout.Token);
         var error = process.StandardError.ReadToEndAsync(timeout.Token);
 

@@ -183,7 +183,7 @@ also reopened and rendered the saved Player-mode ARA projects successfully.
 [ARA proposal: yabridge#500](https://github.com/robbert-vdh/yabridge/pull/500)
 
 **Failure.** The Wine host's `readAudioSamples` cuts a request to its reader's shared buffer, 65,536
-frames for a mono 32-bit reader, and copies only that much. It still reports success, so the
+frames per channel, and copies only that much. It still reports success, so the
 plugin uses buffers that are mostly unwritten. Auto-Align Post 2 asks 262,144 frames per overview
 read, and its waveform showed separate bars where the audio was continuous. On a stereo 44.1 kHz
 run its readers stopped 125,600 frames short of each source's end. Nothing outside yabridge

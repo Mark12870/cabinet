@@ -49,16 +49,17 @@ public sealed class PluginMonitor : IDisposable
     public bool Wait(CancellationToken cancellationToken, TimeSpan timeout)
     {
         var handles = new WaitHandle[] { signal, cancellationToken.WaitHandle };
+        var first = timeout;
 
         lock (gate)
         {
             if (rescanning && timeout == Timeout.InfiniteTimeSpan)
             {
-                timeout = Rescan;
+                first = Rescan;
             }
         }
 
-        var result = wait(handles, timeout);
+        var result = wait(handles, first);
 
         if (result == 1)
         {
