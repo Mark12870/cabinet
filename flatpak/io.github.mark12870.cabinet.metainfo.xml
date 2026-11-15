@@ -46,6 +46,17 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.43.0" date="2026-11-15">
+      <description>
+        <p>Mastering the Mix in the Library</p>
+        <ul>
+          <li>Install the Mastering the Mix Installer Manager, which installs REFERENCE 3, LEVELS, BASSROOM and the rest of Mastering the Mix's plugins</li>
+          <li>ARA plugins such as Auto-Align Post 2 now receive whole audio reads, so they analyse each clip to its end</li>
+          <li>Managers such as Native Access open when the system's inotify instance limit is used up, and Doctor reports a low limit with the command that raises it</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.42.0" date="2026-11-15">
       <description>
         <p>Plugin Alliance in the Library</p>
