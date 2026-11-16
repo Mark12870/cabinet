@@ -5,18 +5,18 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
 {
     private const string Id = "pa-installation-manager";
 
-    private const string Mix = "Stereo Width";
+    private const string Mix = "Input";
 
     private static readonly Dictionary<string, string> Bridges = new()
     {
-        ["VST3"] = "bx_solo.vst3",
+        ["VST3"] = "Apogee Soft Limit.vst3",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
 
     [Theory]
     [MemberData(nameof(Formats))]
-    public async Task SignsInInstallsAndActivatesBxSoloAndProcessesAudioWithAWorkingEditor(string format)
+    public async Task SignsInInstallsAndActivatesSoftLimitAndProcessesAudioWithAWorkingEditor(string format)
     {
         Assert.True(
             Bridges.ContainsKey(format),
@@ -24,10 +24,10 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
         var bridge = installed.Harness.Plugin(format, Bridges[format]);
         var audio = await installed.Harness.Render(bridge, Mix, installed.Display);
 
-        Assert.True(audio.Parameters > 0, "bx_solo exposed no parameters");
-        Assert.True(audio.MixChanged, "bx_solo's Stereo Width did not hold at its widest");
+        Assert.True(audio.Parameters > 0, "Soft Limit exposed no parameters");
+        Assert.True(audio.MixChanged, "Soft Limit's Input did not hold at its highest");
         Assert.InRange(audio.Before, 0, 0.00001);
-        Assert.InRange(audio.Peak, 0.5, 1);
+        Assert.InRange(audio.Peak, 0.06, 1);
 
         var editor = installed.Harness.VerifyEditor(bridge);
         Assert.True(
@@ -55,7 +55,7 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
 
         private const string Account = "900,15 1040,60";
 
-        private const string FoundProduct = References + "plugin-alliance-bx-solo.png";
+        private const string FoundProduct = References + "plugin-alliance-soft-limit.png";
 
         private const string FoundRow = "505,330 625,360";
 
@@ -71,7 +71,7 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
 
         private const string InstalledHeading = "430,380 670,425";
 
-        private const string ActivateThenAcceptTheDemo = "358 337 107 58";
+        private const string Activate = "358 337";
 
         private static readonly TimeSpan Opening = TimeSpan.FromMinutes(3);
 
@@ -95,20 +95,20 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
             manager.Until(
                 () => manager.Shows(window, ProductsPage, ProductsHeading), window, "the product list", Answering, CredentialFields);
             manager.HoldClick(window, 600, 192);
-            manager.Type(window, 600, 192, "bx_solo");
-            manager.Until(() => manager.Shows(window, FoundProduct, FoundRow), window, "bx_solo found", Answering, Account);
+            manager.Type(window, 600, 192, "Soft Limit");
+            manager.Until(() => manager.Shows(window, FoundProduct, FoundRow), window, "Soft Limit found", Answering, Account);
             manager.HoldClick(window, 519, 344);
             manager.HoldClick(window, 36, 512);
             manager.HoldClick(window, 928, 670);
             manager.Until(
-                () => manager.Shows(window, DownloadedPage, DownloadedHeading), window, "bx_solo downloaded", Downloading, Account);
+                () => manager.Shows(window, DownloadedPage, DownloadedHeading), window, "Soft Limit downloaded", Downloading, Account);
             manager.Until(() => Pressed(manager, window, 703, 255, Vst2Page, Vst2Heading), window, "the VST2 path", Answering, Account);
             manager.HoldClick(window, 714, 255);
             manager.Until(
                 () => manager.Shows(window, InstalledPage, InstalledHeading)
                     && Harness.Holds("VST3", Bridges["VST3"]),
                 window,
-                "bx_solo installed and bridged",
+                "Soft Limit installed and bridged",
                 Downloading,
                 Account);
             manager.Capture(window, "installed", Account);
@@ -142,11 +142,11 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
             Harness.VerifyEditor(
                 Harness.Plugin("VST3", Bridges["VST3"]) with { Label = "activation" },
                 controlsAreParameters: false,
-                type: $"295 143\n85 270\n215 164\t{credentials["EMAIL"]}\n215 192\t{credentials["PASSWORD"]}",
-                click: ActivateThenAcceptTheDemo);
+                type: $"450 253\n37 239\n85 270\n215 164\t{credentials["EMAIL"]}\n215 192\t{credentials["PASSWORD"]}",
+                click: Activate);
             Assert.True(
                 File.Exists(Path.Combine(Settings(), "pa.license")),
-                "bx_solo did not activate with the Plugin Alliance account");
+                "Soft Limit did not activate with the Plugin Alliance account");
         }
     }
 }

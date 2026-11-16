@@ -53,7 +53,9 @@ internal static class PluginAlliance
             "Plugin Alliance's customer data no longer lists the account's machines and licences");
         return (
             account["machines"]!.AsArray().ToDictionary(machine => Id(machine!["id"]), machine => machine!["name"]!.ToString()),
-            [.. account["licenses"]!.AsArray().Select(licence => licence!["machines"]!.AsArray().Select(machine => Id(machine!["id"])).ToList())]);
+            [.. account["licenses"]!.AsArray()
+                .Where(licence => licence!["license_type"]?["name"]?.ToString() == "full")
+                .Select(licence => licence!["machines"]!.AsArray().Select(machine => Id(machine!["id"])).ToList())]);
     }
 
     private static long Id(JsonNode? id) =>

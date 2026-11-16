@@ -101,8 +101,10 @@ on device `C`, and the side panel's button reads Install or Install & Activate a
 scenario presses it without reading its label. Carla takes the first plugin of the pack's one
 WaveShell VST3, Magma Lil Tube: its pinned build loads only a bundle's first class.
 
-Plugin Alliance's Installation Manager signs in with `EMAIL` and `PASSWORD`, installs bx_solo and
-activates it in its editor. Plugin Alliance knows a computer by its name, its `C:` volume serial and
+Plugin Alliance's Installation Manager signs in with `EMAIL` and `PASSWORD`, installs Apogee Soft
+Limit and activates it in its editor, for this device only. Soft Limit is free, and a free licence
+never expires and gets an activation back when a machine is deactivated; the account's bx_solo is a
+trial that allows three activations in all. Plugin Alliance knows a computer by its name, its `C:` volume serial and
 its MACs, and each licence allows three active machines. Before activating, the scenario signs in to
 plugin-alliance.com and, when every slot is taken, deactivates the older active machines that share
 this computer's name through the account page's own API, keeping the newest; `devices/retired.txt`
