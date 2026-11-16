@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Compile Include="../../tools/Cabinet.Ci/ScenarioFormats.cs" Link="ScenarioFormats.cs" />
+    <Compile Include="../../tools/Cabinet.Ci/VendorOutage.cs" Link="VendorOutage.cs" />
   </ItemGroup>
 
   <ItemGroup>

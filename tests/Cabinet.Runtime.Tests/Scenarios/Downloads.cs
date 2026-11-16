@@ -14,7 +14,10 @@ internal static class Downloads
             arrived = await Attempt(client, link, destination);
         }
 
-        Assert.True(arrived, $"the download of {Path.GetFileName(destination)} stalled {Attempts} times");
+        if (!arrived)
+        {
+            throw new VendorUnavailableException($"the download of {Path.GetFileName(destination)} stalled {Attempts} times");
+        }
     }
 
     private static async Task<bool> Attempt(HttpClient client, string link, string destination)

@@ -173,7 +173,7 @@ internal sealed class Browser : IDisposable
     private JsonNode? Call(HttpMethod method, string path, JsonObject body)
     {
         using var request = new HttpRequestMessage(method, $"session/{session}/{path}") { Content = Body(body) };
-        using var response = client.Send(request);
+        using var response = Sent(request, path);
         var answer = JsonNode.Parse(response.Content.ReadAsStream())!["value"];
         if (!response.IsSuccessStatusCode)
         {
@@ -181,6 +181,18 @@ internal sealed class Browser : IDisposable
         }
 
         return answer;
+    }
+
+    private HttpResponseMessage Sent(HttpRequestMessage request, string path)
+    {
+        try
+        {
+            return client.Send(request);
+        }
+        catch (Exception lost) when (lost is HttpRequestException or TaskCanceledException)
+        {
+            throw new InvalidOperationException($"chromedriver did not answer {path}", lost);
+        }
     }
 
     private static StringContent Body(JsonObject body) => new(body.ToJsonString(), Encoding.UTF8, "application/json");

@@ -89,8 +89,63 @@ jobs:
       EMAIL_IMAP_HOST: ${{ vars.EMAIL_IMAP_HOST }}
       EMAIL_IMAP_PASSWORD: ${{ secrets.EMAIL_IMAP_PASSWORD }}
 
-  diagnose:
+  vendors:
     needs: runtime
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the vendor streaks of the last run that kept them
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for id in $(gh run list --repo "${GITHUB_REPOSITORY}" --workflow plugins.yml --branch main --status completed \
+              --limit 10 --json databaseId --jq '.[].databaseId'); do
+            gh run download "${id}" --repo "${GITHUB_REPOSITORY}" --name vendor-streaks --dir previous && break
+            rm -rf previous
+          done
+
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: runtime-*
+          path: runtime
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build the CI tools
+        run: dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+
+      - name: Count the runs each vendor has been unavailable
+        id: count
+        run: |
+          mkdir -p streaks runtime
+          status=0
+          dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" vendor-streaks previous/streaks.json streaks/streaks.json \
+            $(find runtime -mindepth 1 -maxdepth 1 -type d) > streaks/streaks.md || status=$?
+          cat streaks/streaks.md >> "${GITHUB_STEP_SUMMARY}"
+          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+
+      - uses: actions/upload-artifact@v7
+        if: hashFiles('streaks/streaks.json') != ''
+        with:
+          name: vendor-streaks
+          path: streaks
+          retention-days: 30
+
+      - name: Fail on a vendor unavailable for too many runs
+        if: steps.count.outputs.status != '0'
+        run: exit 1
+
+  diagnose:
+    needs: [runtime, vendors]
     if: failure()
     runs-on: ubuntu-latest
     permissions:
@@ -103,6 +158,12 @@ jobs:
         with:
           pattern: runtime-*
           path: runtime
+
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: vendor-streaks
+          path: streaks
 
       - uses: actions/setup-dotnet@v5
         with:
@@ -129,6 +190,8 @@ jobs:
             echo "Its \`runtime-*\` artifacts hold every log, and the captures of each failed scenario, until $(date -u -d '+7 days' +%F)."
             echo
             dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-diagnosis runtime/*
+            echo
+            cat streaks/streaks.md 2>/dev/null || true
           } > diagnosis.md
           cat diagnosis.md >> "${GITHUB_STEP_SUMMARY}"
 

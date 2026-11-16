@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using Cabinet.Ci;
 using Cabinet.Core;
 using Cabinet.Core.Tests;
 
@@ -67,6 +68,11 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
 
         File.WriteAllText(Path.Combine(Artefacts, "install.log"), result.Said);
+        if (result.ExitCode != 0 && VendorOutage.InInstall(result.Said) is { } outage)
+        {
+            throw new VendorUnavailableException(outage);
+        }
+
         Assert.True(result.ExitCode == 0, result.Said);
         return result.Said;
     }

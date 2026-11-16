@@ -52,7 +52,7 @@ internal static partial class ScenarioDiagnosis
         if (causes.Count == 0)
         {
             Console.WriteLine(
-                "No scenario failed on its last attempt, so the run failed outside the scenarios. Its log says where.");
+                "No scenario failed on its last attempt. The vendors below, or the run's log, say why the run failed.");
             return 0;
         }
 

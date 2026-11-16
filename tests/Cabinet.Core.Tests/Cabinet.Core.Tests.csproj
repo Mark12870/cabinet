@@ -20,6 +20,8 @@
     <Compile Include="../../tools/Cabinet.Ci/Scenarios.cs" Link="Scenarios.cs" />
     <Compile Include="../../tools/Cabinet.Ci/ScenarioFormats.cs" Link="ScenarioFormats.cs" />
     <Compile Include="../../tools/Cabinet.Ci/ScenarioShards.cs" Link="ScenarioShards.cs" />
+    <Compile Include="../../tools/Cabinet.Ci/VendorOutage.cs" Link="VendorOutage.cs" />
+    <Compile Include="../../tools/Cabinet.Ci/VendorStreaks.cs" Link="VendorStreaks.cs" />
     <Compile Include="../../tools/Cabinet.Ci/CatalogueUpdateConfiguration.cs" Link="CatalogueUpdateConfiguration.cs" />
     <Compile Include="../../tools/Cabinet.Ci/CatalogueUpdateCoverage.cs" Link="CatalogueUpdateCoverage.cs" />
     <Compile Include="../../tools/Cabinet.Ci/CatalogueRelease.cs" Link="CatalogueRelease.cs" />

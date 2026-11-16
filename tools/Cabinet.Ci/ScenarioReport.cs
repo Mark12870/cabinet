@@ -102,7 +102,7 @@ internal static class ScenarioReport
         return 0;
     }
 
-    private static IReadOnlyList<string> Attempts(string trx)
+    internal static IReadOnlyList<string> Attempts(string trx)
     {
         var directory = Path.GetDirectoryName(Path.GetFullPath(trx))!;
         var retries = Path.Combine(directory, "Retries");

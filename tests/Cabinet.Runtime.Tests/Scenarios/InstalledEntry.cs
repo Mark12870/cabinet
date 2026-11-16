@@ -11,12 +11,25 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         "VK_DRIVER_FILES=/usr/lib/x86_64-linux-gnu/GL/vulkan/icd.d/lvp_icd.x86_64.json";
 
     private static readonly SemaphoreSlim AtOnce = new(Math.Max(3, Environment.ProcessorCount / 2));
+    private readonly ScenarioHarness harness = new(Find(id));
     private RuntimeTestLock? runtimeLock;
     private Display? display;
+    private string? unavailable;
 
     public LibraryEntry Entry { get; } = Find(id);
 
-    internal ScenarioHarness Harness { get; } = new(Find(id));
+    internal ScenarioHarness Harness
+    {
+        get
+        {
+            if (unavailable is not null)
+            {
+                Assert.Skip($"{Entry.Name}'s vendor is unavailable: {unavailable}");
+            }
+
+            return harness;
+        }
+    }
 
     internal Display Display => display ?? throw new InvalidOperationException($"{id} is not installed");
 
@@ -27,7 +40,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         await AtOnce.WaitAsync();
         var clock = Stopwatch.StartNew();
         runtimeLock = RuntimeTestLock.AcquireShared();
-        Harness.Prepare();
+        harness.Prepare();
         Record("prepare", clock);
 
         await Timed("display", () =>
@@ -35,10 +48,20 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
             display = Display.Start();
             return Task.CompletedTask;
         });
-        await Timed("install", () => Install(Display));
+        try
+        {
+            await Timed("install", () => Install(Display));
+        }
+        catch (Exception exception) when (Outage(exception) is { } reason)
+        {
+            unavailable = reason;
+            File.WriteAllText(Path.Combine(harness.Artefacts, VendorOutage.Record), reason);
+            return;
+        }
+
         await Timed("settle", () =>
         {
-            Settle(Harness.Home);
+            Settle(harness.Home);
             return Task.CompletedTask;
         });
     }
@@ -53,7 +76,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         {
             await Timed("dispose", () =>
             {
-                Harness.Dispose();
+                harness.Dispose();
                 display?.Dispose();
                 return Task.CompletedTask;
             });
@@ -84,7 +107,10 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         }
     }
 
-    private void Record(string step, Stopwatch clock) => Harness.Time(step, clock.Elapsed);
+    private static string? Outage(Exception exception) =>
+        exception is VendorUnavailableException ? exception.Message : VendorOutage.Of(exception);
+
+    private void Record(string step, Stopwatch clock) => harness.Time(step, clock.Elapsed);
 
     internal static LibraryEntry Find(string id) =>
         new Library(

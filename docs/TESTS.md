@@ -43,6 +43,10 @@ demand, against the Flatpak the same run built. `publish` waits for it, so a rel
 runtime run. Patch probes run locally on demand (see Patch probes). Their fixtures are added
 only with `CABINET_RUNTIME_PROBES=1`, and `clean` keeps them out of the image.
 
+A scenario whose vendor does not answer — a connection that fails or times out, a 429 or a 5xx —
+is skipped with the reason instead of failing. The `vendors` job lists it in the run summary and
+counts its consecutive runs, and the third fails the run. A 403 or 404 still fails at once.
+
 Failed Plugins runs put the full AI diagnosis in the run summary and email it without creating
 issues. Set Actions secrets `SMTP_USERNAME` (sender address) and `SMTP_PASSWORD`, plus variable
 `SMTP_TO` (recipient), or a secret of that name to keep it private. Variables `SMTP_HOST` and
