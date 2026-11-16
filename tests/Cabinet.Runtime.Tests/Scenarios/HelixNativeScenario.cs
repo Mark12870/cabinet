@@ -23,7 +23,8 @@ public sealed class HelixNativeScenario(HelixNativeScenario.Installed installed)
             $"{Id} declares {format}, which this scenario does not say how to find");
         var bridge = installed.Harness.Plugin(format, Bridges[format]);
 
-        var editor = installed.Harness.VerifyEditor(bridge, controlsAreParameters: false, type: Account(), click: SignIn);
+        var editor = installed.Harness.VerifyEditor(
+            bridge, controlsAreParameters: false, type: Account(), click: SignIn, still: 12);
         Assert.True(
             editor.Wine != "none" && editor.Wine == editor.Told,
             $"Wine places the editor at {editor.Wine} but was told {editor.Told}, so clicks land that far away");
