@@ -256,7 +256,8 @@ toolbox run --container cabinet-runtime \
   --filter-class '*ValhallaSupermassiveScenario'
 ```
 
-A scenario tests an entry's VST2 only when it has no VST3. For each format, `ValhallaSupermassiveScenario` verifies the bridged editor and processes explicit
+A scenario always tests an entry's VST3 and LV2, its VST2 only when it has neither, and never its
+CLAP. For each format, `ValhallaSupermassiveScenario` verifies the bridged editor and processes explicit
 stereo buffers through Carla's native rack with Mix fully wet, so only the plugin's own output can
 fill the tail. Input, output, parameters, captures and logs remain under
 `$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/{editor,audio}/<format>/`, Cabinet's logs under

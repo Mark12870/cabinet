@@ -88,8 +88,8 @@ public sealed class CatalogueUpdateTests
         Assert.Equal(new[] { "api.github.com" }, requests);
         var status = ReadCoverageEntry(output);
         Assert.Equal("current", status.GetProperty("outcome").GetString());
-        Assert.Contains("excluded runtime format: CLAP",
-            status.GetProperty("automationBlockers").EnumerateArray().Select(item => item.GetString()!));
+        Assert.DoesNotContain(status.GetProperty("automationBlockers").EnumerateArray(),
+            item => item.GetString()!.Contains("CLAP", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -725,7 +725,8 @@ public sealed class CatalogueUpdateTests
             ["podolski"] = "https://uhe-dl.b-cdn.net/releases/Podolski_124_13000_Linux.tar.xz",
             ["protoverb"] = "https://uhe-dl.b-cdn.net/releases/Protoverb_102_13000_Linux.tar.xz",
             ["triple-cheese"] = "https://uhe-dl.b-cdn.net/releases/TripleCheese_14_13000_Linux.tar.xz",
-            ["zebra-cm"] = "https://uhe-dl.b-cdn.net/releases/ZebraCM_112_13000_Linux.tar.xz"
+            ["zebra-cm"] = "https://uhe-dl.b-cdn.net/releases/ZebraCM_112_13000_Linux.tar.xz",
+            ["zebralette"] = "https://uhe-dl.b-cdn.net/releases/Zebralette3_301_20399_Linux.tar.xz"
         };
 
         Assert.Equal(expectedUrls.Keys.Order(StringComparer.Ordinal),
@@ -750,7 +751,6 @@ public sealed class CatalogueUpdateTests
             Assert.Contains($"Url: {url}", File.ReadAllText(Path.Combine(output, id + ".yml")));
         }
         Assert.False(File.Exists(Path.Combine(output, "tyrell-n6.yml")));
-        Assert.False(File.Exists(Path.Combine(output, "zebralette.yml")));
     }
 
     [Fact]
@@ -1067,8 +1067,6 @@ public sealed class CatalogueUpdateTests
                 "internal sealed class PluginScenario { private const string Id = \"plugin\"; private static readonly Dictionary<string, string> Bridges = new() { [\"VST3\"] = \"Plugin.vst3\", }; }");
             File.WriteAllText(Path.Combine(Root, "tests", "Cabinet.Runtime.Tests", "Scenarios", "ScenarioHarness.cs"),
                 "private static readonly Dictionary<string, (string Extension, string Carla)> Formats = new() { [\"VST3\"] = (\".vst3\", \"vst3\"), };");
-            File.WriteAllText(Path.Combine(Root, "tests", "Cabinet.Runtime.Tests", "Scenarios", "InstalledEntry.cs"),
-                "public static TheoryData<string> Formats(string id) => [.. Find(id).Formats.Where(format => format != \"CLAP\")];");
             ConfigureGithub("github.com");
         }
 
@@ -1258,8 +1256,6 @@ public sealed class CatalogueUpdateTests
             }
             File.Copy(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios/ScenarioHarness.cs"),
                 Path.Combine(scenarios, "ScenarioHarness.cs"));
-            File.Copy(Repo.Path("tests/Cabinet.Runtime.Tests/Scenarios/InstalledEntry.cs"),
-                Path.Combine(scenarios, "InstalledEntry.cs"));
             ConfigurationPath = Path.Combine(Root, "data", "library", "u-he", "catalogue-updates.json");
             File.WriteAllText(ConfigurationPath, JsonSerializer.Serialize(new { Entries = entries }));
         }

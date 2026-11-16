@@ -112,7 +112,7 @@ public sealed class CatalogueUpdateCoverageTests
         var statuses = fixture.Read().ToDictionary(status => status.Id, StringComparer.Ordinal);
 
         Assert.Equal("Cabinet.Runtime.Tests.Scenarios.ClapScenario", statuses["clap-item"].Scenario);
-        Assert.Contains("excluded runtime format: CLAP", statuses["clap-item"].AutomationBlockers);
+        Assert.Contains("no format a scenario tests", statuses["clap-item"].AutomationBlockers);
         Assert.Equal("", statuses["no-scenario"].Scenario);
         Assert.Contains("runtime scenario missing", statuses["no-scenario"].AutomationBlockers);
     }
@@ -195,9 +195,6 @@ public sealed class CatalogueUpdateCoverageTests
                 {
                     ["VST3"] = (".vst3", "vst3"),
                 };
-                """);
-            File.WriteAllText(Path.Combine(scenarios, "InstalledEntry.cs"), """
-                public static TheoryData<string> Formats(string id) => [.. Find(id).Formats.Where(format => format != "CLAP")];
                 """);
         }
 

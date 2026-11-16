@@ -244,19 +244,8 @@ internal static class CatalogueUpdateCoverage
     {
         var directory = Path.Combine(repository, "tests", "Cabinet.Runtime.Tests", "Scenarios");
         var harness = Path.Combine(directory, "ScenarioHarness.cs");
-        var installed = Path.Combine(directory, "InstalledEntry.cs");
-        if (!File.Exists(harness) || !File.Exists(installed))
-        {
-            return new([], [], false, false);
-        }
-
-        var formats = DictionaryKeys(File.ReadAllText(harness), "Formats");
-        var installedText = File.ReadAllText(installed);
-        var exclusion = Regex.Matches(installedText, "format\\s*!=\\s*\"([^\"]+)\"")
-            .Select(match => match.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
-        return new(formats, exclusion, formats.Length > 0,
-            Regex.IsMatch(installedText, "Formats\\s*\\(\\s*string\\s+id\\s*\\).*Where\\s*\\(",
-                RegexOptions.Singleline));
+        var formats = File.Exists(harness) ? DictionaryKeys(File.ReadAllText(harness), "Formats") : [];
+        return new(formats, formats.Length > 0);
     }
 
     private static string[] AutomationBlockers(string repository, CatalogueEntry entry,
@@ -271,11 +260,6 @@ internal static class CatalogueUpdateCoverage
         if (!fixtures.FormatsAvailable)
         {
             blockers.Add("scenario harness formats fixture unavailable");
-        }
-
-        if (!fixtures.ExclusionsAvailable)
-        {
-            blockers.Add("installed-entry format exclusions unavailable");
         }
 
         if (!scenarioMap.TryGetValue(entry.Id, out var mapped))
@@ -322,13 +306,15 @@ internal static class CatalogueUpdateCoverage
             return blockers.ToArray();
         }
 
-        foreach (var format in ScenarioFormats.Tested(declared))
+        var tested = ScenarioFormats.Tested(declared);
+        if (tested.Count == 0)
         {
-            if (fixtures.ExcludedFormats.Contains(format))
-            {
-                blockers.Add($"excluded runtime format: {format}");
-            }
-            else if (!fixtures.Formats.Contains(format, StringComparer.Ordinal))
+            blockers.Add("no format a scenario tests");
+        }
+
+        foreach (var format in tested)
+        {
+            if (!fixtures.Formats.Contains(format, StringComparer.Ordinal))
             {
                 blockers.Add($"unsupported runtime format: {format}");
             }
@@ -362,8 +348,7 @@ internal static class CatalogueUpdateCoverage
     private static string Markdown(string value) => value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
 
     private sealed record CatalogueEntry(string Id, string Path, string Version, string Source, string Formats);
-    private sealed record RuntimeFixtures(string[] Formats, HashSet<string> ExcludedFormats,
-        bool FormatsAvailable, bool ExclusionsAvailable);
+    private sealed record RuntimeFixtures(string[] Formats, bool FormatsAvailable);
 
 }
 

@@ -8,19 +8,19 @@ public class ScenarioApprovalTests
     private const string EntryId = "surge-xt";
     private const string Scenario = "SurgeXtScenario";
     private const string Test = "OpensItsEditorAndPlaysANote";
-    private static readonly string[] Formats = ["VST3", "CLAP", "LV2"];
+    private static readonly string[] Formats = ["VST3", "LV2"];
 
     [Fact]
     public void CompleteRequiresEveryDeclaredFormatToPassWithoutAnUnexpectedFormat()
     {
-        Assert.True(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Passed"))));
-        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("CLAP", "Passed"))));
-        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("CLAP", "Skipped"), ("LV2", "Passed"))));
-        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("CLAP", "Failed"), ("LV2", "Passed"))));
-        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("CLAP", "Passed on rerun"), ("LV2", "Passed"))));
+        Assert.True(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("LV2", "Passed"))));
+        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"))));
+        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("LV2", "Skipped"))));
+        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("LV2", "Failed"))));
+        Assert.False(ScenarioReport.Complete(Formats, Outcomes(("VST3", "Passed"), ("LV2", "Passed on rerun"))));
         Assert.False(ScenarioReport.Complete(
             Formats,
-            Outcomes(("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Passed"), ("Unexpected", "Passed"))));
+            Outcomes(("VST3", "Passed"), ("LV2", "Passed"), ("Unexpected", "Passed"))));
         Assert.False(ScenarioReport.Complete([], new Dictionary<string, string>()));
         Assert.False(ScenarioReport.Complete([""], Outcomes(("", "Passed"))));
         Assert.False(ScenarioReport.Complete(["VST3", "VST3"], Outcomes(("VST3", "Passed"), ("LV2", "Passed"))));
@@ -30,7 +30,7 @@ public class ScenarioApprovalTests
     public void ApprovalRejectsMissingFormats()
     {
         var directory = TestRoot.Create(nameof(ApprovalRejectsMissingFormats));
-        var trx = WriteTrx(directory, [("VST3", "Passed"), ("CLAP", "Passed")]);
+        var trx = WriteTrx(directory, [("VST3", "Passed")]);
 
         Assert.Equal(1, ScenarioReport.Approve(trx, EntryId));
     }
@@ -39,7 +39,7 @@ public class ScenarioApprovalTests
     public void ApprovalRejectsSkippedFormats()
     {
         var directory = TestRoot.Create(nameof(ApprovalRejectsSkippedFormats));
-        var trx = WriteTrx(directory, [("VST3", "Passed"), ("CLAP", "Skipped"), ("LV2", "Passed")]);
+        var trx = WriteTrx(directory, [("VST3", "Passed"), ("LV2", "Skipped")]);
 
         Assert.Equal(1, ScenarioReport.Approve(trx, EntryId));
     }
@@ -48,7 +48,7 @@ public class ScenarioApprovalTests
     public void ApprovalRejectsFailedFormats()
     {
         var directory = TestRoot.Create(nameof(ApprovalRejectsFailedFormats));
-        var trx = WriteTrx(directory, [("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Failed")]);
+        var trx = WriteTrx(directory, [("VST3", "Passed"), ("LV2", "Failed")]);
 
         Assert.Equal(1, ScenarioReport.Approve(trx, EntryId));
     }
@@ -57,7 +57,7 @@ public class ScenarioApprovalTests
     public void APassingCaseCannotHideASkippedCaseOfTheSameFormat()
     {
         var directory = TestRoot.Create(nameof(APassingCaseCannotHideASkippedCaseOfTheSameFormat));
-        var trx = WriteTrx(directory, [("VST3", "Skipped"), ("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Passed")]);
+        var trx = WriteTrx(directory, [("VST3", "Skipped"), ("VST3", "Passed"), ("LV2", "Passed")]);
 
         Assert.Equal(1, ScenarioReport.Approve(trx, EntryId));
     }
@@ -66,10 +66,10 @@ public class ScenarioApprovalTests
     public void ApprovalRejectsAFormatThatPassesOnlyOnRetry()
     {
         var directory = TestRoot.Create(nameof(ApprovalRejectsAFormatThatPassesOnlyOnRetry));
-        var trx = WriteTrx(directory, [("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Passed")]);
+        var trx = WriteTrx(directory, [("VST3", "Passed"), ("LV2", "Passed")]);
         var firstAttempt = WriteTrx(
             Path.Combine(Path.GetDirectoryName(trx)!, "Retries", "Scenario", "0"),
-            [("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Failed")]);
+            [("VST3", "Passed"), ("LV2", "Failed")]);
         var retryAttempt = WriteTrx(
             Path.Combine(Path.GetDirectoryName(trx)!, "Retries", "Scenario", "1"),
             [("LV2", "Passed")]);
@@ -83,7 +83,7 @@ public class ScenarioApprovalTests
     public void ApprovalAcceptsAllFormatsPassingOnTheirFirstAttempt()
     {
         var directory = TestRoot.Create(nameof(ApprovalAcceptsAllFormatsPassingOnTheirFirstAttempt));
-        var trx = WriteTrx(directory, [("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Passed")]);
+        var trx = WriteTrx(directory, [("VST3", "Passed"), ("LV2", "Passed")]);
 
         Assert.Equal(0, ScenarioReport.Approve(trx, EntryId));
     }
@@ -95,7 +95,7 @@ public class ScenarioApprovalTests
     public void ApprovalAlsoRequiresNonFormatCasesToPass(string outcome, int expected)
     {
         var directory = TestRoot.Create(nameof(ApprovalAlsoRequiresNonFormatCasesToPass) + outcome);
-        var trx = WriteTrx(directory, [("VST3", "Passed"), ("CLAP", "Passed"), ("LV2", "Passed")]);
+        var trx = WriteTrx(directory, [("VST3", "Passed"), ("LV2", "Passed")]);
         var document = XDocument.Load(trx);
         XNamespace ns = "http://microsoft.com/schemas/VisualStudio/TeamTest/2010";
         document.Root!.Element(ns + "Results")!.Add(new XElement(ns + "UnitTestResult",
@@ -124,10 +124,12 @@ public class ScenarioApprovalTests
     }
 
     [Fact]
-    public void AVst2IsTestedOnlyWhenTheEntryHasNoVst3()
+    public void Vst3AndLv2AreAlwaysTestedVst2OnlyWithoutThemAndClapNever()
     {
-        Assert.Equal(["VST3", "CLAP"], ScenarioFormats.Tested(["VST3", "VST2", "CLAP"]));
-        Assert.Equal(["VST2", "LV2"], ScenarioFormats.Tested(["VST2", "LV2"]));
+        Assert.Equal(["VST3", "LV2"], ScenarioFormats.Tested(["VST3", "VST2", "LV2", "CLAP"]));
+        Assert.Equal(["LV2"], ScenarioFormats.Tested(["VST2", "LV2"]));
+        Assert.Equal(["VST2"], ScenarioFormats.Tested(["VST2", "CLAP"]));
+        Assert.Empty(ScenarioFormats.Tested(["CLAP"]));
     }
 
     private static Dictionary<string, string> Outcomes(params (string Format, string Outcome)[] results) =>
