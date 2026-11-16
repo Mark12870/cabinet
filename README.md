@@ -25,17 +25,6 @@ with immutable Linux systems like Fedora Silverblue in mind.
 </tr>
 </table>
 
-## Yabridge patches
-
-- **teardown-guard** (Splice crash on removal) — a plugin crashing while removed no longer takes the DAW down.
-- **foreign-drag-drop** (WebView2 editors) — stops a Wine drag-and-drop bug crashing them when they open or close.
-- **editor-window-origin** (VST2 editors) — keeps the editor in its window, so it shows and clicks land right.
-- **chainloader-cabinet-first** (DAWs outside Flatpak) — loads Cabinet's own yabridge before any other installed.
-- **state-per-interface** (Kontakt 8 fix) — projects saved on Windows reopen with their instrument instead of empty.
-- **short-socket-names** (long plugin names) — a plugin with a long name loads instead of freezing the DAW.
-- **ara-unique-buffers** (ARA) — two projects or plugins using ARA at once no longer share one audio buffer.
-- **ara-full-reads** (ARA analysis) — ARA plugins such as Auto-Align Post 2 analyse each clip to its end.
-
 ## Install
 
 ```sh
@@ -62,6 +51,17 @@ Everything is in the window. For the command line, `flatpak run io.github.mark12
 
 The Library installs without showing vendors' licences, so installing accepts their terms on your behalf; the window and
 `library install` say whose before anything runs.
+
+## Yabridge patches
+
+- **teardown-guard** (Splice crash on removal) — a plugin crashing while removed no longer takes the DAW down.
+- **foreign-drag-drop** (WebView2 editors) — stops a Wine drag-and-drop bug crashing them when they open or close.
+- **editor-window-origin** (VST2 editors) — keeps the editor in its window, so it shows and clicks land right.
+- **chainloader-cabinet-first** (DAWs outside Flatpak) — loads Cabinet's own yabridge before any other installed.
+- **state-per-interface** (Kontakt 8 fix) — projects saved on Windows reopen with their instrument instead of empty.
+- **short-socket-names** (long plugin names) — a plugin with a long name loads instead of freezing the DAW.
+- **ara-unique-buffers** (ARA) — two projects or plugins using ARA at once no longer share one audio buffer.
+- **ara-full-reads** (ARA analysis) — ARA plugins such as Auto-Align Post 2 analyse each clip to its end.
 
 ## Permissions
 
