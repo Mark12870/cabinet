@@ -300,7 +300,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         Assert.True(
             !controlsAreParameters || found.Groups[14].Value != "none",
             $"no control moved under the pointer: {result.Said}");
-        Assert.DoesNotContain("crashed while being torn down", result.Said, StringComparison.Ordinal);
+        Assert.DoesNotContain("crashed while being torn down", result.Trace, StringComparison.Ordinal);
         return new EditorOrigin(found.Groups[15].Value, found.Groups[16].Value, found.Groups[14].Value);
     }
 

@@ -5,8 +5,7 @@ namespace Cabinet.Runtime.Tests;
 
 internal sealed record ProbeResult(int ExitCode, string Output, string Error, string Trace)
 {
-    public string Said =>
-        $"{Output}\nstderr:\n{Error}\nexit: {ExitCode}\nyabridge:\n{Trace}";
+    public string Said => $"{Output}\nstderr:\n{Error}\nexit: {ExitCode}";
 }
 
 internal static class EditorProbe
