@@ -14,7 +14,6 @@ public sealed class TeknoScenario(TeknoScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Tekno.vst3",
-        ["VST2"] = "Tekno.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

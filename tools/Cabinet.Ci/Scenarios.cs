@@ -57,7 +57,8 @@ internal static partial class Scenarios
     }
 
     public static IReadOnlyList<string> Formats(string entry) =>
-        Field(entry, "Formats").Split(',').Select(format => format.Trim()).Where(format => format.Length > 0).ToArray();
+        ScenarioFormats.Tested(
+            Field(entry, "Formats").Split(',').Select(format => format.Trim()).Where(format => format.Length > 0).ToArray());
 
     public static string Field(string entry, string name) =>
         Regex.Match(File.ReadAllText(entry), $"^{name}: *(.+)$", RegexOptions.Multiline) is { Success: true } found

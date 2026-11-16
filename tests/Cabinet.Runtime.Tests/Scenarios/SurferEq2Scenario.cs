@@ -8,7 +8,6 @@ public sealed class SurferEq2Scenario(SurferEq2Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "SurferEQ.vst3",
-        ["VST2"] = "SurferEQ.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

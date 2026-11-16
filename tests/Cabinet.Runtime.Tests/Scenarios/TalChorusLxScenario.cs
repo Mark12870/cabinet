@@ -10,7 +10,6 @@ public sealed class TalChorusLxScenario(TalChorusLxScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TAL-Chorus-LX.vst3",
-        ["VST2"] = "libTAL-Chorus-LX.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

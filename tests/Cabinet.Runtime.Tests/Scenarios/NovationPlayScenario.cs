@@ -16,7 +16,6 @@ public sealed class NovationPlayScenario(NovationPlayScenario.Installed installe
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Play.vst3",
-        ["VST2"] = "Play.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

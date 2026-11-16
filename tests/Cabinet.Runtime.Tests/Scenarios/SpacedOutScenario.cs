@@ -14,7 +14,6 @@ public sealed class SpacedOutScenario(SpacedOutScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Spaced Out.vst3",
-        ["VST2"] = "Spaced Out.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

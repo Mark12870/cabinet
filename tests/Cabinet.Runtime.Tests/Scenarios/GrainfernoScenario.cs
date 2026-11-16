@@ -14,7 +14,6 @@ public sealed class GrainfernoScenario(GrainfernoScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Grainferno.vst3",
-        ["VST2"] = "Grainferno.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

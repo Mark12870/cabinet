@@ -8,7 +8,6 @@ public sealed class TbpaMeterScenario(TbpaMeterScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/TBPAMeter.vst3",
-        ["VST2"] = "TBProAudio/TBPAMeter.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

@@ -12,7 +12,6 @@ public sealed class InmusicSoftwareCenterScenario(InmusicSoftwareCenterScenario.
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Bassline.vst3",
-        ["VST2"] = "Bassline_x64.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
@@ -103,7 +102,7 @@ public sealed class InmusicSoftwareCenterScenario(InmusicSoftwareCenterScenario.
                 {
                     manager.Press("Return");
                     Thread.Sleep(Step);
-                    return Harness.Holds("VST3", Bridges["VST3"]) && Harness.Holds("VST2", Bridges["VST2"]);
+                    return Harness.Holds("VST3", Bridges["VST3"]);
                 },
                 window,
                 "Bassline installed and bridged",

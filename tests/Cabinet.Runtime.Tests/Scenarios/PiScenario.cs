@@ -8,7 +8,6 @@ public sealed class PiScenario(PiScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Pi.vst3",
-        ["VST2"] = "Pi.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

@@ -123,6 +123,13 @@ public class ScenarioApprovalTests
             Scenarios.Results(trx).Select(found => (found.Scenario, found.Format, (string)found.Result.Attribute("outcome")!)));
     }
 
+    [Fact]
+    public void AVst2IsTestedOnlyWhenTheEntryHasNoVst3()
+    {
+        Assert.Equal(["VST3", "CLAP"], ScenarioFormats.Tested(["VST3", "VST2", "CLAP"]));
+        Assert.Equal(["VST2", "LV2"], ScenarioFormats.Tested(["VST2", "LV2"]));
+    }
+
     private static Dictionary<string, string> Outcomes(params (string Format, string Outcome)[] results) =>
         results.ToDictionary(result => result.Format, result => result.Outcome, StringComparer.Ordinal);
 

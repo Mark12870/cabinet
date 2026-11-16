@@ -136,6 +136,21 @@ public sealed class CatalogueUpdateCoverageTests
     public void ADeclaredSupportedFormatMissingFromTheScenarioBlocksAutomation()
     {
         using var fixture = new CoverageFixture();
+        fixture.SetSupportedFormats("VST3", "LV2");
+        fixture.AddEntry("plugin", "download", "1.2.3", "VST3, LV2");
+        fixture.AddScenario("PluginScenario", "plugin", "VST3");
+        fixture.SetConfiguration([fixture.Rule("plugin", "plugin/plugin.yml")]);
+
+        var status = Assert.Single(fixture.Read());
+
+        Assert.Contains("scenario does not bridge format: LV2", status.AutomationBlockers);
+        Assert.False(status.AutomaticEligible);
+    }
+
+    [Fact]
+    public void AVst2BesideAVst3NeedsNoBridgeInTheScenario()
+    {
+        using var fixture = new CoverageFixture();
         fixture.SetSupportedFormats("VST3", "VST2");
         fixture.AddEntry("plugin", "download", "1.2.3", "VST3, VST2");
         fixture.AddScenario("PluginScenario", "plugin", "VST3");
@@ -143,8 +158,7 @@ public sealed class CatalogueUpdateCoverageTests
 
         var status = Assert.Single(fixture.Read());
 
-        Assert.Contains("scenario does not bridge format: VST2", status.AutomationBlockers);
-        Assert.False(status.AutomaticEligible);
+        Assert.Empty(status.AutomationBlockers);
     }
 
     [Fact]

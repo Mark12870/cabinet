@@ -8,7 +8,6 @@ public sealed class MvMeter2Scenario(MvMeter2Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/mvMeter2nogpu.vst3",
-        ["VST2"] = "TBProAudio/mvMeter2nogpu.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

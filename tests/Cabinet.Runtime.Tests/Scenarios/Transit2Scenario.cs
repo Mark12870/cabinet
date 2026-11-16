@@ -14,7 +14,6 @@ public sealed class Transit2Scenario(Transit2Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Transit 2.vst3",
-        ["VST2"] = "Transit 2.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

@@ -8,7 +8,6 @@ public sealed class GSatPlusScenario(GSatPlusScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/GSatPlusnogpu.vst3",
-        ["VST2"] = "TBProAudio/GSatPlusnogpu.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

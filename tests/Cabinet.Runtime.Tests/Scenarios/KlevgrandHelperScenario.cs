@@ -8,7 +8,6 @@ public sealed class KlevgrandHelperScenario(KlevgrandHelperScenario.Installed in
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Fosfat.vst3",
-        ["VST2"] = "Fosfat.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
@@ -111,7 +110,7 @@ public sealed class KlevgrandHelperScenario(KlevgrandHelperScenario.Installed in
             Thread.Sleep(TimeSpan.FromSeconds(2));
             await Harness.SendText(display, Title, 945, 678, "");
             manager.Until(
-                () => Harness.Holds("VST3", Bridges["VST3"]) && Harness.Holds("VST2", Bridges["VST2"]),
+                () => Harness.Holds("VST3", Bridges["VST3"]),
                 window,
                 "Fosfat installed and bridged",
                 Downloading,

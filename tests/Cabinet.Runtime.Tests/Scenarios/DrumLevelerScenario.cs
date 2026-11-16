@@ -8,7 +8,6 @@ public sealed class DrumLevelerScenario(DrumLevelerScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "DrumLeveler.vst3",
-        ["VST2"] = "DrumLeveler.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

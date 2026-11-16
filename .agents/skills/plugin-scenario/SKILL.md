@@ -18,8 +18,9 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    `ScenarioHarness.Formats` first. The origin assertion is for bridged plugins only. A plugin that has no editor of its
    own skips `VerifyEditor` altogether and says so in its test name.
 
-3. Fill `Bridges` with one bridged file name for each format in the entry's `Formats:`. To find the names, run the
-   scenario once with `Bridges` empty and list what the install left:
+3. Fill `Bridges` with one bridged file name for each format the scenario tests: the entry's `Formats:`, without
+   VST2 when it has VST3. To find the names, run the scenario once with `Bridges` empty and list what the install
+   left:
 
    ```sh
    ROOT="${CABINET_RUNTIME_ROOT:-${XDG_CACHE_HOME:-$HOME/.cache}/cabinet-rt}"

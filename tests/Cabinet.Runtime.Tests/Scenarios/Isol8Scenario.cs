@@ -8,7 +8,6 @@ public sealed class Isol8Scenario(Isol8Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/ISOL8nogpu.vst3",
-        ["VST2"] = "TBProAudio/ISOL8nogpu.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

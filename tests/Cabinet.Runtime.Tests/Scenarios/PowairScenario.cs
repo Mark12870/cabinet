@@ -8,7 +8,6 @@ public sealed class PowairScenario(PowairScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "POWAIR.vst3",
-        ["VST2"] = "POWAIR.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

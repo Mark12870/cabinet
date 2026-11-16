@@ -14,7 +14,6 @@ public sealed class UviPortalScenario(UviPortalScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "UVI Player.vst3",
-        ["VST2"] = "UVI Player.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

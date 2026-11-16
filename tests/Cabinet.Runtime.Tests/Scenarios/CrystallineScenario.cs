@@ -14,7 +14,6 @@ public sealed class CrystallineScenario(CrystallineScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Crystalline.vst3",
-        ["VST2"] = "Crystalline.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

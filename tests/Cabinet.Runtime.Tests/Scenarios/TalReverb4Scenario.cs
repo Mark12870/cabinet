@@ -10,7 +10,6 @@ public sealed class TalReverb4Scenario(TalReverb4Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TAL-Reverb-4.vst3",
-        ["VST2"] = "libTAL-Reverb-4.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

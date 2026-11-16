@@ -8,7 +8,6 @@ public sealed class TbpaVolumeScenario(TbpaVolumeScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/TBPAVolume.vst3",
-        ["VST2"] = "TBProAudio/TBPAVolume.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

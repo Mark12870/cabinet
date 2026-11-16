@@ -14,7 +14,6 @@ public sealed class IHeartNyScenario(IHeartNyScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "I Heart NY.vst3",
-        ["VST2"] = "I Heart NY.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

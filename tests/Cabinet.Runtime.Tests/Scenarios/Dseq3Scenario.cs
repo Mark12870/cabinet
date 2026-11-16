@@ -10,7 +10,6 @@ public sealed class Dseq3Scenario(Dseq3Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/DSEQ3.vst3",
-        ["VST2"] = "TBProAudio/DSEQ3.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

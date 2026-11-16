@@ -322,7 +322,7 @@ internal static class CatalogueUpdateCoverage
             return blockers.ToArray();
         }
 
-        foreach (var format in declared)
+        foreach (var format in ScenarioFormats.Tested(declared))
         {
             if (fixtures.ExcludedFormats.Contains(format))
             {

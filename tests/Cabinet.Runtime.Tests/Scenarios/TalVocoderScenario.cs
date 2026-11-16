@@ -12,7 +12,6 @@ public sealed class TalVocoderScenario(TalVocoderScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TAL-Vocoder-2.vst3",
-        ["VST2"] = "libTAL-Vocoder-2.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

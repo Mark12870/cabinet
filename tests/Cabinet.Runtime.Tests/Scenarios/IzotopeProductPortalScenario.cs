@@ -10,7 +10,6 @@ public sealed class IzotopeProductPortalScenario(IzotopeProductPortalScenario.In
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "iZotope/Vinyl.vst3",
-        ["VST2"] = "Vinyl.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

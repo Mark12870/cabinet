@@ -14,7 +14,6 @@ public sealed class SmoothOperatorProScenario(SmoothOperatorProScenario.Installe
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Smooth Operator Pro.vst3",
-        ["VST2"] = "Smooth Operator Pro.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

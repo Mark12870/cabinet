@@ -10,7 +10,6 @@ public sealed class ValhallaSupermassiveScenario(ValhallaSupermassiveScenario.In
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "ValhallaSupermassive.vst3",
-        ["VST2"] = "ValhallaSupermassive_x64.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

@@ -10,7 +10,6 @@ public sealed class TalBitcrusherScenario(TalBitcrusherScenario.Installed instal
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TAL-Bitcrusher.vst3",
-        ["VST2"] = "libTAL-Bitcrusher.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

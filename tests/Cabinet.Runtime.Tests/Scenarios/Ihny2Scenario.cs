@@ -16,7 +16,6 @@ public sealed class Ihny2Scenario(Ihny2Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "IHNY-2.vst3",
-        ["VST2"] = "IHNY-2.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

@@ -10,7 +10,6 @@ public sealed class TalNoiseMakerScenario(TalNoiseMakerScenario.Installed instal
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TAL-NoiseMaker.vst3",
-        ["VST2"] = "libTAL-NoiseMaker.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

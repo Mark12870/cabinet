@@ -14,7 +14,6 @@ public sealed class ParallelAggressorScenario(ParallelAggressorScenario.Installe
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Parallel Aggressor.vst3",
-        ["VST2"] = "Parallel Aggressor.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

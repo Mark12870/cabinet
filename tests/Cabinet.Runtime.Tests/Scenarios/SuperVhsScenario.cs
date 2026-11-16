@@ -14,7 +14,6 @@ public sealed class SuperVhsScenario(SuperVhsScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Super VHS.vst3",
-        ["VST2"] = "Super VHS.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

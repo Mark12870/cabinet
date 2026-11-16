@@ -256,7 +256,7 @@ toolbox run --container cabinet-runtime \
   --filter-class '*ValhallaSupermassiveScenario'
 ```
 
-For each format, `ValhallaSupermassiveScenario` verifies the bridged editor and processes explicit
+A scenario tests an entry's VST2 only when it has no VST3. For each format, `ValhallaSupermassiveScenario` verifies the bridged editor and processes explicit
 stereo buffers through Carla's native rack with Mix fully wet, so only the plugin's own output can
 fill the tail. Input, output, parameters, captures and logs remain under
 `$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/{editor,audio}/<format>/`, Cabinet's logs under
@@ -285,7 +285,7 @@ reasons are here:
   every Sound Radix scenario check only that the installer and iLok setup leave the bridges;
   Neural DSP's other entries have none.
 - **Account instruments.** SINEplayer signs in with the test account, downloads Lucent and
-  checks its editor and flute playback in VST2 and VST3. Splice INSTRUMENT stops at its sign-in:
+  checks its editor and flute playback in VST3. Splice INSTRUMENT stops at its sign-in:
   Splice's login page challenges a WebDriver browser and a saved session lasts one run, so the
   scenario checks its welcome page, the browser link it hands out and its editor.
 - **Managers.** Klevgrand Helper, Arturia Software Center, IK Product Manager, Native Access,

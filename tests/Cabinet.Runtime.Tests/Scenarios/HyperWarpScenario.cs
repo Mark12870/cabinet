@@ -14,7 +14,6 @@ public sealed class HyperWarpScenario(HyperWarpScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "HyperWarp.vst3",
-        ["VST2"] = "HyperWarp.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

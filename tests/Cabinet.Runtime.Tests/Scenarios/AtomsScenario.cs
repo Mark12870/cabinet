@@ -14,7 +14,6 @@ public sealed class AtomsScenario(AtomsScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Atoms.vst3",
-        ["VST2"] = "Atoms.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

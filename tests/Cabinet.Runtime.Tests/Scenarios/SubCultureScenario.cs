@@ -14,7 +14,6 @@ public sealed class SubCultureScenario(SubCultureScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "SubCulture.vst3",
-        ["VST2"] = "SubCulture.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

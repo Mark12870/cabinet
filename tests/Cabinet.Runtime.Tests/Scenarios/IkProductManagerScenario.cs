@@ -10,7 +10,6 @@ public sealed class IkProductManagerScenario(IkProductManagerScenario.Installed 
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "MODO BASS 2.vst3",
-        ["VST2"] = "MODO BASS 2.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

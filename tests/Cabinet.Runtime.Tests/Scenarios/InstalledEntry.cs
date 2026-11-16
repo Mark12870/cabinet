@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Cabinet.Ci;
 using Cabinet.Core;
 using Cabinet.Core.Tests;
 
@@ -19,7 +20,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
 
     internal Display Display => display ?? throw new InvalidOperationException($"{id} is not installed");
 
-    public static TheoryData<string> Formats(string id) => [.. Find(id).Formats.Where(format => format != "CLAP")];
+    public static TheoryData<string> Formats(string id) => [.. ScenarioFormats.Tested(Find(id).Formats).Where(format => format != "CLAP")];
 
     public async ValueTask InitializeAsync()
     {

@@ -8,7 +8,6 @@ public sealed class DpMeter5Scenario(DpMeter5Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/dpMeter5nogpu.vst3",
-        ["VST2"] = "TBProAudio/dpMeter5nogpu.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

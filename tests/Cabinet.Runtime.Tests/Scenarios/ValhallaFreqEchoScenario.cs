@@ -10,7 +10,6 @@ public sealed class ValhallaFreqEchoScenario(ValhallaFreqEchoScenario.Installed 
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "ValhallaFreqEcho.vst3",
-        ["VST2"] = "ValhallaFreqEcho_x64.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

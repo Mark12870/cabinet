@@ -10,7 +10,6 @@ public sealed class TalFilter2Scenario(TalFilter2Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TAL-Filter-2.vst3",
-        ["VST2"] = "libTAL-Filter-2.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

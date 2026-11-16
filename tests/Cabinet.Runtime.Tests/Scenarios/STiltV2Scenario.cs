@@ -8,7 +8,6 @@ public sealed class STiltV2Scenario(STiltV2Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "TBProAudio/sTiltV2nogpu.vst3",
-        ["VST2"] = "TBProAudio/sTiltV2nogpu.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

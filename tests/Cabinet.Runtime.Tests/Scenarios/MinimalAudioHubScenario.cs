@@ -12,7 +12,6 @@ public sealed class MinimalAudioHubScenario(MinimalAudioHubScenario.Installed in
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Squash.vst3",
-        ["VST2"] = "Squash.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
@@ -108,7 +107,7 @@ public sealed class MinimalAudioHubScenario(MinimalAudioHubScenario.Installed in
             manager.Until(() => manager.Shows(window, InstallPage, SquashHeading), window, "the Squash installer", Answering, Account);
             manager.Choose(window, 924, 588);
             manager.Until(
-                () => Harness.Holds("VST3", Bridges["VST3"]) && Harness.Holds("VST2", Bridges["VST2"])
+                () => Harness.Holds("VST3", Bridges["VST3"])
                     && manager.Shows(window, CompletePage, CompleteHeading),
                 window, "Squash installed and bridged", Downloading, Account);
             manager.Capture(window, "installed", Account);

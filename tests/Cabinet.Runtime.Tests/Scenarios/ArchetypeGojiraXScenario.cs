@@ -8,7 +8,6 @@ public sealed class ArchetypeGojiraXScenario(ArchetypeGojiraXScenario.Installed 
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Archetype Gojira X.vst3",
-        ["VST2"] = "Archetype Gojira X.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

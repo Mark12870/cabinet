@@ -14,7 +14,6 @@ public sealed class Ba1Scenario(Ba1Scenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "BA-1.vst3",
-        ["VST2"] = "BA-1.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

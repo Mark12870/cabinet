@@ -14,7 +14,6 @@ public sealed class ComebackKidScenario(ComebackKidScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Comeback Kid.vst3",
-        ["VST2"] = "Comeback Kid.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

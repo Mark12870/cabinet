@@ -10,7 +10,6 @@ public sealed class DecentSamplerScenario(DecentSamplerScenario.Installed instal
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "DecentSampler.vst3",
-        ["VST2"] = "DecentSampler.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

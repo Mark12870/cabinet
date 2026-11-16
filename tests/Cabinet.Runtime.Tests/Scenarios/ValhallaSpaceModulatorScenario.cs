@@ -10,7 +10,6 @@ public sealed class ValhallaSpaceModulatorScenario(ValhallaSpaceModulatorScenari
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "ValhallaSpaceModulator.vst3",
-        ["VST2"] = "ValhallaSpaceModulator_x64.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

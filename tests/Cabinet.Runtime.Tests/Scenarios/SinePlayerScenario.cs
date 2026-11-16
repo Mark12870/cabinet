@@ -16,7 +16,6 @@ public sealed class SinePlayerScenario(SinePlayerScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "SINE Player.vst3",
-        ["VST2"] = "SINE Player.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

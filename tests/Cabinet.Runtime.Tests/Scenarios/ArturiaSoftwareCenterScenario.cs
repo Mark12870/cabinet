@@ -14,7 +14,6 @@ public sealed class ArturiaSoftwareCenterScenario(ArturiaSoftwareCenterScenario.
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Piano V3.vst3",
-        ["VST2"] = "Piano V3.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);

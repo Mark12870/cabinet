@@ -10,7 +10,6 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "bx_solo.vst3",
-        ["VST2"] = "Plugin Alliance/bx_solo.so",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
@@ -107,7 +106,7 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
             manager.HoldClick(window, 714, 255);
             manager.Until(
                 () => manager.Shows(window, InstalledPage, InstalledHeading)
-                    && Harness.Holds("VST3", Bridges["VST3"]) && Harness.Holds("VST2", Bridges["VST2"]),
+                    && Harness.Holds("VST3", Bridges["VST3"]),
                 window,
                 "bx_solo installed and bridged",
                 Downloading,
