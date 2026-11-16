@@ -1,10 +1,14 @@
 using System.Diagnostics;
+using System.Globalization;
 
 namespace Cabinet.Runtime.Tests;
 
 internal static class Host
 {
     public const string App = "io.github.mark12870.cabinet";
+
+    private static readonly TimeSpan TeardownPatience = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TeardownTick = TimeSpan.FromMilliseconds(100);
 
     public static ProcessResult Run(string file, IReadOnlyList<string> arguments)
     {
@@ -49,23 +53,23 @@ internal static class Host
     public static string Shim() =>
         Path.Combine(Location(), "files", "lib", "yabridge", "cabinet-wine");
 
-    public static IReadOnlyList<string> Instances(string app, string marker)
+    public static IReadOnlyList<(string Instance, int Sandbox)> Instances(string app, string marker)
     {
-        var result = Run("flatpak", ["ps", "--columns=instance,child-pid,application"]);
-        List<string> found = [];
+        var result = Run("flatpak", ["ps", "--columns=instance,pid,child-pid,application"]);
+        List<(string, int)> found = [];
 
         foreach (var line in result.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var fields = line.Split('\t', StringSplitOptions.TrimEntries);
 
-            if (fields.Length < 3 || fields[2] != app)
+            if (fields.Length < 4 || fields[3] != app)
             {
                 continue;
             }
 
-            if (CommandLine(fields[1]).Contains(marker, StringComparison.Ordinal))
+            if (CommandLine(fields[2]).Contains(marker, StringComparison.Ordinal))
             {
-                found.Add(fields[0]);
+                found.Add((fields[0], int.Parse(fields[1], CultureInfo.InvariantCulture)));
             }
         }
 
@@ -76,9 +80,39 @@ internal static class Host
 
     public static void KillAll(string app, string marker)
     {
-        foreach (var instance in Instances(app, marker))
+        var instances = Instances(app, marker);
+
+        foreach (var (instance, _) in instances)
         {
             Kill(instance);
+        }
+
+        foreach (var (_, sandbox) in instances)
+        {
+            AwaitExit(sandbox);
+        }
+    }
+
+    private static void AwaitExit(int pid)
+    {
+        var deadline = DateTime.UtcNow + TeardownPatience;
+
+        while (Running(pid) && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(TeardownTick);
+        }
+    }
+
+    private static bool Running(int pid)
+    {
+        try
+        {
+            var stat = File.ReadAllText($"/proc/{pid}/stat");
+            return stat[stat.LastIndexOf(')') + 2] != 'Z';
+        }
+        catch (IOException)
+        {
+            return false;
         }
     }
 
