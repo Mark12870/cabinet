@@ -38,16 +38,5 @@ public sealed class HumanoidScenario(HumanoidScenario.Installed installed)
         Assert.InRange(audio.Peak, 0.2, 0.3);
     }
 
-    public sealed class Installed() : InstalledEntry(Id)
-    {
-        private const string QuickTourSeen = "1";
-
-        private protected override async Task Install(Display display)
-        {
-            await base.Install(display);
-            File.WriteAllText(
-                Path.Combine(Harness.Prefix, "drive_c", "ProgramData", "BABY Audio", "settings", "Humanoid", "quick.baby"),
-                QuickTourSeen);
-        }
-    }
+    public sealed class Installed() : BabyAudioEntry(Id);
 }

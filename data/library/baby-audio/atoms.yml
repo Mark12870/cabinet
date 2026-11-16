@@ -1,0 +1,18 @@
+Name: Atoms
+Kind: windows
+Category: Synth
+Summary: Physically modelled bowed-string synth
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/atoms
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/Atoms+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Simulates a network of masses and springs excited by a virtual bow. Six
+  main parameters take their own motion modulation, and every effect but
+  the reverb acts inside the model rather than after it. A randomiser rolls
+  patches within per-knob ranges and locks, and it plays MPE.

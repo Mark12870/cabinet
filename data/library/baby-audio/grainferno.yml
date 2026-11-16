@@ -1,0 +1,19 @@
+Name: Grainferno
+Kind: windows
+Category: Synth
+Summary: Granular synth that plays any audio file
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/grainferno
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/Grainferno+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Breaks one or two dropped-in samples into grains and morphs between them
+  in seven modes; driven at audio rate the grains become a pitched
+  oscillator, so any recording plays in tune like a synth voice. Three
+  envelopes, LFOs and random generators modulate almost every parameter by
+  drag and drop. Installs 1.5 GB of samples and presets.

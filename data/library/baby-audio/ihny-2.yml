@@ -1,0 +1,19 @@
+Name: IHNY-2
+Kind: windows
+Category: Effect
+Summary: Parallel compressor on an XY pad
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/ihny-2
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/IHNY-2+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  The successor to I Heart NY, with the same dynamics engine: one XY pad
+  sets compression on one axis and the dry and wet blend on the other, with
+  auto gain to hold the level. A tweak panel adds attack, release, ratio,
+  transient preservation, saturation that rises with compression, and low
+  and high preservation filters.

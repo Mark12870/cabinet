@@ -1,0 +1,18 @@
+Name: Transit 2
+Kind: windows
+Category: Effect
+Summary: Transition designer, 28 linked effects
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/transit
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/Transit+2+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Chains any of 28 effect modules, from filters, reverb and delay to an
+  oscillator and noise for sweeps, and sets any of their parameters in
+  motion from one T knob, an LFO-style rhythm, the input's level, a
+  sidechain, a trigger or a host-synced launch. Made with Andrew Huang.

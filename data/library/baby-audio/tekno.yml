@@ -1,0 +1,19 @@
+Name: Tekno
+Kind: windows
+Category: Drums
+Summary: Analogue-modelled drum synthesiser
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/tekno
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/Tekno+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Synthesises every hit from circuit models built with Jatin Chowdhury,
+  after the drum machines of the 1980s and 1990s: 18 engines for kicks,
+  snares, claps, hats and percussion, with humanise, per-voice tape and
+  compression, and a limiter-clipper on the kit. A sequencer with chance
+  and per-lane lengths exports its patterns as MIDI.

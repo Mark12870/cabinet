@@ -1,0 +1,19 @@
+Name: BA-1
+Kind: windows
+Category: Synth
+Summary: Lo-fi synth after a 1982 analogue one
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/ba-1
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/BA-1+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Starts from an emulation of a 1982 analogue synthesiser and
+  extends it: a battery slider that drains the voice, circuit bending,
+  the built-in speaker as an output and stepped Gliss glides. Re-Gen rolls
+  new patches tuned to stay playable. Its 1980s home-studio effects chain
+  also installs as BA-1 FX Strip, a separate effect.

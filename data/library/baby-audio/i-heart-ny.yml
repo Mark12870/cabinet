@@ -1,0 +1,19 @@
+Name: I Heart NY
+Kind: windows
+Category: Effect
+Summary: Two-knob New York parallel compressor
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/i-heart-ny-parallel-compression-plugin
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/I+Heart+NY+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Baby Audio's first plugin, from 2019, built on the New York compression
+  trick: a heavily compressed and equalised copy of the track is blended in
+  under the dry signal, with a filter keeping the low end full. One slider
+  sets the parallel level and one the output. IHNY-2 is its successor, with
+  the same dynamics engine and more controls.

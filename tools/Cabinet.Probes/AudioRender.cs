@@ -15,6 +15,10 @@ internal static unsafe class AudioRender
     private const uint SilenceAfter = SampleRate * 4;
     private const uint TotalFrames = SilenceBefore + SignalFrames + SilenceAfter;
     private const uint RenderedFrames = (TotalFrames + BlockSize - 1) / BlockSize * BlockSize;
+    private const double Tempo = 120;
+    private const int BeatsPerBar = 4;
+    private const double TicksPerBeat = 1920;
+    private const float BeatType = 4;
 
     private static TimeInfo* time;
 
@@ -24,6 +28,15 @@ internal static unsafe class AudioRender
         [FieldOffset(0)] public byte Playing;
         [FieldOffset(8)] public ulong Frame;
         [FieldOffset(16)] public ulong Usecs;
+        [FieldOffset(24)] public byte BarValid;
+        [FieldOffset(28)] public int Bar;
+        [FieldOffset(32)] public int Beat;
+        [FieldOffset(40)] public double Tick;
+        [FieldOffset(48)] public double BarStartTick;
+        [FieldOffset(56)] public float BeatsPerBar;
+        [FieldOffset(60)] public float BeatType;
+        [FieldOffset(64)] public double TicksPerBeat;
+        [FieldOffset(72)] public double BeatsPerMinute;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -264,6 +277,7 @@ internal static unsafe class AudioRender
             time->Playing = 1;
             time->Frame = offset;
             time->Usecs = (ulong)(offset * 1000000.0 / SampleRate);
+            PlaceAt(offset);
 
             if (offset == 0)
             {
@@ -321,6 +335,21 @@ internal static unsafe class AudioRender
             + $"frames={TotalFrames} params={parameterCount} mix_changed={(mixChanged ? 1 : 0)}");
         Libc.Leave(0);
         return 0;
+    }
+
+    private static void PlaceAt(uint frame)
+    {
+        var beats = frame * Tempo / 60 / SampleRate;
+        var bars = (int)(beats / BeatsPerBar);
+        time->BarValid = 1;
+        time->Bar = bars + 1;
+        time->Beat = (int)(beats % BeatsPerBar) + 1;
+        time->Tick = beats % 1 * TicksPerBeat;
+        time->BarStartTick = bars * BeatsPerBar * TicksPerBeat;
+        time->BeatsPerBar = BeatsPerBar;
+        time->BeatType = BeatType;
+        time->TicksPerBeat = TicksPerBeat;
+        time->BeatsPerMinute = Tempo;
     }
 
     private static void Process(

@@ -9,7 +9,7 @@ if [ ! -f "$installer" ]; then
     exit 1
 fi
 
-"$WINE" "$installer" /SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART '/COMPONENTS=x64bit,x64bit\vst2,x64bit\vst3'
+"$WINE" "$installer" /SP- /VERYSILENT /SUPPRESSMSGBOXES /NORESTART '/COMPONENTS=x64bit,x64bit\vst2,x64bit\vst3,vst2,vst3'
 
 if [ ! -e "$CABINET_PREFIX/drive_c/Program Files/Common Files/VST3/$CABINET_NAME.vst3" ]; then
     echo "$CABINET_NAME's installer left no $CABINET_NAME.vst3 in the prefix" >&2

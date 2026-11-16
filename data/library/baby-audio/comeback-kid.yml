@@ -1,0 +1,18 @@
+Name: Comeback Kid
+Kind: windows
+Category: Effect
+Summary: Delay with ducking and 14 colour effects
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/comeback-kid-delay-plugin
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/Comeback+Kid+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Repeats tempo-synced or free from 0.01 ms to 2.5 s, through 14 shaping
+  effects on the wet signal: an 11-bit path after early digital delays,
+  tape-style saturation, phaser, diffusion reverb, width, pitch spread and
+  random timing. A ducker lowers the repeats while the dry signal plays.

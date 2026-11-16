@@ -1,0 +1,19 @@
+Name: SubCulture
+Kind: windows
+Category: Effect
+Summary: Pitch-tracking subharmonic bass enhancer
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/subculture
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/SubCulture+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Tracks the pitch of a monophonic source and generates subharmonics up to
+  two octaves below or above it, alongside an EQ boost that follows the
+  fundamental and a tuned resonant filter network after an analogue design.
+  Saturation, compression and a mix section with high-pass and mono bass
+  follow.

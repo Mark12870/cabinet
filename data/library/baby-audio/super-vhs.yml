@@ -1,0 +1,18 @@
+Name: Super VHS
+Kind: windows
+Category: Effect
+Summary: Six one-knob 1980s lo-fi effects
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/super-vhs-multi-fx-plugin
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/Super+VHS+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Models 1980s consumer gear: synthesised VHS static, a consumer tape
+  saturator, an 8-bit sampler's rate reduction, a chorus after the Juno's,
+  pitch drift and a cheap rack reverb. Each knob moves several parameters
+  at once.

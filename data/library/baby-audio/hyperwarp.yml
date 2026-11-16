@@ -1,0 +1,18 @@
+Name: HyperWarp
+Kind: windows
+Category: Effect
+Summary: Granular time effect drawn on a graph
+Developer: Baby Audio
+Licence: Commercial
+Licensing:
+  The plugin runs in trial mode until it is activated with a licence key.
+Formats: VST3, VST2
+Homepage: https://babyaud.io/hyperwarp
+Source: rolling
+Url: https://babyaudiosoftware.s3.us-east-2.amazonaws.com/HyperWarp+Baby+Audio+PC.zip
+Script: baby-audio.sh
+Description:
+  Cuts the input into grains and plays them back along a drawn graph of
+  speed and direction, for stutters, half-time, scratches and tape stops.
+  Seven profiles each give four macros and a colour of their own, from clean
+  pitch and time shifts to filtered, vocoder-like and downsampled grains.
