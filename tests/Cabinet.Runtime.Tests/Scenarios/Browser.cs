@@ -32,6 +32,7 @@ internal sealed class Browser : IDisposable
         try
         {
             session = Until(() => Started(), TimeSpan.FromSeconds(30), "chromedriver to answer")!;
+            PassAsHeadedChrome();
         }
         catch
         {
@@ -131,6 +132,16 @@ internal sealed class Browser : IDisposable
         File.WriteAllText(
             System.IO.Path.Combine(evidence, "browser.txt"),
             $"waiting for: {what}\npage: {Path()}\n\n{shown}\n\nloaded:\n{string.Join('\n', loaded)}\n");
+    }
+
+    private void PassAsHeadedChrome()
+    {
+        var agent = Script("return navigator.userAgent")!.GetValue<string>();
+        Call(HttpMethod.Post, "goog/cdp/execute", new JsonObject
+        {
+            ["cmd"] = "Network.setUserAgentOverride",
+            ["params"] = new JsonObject { ["userAgent"] = agent.Replace("HeadlessChrome", "Chrome") },
+        });
     }
 
     private string? Started()
