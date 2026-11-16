@@ -7,8 +7,6 @@ public sealed class VitalScenario(VitalScenario.Installed installed)
 
     private const string Version = "1.0.7";
 
-    private const string WorkOffline = "865 476";
-
     private const string Macro1 = "211 42 82";
 
     private const int Note = 60;
@@ -16,20 +14,16 @@ public sealed class VitalScenario(VitalScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Vital.vst3",
-        ["VST2"] = "Vital.so",
         ["LV2"] = "http://vital.audio",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
 
-    public static TheoryData<string> Editors => ["VST2"];
-
     [Theory]
-    [MemberData(nameof(Editors))]
-    public void OpensItsEditorPastItsSignIn(string format)
+    [InlineData("VST3")]
+    public void OpensItsEditorOffline(string format)
     {
-        installed.Harness.VerifyEditor(
-            installed.Harness.Plugin(format, Bridges[format]), click: WorkOffline, control: Macro1);
+        installed.Harness.VerifyEditor(installed.Harness.Plugin(format, Bridges[format]), control: Macro1);
     }
 
     [Theory]
@@ -53,5 +47,12 @@ public sealed class VitalScenario(VitalScenario.Installed installed)
     {
         private protected override async Task Install(Display display) =>
             await Harness.InstallFrom(await Vital.Download("Vital", "Linux (zip)", Version, Harness.Home), display);
+
+        protected override void Settle(string home)
+        {
+            var settings = Path.Combine(home, ".vital");
+            Directory.CreateDirectory(settings);
+            File.WriteAllText(Path.Combine(settings, "Vital.config"), """{"work_offline":true}""");
+        }
     }
 }
