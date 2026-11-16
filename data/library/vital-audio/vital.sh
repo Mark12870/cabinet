@@ -6,7 +6,6 @@ if [ -d "$unpacked/VitalBinaries" ]; then
     binaries="$unpacked/VitalBinaries"
     mv "$binaries/Vital.vst3" "$CABINET_DEST/"
     mv "$binaries/Vital.so" "$CABINET_DEST/"
-    mv "$binaries/Vital.lv2" "$CABINET_DEST/"
 elif [ -d "$unpacked/VitalInstaller/lib" ]; then
     binaries="$unpacked/VitalInstaller/lib"
     mv "$binaries/vst/Vital.so" "$CABINET_DEST/"

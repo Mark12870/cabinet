@@ -14,13 +14,12 @@ public sealed class VitalScenario(VitalScenario.Installed installed)
     private static readonly Dictionary<string, string> Bridges = new()
     {
         ["VST3"] = "Vital.vst3",
-        ["LV2"] = "http://vital.audio",
     };
 
     public static TheoryData<string> Formats => InstalledEntry.Formats(Id);
 
     [Theory]
-    [InlineData("VST3")]
+    [MemberData(nameof(Formats))]
     public void OpensItsEditorOffline(string format)
     {
         installed.Harness.VerifyEditor(installed.Harness.Plugin(format, Bridges[format]), control: Macro1);

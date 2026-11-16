@@ -10,7 +10,7 @@ Licensing:
   Plus and Pro add presets, wavetables and skins, unlocked by signing in.
   1.0.7 is the stable release. 1.6.4 is early access; presets saved in it
   cannot be opened by older versions.
-Formats: VST3, VST2, LV2, CLAP
+Formats: VST3, VST2, CLAP
 Script: vital.sh
 Relink: libcurl-gnutls.so.4 = libcurl.so.4
 Homepage: https://vital.audio
