@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.45.0" date="2026-11-16">
+      <description>
+        <p>Baby Audio's full range in the Library</p>
+        <ul>
+          <li>Install Atoms, BA-1, Comeback Kid, Crystalline, Grainferno, HyperWarp, I Heart NY, IHNY-2, Parallel Aggressor, Smooth Operator Pro, Spaced Out, SubCulture, Super VHS, TAIP, Tekno and Transit 2, each set up in the same prefix as Humanoid</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.44.1" date="2026-11-16">
       <description>
         <p>Update catalogue plugins</p>
