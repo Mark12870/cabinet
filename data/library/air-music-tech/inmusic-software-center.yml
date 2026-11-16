@@ -3,7 +3,7 @@ Kind: windows
 Category: Manager
 Summary: AIR's instrument and effect installer
 Developer: inMusic Brands
-Version: 1.40.2
+Version: 1.41.0
 Licence: Freeware
 Licensing:
   The app is free and signs in to an inMusic account; installing a product
@@ -12,8 +12,8 @@ Licensing:
 Formats: VST3, VST2
 Homepage: https://www.airmusictech.com/downloads/
 Source: download
-Url: https://cdn.inmusicbrands.com/SI04/1042/inMusic%20Software%20Center-1.40.2%20Setup.exe
-Sha256: f71888067d4f88aa432a5c8c2a0326d5ad6005e58a034b4212c95b2e48a55505
+Url: https://cdn.inmusicbrands.com/SI04/1411/inMusic%20Software%20Center-1.41.0%20Setup.exe
+Sha256: 2d357ea1903d659c959e19930e59ee5c130c7339511eb3326795b9440df40da7
 Launch: C:\Program Files\inMusic Software Center\inMusic Software Center.exe
 VersionFile: C:\Program Files\inMusic Software Center\inMusic Software Center.exe
 LaunchArgs:
