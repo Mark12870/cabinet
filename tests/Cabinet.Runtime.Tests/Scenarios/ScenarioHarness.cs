@@ -10,6 +10,8 @@ namespace Cabinet.Runtime.Tests.Scenarios;
 
 internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 {
+    private const string MachineGuid = "00000000-0000-4000-8000-00000000cab1";
+
     private static readonly TimeSpan InstallPatience = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ProbePatience = TimeSpan.FromMinutes(10);
     private static readonly Dictionary<string, (string Extension, string Carla)> Formats = new()
@@ -74,7 +76,16 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         }
 
         Assert.True(result.ExitCode == 0, result.Said);
+        BeTheOneMachine();
         return result.Said;
+    }
+
+    private void BeTheOneMachine()
+    {
+        if (entry.Kind == PluginKind.Windows)
+        {
+            Merge($"[Software\\\\Microsoft\\\\Cryptography] 0\n\"MachineGuid\"=\"{MachineGuid}\"", "system.reg");
+        }
     }
 
     public void Time(string step, TimeSpan taken) =>

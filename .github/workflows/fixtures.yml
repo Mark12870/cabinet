@@ -72,7 +72,7 @@ jobs:
       - name: Start the container
         if: steps.image.outputs.from != ''
         run: |
-          docker run --detach --name "${CONTAINER}" --hostname ci --privileged --device /dev/fuse \
+          docker run --detach --name "${CONTAINER}" --hostname ci --mac-address 02:00:00:ca:b1:01 --privileged --device /dev/fuse \
             --volume "${PWD}:/src" "${{ steps.image.outputs.from }}" sleep infinity
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh prepare
 

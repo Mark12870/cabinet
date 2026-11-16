@@ -15,6 +15,15 @@ public class WorkflowTests
     private static readonly string[] Redistributable = ["GPL-3.0", "LGPL-3.0"];
 
     [Fact]
+    public void EveryRuntimeContainerIsTheSameComputerToVendorLicensing()
+    {
+        var started = Runtime.Concat(Fixtures).Where(line => line.Contains("docker run ")).ToList();
+
+        Assert.Equal(2, started.Count);
+        Assert.All(started, line => Assert.Contains("--hostname ci --mac-address 02:00:00:ca:b1:01 ", line, StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ARuntimeFailureHoldsTheRelease()
     {
         var publish = Job(Ci, "publish");

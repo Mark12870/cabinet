@@ -138,6 +138,7 @@ public sealed class PaInstallationManagerScenario(PaInstallationManagerScenario.
 
         private void Activation(IReadOnlyDictionary<string, string> credentials)
         {
+            PluginAlliance.RetireStaleMachines(credentials, Environment.MachineName, Path.Combine(Harness.Artefacts, "devices"));
             Harness.VerifyEditor(
                 Harness.Plugin("VST3", Bridges["VST3"]) with { Label = "activation" },
                 controlsAreParameters: false,

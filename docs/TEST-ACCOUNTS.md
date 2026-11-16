@@ -3,6 +3,12 @@
 Scenarios for entries behind a vendor account sign in with a shared test account, or restore a
 session it saved.
 
+Vendors that limit an account's devices count a computer by what Wine reports for it, so every run
+is one of two computers. The Plugins workflow starts its container as `ci` with the MAC
+`02:00:00:ca:b1:01`, which `WorkflowTests` guards; the toolbox is `toolbx` with the host's MAC. After
+every install the harness writes one synthetic `MachineGuid` into the Windows prefix, and Wine
+reports volume serial 0 for each prefix's `C:`.
+
 Helix Native and Helix Stadium Native are tested through a Line 6 test account. `secrets.env` at the repository root,
 gitignored, holds its `EMAIL` and `PASSWORD`; the Plugins workflow writes the same file inside the
 container from the repository secrets of those names, owned by the test user and readable by no
@@ -29,12 +35,10 @@ release means replacing the file in the folder and the scenario's path and check
 
 Vital signs in to its account site through Firebase's password sign-in with the same `EMAIL` and
 `PASSWORD`, asks the account's products for the Linux zip of the version the scenario pins, and
-downloads it. 1.0.7 is pinned because 1.6.4 ships no LV2. The editor opens behind a sign-in panel
-that Work offline dismisses; a press is a move, a few turns of the host, and then the click, since
-Vital takes no click that arrives with the pointer. Its knobs are host parameters sorted by name,
-so the aim is named, Macro 1. Only VST2 is checked in the editor: under Carla, Vital's VST3 editor
-draws once and takes no input, and its LV2 editor never opens, on a GPU display as well, while the
-VST3 works in REAPER. Every format still plays a note.
+downloads it. The scenario writes the answer to Vital's first-run sign-in panel, working offline,
+into `~/.vital/Vital.config` before the editor opens. Its knobs are host parameters sorted by name,
+so the aim is named, Macro 1. Cabinet installs no LV2: 1.0.7's LV2 editor deadlocks in Vital's own
+JUCE wrapper in every host, and 1.6.4 ships none.
 
 IK Product Manager signs in with `USERNAME` rather than the email, kept in the same file and
 secrets, and nothing is captured from the
@@ -81,7 +85,7 @@ Roland Cloud Manager signs in through a browser too, and Roland's login page acc
 WebDriver: the scenario points Wine's `WineBrowser` at a script that keeps the sign-in URL, signs in
 with the test account in headless Chromium, and hands the `rolandcloudmanager://` link it returns
 to `library open`. Roland counts each Windows `MachineGuid` as a device and refuses a new one past
-the account's limit, so the scenario writes the same synthetic `MachineGuid` into every prefix. Its
+the account's limit, so it sees the pinned one on every run. Its
 manager window, like Kontakt's editor, loses its X connection at its first frame on the test
 display, so the prefix runs on lavapipe.
 
@@ -96,6 +100,13 @@ scenario installs the whole Free Plugin Pack; a fresh prefix already lists its l
 on device `C`, and the side panel's button reads Install or Install & Activate accordingly, so the
 scenario presses it without reading its label. Carla takes the first plugin of the pack's one
 WaveShell VST3, Magma Lil Tube: its pinned build loads only a bundle's first class.
+
+Plugin Alliance's Installation Manager signs in with `EMAIL` and `PASSWORD`, installs bx_solo and
+activates it in its editor. Plugin Alliance knows a computer by its name, its `C:` volume serial and
+its MACs, and each licence allows three active machines. Before activating, the scenario signs in to
+plugin-alliance.com and, when every slot is taken, deactivates the older active machines that share
+this computer's name through the account page's own API, keeping the newest; `devices/retired.txt`
+lists them.
 
 Cymatics Hub signs in with a code mailed to `EMAIL`. Its scenario runs the Hub's own PKCE browser
 flow in headless Chromium, reads the code over IMAP (`EMAIL_IMAP_HOST`, port 993,

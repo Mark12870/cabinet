@@ -38,8 +38,6 @@ public sealed class RolandCloudManagerScenario(RolandCloudManagerScenario.Instal
 
         private const string Scheme = "rolandcloudmanager://";
 
-        private const string Device = "00000000-0000-4000-8000-00000000cab1";
-
         private const string ZenologyPage = "tests/Cabinet.Runtime.Tests/Scenarios/References/roland-zenology.png";
 
         private const string Sidebar = "0,160 182,260";
@@ -61,7 +59,6 @@ public sealed class RolandCloudManagerScenario(RolandCloudManagerScenario.Instal
             File.WriteAllText(capture, "#!/bin/sh\nprintf '%s\\n' \"$1\" > \"$HOME/browser.txt\"\n");
             File.SetUnixFileMode(capture, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             Harness.Merge($"[Software\\\\Wine\\\\WineBrowser] 0\n\"Browsers\"=\"{capture}\"");
-            Harness.Merge($"[Software\\\\Microsoft\\\\Cryptography] 0\n\"MachineGuid\"=\"{Device}\"", "system.reg");
 
             using var manager = Harness.Open(display);
             var login = manager.Window(LogIn, Opening);
