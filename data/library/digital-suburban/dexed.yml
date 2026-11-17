@@ -3,13 +3,13 @@ Kind: native
 Category: Synth
 Summary: DX7 emulation that loads cartridges
 Developer: Digital Suburban
-Version: 1.0.1
+Version: 1.1.0
 Licence: GPL-3.0
 Formats: VST3, CLAP
 Homepage: https://asb2m10.github.io/dexed/
 Source: download
-Url: https://github.com/asb2m10/dexed/releases/download/v1.0.1/Dexed-1.0.1-lnx.zip
-Sha256: 2bac3d0c4237e8c22c4274b6d5b59fe6329fcae72864f81b5830393eff354fc1
+Url: https://github.com/asb2m10/dexed/releases/download/v1.1.0/Dexed-1.1.0-lnx.zip
+Sha256: 3a1a01511e3428f432cc91c7bf5267d72bfcb68aded4f084d4f9d002dcc42da6
 Description:
   Six-operator FM after the Yamaha DX7, loading and saving original DX7 and
   TX7 SysEx cartridges, with all 144 parameters on one panel. It doubles as
