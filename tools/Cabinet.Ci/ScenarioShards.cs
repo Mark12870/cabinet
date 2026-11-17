@@ -16,8 +16,9 @@ internal static class ScenarioShards
                 .ToDictionary(group => group.Key, group => group.Max(pair => pair.Value), StringComparer.Ordinal)
             : [];
 
+        var dealt = Deal(spent, [.. Scenarios.Entries().Keys], count);
         var shards = new JsonArray();
-        foreach (var (classes, index) in Deal(spent, [.. Scenarios.Entries().Keys], count).Select((classes, index) => (classes, index)))
+        foreach (var (classes, index) in dealt.Select((classes, index) => (classes, index)))
         {
             shards.Add(new JsonObject
             {
@@ -27,8 +28,33 @@ internal static class ScenarioShards
         }
 
         Console.WriteLine(shards.ToJsonString());
+
+        if (Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY") is { Length: > 0 } summary)
+        {
+            File.AppendAllText(summary, Summary(dealt, spent));
+        }
+
         return 0;
     }
+
+    public static string Summary(IReadOnlyList<IReadOnlyList<string>> dealt, IReadOnlyDictionary<string, double> spent)
+    {
+        var unknown = spent.Count > 0 ? spent.Values.Max() : 0;
+        var expected = dealt.Select(classes => classes.Sum(name => spent.GetValueOrDefault(name, name == Helpers ? 0 : unknown))).ToList();
+        var lines = new List<string>
+        {
+            $"<details><summary>Shard plan: the longest shard should take about {Minutes(expected.Max())} of tests</summary>",
+            "",
+            "| Shard | Expected | Scenarios | Starts with |",
+            "| ---: | ---: | ---: | --- |",
+        };
+        lines.AddRange(dealt.Select((classes, index) =>
+            $"| {index} | {Minutes(expected[index])} | {classes.Count} | {string.Join(", ", classes.Take(2).Select(name => $"`{name}`"))} |"));
+        lines.AddRange(["", "</details>", ""]);
+        return string.Join('\n', lines) + "\n";
+    }
+
+    private static string Minutes(double seconds) => $"{Math.Round(seconds / 60)} min";
 
     public static IReadOnlyList<IReadOnlyList<string>> Deal(
         IReadOnlyDictionary<string, double> spent, IReadOnlyList<string> scenarios, int count)

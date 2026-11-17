@@ -71,6 +71,9 @@ description: Test or diagnose Cabinet catalogue entries at runtime through an is
 - A DAW in a test copies `ScenarioHarness.RenderAsTake`'s launch: it forwards `CABINET_RUNTIME_ROOT` and
   `FLATPAK_USER_DIR`, without which the shim cannot reach the prefix and the plugin silently fails to load,
   and its private bus starts only Flatpak's session helper.
+- To load plugins in that DAW, have the ReaScript call `TrackFX_AddByName` with the name REAPER lists in its
+  `reaper-vstplugins64.ini`, such as `VST3: Pro-Q 4`; a `-__vst_scan__` run loads nothing. REAPER reuses an instance
+  it already holds, so only a different plugin is sure to start a new Wine host.
 - `docs/TESTS.md` holds the plugin matrix and the unsupported Windows LV2 combination.
 - A scenario's editor check drives the pointer on its own headless `weston`, so it needs no session display. When one
   fails, read the captures and `result.txt` in `$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/editor/` before

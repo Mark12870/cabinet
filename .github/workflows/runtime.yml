@@ -232,6 +232,7 @@ jobs:
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh collect /tmp/runtime
           docker cp "${CONTAINER}:/tmp/runtime" runtime
+          df -h / /mnt > runtime/disk.txt
 
       - uses: actions/setup-dotnet@v5
         if: always() && inputs.suite == 'scenarios'

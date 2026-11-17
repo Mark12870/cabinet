@@ -15,6 +15,15 @@ public class ScenarioShardsTests
     };
 
     [Fact]
+    public void SummarisesEachShardsExpectedMinutesAndWhatStartsIt()
+    {
+        var summary = ScenarioShards.Summary(ScenarioShards.Deal(Spent, [.. Spent.Keys], 3), Spent);
+
+        Assert.Contains("the longest shard should take about 12 min of tests", summary, StringComparison.Ordinal);
+        Assert.Contains("| 0 | 12 min | 1 | `Slowest` |", summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DealsTheLongestScenariosFirstToTheLightestShard()
     {
         var shards = ScenarioShards.Deal(Spent, [.. Spent.Keys], 3);

@@ -257,7 +257,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             "--no-documents-portal",
             $"--filesystem={RuntimeTestEnvironment.Root}:ro",
             $"--filesystem={root}",
-            $"--filesystem={InstalledApp}:ro",
+            $"--filesystem={new Layout(RuntimeTestEnvironment.Home, RuntimeTestEnvironment.RuntimeDirectory).HostYabridgeDir}:ro",
             $"--env=CABINET_RUNTIME_ROOT={RuntimeTestEnvironment.Root}",
             $"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}",
             $"--filesystem={socket}:create",
