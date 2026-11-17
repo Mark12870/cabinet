@@ -353,7 +353,7 @@ public class WorkflowTests
         Assert.Contains(publish, line => line.Contains("release: true", StringComparison.Ordinal));
         Assert.Contains(Publish, line => line.Contains("group: cabinet-publish", StringComparison.Ordinal));
         Assert.Contains(Publish, line => line.Contains("ref: ${{ inputs.source_sha }}", StringComparison.Ordinal));
-        Assert.Contains(Publish, line => line.Contains("main still points at the checked-out source", StringComparison.Ordinal));
+        Assert.Contains(Publish, line => line.Contains("Confirm main still points at the source", StringComparison.Ordinal));
         Assert.DoesNotContain(Ci, line => line.Contains("gh workflow run catalogue-candidate.yml", StringComparison.Ordinal));
     }
 
@@ -439,6 +439,17 @@ public class WorkflowTests
         Assert.Contains("restore-keys: published-repo-", build);
         Assert.Contains("run: scripts/seed-repo.sh \"$(scripts/pages-url.sh)\" repo published-repo", build);
         Assert.Equal(2, build.Concat(publish).Count(line => line == "path: published-repo"));
+    }
+
+    [Fact]
+    public void AnOutdatedPublishIsSkippedRatherThanFailed()
+    {
+        var current = Job(Publish, "current");
+        var publish = Job(Publish, "publish");
+
+        Assert.DoesNotContain(current, line => line.Contains("exit 1", StringComparison.Ordinal));
+        Assert.Contains(publish, line => line.Trim() == "needs: current");
+        Assert.Contains(publish, line => line.Trim() == "if: needs.current.outputs.current == 'true'");
     }
 
     [Fact]
