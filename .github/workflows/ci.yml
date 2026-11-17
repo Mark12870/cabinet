@@ -130,6 +130,7 @@ jobs:
       || (needs.build.result == 'success' && needs.runtime.result == 'success'))
     uses: ./.github/workflows/publish.yml
     permissions:
+      actions: read
       contents: read
       pages: write
       id-token: write

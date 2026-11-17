@@ -41,35 +41,6 @@ jobs:
         with:
           ref: ${{ inputs.checkout_ref || github.sha }}
 
-      # Without this the repo starts empty and each export is a parentless root: nothing to roll
-      # back to. Seeding makes the new commit a child of the published one, which matters only for
-      # a build that can publish -- and costs two minutes of the critical path for one that cannot,
-      # since nothing ever reads its artifact. Deleting this step is how you re-root deliberately.
-      - name: Decide whether this build can release
-        id: release
-        run: |
-          if [ '${{ github.event_name }}' = pull_request ] ||
-             [ "$(scripts/release-gate.sh "${APP_ID}" "$(scripts/pages-url.sh)" "${RUNNER_TEMP}/published")" != true ]
-          then
-            echo '::notice::this build cannot release, so it has no history to parent'
-            echo 'release=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'release=true' >> "$GITHUB_OUTPUT"
-          fi
-
-      # Pages answers a full pull of the history with HTTP 429 and minutes of back-off, so the
-      # last publish's own copy is restored first and the pull fetches only what it lacks.
-      - uses: actions/cache/restore@v4
-        if: steps.release.outputs.release == 'true'
-        with:
-          path: published-repo
-          key: published-repo-${{ github.sha }}
-          restore-keys: published-repo-
-
-      - name: Seed the repo from the published history
-        if: steps.release.outputs.release == 'true'
-        run: scripts/seed-repo.sh "$(scripts/pages-url.sh)" repo published-repo
-
       - name: Install the runtime, SDK, Wine and the build toolchains
         run: flatpak install -y --noninteractive flathub ${BUILD_REFS}
 

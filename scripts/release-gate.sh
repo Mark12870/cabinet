@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Says whether the newest <release> in the metainfo is already published, which is the only thing
-# that makes a run a release. The checks job asks so it can gate publishing, and the build asks so
-# it can skip seeding a history that a discarded artifact will never parent.
+# that makes a run a release. The release gate asks so it can decide whether a run publishes.
 #
 #   scripts/release-gate.sh io.github.mark12870.cabinet https://owner.github.io/cabinet/repo/ dir
 #

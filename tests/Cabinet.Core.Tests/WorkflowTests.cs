@@ -429,17 +429,37 @@ public class WorkflowTests
     }
 
     [Fact]
-    public void AReleaseSeedsFromTheRepoTheLastPublishDeployed()
+    public void OnlyThePublishTouchesThePublishedHistory()
     {
-        var build = Repo.Lines(".github/workflows/build.yml").Select(line => line.Trim()).ToList();
+        var build = Repo.Read(".github/workflows/build.yml");
         var publish = Publish.Select(line => line.Trim()).ToList();
 
-        Assert.Contains("run: cp -al _site/repo published-repo", publish);
-        Assert.Contains("key: published-repo-${{ github.run_id }}-${{ github.run_attempt }}", publish);
-        Assert.Contains("restore-keys: published-repo-", build);
-        Assert.Contains("run: scripts/seed-repo.sh \"$(scripts/pages-url.sh)\" repo published-repo", build);
-        Assert.Equal(2, build.Concat(publish).Count(line => line == "path: published-repo"));
+        Assert.DoesNotContain("seed-repo.sh", build, StringComparison.Ordinal);
+        Assert.Contains("cp -al _site/repo published-repo", publish);
+        Assert.True(publish.FindIndex(line => line.Contains("seed-repo.sh", StringComparison.Ordinal))
+                    < publish.FindIndex(line => line.Contains("build-commit-from", StringComparison.Ordinal)));
+        Assert.Contains("restore-keys: published-repo-", publish);
+        Assert.Contains("scripts/seed-repo.sh \"$(scripts/pages-url.sh)\" _site/repo published-repo", publish);
+        Assert.Contains("flatpak build-commit-from --no-update-summary \\", publish);
+        Assert.Equal(2, publish.Count(line => line == "path: published-repo"));
     }
+
+    [Theory]
+    [InlineData(".github/workflows/ci.yml")]
+    [InlineData(".github/workflows/catalogue-candidate.yml")]
+    public void EveryCallerGrantsWhatThePublishAsksFor(string caller)
+    {
+        var requested = Permissions(Job(Publish, "publish"));
+        var granted = Permissions(Job(Repo.Lines(caller), "publish"));
+
+        Assert.Empty(requested.Except(granted));
+    }
+
+    private static IEnumerable<string> Permissions(IReadOnlyList<string> job) => job
+        .SkipWhile(line => line.Trim() != "permissions:")
+        .Skip(1)
+        .TakeWhile(line => line.StartsWith("      ", StringComparison.Ordinal))
+        .Select(line => line.Trim());
 
     [Fact]
     public void AnOutdatedPublishIsSkippedRatherThanFailed()

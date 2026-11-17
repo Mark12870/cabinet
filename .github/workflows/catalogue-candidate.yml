@@ -234,6 +234,7 @@ jobs:
       && needs.release-gate.outputs.release == 'true'
     uses: ./.github/workflows/publish.yml
     permissions:
+      actions: read
       contents: read
       pages: write
       id-token: write

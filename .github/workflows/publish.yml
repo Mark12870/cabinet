@@ -51,6 +51,7 @@ jobs:
       group: cabinet-publish
       cancel-in-progress: false
     permissions:
+      actions: read
       contents: read
       pages: write
       id-token: write
@@ -69,22 +70,52 @@ jobs:
           sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=15 update
           sudo apt-get install -y --no-install-recommends flatpak ostree
 
+      - uses: actions/cache/restore@v4
+        id: kept
+        with:
+          path: published-repo
+          key: published-repo-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: published-repo-
+
+      - name: Take the last deployment when no copy was kept
+        if: steps.kept.outputs.cache-matched-key == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          id=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq \
+            '.artifacts[] | select((.name | startswith("github-pages")) and (.expired | not))
+             | [.created_at, .id] | @tsv' | sort | tail -1 | cut -f2)
+          if [ -z "${id}" ]; then
+            echo '::notice::no deployment is still kept; the pull takes the whole history'
+            exit 0
+          fi
+          mkdir deployed
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${id}/zip" > deployed.zip
+          unzip -p deployed.zip artifact.tar | tar -x -C deployed ./repo
+          mv deployed/repo published-repo
+          rm -rf deployed deployed.zip
+
+      - name: Take the published repo
+        run: |
+          mkdir -p _site
+          scripts/seed-repo.sh "$(scripts/pages-url.sh)" _site/repo published-repo
+
       - uses: actions/download-artifact@v8
         if: inputs.release
         with:
           name: repo
 
-      - name: Unpack the built repo
+      - name: Add the built commits to the published history
         if: inputs.release
         run: |
-          mkdir -p _site
-          tar -xf repo.tar -C _site
-
-      - name: Take the published repo
-        if: ${{ !inputs.release }}
-        run: |
-          mkdir -p _site
-          scripts/seed-repo.sh "$(scripts/pages-url.sh)" _site/repo
+          mkdir built
+          tar -xf repo.tar -C built
+          [ -f _site/repo/config ] || ostree --repo=_site/repo init --mode=archive-z2
+          for ref in $(ostree --repo=built/repo refs | grep -v '^appstream'); do
+            flatpak build-commit-from --no-update-summary \
+              --src-repo=built/repo --src-ref="${ref}" _site/repo "${ref}"
+          done
+          rm -rf built repo.tar
 
       - name: Mirror the Flathub extensions
         id: mirror
@@ -216,7 +247,9 @@ jobs:
 
       - name: Keep the deployed repo for the next release's seed
         if: steps.mirror.outputs.deploy == 'true'
-        run: cp -al _site/repo published-repo
+        run: |
+          rm -rf published-repo
+          cp -al _site/repo published-repo
 
       - uses: actions/cache/save@v4
         if: steps.mirror.outputs.deploy == 'true'
