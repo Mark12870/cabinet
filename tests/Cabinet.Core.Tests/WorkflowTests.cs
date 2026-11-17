@@ -429,6 +429,19 @@ public class WorkflowTests
     }
 
     [Fact]
+    public void AReleaseSeedsFromTheRepoTheLastPublishDeployed()
+    {
+        var build = Repo.Lines(".github/workflows/build.yml").Select(line => line.Trim()).ToList();
+        var publish = Publish.Select(line => line.Trim()).ToList();
+
+        Assert.Contains("run: cp -al _site/repo published-repo", publish);
+        Assert.Contains("key: published-repo-${{ github.run_id }}-${{ github.run_attempt }}", publish);
+        Assert.Contains("restore-keys: published-repo-", build);
+        Assert.Contains("run: scripts/seed-repo.sh \"$(scripts/pages-url.sh)\" repo published-repo", build);
+        Assert.Equal(2, build.Concat(publish).Count(line => line == "path: published-repo"));
+    }
+
+    [Fact]
     public void OnlyAToolboxCanLoseItsDocumentPortal()
     {
         var check = Assert.Single(

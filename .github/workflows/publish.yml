@@ -203,3 +203,13 @@ jobs:
         id: deploy
         with:
           artifact_name: github-pages-${{ github.run_attempt }}
+
+      - name: Keep the deployed repo for the next release's seed
+        if: steps.mirror.outputs.deploy == 'true'
+        run: cp -al _site/repo published-repo
+
+      - uses: actions/cache/save@v4
+        if: steps.mirror.outputs.deploy == 'true'
+        with:
+          path: published-repo
+          key: published-repo-${{ github.run_id }}-${{ github.run_attempt }}

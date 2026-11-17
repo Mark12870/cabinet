@@ -8,11 +8,12 @@
 # not. --mirror writes plain local refs, so the remote is dropped rather than published inside
 # repo/config.
 #
-#   scripts/seed-repo.sh url repo
+#   scripts/seed-repo.sh url repo [copy]
 set -euo pipefail
 
 url=$1
 repo=$2
+copy=${3:-}
 
 code="$(curl -sSI -o /dev/null -w '%{http_code}' \
         --retry 3 --retry-all-errors "${url}summary")" || code=000
@@ -26,7 +27,11 @@ case "${code}" in
     exit 1 ;;
 esac
 
-ostree --repo="${repo}" init --mode=archive-z2
+if [ -n "${copy}" ] && [ -f "${copy}/config" ]; then
+  mv "${copy}" "${repo}"
+else
+  ostree --repo="${repo}" init --mode=archive-z2
+fi
 ostree --repo="${repo}" remote add --no-gpg-verify published "${url}"
 attempt=1
 until ostree --repo="${repo}" pull --mirror --depth=-1 published; do
