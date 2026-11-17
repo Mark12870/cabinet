@@ -26,7 +26,7 @@ internal static class Wayback
     {
         using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Capturing };
         using var saved = await client.GetAsync($"{Archive}/save/{url}");
-        if (saved.StatusCode == HttpStatusCode.TooManyRequests)
+        if (saved.StatusCode == HttpStatusCode.TooManyRequests || (int)saved.StatusCode >= 500)
         {
             return await Newest(client, url);
         }
@@ -44,7 +44,7 @@ internal static class Wayback
         using var replayed = await client.GetAsync($"{Archive}/web/2id_/{url}");
         Assert.True(
             replayed.StatusCode == HttpStatusCode.Found && replayed.Headers.Location is not null,
-            $"the Wayback Machine allows one capture of {url} a day and holds none to replay: it answered {(int)replayed.StatusCode}");
+            $"the Wayback Machine could not capture {url} and holds no capture to replay: it answered {(int)replayed.StatusCode}");
         var capture = Timestamp(replayed.Headers.Location!);
         Assert.InRange(Taken(capture), DateTime.UtcNow - CapturedThisWeek, DateTime.UtcNow + Fresh);
         return capture;

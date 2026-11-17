@@ -232,8 +232,8 @@ run skips the install when the home already holds the entry. Tools and the prepa
 reused, but Cabinet downloads and installs the runner, DXVK and plugin into the new home before it
 creates the prefix and bridge. TAL Software's Cloudflare refuses GitHub's runners, so the TAL
 scenarios have the Wayback Machine capture each entry's URL and install that capture with `library
-install <id> <file>`. It captures a download once a day, so a later run takes the newest capture it
-replays, if under a week old.
+install <id> <file>`. When it declines a capture, as it does a second time in a day or when its save service
+fails, a run takes the newest capture it replays, if under a week old.
 
 ### What the scenarios leave out
 
