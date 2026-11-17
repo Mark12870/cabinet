@@ -99,8 +99,8 @@ case "$flatpak_user_dir/" in "$root/"*) ;; *) exit 1 ;; esac
 }
 
 documents=/run/user/$(id -u)/doc
-if [ -d "$documents" ] && [ ! -d "$documents/by-app" ]; then
-    printf 'setup-runtime-tests: %s lost its document portal; run podman stop on the Toolbox and retry\n' "$documents" >&2
+if [ "$CABINET_RUNTIME_BACKEND" = toolbox ] && [ -d "$documents" ] && [ ! -d "$documents/by-app" ]; then
+    printf 'setup-runtime-tests: %s lost its document portal; run podman stop %s and retry\n' "$documents" "$CABINET_RUNTIME_TOOLBOX" >&2
     exit 1
 fi
 

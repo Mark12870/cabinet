@@ -428,6 +428,16 @@ public class WorkflowTests
         Assert.Contains("[[ $path == */native/* && -d $ROOT/$path ]] || continue", Driver, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void OnlyAToolboxCanLoseItsDocumentPortal()
+    {
+        var check = Assert.Single(
+            Repo.Lines("scripts/setup-runtime-tests.sh"),
+            line => line.Contains("\"$documents/by-app\"", StringComparison.Ordinal));
+
+        Assert.StartsWith("if [ \"$CABINET_RUNTIME_BACKEND\" = toolbox ] && ", check, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("scripts/setup-runtime-tests.sh")]
     [InlineData("scripts/runtime-ci.sh")]
