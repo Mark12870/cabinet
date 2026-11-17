@@ -40,14 +40,12 @@ done
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     {
-        echo '### Plugin scenario coverage'
-        echo
-        echo "$((shipped - ${#missing[@]})) of $shipped shipped entries are tested by an end-to-end runtime scenario."
-        echo
-        echo "**Not tested** -- these ${#missing[@]} entries have no scenario yet:"
+        echo "<details><summary>Scenario coverage: $((shipped - ${#missing[@]})) of $shipped shipped entries have one; ${#missing[@]} do not</summary>"
         echo
         for entry in "${missing[@]}"; do
             echo "- \`$(basename "$entry" .yml)\` ($(sed -n 's/^Name: *//p' "$entry"))"
         done
+        echo
+        echo '</details>'
     } >> "$GITHUB_STEP_SUMMARY"
 fi

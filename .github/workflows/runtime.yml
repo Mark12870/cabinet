@@ -146,7 +146,7 @@ jobs:
       - name: Start the container
         run: |
           tail --pid="$(cat room.pid)" -f /dev/null
-          df -h / | tee -a "${GITHUB_STEP_SUMMARY}"
+          df -h /
           docker run --detach --name "${CONTAINER}" --hostname ci --mac-address 02:00:00:ca:b1:01 --privileged --device /dev/fuse \
             --volume "${PWD}:/src" "${{ steps.image.outputs.from }}" sleep infinity
 
@@ -264,7 +264,7 @@ jobs:
           retention-days: 7
 
       - name: Report each plugin scenario against its entry
-        if: always() && inputs.suite == 'scenarios'
+        if: always() && inputs.suite == 'scenarios' && inputs.selection_json != ''
         run: |
           dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-report runtime/TestResults/runtime.trx
 

@@ -191,10 +191,11 @@ and a format the entry gains fails until the scenario says which bridged file it
 Scenarios never run on a push: CI's runtime job runs the general suite, everything else in
 `Cabinet.Runtime.Tests`. The `Plugins` workflow runs only the scenarios, daily on a schedule or by
 hand, against a Cabinet built from main through the same `build.yml` and `runtime.yml` that CI
-calls. `Cabinet.Ci scenario-shards` deals them into three parallel jobs, longest first by the last
+calls. `Cabinet.Ci scenario-shards` deals them into six parallel jobs, longest first by the last
 run's `timing.txt` and test durations, and each job starts its share in that order; a scenario
-with no timings yet counts as the longest. Locally, the managers start first. On its run page `Cabinet.Ci scenario-report` (`tools/`) puts one row per entry and format, with a
-failing format annotated on its entry's `.yml`, and `scripts/scenario-coverage.sh` warns about
+with no timings yet counts as the longest. Locally, the managers start first. Once every shard ends, `Cabinet.Ci scenario-report` (`tools/`) heads the run page with one
+verdict line and the failed, rerun and skipped formats, keeps every result and the timings folded,
+and annotates a failing format on its entry's `.yml`; and `scripts/scenario-coverage.sh` warns about
 every shipped entry that has no scenario yet; a scenario naming the entry clears it.
 A failed run sends each failed entry's redacted logs to Groq through `Cabinet.Ci scenario-diagnosis`
 and posts the answer on the open "Plugin scenarios are failing" issue, which GitHub emails to the

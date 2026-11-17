@@ -9,7 +9,7 @@ return args switch
     ["catalogue-updates", "release", var baseline, var idsFile, var date] => CatalogueUpdates.Release(baseline, idsFile, date),
     ["scenario-approve", var trx, var id] => ScenarioReport.Approve(trx, id),
     ["scenario-report", "--passed", var trx] => ScenarioReport.Passed(trx),
-    ["scenario-report", var trx] => ScenarioReport.Summarise(trx),
+    ["scenario-report", .. var trxs] when trxs.Length > 0 => ScenarioReport.Summarise(trxs),
     ["scenario-diagnosis", .. var artifacts] when artifacts.Length > 0 => await ScenarioDiagnosis.Diagnose(artifacts),
     ["scenario-shards", var previous, var count] when int.TryParse(count, out var shards) && shards > 0 =>
         ScenarioShards.Plan(previous, shards),
@@ -21,6 +21,6 @@ return args switch
 
 static int Usage()
 {
-    Console.Error.WriteLine("usage: Cabinet.Ci scenario-report [--passed] TRX | scenario-diagnosis ARTIFACT... | scenario-shards PREVIOUS COUNT | vendor-streaks PREVIOUS OUTPUT ARTIFACT... | scenario-approve TRX ID | catalogue-updates discover|check|coverage OUTPUT | catalogue-updates validate BASE IDS_JSON_FILE | catalogue-updates release BASE IDS_JSON_FILE DATE | ci-timings OWNER/REPO COUNT");
+    Console.Error.WriteLine("usage: Cabinet.Ci scenario-report --passed TRX | scenario-report TRX... | scenario-diagnosis ARTIFACT... | scenario-shards PREVIOUS COUNT | vendor-streaks PREVIOUS OUTPUT ARTIFACT... | scenario-approve TRX ID | catalogue-updates discover|check|coverage OUTPUT | catalogue-updates validate BASE IDS_JSON_FILE | catalogue-updates release BASE IDS_JSON_FILE DATE | ci-timings OWNER/REPO COUNT");
     return 2;
 }

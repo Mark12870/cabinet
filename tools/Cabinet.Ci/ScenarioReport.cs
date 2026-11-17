@@ -51,10 +51,12 @@ internal static class ScenarioReport
         return 0;
     }
 
-    public static int Summarise(string trx)
+    public static int Summarise(IReadOnlyList<string> trxs)
     {
         var named = Scenarios.Entries();
-        var outcomes = Merged(trx);
+        var outcomes = trxs.SelectMany(trx => Merged(trx))
+            .GroupBy(pair => pair.Key)
+            .ToDictionary(group => group.Key, group => group.First().Value);
         var rows = new List<(string Entry, string Format, string Outcome)>();
 
         foreach (var (scenario, entry) in named)
@@ -73,22 +75,7 @@ internal static class ScenarioReport
             }
         }
 
-        var lines = new List<string> { "### Plugin scenario results", "" };
-
-        if (outcomes.Count == 0)
-        {
-            lines.AddRange([$"No scenario results in `{trx}`.", ""]);
-        }
-
-        lines.AddRange(["| Entry | Version | Format | Result |", "| --- | --- | --- | --- |"]);
-        lines.AddRange(rows.Select(row =>
-        {
-            var version = Scenarios.Field(row.Entry, "Version") is { Length: > 0 } found ? found : "rolling";
-            return $"| `{Scenarios.Stem(row.Entry)}` | {version} | {row.Format} | {row.Outcome} |";
-        }));
-        lines.Add("");
-        lines.AddRange(Timings(trx, named));
-        var report = string.Join('\n', lines) + "\n";
+        var report = string.Join('\n', Report(rows, trxs, named)) + "\n";
 
         if (Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY") is { Length: > 0 } summary)
         {
@@ -100,6 +87,51 @@ internal static class ScenarioReport
         }
 
         return 0;
+    }
+
+    private static List<string> Report(
+        List<(string Entry, string Format, string Outcome)> rows, IReadOnlyList<string> trxs,
+        IReadOnlyDictionary<string, string> named)
+    {
+        var run = rows.Where(row => row.Outcome != "Not run").ToList();
+        var passed = run.Count(row => row.Outcome.StartsWith("Passed", StringComparison.Ordinal));
+        var counts = new[] { "Failed", "Passed on rerun", "Skipped", "Not run" }
+            .Select(outcome => (outcome, count: rows.Count(row => row.Outcome == outcome)))
+            .Where(pair => pair.count > 0)
+            .Select(pair => $"{pair.count} {pair.outcome.ToLowerInvariant()}");
+
+        var lines = new List<string>
+        {
+            "### Plugin scenarios",
+            "",
+            $"**{passed} of {run.Count} passed**" + string.Concat(counts.Select(count => $" · {count}")),
+            "",
+        };
+
+        if (run.Count == 0)
+        {
+            lines.AddRange([$"No scenario results in {string.Join(", ", trxs.Select(trx => $"`{trx}`"))}.", ""]);
+        }
+
+        foreach (var outcome in new[] { "Failed", "Passed on rerun", "Skipped" })
+        {
+            var listed = rows.Where(row => row.Outcome == outcome).ToList();
+
+            if (listed.Count > 0)
+            {
+                lines.AddRange([$"**{outcome}:** " + string.Join(", ", listed.Select(row => $"`{Scenarios.Stem(row.Entry)}` {row.Format}")), ""]);
+            }
+        }
+
+        lines.AddRange([$"<details><summary>All {rows.Count} results</summary>", "", "| Entry | Version | Format | Result |", "| --- | --- | --- | --- |"]);
+        lines.AddRange(rows.Select(row =>
+        {
+            var version = Scenarios.Field(row.Entry, "Version") is { Length: > 0 } found ? found : "rolling";
+            return $"| `{Scenarios.Stem(row.Entry)}` | {version} | {row.Format} | {row.Outcome} |";
+        }));
+        lines.AddRange(["", "</details>", ""]);
+        lines.AddRange(Timings(trxs, named));
+        return lines;
     }
 
     internal static IReadOnlyList<string> Attempts(string trx)
@@ -240,9 +272,9 @@ internal static class ScenarioReport
         return rows;
     }
 
-    private static IReadOnlyList<string> Timings(string trx, IReadOnlyDictionary<string, string> named)
+    private static IReadOnlyList<string> Timings(IReadOnlyList<string> trxs, IReadOnlyDictionary<string, string> named)
     {
-        var rows = Rows(trx, named);
+        var rows = trxs.SelectMany(trx => Rows(trx, named)).ToList();
 
         if (rows.Count == 0)
         {
@@ -252,7 +284,7 @@ internal static class ScenarioReport
         var columns = Steps.Concat(Phases).ToList();
         var lines = new List<string>
         {
-            "### Where the scenarios' time went",
+            "<details><summary>Where the time went</summary>",
             "",
             "| Entry | " + string.Join(" | ", columns.Select(Capitalised)) + " | Tests | Total |",
             "| --- |" + string.Concat(Enumerable.Repeat(" ---: |", columns.Count + 2)),
@@ -261,7 +293,7 @@ internal static class ScenarioReport
             $"| `{Scenarios.Stem(row.Entry)}` | "
             + string.Join(" | ", columns.Select(step => Clock(row.Taken.TryGetValue(step, out var spent) ? spent : null)))
             + $" | {Clock(row.Tests)} | {Clock(row.Total)} |"));
-        lines.AddRange(["", $"All scenarios together: {Clock(rows.Sum(row => row.Total))}.", ""]);
+        lines.AddRange(["", $"All scenarios together: {Clock(rows.Sum(row => row.Total))}.", "", "</details>", ""]);
         return lines;
     }
 

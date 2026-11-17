@@ -462,6 +462,17 @@ public class WorkflowTests
         .Select(line => line.Trim());
 
     [Fact]
+    public void ThePluginsRunReportsEveryShardOnceAfterTheyEnd()
+    {
+        var vendors = Job(Plugins, "vendors").Select(line => line.Trim()).ToList();
+        var runtime = Runtime.Select(line => line.Trim()).ToList();
+
+        Assert.Contains(vendors, line => line.Contains("scenario-report $(find runtime -path '*/TestResults/runtime.trx' | sort)", StringComparison.Ordinal));
+        Assert.Contains("if: always() && inputs.suite == 'scenarios' && inputs.selection_json != ''", runtime);
+        Assert.DoesNotContain(runtime, line => line.Contains("df -h / | tee", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void AnOutdatedPublishIsSkippedRatherThanFailed()
     {
         var current = Job(Publish, "current");

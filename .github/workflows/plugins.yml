@@ -60,7 +60,7 @@ jobs:
       - name: Deal the scenarios into shards
         id: deal
         run: |
-          shards="$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-shards previous 3)"
+          shards="$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-shards previous 6)"
           echo "shards=${shards}" >> "$GITHUB_OUTPUT"
 
   runtime:
@@ -122,6 +122,9 @@ jobs:
 
       - name: Build the CI tools
         run: dotnet build tools/Cabinet.Ci --nologo -v q -o "${RUNNER_TEMP}/ci"
+
+      - name: Report every shard's scenarios against their entries
+        run: dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-report $(find runtime -path '*/TestResults/runtime.trx' | sort)
 
       - name: Count the runs each vendor has been unavailable
         id: count
