@@ -63,10 +63,6 @@ jobs:
             echo '::notice::the published image already holds these fixtures'
           fi
 
-      - name: Keep Docker's storage on the spare disk
-        if: steps.image.outputs.from != ''
-        run: scripts/docker-on-spare-disk.sh
-
       - name: Start the container
         if: steps.image.outputs.from != ''
         run: |

@@ -72,11 +72,6 @@ jobs:
           owner="${GITHUB_REPOSITORY%%/*}"
           echo "IMAGE=ghcr.io/${owner,,}/cabinet-runtime:latest" >> "$GITHUB_ENV"
 
-      # The runner's spare disk at /mnt is empty, so the image and everything the tests install go
-      # there rather than onto / beside the preinstalled toolchains.
-      - name: Keep Docker's storage on the spare disk
-        run: scripts/docker-on-spare-disk.sh
-
       # Started here and waited for below: the artifact, the untar and the cache restore are a
       # couple of minutes that the image can spend downloading instead of waiting its turn.
       - name: Start pulling the fixture image
@@ -232,7 +227,7 @@ jobs:
         run: |
           docker exec "${CONTAINER}" /src/scripts/runtime-ci.sh collect /tmp/runtime
           docker cp "${CONTAINER}:/tmp/runtime" runtime
-          df -h / /mnt > runtime/disk.txt
+          df -h / > runtime/disk.txt
 
       - uses: actions/setup-dotnet@v5
         if: always() && inputs.suite == 'scenarios'

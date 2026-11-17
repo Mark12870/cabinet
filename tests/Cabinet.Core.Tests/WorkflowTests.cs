@@ -463,17 +463,9 @@ public class WorkflowTests
         .Select(line => line.Trim());
 
     [Fact]
-    public void DockerMovesToTheSpareDiskBeforeAnythingIsPulled()
+    public void NothingIsDeletedToMakeRoomOnARunnerWithSpaceToSpare()
     {
-        var runtime = Runtime.Select(line => line.Trim()).ToList();
-        var fixtures = Fixtures.Select(line => line.Trim()).ToList();
-
-        var runtimeMove = runtime.IndexOf("run: scripts/docker-on-spare-disk.sh");
-        var fixturesMove = fixtures.IndexOf("run: scripts/docker-on-spare-disk.sh");
-
-        Assert.InRange(runtimeMove, 0, runtime.FindIndex(line => line.Contains("docker pull", StringComparison.Ordinal)));
-        Assert.InRange(fixturesMove, 0, fixtures.FindIndex(line => line.StartsWith("docker run", StringComparison.Ordinal)));
-        Assert.DoesNotContain(runtime.Concat(fixtures), line => line.Contains("rm -rf /usr/local/lib/android", StringComparison.Ordinal));
+        Assert.DoesNotContain(Runtime.Concat(Fixtures), line => line.Contains("rm -rf /usr/local/lib/android", StringComparison.Ordinal));
     }
 
     [Fact]
