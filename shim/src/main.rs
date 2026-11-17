@@ -187,9 +187,33 @@ where
         return value.to_os_string();
     }
     match canon(Path::new(value)) {
-        Some(resolved) => resolved.into_os_string(),
+        Some(resolved) => through_active_link(resolved).into_os_string(),
         None => value.to_os_string(),
     }
+}
+
+fn through_active_link(path: PathBuf) -> PathBuf {
+    let parts: Vec<&OsStr> = path.iter().collect();
+    let Some(app) = parts
+        .windows(2)
+        .position(|pair| pair[0] == "app" && pair[1] == DEFAULT_APP)
+    else {
+        return path;
+    };
+    let commit = app + 4;
+    if !parts.get(commit).is_some_and(|name| is_commit(name)) {
+        return path;
+    }
+
+    parts[..commit]
+        .iter()
+        .chain([OsStr::new("active")].iter())
+        .chain(parts[commit + 1..].iter())
+        .collect()
+}
+
+fn is_commit(name: &OsStr) -> bool {
+    name.len() == 64 && name.as_bytes().iter().all(u8::is_ascii_hexdigit)
 }
 
 fn canonicalize_list<C>(value: &OsStr, canon: &C) -> OsString
@@ -938,6 +962,35 @@ mod tests {
             job.last().unwrap(),
             "/home/u/.local/share/yabridge/yabridge-host.exe.so"
         );
+    }
+
+    #[test]
+    fn a_cabinet_deployment_is_named_through_its_active_link() {
+        let deployment =
+            "/home/u/.local/share/flatpak/app/io.github.mark12870.cabinet/x86_64/stable/\
+                          5cb40f0f7a706621cba3165c2b196dcdcaa52d034fbdcbcdd4ac76c7af359d6e/files";
+        let canon = |_: &Path| {
+            Some(PathBuf::from(format!(
+                "{deployment}/lib/yabridge/yabridge-host.exe.so"
+            )))
+        };
+        let job = job_args(
+            &[OsString::from("/home/u/.local/share/flatpak/app/io.github.mark12870.cabinet/current/active/files/lib/yabridge/yabridge-host.exe.so")],
+            &canon,
+        );
+        assert_eq!(
+            job[0],
+            "/home/u/.local/share/flatpak/app/io.github.mark12870.cabinet/x86_64/stable/active/files/lib/yabridge/yabridge-host.exe.so"
+        );
+    }
+
+    #[test]
+    fn another_apps_deployment_keeps_its_resolved_path() {
+        let resolved = "/var/lib/flatpak/app/fm.reaper.Reaper/x86_64/stable/\
+                        0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/files/reaper";
+        let canon = |_: &Path| Some(PathBuf::from(resolved));
+        let job = job_args(&[OsString::from("/app/reaper")], &canon);
+        assert_eq!(job[0], resolved);
     }
 
     #[test]
