@@ -74,6 +74,11 @@ jobs:
 
       # Started here and waited for below: the artifact, the untar and the cache restore are a
       # couple of minutes that the image can spend downloading instead of waiting its turn.
+      # The runner's spare disk at /mnt is empty, so the image and everything the tests install go
+      # there rather than onto / beside the preinstalled toolchains.
+      - name: Keep Docker's storage on the spare disk
+        run: scripts/docker-on-spare-disk.sh
+
       - name: Start pulling the fixture image
         id: pull
         env:
@@ -89,15 +94,6 @@ jobs:
 
           ( docker pull "${IMAGE}" > pull.log 2>&1; echo "$?" > pull.status ) &
           echo "$!" > pull.pid
-
-      # Two minutes of deleting the runner's preinstalled toolchains, which nothing here needs.
-      # Backgrounded like the pull, so the two happen at once and the container start waits for
-      # whichever finishes last.
-      - name: Make room for the image
-        run: |
-          ( sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
-              /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache ) >/dev/null 2>&1 &
-          echo "$!" > room.pid
 
       # The month is in the key and there is no fallback key on purpose: the vendors' fixtures are
       # reinstalled at the turn of each month, which is what starts FabFilter's 30-day trial over,
@@ -145,8 +141,6 @@ jobs:
       # the one computer named ci, with one MAC.
       - name: Start the container
         run: |
-          tail --pid="$(cat room.pid)" -f /dev/null
-          df -h /
           docker run --detach --name "${CONTAINER}" --hostname ci --mac-address 02:00:00:ca:b1:01 --privileged --device /dev/fuse \
             --volume "${PWD}:/src" "${{ steps.image.outputs.from }}" sleep infinity
 

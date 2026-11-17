@@ -63,11 +63,9 @@ jobs:
             echo '::notice::the published image already holds these fixtures'
           fi
 
-      - name: Make room for the image
+      - name: Keep Docker's storage on the spare disk
         if: steps.image.outputs.from != ''
-        run: |
-          sudo rm -rf /usr/local/lib/android /usr/local/.ghcup /opt/ghc \
-            /usr/share/dotnet /usr/share/swift /opt/hostedtoolcache
+        run: scripts/docker-on-spare-disk.sh
 
       - name: Start the container
         if: steps.image.outputs.from != ''

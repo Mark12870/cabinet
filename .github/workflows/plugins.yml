@@ -61,7 +61,7 @@ jobs:
       - name: Deal the scenarios into shards
         id: deal
         run: |
-          shards="$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-shards previous 6)"
+          shards="$(dotnet "${RUNNER_TEMP}/ci/Cabinet.Ci.dll" scenario-shards previous 10)"
           echo "shards=${shards}" >> "$GITHUB_OUTPUT"
 
   runtime:

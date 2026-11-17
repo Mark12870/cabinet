@@ -463,6 +463,21 @@ public class WorkflowTests
         .Select(line => line.Trim());
 
     [Fact]
+    public void DockerMovesToTheSpareDiskBeforeAnythingIsPulled()
+    {
+        var runtime = Runtime.Select(line => line.Trim()).ToList();
+        var fixtures = Fixtures.Select(line => line.Trim()).ToList();
+
+        Assert.True(
+            runtime.IndexOf("run: scripts/docker-on-spare-disk.sh")
+            < runtime.FindIndex(line => line.Contains("docker pull", StringComparison.Ordinal)));
+        Assert.True(
+            fixtures.IndexOf("run: scripts/docker-on-spare-disk.sh")
+            < fixtures.FindIndex(line => line.StartsWith("docker run", StringComparison.Ordinal)));
+        Assert.DoesNotContain(runtime.Concat(fixtures), line => line.Contains("rm -rf /usr/local/lib/android", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ThePluginsRunReportsEveryShardOnceAfterTheyEnd()
     {
         var vendors = Job(Plugins, "vendors").Select(line => line.Trim()).ToList();
