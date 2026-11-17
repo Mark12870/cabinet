@@ -46,7 +46,8 @@ jobs:
         run: |
           for id in $(gh run list --repo "${GITHUB_REPOSITORY}" --workflow plugins.yml --status completed \
               --limit 10 --json databaseId --jq '.[].databaseId'); do
-            gh run download "${id}" --repo "${GITHUB_REPOSITORY}" --pattern 'runtime*' --dir previous && break
+            gh run download "${id}" --repo "${GITHUB_REPOSITORY}" --pattern 'runtime*' --dir previous &&
+              find previous -name runtime.trx | grep -q . && break
             rm -rf previous
           done
 

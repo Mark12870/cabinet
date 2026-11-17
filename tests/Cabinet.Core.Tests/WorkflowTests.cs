@@ -98,6 +98,7 @@ public class WorkflowTests
         var runtime = Job(Plugins, "runtime");
 
         Assert.Contains(plan, line => line.Contains("scenario-shards previous", StringComparison.Ordinal));
+        Assert.Contains(plan, line => line.Contains("find previous -name runtime.trx | grep -q . && break", StringComparison.Ordinal));
         Assert.Contains(runtime, line => line.Trim() == "include: ${{ fromJSON(needs.plan.outputs.shards) }}");
         Assert.Contains(runtime, line => line.Trim() == "scenarios: ${{ matrix.classes }}");
         Assert.Contains(runtime, line => line.Trim() == "artifact_name: runtime-${{ matrix.shard }}");
