@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.46.2" date="2026-11-17">
+      <description>
+        <p>Plugins keep loading after Cabinet updates</p>
+        <ul>
+          <li>A DAW that was open while Cabinet updated no longer crashes when it loads another Windows plugin</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.46.1" date="2026-11-17">
       <description>
         <p>Update UVI Portal</p>
