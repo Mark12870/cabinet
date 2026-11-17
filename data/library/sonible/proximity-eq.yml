@@ -1,0 +1,19 @@
+Name: proximity:EQ+
+Kind: windows
+Category: Effect
+Summary: Separate EQ for direct sound and room
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/proximityeq/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=6
+Script: sonible.sh
+Description:
+  Separates the direct sound from its reverberation per frequency band, so
+  room sound and room modes can be reduced, or a source pushed further away,
+  without touching the rest of the spectrum. Used to reposition recordings in
+  depth after the fact.

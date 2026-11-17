@@ -1,0 +1,18 @@
+Name: pure:EQ
+Kind: windows
+Category: Effect
+Summary: One-knob learning equaliser
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/pureeq/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=27
+Script: sonible.sh
+Description:
+  The pure-series counterpart of smart:EQ 4: it learns a spectral balance from
+  a source profile, and a dial with Style, Range and Dynamics controls shapes
+  the result. It has no groups or bands to edit by hand.

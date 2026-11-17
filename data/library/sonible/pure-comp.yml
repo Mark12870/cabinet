@@ -1,0 +1,19 @@
+Name: pure:comp
+Kind: windows
+Category: Effect
+Summary: One-knob learning compressor
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/purecomp/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=25
+Script: sonible.sh
+Description:
+  Learns the signal against an instrument profile and then sets threshold,
+  ratio, attack and release together from one main dial, with auto gain. The
+  pure-series counterpart of smart:comp 3, without its matrix, spectral bands
+  or groups.

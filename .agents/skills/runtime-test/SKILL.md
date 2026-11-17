@@ -61,13 +61,16 @@ description: Test or diagnose Cabinet catalogue entries at runtime through an is
 
 7. Wrap every command run in the isolated runtime in a short `timeout`: that one step's
    measured duration plus a small margin (a removal 1 minute, an install 3), never one value
-   shared by a whole script. When one fires, stop the Wine processes it left behind:
-   those whose `/proc/<pid>/environ` names the isolated `WINEPREFIX`.
+   shared by a whole script. When one fires, or a stopped test leaves a run behind, end what
+   remains with `scripts/runtime-cleanup.sh`.
 
 8. Remove only temporary prefixes in the isolated runtime after testing. Host prefixes stay as they are.
 
 ## Reference
 
+- A DAW in a test copies `ScenarioHarness.RenderAsTake`'s launch: it forwards `CABINET_RUNTIME_ROOT` and
+  `FLATPAK_USER_DIR`, without which the shim cannot reach the prefix and the plugin silently fails to load,
+  and its private bus starts only Flatpak's session helper.
 - `docs/TESTS.md` holds the plugin matrix and the unsupported Windows LV2 combination.
 - A scenario's editor check drives the pointer on its own headless `weston`, so it needs no session display. When one
   fails, read the captures and `result.txt` in `$CABINET_RUNTIME_ROOT/tmp/scenarios/<id>/artefacts/editor/` before

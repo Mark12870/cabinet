@@ -1,0 +1,18 @@
+Name: pure:unmask
+Kind: windows
+Category: Effect
+Summary: Sidechain unmasking for a backing track
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/pureunmask/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=33
+Script: sonible.sh
+Description:
+  Sits on a background track and carves room for a prioritised track fed in by
+  sidechain, only in the frequency regions the chosen profile says matter for
+  it, such as vocals over a piano. It needs that sidechain routed in the DAW.

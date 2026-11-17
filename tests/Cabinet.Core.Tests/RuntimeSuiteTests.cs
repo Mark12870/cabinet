@@ -44,6 +44,17 @@ public class RuntimeSuiteTests
     }
 
     [Fact]
+    public void EveryPrivateBusStartsOnlyWhatItsConfigNames()
+    {
+        var unconfigured = Directory
+            .EnumerateFiles(Repo.Path(Project), "*.cs", SearchOption.AllDirectories)
+            .Select(File.ReadAllText)
+            .Where(source => source.Contains("\"dbus-run-session\"", StringComparison.Ordinal)
+                             && !source.Contains("--config-file=", StringComparison.Ordinal));
+        Assert.Empty(unconfigured);
+    }
+
+    [Fact]
     public void EveryPatchProbeIsOnePatchesMdReads()
     {
         var patches = Repo.Read("PATCHES.md");

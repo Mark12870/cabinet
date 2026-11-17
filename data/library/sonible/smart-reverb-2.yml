@@ -1,0 +1,20 @@
+Name: smart:reverb 2
+Kind: windows
+Category: Effect
+Summary: Reverb staged by distance, not dry/wet
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/smartreverb2/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=36
+Script: sonible.sh
+Description:
+  A matrix of room, hall, plate and spring reverbs and their variants.
+  Distance replaces dry/wet and pre-delay by also changing density and high-
+  frequency damping, and Size replaces reverb time. Learning tailors the tail
+  to the source; in Group Mode it also keeps tails of several tracks from
+  masking each other. Wet Mode suits a send.

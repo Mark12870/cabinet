@@ -1,0 +1,19 @@
+Name: true:level
+Kind: windows
+Category: Effect
+Summary: Loudness and dynamics meter for release
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3
+Homepage: https://www.sonible.com/products/truelevel/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=21
+Script: sonible.sh
+Description:
+  Shows loudness against the targets of streaming platforms and broadcast and
+  how much dynamics a mix keeps, with genre references and custom reference
+  tracks to compare against. It suggests where to trade loudness for dynamics
+  before publishing. A meter only; it does not change the audio.

@@ -1,0 +1,18 @@
+Name: pure:limit
+Kind: windows
+Category: Effect
+Summary: One-knob true-peak limiter
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/purelimit/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=24
+Script: sonible.sh
+Description:
+  A true-peak limiter for the master, ceiling at -1 dBTP by default, set from
+  a genre profile and a Soft, Neutral or Hard style, then from one gain dial.
+  The pure-series counterpart of smart:limit, without its loudness metering.

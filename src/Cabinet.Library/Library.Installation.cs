@@ -489,7 +489,7 @@ public sealed partial class Library
             return ModarttTrial.FileName(url);
         }
 
-        var path = url.TrimEnd('/');
+        var path = new Uri(url).AbsolutePath.TrimEnd('/');
         var name = path[(path.LastIndexOf('/') + 1)..];
 
         return kind == PluginKind.Windows && !Path.HasExtension(name)

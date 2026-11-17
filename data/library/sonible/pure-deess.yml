@@ -1,0 +1,19 @@
+Name: pure:deess
+Kind: windows
+Category: Effect
+Summary: One-dial phoneme de-esser
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/puredeess/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=35
+Script: sonible.sh
+Description:
+  Detects individual sibilants and plosives from a learned voiceprint, as
+  smart:deess does, and reduces them from one Suppression dial with Color and
+  Shaping beside it. For lead and backing vocals, podcasts, ADR and dialogue,
+  not for instruments.

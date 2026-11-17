@@ -1,0 +1,20 @@
+Name: smart:gate
+Kind: windows
+Category: Effect
+Summary: Gate that opens on a chosen source
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/smartgate/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=28
+Script: sonible.sh
+Description:
+  A neural network tracks the activity of a target source, such as voice, kick
+  or snare, and the gate follows that instead of the input level, so bleed and
+  rumble stay shut out. Level Bias sets how far it still follows level, and
+  the No Target profile makes it a conventional gate. About 80 ms of latency
+  rules out live use.

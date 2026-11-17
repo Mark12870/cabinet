@@ -39,7 +39,8 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
    ```
 
    Run it in the background and wait for the completion event instead of polling. Each run downloads and installs the
-   entry into a fresh home, once for the whole class.
+   entry into a fresh home, once for the whole class. Set `CABINET_RUNTIME_REUSE_HOMES=1` on every run while you
+   iterate: the next run skips the install when the kept home already holds the entry.
 
 5. Set the audio floors from a measured run, not a guess. Start with loose floors and read each format's `render.log`,
    `parameters.txt` and `output.wav`:
@@ -58,6 +59,10 @@ description: Write, run or debug an end-to-end runtime scenario for one Cabinet 
       asserts no `MixChanged`. `Note` is the scenario's to choose; a drum plugin sounds only on the keys it maps, 36 for
       a General MIDI kick. An effect that needs a note as well, such as a vocoder whose carrier is a synth, calls
       `Harness.Render(bridge, Mix, Note, display)`: the sine and the note over the same 100 ms.
+    - An ARA plugin, which does its work on a take, calls `Harness.RenderAsTake(bridge, Effect, display)`
+      instead of `Render`. `Effect` is the name REAPER lists it under, `VST3: <name>`. Set the
+      `TakeMeasurement` ranges from a measured run, and on a failure read `result.txt` and `reaper.log`
+      in `$A/take/<format>/`.
     - An instrument that ships nothing to play gets content from `Content`: `Hit` writes a tone, and `Lv2State` or
       `ChunkState` writes the Carla state that points the plugin at it, passed as `Play(..., state: path)`. To learn
       what a plugin's state holds, load it in Carla with

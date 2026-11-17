@@ -1,0 +1,19 @@
+Name: pure:verb
+Kind: windows
+Category: Effect
+Summary: Reverb shaped to its input
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/pureverb/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=26
+Script: sonible.sh
+Description:
+  Picks reverb settings from a profile and the input it learns, and tames
+  problem lows, mids and highs in the tail by itself. Infinite, Reverse and
+  Bounce modes go beyond a room. The pure-series counterpart of smart:reverb
+  2, without its Distance staging or groups.

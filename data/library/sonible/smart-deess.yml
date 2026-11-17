@@ -1,0 +1,20 @@
+Name: smart:deess
+Kind: windows
+Category: Effect
+Summary: De-esser that finds each sibilant
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/smartdeess/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=30
+Script: sonible.sh
+Description:
+  A neural network finds each S, Z, Sh, Ch, T and P sound in a voice and
+  reduces the whole phoneme rather than a frequency band's peaks, after
+  learning a short voiceprint of the speaker. Made for vocal and speech tracks
+  and busses, not instruments; its look-ahead of about 70 ms rules out live
+  use.

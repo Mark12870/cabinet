@@ -98,6 +98,12 @@ case "$flatpak_user_dir/" in "$root/"*) ;; *) exit 1 ;; esac
     exit 1
 }
 
+documents=/run/user/$(id -u)/doc
+if [ -d "$documents" ] && [ ! -d "$documents/by-app" ]; then
+    printf 'setup-runtime-tests: %s lost its document portal; run podman stop on the Toolbox and retry\n' "$documents" >&2
+    exit 1
+fi
+
 for command in c++ curl flatpak git make sha256sum unzip; do
     command -v "$command" >/dev/null || {
         printf 'setup-runtime-tests: %s is not installed\n' "$command" >&2
@@ -151,27 +157,24 @@ ln -s "$cabinet_files/lib/yabridge" "$yabridge"
 
 mkdir -p "$data/native" "$data/prefixes"
 
-# The DAW and the entries below are what the general suite loads. A plugin scenario installs its
-# own entry into a home of its own and plays it through Carla, so CABINET_RUNTIME_ENTRIES=0
-# leaves all of them out.
-if [ "${CABINET_RUNTIME_ENTRIES:-1}" = 1 ]; then
-    flatpak install --user --noninteractive --or-update flathub "$daw_ref"
-    flatpak info --user "$daw_ref" >/dev/null 2>&1 || {
-        printf 'setup-runtime-tests: %s is not installed\n' "$daw_ref" >&2
-        exit 1
-    }
+# The general suite loads the entries below in the DAW, and an ARA scenario renders its own
+# entry as a take in it, so CABINET_RUNTIME_ENTRIES=0 leaves out only the entries.
+flatpak install --user --noninteractive --or-update flathub "$daw_ref"
+flatpak info --user "$daw_ref" >/dev/null 2>&1 || {
+    printf 'setup-runtime-tests: %s is not installed\n' "$daw_ref" >&2
+    exit 1
+}
 
-    daw=${daw_ref%%/*}
-    cabinet enrol "$daw" >/dev/null
-    flatpak override --user --reset "$daw"
-    flatpak override --user "$daw" \
-        --device=shm \
-        --filesystem=xdg-run/yabridge:create \
-        --filesystem="$cabinet_files":ro \
-        --filesystem="$data/prefixes":ro \
-        --talk-name=org.freedesktop.Flatpak \
-        --env=YABRIDGE_TEMP_DIR="$runtime/yabridge"
-fi
+daw=${daw_ref%%/*}
+cabinet enrol "$daw" >/dev/null
+flatpak override --user --reset "$daw"
+flatpak override --user "$daw" \
+    --device=shm \
+    --filesystem=xdg-run/yabridge:create \
+    --filesystem="$cabinet_files":ro \
+    --filesystem="$data/prefixes":ro \
+    --talk-name=org.freedesktop.Flatpak \
+    --env=YABRIDGE_TEMP_DIR="$runtime/yabridge"
 
 if [ -e "$carla_source" ] && [ ! -d "$carla_source/.git" ]; then
     printf 'setup-runtime-tests: source path is not a Git checkout: %s\n' "$carla_source" >&2

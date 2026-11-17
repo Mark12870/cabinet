@@ -1,0 +1,20 @@
+Name: smart:comp 3
+Kind: windows
+Category: Effect
+Summary: Spectral compressor on a learned matrix
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/smartcomp3/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=43
+Script: sonible.sh
+Description:
+  Learns the signal and maps the compression it allows onto a 2D Compression
+  Matrix; moving one point sets threshold, ratio, attack and release together.
+  Compression works per frequency band, Input Riding levels the signal before
+  it, and a zero-latency mode serves tracking. Group Mode adjusts up to seven
+  tracks at once.

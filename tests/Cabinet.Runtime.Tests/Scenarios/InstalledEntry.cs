@@ -40,7 +40,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         await AtOnce.WaitAsync();
         var clock = Stopwatch.StartNew();
         runtimeLock = RuntimeTestLock.AcquireShared();
-        harness.Prepare();
+        var reused = harness.Prepare();
         Record("prepare", clock);
 
         await Timed("display", () =>
@@ -50,7 +50,7 @@ public abstract class InstalledEntry(string id) : IAsyncLifetime
         });
         try
         {
-            await Timed("install", () => Install(Display));
+            await Timed("install", () => reused ? Task.CompletedTask : Install(Display));
         }
         catch (Exception exception) when (Outage(exception) is { } reason)
         {

@@ -8,6 +8,7 @@ public partial class LibraryTests
     [InlineData("windows", "https://x.invalid/a/setup-2.1.exe", "setup-2.1.exe")]
     [InlineData("windows", "https://x.invalid/library-manager/download/win/", "win.exe")]
     [InlineData("windows", "https://x.invalid/download/win", "win.exe")]
+    [InlineData("windows", "https://x.invalid/download.php?os=Windows&product_id=1", "download.php")]
     [InlineData("native", "https://x.invalid/a/thing_linux.tar.xz", "thing_linux.tar.xz")]
     [InlineData(
         "native", "https://www.modartt.com/try?file=thing_trial_v1.tar.xz", "thing_trial_v1.tar.xz")]

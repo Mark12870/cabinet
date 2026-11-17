@@ -1,0 +1,19 @@
+Name: pure:level
+Kind: windows
+Category: Effect
+Summary: Leveler and rider without compression
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3, VST2
+Homepage: https://www.sonible.com/products/purelevel/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=46
+Script: sonible.sh
+Description:
+  Steadies a track around its own average level, then applies a static offset
+  to a target, so moving the target does not change how it rides. Instances in
+  a group share one target, such as a vocal stack. The pure series is
+  sonible's compact one: a profile, a main control and little else.

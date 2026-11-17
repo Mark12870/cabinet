@@ -1,0 +1,19 @@
+Name: prime:vocal
+Kind: windows
+Category: Effect
+Summary: Offline vocal clean-up as an ARA plugin
+Developer: sonible
+Licence: Commercial
+Licensing:
+  Every download is a fully functional 30-day trial, unlocked with a licence
+  key from sonible.
+Formats: VST3
+Homepage: https://www.sonible.com/products/primevocal/
+Source: rolling
+Url: https://dispatcher.sonible.com/download.php?os=Windows&product_id=34
+Script: sonible.sh
+Description:
+  Neural networks remove noise, room sound, sibilance and plosives from whole
+  vocal or dialogue files, as an ARA plugin in DAWs that host ARA. Analysis
+  runs about as long as the audio, and sections become editable as they
+  finish. Analysis data takes about 90 MB per minute of audio.

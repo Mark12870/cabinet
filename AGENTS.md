@@ -41,7 +41,8 @@ the name or the structure instead. Anything that genuinely will not fit there is
   self-contained. Keep all three operation projects AOT-safe, and put new behaviour in the lowest one that can own it.
 - The languages are C#, Rust and Bash. Rust is limited to the dependency-free `shim/` (`cabinet-wine`), which runs on
   the plugin-load path inside foreign sandboxes, and `tools/wine-probes`, Windows programs the runtime tests run in a
-  prefix. `msi-shim/` is the only C. Application code and tests are C#.
+  prefix. `msi-shim/` is the only C, and `Scenarios/RenderTake.lua`, the REAPER ReaScript the ARA
+  scenarios run, the only Lua. Application code and tests are C#.
 - `tools/` (`Tools.slnx`) holds what never ships: `Cabinet.Ci` for the CI reports, `Cabinet.Probes` for the runtime
   tests' Carla and lock probes, and `wine-probes`. Nothing in it reaches the Flatpak.
 - `msi-shim/` is a 32-bit C DLL built with the SDK's LLVM (clang, lld-link), with no C runtime. It stands in for
@@ -100,6 +101,10 @@ supervision, or yabridge's sockets and `YABRIDGE_TEMP_DIR`. Two rules bind every
 Load `build-and-test` to check, build or install Cabinet; `scripts/checks.sh` is the full CI-equivalent check, and the
 pre-commit hook (`git config core.hooksPath .githooks`) runs it on what is staged. Commit with the hook; never pass
 `--no-verify`.
+
+Plan every test of a change for speed before the first run: rerun only the step that changed against the
+state the last run kept (an installed prefix, a home kept with `CABINET_RUNTIME_KEEP_HOMES=1`), never repeat a
+slow install to test a short step, run independent checks in parallel, and leave the one full run for last.
 
 GUI changes need visual confirmation against the installed Flatpak: load `gui-shot`.
 
@@ -166,6 +171,7 @@ Use whatever agents the harness offers for these roles; the names in brackets ar
   Escalate rather than repeat speculative fixes; ask the user instead when only they hold the missing fact,
   observation or decision.
 - **Reviewer** (`code-reviewer`, `general-purpose`), exactly once, after a code change is implemented, tested and
-  fixed, immediately before the final response.
+  fixed, immediately before the final response. Apply a suggestion of its that changes runtime behaviour only
+  with a runtime check of its own.
 
 Run independent subagent tasks in parallel, the reviewer excepted.

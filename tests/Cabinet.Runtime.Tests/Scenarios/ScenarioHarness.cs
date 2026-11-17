@@ -14,6 +14,11 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
     private static readonly TimeSpan InstallPatience = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ProbePatience = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan TakeAnalysis = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TakeScan = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan TakePatience = TimeSpan.FromMinutes(6);
+    private const string Reaper = "fm.reaper.Reaper";
+    private const string FlatpakSessionHelper = "/usr/share/dbus-1/services/org.freedesktop.Flatpak.service";
     private static readonly Dictionary<string, (string Extension, string Carla)> Formats = new()
     {
         ["VST3"] = (".vst3", "vst3"),
@@ -27,17 +32,27 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
     public string Artefacts => Path.Combine(root, "artefacts");
     public string Home => Path.Combine(root, "home");
+    private string Profiles => Path.Combine(root, "reaper");
+    private string InstalledMarker => Path.Combine(Home, ".cabinet-scenario-installed");
 
-    public void Prepare()
+    public bool Prepare()
     {
-        if (Directory.Exists(root))
+        var reused = RuntimeTestEnvironment.ReusesScenarioHomes && File.Exists(InstalledMarker);
+        foreach (var stale in reused ? [Artefacts, Profiles] : new[] { root })
         {
-            Directory.Delete(root, recursive: true);
+            if (Directory.Exists(stale))
+            {
+                Directory.Delete(stale, recursive: true);
+            }
         }
 
         Directory.CreateDirectory(Artefacts);
         Directory.CreateDirectory(Data);
-        LinkInstalledRunners();
+        if (!reused)
+        {
+            LinkInstalledRunners();
+        }
+
         Directory.CreateDirectory(Path.Combine(Home, ".local", "share"));
 
         lock (Slots)
@@ -49,6 +64,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
             Path.GetDirectoryName(RuntimeTestEnvironment.SocketDirectory)!,
             slot.ToString(CultureInfo.InvariantCulture));
         Directory.CreateDirectory(socket);
+        return reused;
     }
 
     public async Task Install(string download, Display display)
@@ -77,6 +93,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
         Assert.True(result.ExitCode == 0, result.Said);
         BeTheOneMachine();
+        File.WriteAllText(InstalledMarker, entry.Id);
         return result.Said;
     }
 
@@ -214,6 +231,95 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
     public Task<AudioMeasurement> Play(
         Bridge bridge, int note, Display display, string state = "", string click = "") =>
         Measure(bridge, mix: "", audio: false, note, state, click, display);
+
+    public async Task<TakeMeasurement> RenderAsTake(Bridge bridge, string effect, Display display)
+    {
+        var output = Path.Combine(Artefacts, "take", bridge.Label);
+        var profile = Path.Combine(Profiles, bridge.Label);
+        var input = Path.Combine(output, "input.wav");
+        var project = Path.Combine(output, "take.rpp");
+        var script = Path.Combine(output, "render.lua");
+        Directory.CreateDirectory(output);
+        Directory.CreateDirectory(Path.Combine(profile, ".vst3"));
+        Directory.CreateDirectory(Path.Combine(profile, ".local", "share", "flatpak", "app"));
+        File.CreateSymbolicLink(Path.Combine(profile, ".vst3", Path.GetFileName(bridge.Plugin)), bridge.Plugin);
+        File.CreateSymbolicLink(Path.Combine(profile, ".local", "share", "flatpak", "app", Host.App), InstalledApp);
+        Take.WriteVoice(input);
+        File.WriteAllText(project, "<REAPER_PROJECT 0.1\n>\n");
+        File.Copy(Path.Combine(AppContext.BaseDirectory, "Scenarios", "RenderTake.lua"), script, overwrite: true);
+
+        var arguments = new List<string>
+        {
+            $"--config-file={FlatpakOnlyBus()}",
+            "--",
+            "flatpak",
+            "run",
+            "--no-documents-portal",
+            $"--filesystem={RuntimeTestEnvironment.Root}:ro",
+            $"--filesystem={root}",
+            $"--filesystem={InstalledApp}:ro",
+            $"--env=CABINET_RUNTIME_ROOT={RuntimeTestEnvironment.Root}",
+            $"--env=FLATPAK_USER_DIR={RuntimeTestEnvironment.FlatpakUserDirectory}",
+            $"--filesystem={socket}:create",
+            "--talk-name=org.freedesktop.Flatpak",
+            $"--env=YABRIDGE_TEMP_DIR={socket}",
+            $"--env=YABRIDGE_DEBUG_FILE={Path.Combine(output, "yabridge.log")}",
+            $"--env=CABINET_TAKE_DIRECTORY={output}",
+            $"--env=CABINET_TAKE_EFFECT={effect}",
+            $"--env=CABINET_TAKE_ANALYSIS={TakeAnalysis.TotalSeconds.ToString(CultureInfo.InvariantCulture)}",
+            $"--env=CABINET_TAKE_SCAN={TakeScan.TotalSeconds.ToString(CultureInfo.InvariantCulture)}",
+            Reaper,
+            "-newinst",
+            "-nosplash",
+            "-ignoreerrors",
+            project,
+            script,
+        };
+
+        ScenarioProcessResult? result = null;
+        try
+        {
+            result = await Run(
+                "dbus-run-session", arguments, display, TakePatience, info => info.Environment["HOME"] = profile);
+        }
+        catch (TimeoutException)
+        {
+        }
+
+        var reaper = result?.Said ?? $"REAPER did not quit within {TakePatience}";
+        File.WriteAllText(Path.Combine(output, "reaper.log"), reaper);
+        var said = File.Exists(Path.Combine(output, "result.txt"))
+            ? File.ReadAllText(Path.Combine(output, "result.txt"))
+            : "";
+        var rendered = Regex.Match(said, "^rendered (.+)$", RegexOptions.Multiline);
+        Assert.True(rendered.Success, $"REAPER rendered no take through {effect}: {said}\n{reaper}");
+        Assert.True(result?.ExitCode == 0, $"REAPER did not quit cleanly: {reaper}");
+        return Take.Compare(input, rendered.Groups[1].Value);
+    }
+
+    private string FlatpakOnlyBus()
+    {
+        var bus = Path.Combine(root, "bus");
+        var services = Path.Combine(bus, "services");
+        var config = Path.Combine(bus, "session.conf");
+        Directory.CreateDirectory(services);
+        File.Copy(FlatpakSessionHelper, Path.Combine(services, Path.GetFileName(FlatpakSessionHelper)), overwrite: true);
+        File.WriteAllText(config, $"""
+            <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+              "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+            <busconfig>
+              <type>session</type>
+              <listen>unix:tmpdir=/tmp</listen>
+              <servicedir>{services}</servicedir>
+              <policy context="default">
+                <allow send_destination="*" eavesdrop="true"/>
+                <allow eavesdrop="true"/>
+                <allow own="*"/>
+              </policy>
+            </busconfig>
+            """);
+        return config;
+    }
 
     private async Task<AudioMeasurement> Measure(
         Bridge bridge, string mix, bool audio, int note, string state, string click, Display display)
