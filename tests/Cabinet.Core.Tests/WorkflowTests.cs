@@ -442,6 +442,13 @@ public class WorkflowTests
     }
 
     [Fact]
+    public void ASeedThatBacksOffSaysSoOnTheRun()
+    {
+        Assert.Contains("echo \"::warning::the pull from ${url} failed; retrying in $((attempt * 60)) s\"",
+            Repo.Lines("scripts/seed-repo.sh").Select(line => line.Trim()));
+    }
+
+    [Fact]
     public void OnlyAToolboxCanLoseItsDocumentPortal()
     {
         var check = Assert.Single(

@@ -14,11 +14,13 @@ return args switch
     ["scenario-shards", var previous, var count] when int.TryParse(count, out var shards) && shards > 0 =>
         ScenarioShards.Plan(previous, shards),
     ["vendor-streaks", var previous, var output, .. var artifacts] => VendorStreaks.Update(previous, output, artifacts),
+    ["ci-timings", var repository, var count] when int.TryParse(count, out var runs) && runs > 0 =>
+        await CiTimings.Report(repository, runs),
     _ => Usage(),
 };
 
 static int Usage()
 {
-    Console.Error.WriteLine("usage: Cabinet.Ci scenario-report [--passed] TRX | scenario-diagnosis ARTIFACT... | scenario-shards PREVIOUS COUNT | vendor-streaks PREVIOUS OUTPUT ARTIFACT... | scenario-approve TRX ID | catalogue-updates discover|check|coverage OUTPUT | catalogue-updates validate BASE IDS_JSON_FILE | catalogue-updates release BASE IDS_JSON_FILE DATE");
+    Console.Error.WriteLine("usage: Cabinet.Ci scenario-report [--passed] TRX | scenario-diagnosis ARTIFACT... | scenario-shards PREVIOUS COUNT | vendor-streaks PREVIOUS OUTPUT ARTIFACT... | scenario-approve TRX ID | catalogue-updates discover|check|coverage OUTPUT | catalogue-updates validate BASE IDS_JSON_FILE | catalogue-updates release BASE IDS_JSON_FILE DATE | ci-timings OWNER/REPO COUNT");
     return 2;
 }

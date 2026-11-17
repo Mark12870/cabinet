@@ -54,8 +54,9 @@ description: Build and verify Cabinet with CI checks, focused .NET/Rust commands
 
    The build is done when the builder exits 0. yabridge compiles with `meson compile -j1`: its 64- and 32-bit hosts
    are each one `--unity-size=1000` translation unit, and in parallel they take about 10 GB, the OOM killer takes
-   `cc1plus`, and the builder dies at yabridge's final link looking like a timeout. A serial build takes about ten
-   minutes.
+   `cc1plus`, and the builder dies at yabridge's final link looking like a timeout. flatpak-builder caches only
+   `zenity` and `yabridge`; every module from `cabinet-wine` on is a local `dir` source and rebuilds each time, about
+   80 s. A ten-minute build means a yabridge patch or pin changed.
 
 2. Install the new commit to the host:
 

@@ -36,6 +36,7 @@ ostree --repo="${repo}" remote add --no-gpg-verify published "${url}"
 attempt=1
 until ostree --repo="${repo}" pull --mirror --depth=-1 published; do
   [ "${attempt}" -lt 5 ] || exit 1
+  echo "::warning::the pull from ${url} failed; retrying in $((attempt * 60)) s"
   sleep $((attempt * 60))
   attempt=$((attempt + 1))
 done
