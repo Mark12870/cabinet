@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.46.4" date="2026-11-19">
+      <description>
+        <p>Update Decent Sampler</p>
+        <ul>
+          <li>Install Decent Sampler 1.43.2 from the updated catalogue</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.46.3" date="2026-11-18">
       <description>
         <p>Update Decent Sampler</p>
