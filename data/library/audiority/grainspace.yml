@@ -1,0 +1,20 @@
+Name: GrainSpace
+Kind: windows
+Category: Effect
+Summary: Real-time granulator with a reverb
+Developer: Audiority
+Licence: Commercial
+Licensing:
+  The demo needs no sign-in but goes silent for three seconds every minute; a
+  licence file from Audiority unlocks it.
+Formats: VST3, VST2, CLAP
+Homepage: https://www.audiority.com/shop/grainspace/
+Source: rolling
+Url: https://www.audiority.com/download/?dl_id=AUDPLG7&dl_ver=pc
+Script: audiority.sh
+Description:
+  Granulates the incoming audio as it plays, from a ten-second buffer, into up
+  to 32 grains per channel, with size, distance, pitch, feedback, freeze,
+  position and stretch per grain. Two LFOs and two random sources modulate
+  them, and a pitch quantiser, a smearing stage, a chord resonator and a
+  reverb follow, for textures and sound effects.

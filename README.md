@@ -70,9 +70,10 @@ The Library installs without showing vendors' licences, so installing accepts th
 data. `--talk-name=io.github.mark12870.cabinet.Bridge` lets the shim start Cabinet's Wine, in Cabinet's sandbox, from
 inside the DAW's. DAWs enrolled by earlier releases hold `--talk-name=org.freedesktop.Flatpak` instead, which still
 works **but lets that DAW run any command on your host**; `doctor` names them.
-`flatpak override --user --reset <daw-id>` undoes either. `flatpak uninstall --delete-data` **will** delete your
-prefixes; after any uninstall, remove `~/.vst*/cabinet`, `~/.clap/cabinet` and the native plugins Cabinet put in
-`~/.lv2` yourself.
+`flatpak override --user --reset <daw-id>` undoes either. A plugin's own file picker sees only Cabinet's sandbox; to
+load a licence file from Downloads, grant `xdg-download:ro` to Cabinet in Flatseal. `flatpak uninstall --delete-data`
+**will** delete your prefixes; after it, remove `~/.vst*/cabinet`, `~/.clap/cabinet` and Cabinet's plugins in `~/.lv2`
+yourself.
 
 ## Building
 
