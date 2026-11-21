@@ -1,0 +1,22 @@
+Name: INTENSITY 2
+Kind: windows
+Category: Effect
+Summary: One-knob detail and loudness enhancer
+Developer: Zynaptiq
+Version: 2.0.0
+Licence: Commercial
+Licensing:
+  A 30-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3
+Homepage: https://www.zynaptiq.com/intensity/
+Source: download
+Url: https://downloads.zynaptiq.com/updates/Zynaptiq_INTENSITY_200_Win.zip
+Sha256: d661e4ee59108bd9c4ac9393808d93a99b70cef43b992045163e7c7bf54b9fbe
+Script: zynaptiq.sh
+Description:
+  Brings out the detail already in a sound and raises its perceived
+  loudness, which Zynaptiq likens to HDR in photography, mostly from one
+  control. Three algorithms, mid/side processing and an optional soft-knee
+  saturating limiter shape it, on up to 16 channels, for mixing, mastering
+  and sound design.

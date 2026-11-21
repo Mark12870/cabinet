@@ -1,0 +1,13 @@
+{
+  "entries": [],
+  "blocked": [
+    {
+      "id": "intensity-2",
+      "reason": "iLok activation prevents unattended editor qualification after the trial expires."
+    },
+    {
+      "id": "morph-3",
+      "reason": "iLok activation prevents unattended editor qualification after the trial expires."
+    }
+  ]
+}

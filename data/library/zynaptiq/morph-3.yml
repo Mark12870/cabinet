@@ -1,0 +1,21 @@
+Name: MORPH 3
+Kind: windows
+Category: Effect
+Summary: Real-time morphing between two sounds
+Developer: Zynaptiq
+Version: 3.2.1
+Licence: Commercial
+Licensing:
+  A 30-day trial and purchased licences both activate in iLok License
+  Manager, signed in with a free iLok account.
+Formats: VST3
+Homepage: https://www.zynaptiq.com/morph/
+Source: download
+Url: https://downloads.zynaptiq.com/updates/Zynaptiq_MORPH_3_321_Win.zip
+Sha256: b829faaf56d808c6ff1d1f337a8950eb9dd6e654c8ccd96f58d45197ede8946e
+Script: zynaptiq.sh
+Description:
+  Morphs one sound into another as it plays, by up to eleven algorithms,
+  or transfers the style of a loaded file onto the input. Transient bypass,
+  a formant shifter and a reverb are built in. It is for sound design: hybrid
+  instruments, creature and robot voices and talkbox-like effects.
