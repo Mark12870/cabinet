@@ -1,0 +1,23 @@
+Name: Soundtoys 5.5
+Kind: windows
+Category: Bundle
+Summary: Saturation, delay, modulation and reverb effects
+Developer: Soundtoys
+Version: 5.5.5
+Licence: Commercial
+Licensing:
+  A 30-day trial, requested with a Soundtoys account, and purchased licences
+  both activate in iLok License Manager, signed in with a free iLok account.
+Formats: VST3, VST2
+Homepage: https://www.soundtoys.com/product/soundtoys-5/
+Source: download
+Url: https://storage.googleapis.com/soundtoys-download/versions/version_5_5_5_19885/SoundtoysV55Bundle_5.5.5.19885_64.exe
+Sha256: 886cd7f030e3a5ee040a9887d3271b1aa3e7564da4cd8131e83c83b3527e5ed7
+Script: soundtoys.sh
+Description:
+  Every Soundtoys effect, with Effect Rack to chain them in one plugin:
+  Decapitator and Radiator (saturation), EchoBoy and PrimalTap (delay),
+  Crystallizer (granular echo), PhaseMistress (phaser), FilterFreak (filter),
+  Tremolator (tremolo), PanMan (auto-panner), MicroShift (stereo widener),
+  Little AlterBoy (voice pitch and formant), Sie-Q (EQ), SuperPlate and
+  SpaceBlender (reverb), Devil-Loc (distortion), and their Little versions.
