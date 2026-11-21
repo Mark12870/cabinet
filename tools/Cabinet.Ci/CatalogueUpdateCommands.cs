@@ -57,6 +57,11 @@ internal static class CatalogueUpdates
             var selections = service.Validate(baseDirectory, ReadIds(idsJsonFile));
             Console.WriteLine(JsonSerializer.Serialize(selections,
                 new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }));
+            if (Environment.GetEnvironmentVariable("GITHUB_STEP_SUMMARY") is { Length: > 0 } summary)
+            {
+                File.AppendAllText(summary, CatalogueUpdateService.Summary(selections));
+            }
+
             return 0;
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)

@@ -134,8 +134,19 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
         }
 
         return validated.Select(item => new CatalogueUpdateSelection(item.Entry.Id, item.Entry.Path,
-            item.Entry.Scenario)).ToArray();
+            item.Entry.Scenario, ReadField(item.Baseline, "Version"), item.Version)).ToArray();
     }
+
+    public static string Summary(IEnumerable<CatalogueUpdateSelection> selections) =>
+        string.Join('\n',
+        [
+            "## Entries under test",
+            "",
+            "| ID | From | To | Scenario |",
+            "| --- | --- | --- | --- |",
+            .. selections.Select(selection =>
+                $"| {selection.Id} | {selection.Pinned} | {selection.Version} | {selection.Scenario.Split('.')[^1]} |"),
+        ]) + "\n";
 
     public void GenerateRelease(string baseDirectory, IReadOnlyList<string> ids, DateOnly date)
     {
@@ -852,4 +863,4 @@ internal sealed class CatalogueUpdateService(HttpClient client, string repositor
 
 internal sealed record CatalogueUpdateCandidate(string Id, string Path, string Version);
 
-internal sealed record CatalogueUpdateSelection(string Id, string Path, string Scenario);
+internal sealed record CatalogueUpdateSelection(string Id, string Path, string Scenario, string Pinned, string Version);

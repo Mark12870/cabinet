@@ -182,6 +182,49 @@ public sealed class CatalogueUpdateCoverageTests
         Assert.Contains("upstream unavailable", markdown, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CoverageWriterListsNewerReleasesFirst()
+    {
+        using var fixture = new CoverageFixture();
+        var proposed = new CatalogueUpdateStatus("alpha", "alpha/alpha.yml", "1.2.3", "download", "", "enabled",
+            "verified metadata source configured", [])
+        {
+            Outcome = "newer",
+            AvailableVersion = "1.3.0"
+        };
+        var held = new CatalogueUpdateStatus("beta", "beta/beta.yml", "2.0.0", "download", "", "enabled",
+            "verified metadata source configured", ["runtime scenario missing"])
+        {
+            Outcome = "newer",
+            AvailableVersion = "2.1.0"
+        };
+
+        CatalogueUpdateCoverage.Write(fixture.Output, [proposed, held]);
+
+        var markdown = File.ReadAllText(Path.Combine(fixture.Output, "coverage.md"));
+        Assert.Contains("| alpha | 1.2.3 | 1.3.0 |  |", markdown, StringComparison.Ordinal);
+        Assert.Contains("| beta | 2.0.0 | 2.1.0 | runtime scenario missing |", markdown, StringComparison.Ordinal);
+        Assert.True(markdown.IndexOf("## Updates", StringComparison.Ordinal)
+            < markdown.IndexOf("## Entries", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CoverageWriterSaysWhenNothingIsNewer()
+    {
+        using var fixture = new CoverageFixture();
+        var current = new CatalogueUpdateStatus("alpha", "alpha/alpha.yml", "1.2.3", "download", "", "enabled",
+            "verified metadata source configured", [])
+        {
+            Outcome = "current",
+            AvailableVersion = "1.2.3"
+        };
+
+        CatalogueUpdateCoverage.Write(fixture.Output, [current]);
+
+        Assert.Contains("No newer upstream release.", File.ReadAllText(Path.Combine(fixture.Output, "coverage.md")),
+            StringComparison.Ordinal);
+    }
+
     private sealed class CoverageFixture : IDisposable
     {
         public CoverageFixture()

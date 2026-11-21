@@ -1,4 +1,5 @@
 name: Catalogue candidate
+run-name: Catalogue candidate #${{ inputs.candidate_pr }}
 
 on:
   workflow_dispatch:

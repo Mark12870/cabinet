@@ -798,6 +798,7 @@ public sealed class CatalogueUpdateTests
 
         Assert.Equal(generated, File.ReadAllText(fixture.CandidateMetainfoPath));
         Assert.Equal(new[] { "plugin", "plugin-later" }, selections.Select(item => item.Id));
+        Assert.Equal(new[] { "1.0.0 1.1.0", "1.0.0 1.2.0" }, selections.Select(item => $"{item.Pinned} {item.Version}"));
         Assert.Contains("<release version=\"0.9.1\" date=\"2026-10-21\">", generated);
         Assert.Contains("<p>Update catalogue plugins</p>", generated);
         Assert.Contains("<li>Install Test Plugin 1.1.0 from the updated catalogue</li>", generated);
@@ -805,6 +806,18 @@ public sealed class CatalogueUpdateTests
         Assert.True(generated.IndexOf("Install Test Plugin", StringComparison.Ordinal)
             < generated.IndexOf("Install Later Plugin", StringComparison.Ordinal));
         Assert.Equal(1, generated.Split("<release version=\"0.9.1\"", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public void CandidateSummaryNamesEachEntryWithItsVersionsAndScenario()
+    {
+        var summary = CatalogueUpdateService.Summary(
+        [
+            new("plugin", "acme/plugin.yml", "Cabinet.Runtime.Tests.Scenarios.PluginScenario", "1.0.0", "1.1.0"),
+        ]);
+
+        Assert.Contains("## Entries under test", summary, StringComparison.Ordinal);
+        Assert.Contains("| plugin | 1.0.0 | 1.1.0 | PluginScenario |", summary, StringComparison.Ordinal);
     }
 
     [Fact]

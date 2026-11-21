@@ -138,15 +138,18 @@ internal static class CatalogueUpdateCoverage
         File.WriteAllText(Path.Combine(outputDirectory, "coverage.json"),
             JsonSerializer.Serialize(json, new JsonSerializerOptions { WriteIndented = true }));
 
-        var markdown = new List<string>
-        {
+        List<string> markdown =
+        [
             "# Catalogue update coverage",
+            "",
+            .. Updates(ordered),
+            "## Entries",
             "",
             $"Discovery enabled: {discoveryEnabled}; automatic eligible: {automaticEligible}.",
             "",
             "| ID | Source | Discovery | Outcome | Available version | Blockers / error |",
             "| --- | --- | --- | --- | --- | --- |"
-        };
+        ];
         markdown.AddRange(ordered.Select(status =>
         {
             var details = status.AutomationBlockers.ToList();
@@ -344,6 +347,30 @@ internal static class CatalogueUpdateCoverage
         Regex.Match(text, $"^{Regex.Escape(name)}:\\s*(.+)$", RegexOptions.Multiline) is { Success: true } match
             ? match.Groups[1].Value.Trim()
             : "";
+
+    private static IEnumerable<string> Updates(IEnumerable<CatalogueUpdateStatus> statuses)
+    {
+        var newer = statuses.Where(status => status.Outcome == "newer").ToArray();
+        if (newer.Length == 0)
+        {
+            return ["## Updates", "", "No newer upstream release.", ""];
+        }
+
+        return
+        [
+            "## Updates",
+            "",
+            "| ID | Pinned | Available | Blockers |",
+            "| --- | --- | --- | --- |",
+            .. newer.Select(status => string.Join(" | ",
+                "| " + Markdown(status.Id),
+                Markdown(status.Version),
+                Markdown(status.AvailableVersion ?? ""),
+                Markdown(string.Join("; ", status.AutomationBlockers)))
+                + " |"),
+            ""
+        ];
+    }
 
     private static string Markdown(string value) => value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ");
 
