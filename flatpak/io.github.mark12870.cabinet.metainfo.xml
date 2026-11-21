@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.48.0" date="2026-11-21">
+      <description>
+        <p>Zynaptiq MORPH 3 and INTENSITY 2 in the Library</p>
+        <ul>
+          <li>Install MORPH 3, real-time morphing between two sounds, and INTENSITY 2, a detail and loudness enhancer, as VST3; both activate in iLok License Manager</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.47.0" date="2026-11-21">
       <description>
         <p>Audiority GrainSpace in the Library</p>
