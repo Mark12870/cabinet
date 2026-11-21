@@ -232,9 +232,9 @@ fill the tail. Input, output, parameters, captures and logs remain under
 run skips the install when the home already holds the entry. Tools and the prepared Flatpak are
 reused, but Cabinet downloads and installs the runner, DXVK and plugin into the new home before it
 creates the prefix and bridge. TAL Software's Cloudflare refuses GitHub's runners, so the TAL
-scenarios have the Wayback Machine capture each entry's URL and install that capture with `library
-install <id> <file>`. When it declines a capture, as it does a second time in a day or when its save service
-fails, a run takes the newest capture it replays, if under a week old.
+scenarios install a Wayback Machine capture of each entry's URL with `library install <id> <file>`. A run
+replays a capture from the last day, so it may test a build up to a day old, else asks for a new one; when
+its save service throttles or fails, it takes the newest capture under a week old.
 
 ### What the scenarios leave out
 

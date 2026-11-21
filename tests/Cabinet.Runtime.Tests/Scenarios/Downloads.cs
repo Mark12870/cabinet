@@ -1,3 +1,5 @@
+using System.Net;
+
 namespace Cabinet.Runtime.Tests.Scenarios;
 
 internal static class Downloads
@@ -5,6 +7,8 @@ internal static class Downloads
     private const int Attempts = 3;
 
     private static readonly TimeSpan Stall = TimeSpan.FromSeconds(60);
+
+    private static readonly TimeSpan Backoff = TimeSpan.FromSeconds(20);
 
     public static async Task Fetch(HttpClient client, string link, string destination)
     {
@@ -20,9 +24,43 @@ internal static class Downloads
         }
     }
 
+    public static async Task<HttpResponseMessage> Get(HttpClient client, string link)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            HttpResponseMessage response;
+            try
+            {
+                response = await client.GetAsync(link, HttpCompletionOption.ResponseHeadersRead);
+            }
+            catch (HttpRequestException) when (attempt < Attempts)
+            {
+                await Task.Delay(Backoff * attempt);
+                continue;
+            }
+
+            if (!Throttled(response.StatusCode) || attempt == Attempts)
+            {
+                return response;
+            }
+
+            var pause = Pause(response, attempt);
+            response.Dispose();
+            await Task.Delay(pause);
+        }
+    }
+
+    private static bool Throttled(HttpStatusCode status) =>
+        status == HttpStatusCode.TooManyRequests || (int)status >= 500;
+
+    private static TimeSpan Pause(HttpResponseMessage response, int attempt) =>
+        response.Headers.RetryAfter?.Delta is { } asked && asked <= Backoff * Attempts
+            ? asked
+            : Backoff * attempt;
+
     private static async Task<bool> Attempt(HttpClient client, string link, string destination)
     {
-        using var response = await client.GetAsync(link, HttpCompletionOption.ResponseHeadersRead);
+        using var response = await Get(client, link);
         response.EnsureSuccessStatusCode();
         await using var body = await response.Content.ReadAsStreamAsync();
         await using var file = File.Create(destination);

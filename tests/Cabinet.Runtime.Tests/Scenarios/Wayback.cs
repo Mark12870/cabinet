@@ -11,6 +11,8 @@ internal static class Wayback
 
     private static readonly TimeSpan Fresh = TimeSpan.FromHours(1);
 
+    private static readonly TimeSpan CapturedToday = TimeSpan.FromDays(1);
+
     private static readonly TimeSpan CapturedThisWeek = TimeSpan.FromDays(7);
 
     public static async Task<string> Download(string url, string directory)
@@ -25,10 +27,20 @@ internal static class Wayback
     private static async Task<string> Capture(string url)
     {
         using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Capturing };
-        using var saved = await client.GetAsync($"{Archive}/save/{url}");
+        var (newest, replay) = await Newest(client, url);
+        if (newest is not null && Taken(newest) > DateTime.UtcNow - CapturedToday)
+        {
+            return newest;
+        }
+
+        using var saved = await Downloads.Get(client, $"{Archive}/save/{url}");
         if (saved.StatusCode == HttpStatusCode.TooManyRequests || (int)saved.StatusCode >= 500)
         {
-            return await Newest(client, url);
+            Assert.True(
+                newest is not null && Taken(newest) > DateTime.UtcNow - CapturedThisWeek,
+                $"the Wayback Machine could not capture {url}: its save service answered {(int)saved.StatusCode} "
+                + $"and its replay {replay}, with no capture from this week");
+            return newest;
         }
 
         Assert.True(
@@ -39,15 +51,13 @@ internal static class Wayback
         return capture;
     }
 
-    private static async Task<string> Newest(HttpClient client, string url)
+    private static async Task<(string? Capture, int Status)> Newest(HttpClient client, string url)
     {
-        using var replayed = await client.GetAsync($"{Archive}/web/2id_/{url}");
-        Assert.True(
-            replayed.StatusCode == HttpStatusCode.Found && replayed.Headers.Location is not null,
-            $"the Wayback Machine could not capture {url} and holds no capture to replay: it answered {(int)replayed.StatusCode}");
-        var capture = Timestamp(replayed.Headers.Location!);
-        Assert.InRange(Taken(capture), DateTime.UtcNow - CapturedThisWeek, DateTime.UtcNow + Fresh);
-        return capture;
+        using var replayed = await Downloads.Get(client, $"{Archive}/web/2id_/{url}");
+        var capture = replayed.StatusCode == HttpStatusCode.Found && replayed.Headers.Location is { } location
+            ? Timestamp(location)
+            : null;
+        return (capture, (int)replayed.StatusCode);
     }
 
     private static string Timestamp(Uri location) => location.AbsolutePath.Split('/')[2].Replace("id_", "");

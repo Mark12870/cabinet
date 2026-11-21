@@ -124,6 +124,7 @@ public sealed class SpitfireAudioScenario(SpitfireAudioScenario.Installed instal
 
             manager.Until(() => manager.Shows(window, SignInPage, SignInHeading), window, "the Sign In page", Answering);
             var credentials = Credentials.Read();
+            Thread.Sleep(Settling);
             await Harness.SendText(display, Title, 510, 300, credentials["EMAIL"]);
             Thread.Sleep(Settling);
             await Harness.SendText(display, Title, 510, 353, credentials["PASSWORD"]);

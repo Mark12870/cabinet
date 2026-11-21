@@ -14,6 +14,7 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
 
     private static readonly TimeSpan InstallPatience = TimeSpan.FromMinutes(20);
     private static readonly TimeSpan ProbePatience = TimeSpan.FromMinutes(8);
+    private static readonly TimeSpan Draining = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan TakeAnalysis = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TakeScan = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan TakePatience = TimeSpan.FromMinutes(6);
@@ -588,10 +589,28 @@ internal sealed class ScenarioHarness(LibraryEntry entry) : IDisposable
         {
             process.Kill(entireProcessTree: true);
             await process.WaitForExitAsync();
-            throw new TimeoutException($"{file} did not finish within {patience}");
+            throw new TimeoutException(
+                $"{file} did not finish within {patience}\n{await Leftover(process.ExitCode, output, error)}");
         }
 
         return new ScenarioProcessResult(process.ExitCode, await output, await error);
+    }
+
+    private static async Task<string> Leftover(int exitCode, Task<string> output, Task<string> error)
+    {
+        try
+        {
+            await Task.WhenAll(output, error).WaitAsync(Draining);
+            return new ScenarioProcessResult(exitCode, output.Result, error.Result).Said;
+        }
+        catch (TimeoutException)
+        {
+            return "a process it started still holds its output open";
+        }
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException)
+        {
+            return $"its output could not be read: {exception.Message}";
+        }
     }
 
     private static async Task<string> Read(StreamReader reader, Action<string>? onLine)
