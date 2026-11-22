@@ -18,6 +18,8 @@ public sealed partial class Ilok(Layout layout, IProcessRunner runner)
 
     public const string Service = "PaceLicenseDServices";
 
+    private const int InstalledPendingRestart = 3010 % 256;
+
     public const string Manager =
         @"C:\Program Files (x86)\iLok License Manager\iLok License Manager.exe";
 
@@ -50,10 +52,11 @@ public sealed partial class Ilok(Layout layout, IProcessRunner runner)
 
             onOutput?.Invoke($"Installing PACE License Support {version}");
             var installed = prefixes.Run(prefix, "msiexec", ["/i", WindowsPath(package), "/qn", "NODRIVER=1"], onOutput);
-            var service = installed.Ok ? prefixes.Run(prefix, "sc", ["query", Service]) : installed;
+            var succeeded = installed.Ok || installed.ExitCode == InstalledPendingRestart;
+            var running = succeeded && ServiceRunsIn(prefixes, prefix);
             prefixes.Run(prefix, "wineserver", ["-k"]);
 
-            if (!installed.Ok)
+            if (!succeeded)
             {
                 throw new InvalidOperationException(
                     $"Windows Installer could not install PACE License Support {version} into "
@@ -62,7 +65,7 @@ public sealed partial class Ilok(Layout layout, IProcessRunner runner)
 
             File.WriteAllText(layout.PrefixIlokFile(prefix), version + Environment.NewLine);
 
-            if (!service.Stdout.Contains("RUNNING", StringComparison.Ordinal))
+            if (!running && !RunsAfterRestart(prefixes, prefix))
             {
                 throw new InvalidOperationException(
                     $"PACE License Support {version} is in '{prefix}', but its licence service "
@@ -114,6 +117,16 @@ public sealed partial class Ilok(Layout layout, IProcessRunner runner)
         return new Prefixes(layout, runner).Start(
             prefix, layout.PrefixWindowsPath(prefix, Manager), onOutput);
     }
+
+    private static bool RunsAfterRestart(Prefixes prefixes, string prefix)
+    {
+        var running = ServiceRunsIn(prefixes, prefix);
+        prefixes.Run(prefix, "wineserver", ["-k"]);
+        return running;
+    }
+
+    private static bool ServiceRunsIn(Prefixes prefixes, string prefix) =>
+        prefixes.Run(prefix, "sc", ["query", Service]).Stdout.Contains("RUNNING", StringComparison.Ordinal);
 
     private void Initialised(string prefix)
     {

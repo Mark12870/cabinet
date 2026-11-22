@@ -115,13 +115,46 @@ public sealed class IlokTests : IDisposable
         Booted("gadget");
         var failing = new RecordingRunner(
             IlokDownload.Serving,
-            exits: args => args is ["msiexec", ..] ? 1603 : 0,
+            exits: args => args is ["msiexec", ..] ? 1603 % 256 : 0,
             outputs: IlokDownload.Answering());
 
         var refused = Assert.Throws<InvalidOperationException>(() => new Ilok(Layout, failing).Install("gadget"));
 
-        Assert.Contains("1603", refused.Message);
+        Assert.Contains("exited with 67", refused.Message);
         Assert.Null(Subject.InstalledIn("gadget"));
+    }
+
+    [Fact]
+    public void AnInstallThatAsksForARestartIsASuccess()
+    {
+        Booted("gadget");
+        var replacingFilesInUse = new RecordingRunner(
+            IlokDownload.Serving,
+            exits: args => args is ["msiexec", ..] ? 3010 % 256 : 0,
+            outputs: IlokDownload.Answering());
+
+        new Ilok(Layout, replacingFilesInUse).Install("gadget");
+
+        Assert.Single(replacingFilesInUse.Ran, call => call.Arguments is ["sc", ..]);
+        Assert.Equal(IlokDownload.Version, Subject.InstalledIn("gadget"));
+    }
+
+    [Fact]
+    public void ALicenceServiceTheInstallLeftStoppedIsAskedAboutAgainAfterARestart()
+    {
+        Booted("gadget");
+        var states = new Queue<string>(["STOPPED", "RUNNING"]);
+        var recorder = new RecordingRunner(
+            IlokDownload.Serving,
+            outputs: args => args is ["sc", ..] ? IlokDownload.Answering(states.Dequeue())(args) : "");
+
+        new Ilok(Layout, recorder).Install("gadget");
+
+        Assert.Equal(["sc", "query", Ilok.Service], recorder.Ran[^4].Arguments);
+        Assert.Equal(["-k"], recorder.Ran[^3].Arguments);
+        Assert.Equal(["sc", "query", Ilok.Service], recorder.Ran[^2].Arguments);
+        Assert.Equal(["-k"], recorder.Ran[^1].Arguments);
+        Assert.Equal(IlokDownload.Version, Subject.InstalledIn("gadget"));
     }
 
     [Fact]
@@ -133,6 +166,7 @@ public sealed class IlokTests : IDisposable
         var refused = Assert.Throws<InvalidOperationException>(() => new Ilok(Layout, recorder).Install("gadget"));
 
         Assert.Contains($"{Ilok.Service} is not running", refused.Message);
+        Assert.Equal(["-k"], recorder.Ran[^1].Arguments);
         Assert.Equal(IlokDownload.Version, Subject.InstalledIn("gadget"));
     }
 
