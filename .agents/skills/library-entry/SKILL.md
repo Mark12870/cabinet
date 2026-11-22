@@ -27,7 +27,8 @@ raise. `data/library/surge-synth-team/surge-xt.yml` is the worked example — co
 
 ## Add one, step by step
 
-**1. Look for a Linux build, and prefer it.** If the plugin has one that works, add that and do
+**1. Look for a Linux build, and prefer it.** Find out first whether the vendor ships a manager or
+installer app; if it does, say so before adding its plugins one by one. If the plugin has one that works, add that and do
 **not** add the Windows one. Not a tie-break: a Windows entry costs a Wine prefix, a pinned old
 runner, a DXVK install, a yabridge bridge on the audio path, and the editor click-offset bug
 ([yabridge#382](https://github.com/robbert-vdh/yabridge/issues/382)) that the pinned runner only
@@ -165,11 +166,10 @@ the bridged file each format in `Formats:` leaves. It runs in the isolated runti
 your own Cabinet data. Until it exists, `scripts/scenario-coverage.sh` lists the entry and the daily
 run warns about it.
 
-**9. Hand it over for the editor check.** **Load the plugin in a DAW and open its editor** — an
-entry that installs cleanly and whose editor cannot be clicked is a broken entry, and this is
-the only step that catches it. It is what the `Runner` and `Dxvk` choices in step 5 are for, and
-neither is verifiable any other way. This step belongs to whoever is adding the entry;
-verification from here stops at what the disk shows.
+**9. Prove it works.** The entry is done when its scenario's editor and audio probes pass locally
+on a licensed or trial copy, as `plugin-scenario` runs them; a plugin that installs but whose
+editor cannot be clicked is a broken entry. Name every format or plugin you left unproven in the
+hand-over.
 
 **10. Install it.** Build the Flatpak and install it to the host as `build-and-test` describes.
 

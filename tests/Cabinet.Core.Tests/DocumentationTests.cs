@@ -28,6 +28,25 @@ public class DocumentationTests
     }
 
     [Fact]
+    public void TheReadmeNamesEveryVendorTheLibraryShips()
+    {
+        var listed = Repo.Lines("README.md")
+            .SkipWhile(line => line != "## Supported vendors")
+            .TakeWhile(line => line != "</table>")
+            .Where(line => line.StartsWith("<td>", StringComparison.Ordinal))
+            .SelectMany(line => line["<td>".Length..^"</td>".Length].Split("<br>"))
+            .SelectMany(cell => cell.Split([" (", ", ", ")"], StringSplitOptions.RemoveEmptyEntries))
+            .ToHashSet(StringComparer.Ordinal);
+        var unlisted = Catalogue.Entries()
+            .Where(entry => !entry.Manager)
+            .Where(entry => !Directory.EnumerateFiles(Repo.Path($"data/library/{entry.Vendor}"), "*.md").Any())
+            .Where(entry => !listed.Contains(entry.Developer ?? "") && !listed.Contains(entry.Name))
+            .Select(entry => entry.Id);
+
+        Assert.Empty(unlisted);
+    }
+
+    [Fact]
     public void TheReadmeNamesEveryYabridgePatchCabinetCarries()
     {
         var listed = Repo.Lines("README.md")
