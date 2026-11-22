@@ -22,6 +22,9 @@ const MOUSEEVENTF_VIRTUALDESK: u32 = 0x4000;
 const MOUSEEVENTF_ABSOLUTE: u32 = 0x8000;
 const KEYEVENTF_KEYUP: u32 = 0x0002;
 const KEYEVENTF_UNICODE: u32 = 0x0004;
+const VK_BACK: u16 = 0x08;
+const VK_CONTROL: u16 = 0x11;
+const VK_A: u16 = 0x41;
 
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
@@ -107,11 +110,19 @@ fn mouse(dx: i32, dy: i32, flags: u32) -> Input {
 }
 
 fn key(scan: u16, flags: u32) -> Input {
+    stroke(0, scan, flags)
+}
+
+fn virtual_key(code: u16, flags: u32) -> Input {
+    stroke(code, 0, flags)
+}
+
+fn stroke(virtual_key: u16, scan: u16, flags: u32) -> Input {
     Input {
         kind: INPUT_KEYBOARD,
         event: Event {
             keyboard: KeyboardInput {
-                virtual_key: 0,
+                virtual_key,
                 scan,
                 flags,
                 time: 0,
@@ -210,6 +221,22 @@ fn main() {
         if !send(&click) {
             exit(10);
         }
+    }
+
+    if !input.is_empty() {
+        sleep(Duration::from_millis(50));
+        let clear = [
+            virtual_key(VK_CONTROL, 0),
+            virtual_key(VK_A, 0),
+            virtual_key(VK_A, KEYEVENTF_KEYUP),
+            virtual_key(VK_CONTROL, KEYEVENTF_KEYUP),
+            virtual_key(VK_BACK, 0),
+            virtual_key(VK_BACK, KEYEVENTF_KEYUP),
+        ];
+        if !send(&clear) {
+            exit(12);
+        }
+        sleep(Duration::from_millis(50));
     }
 
     for pair in input.chunks_exact(2) {

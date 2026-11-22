@@ -140,6 +140,7 @@ internal sealed unsafe partial class EditorInteraction
                 }
 
                 Turn(10);
+                desktop.Run("xdotool", "key", "ctrl+a", "BackSpace");
                 desktop.Feed(line[1], "xdotool", "type", "--file", "-");
                 Turn(10);
                 var shown = Look(window, $"type-{x}-{y}");

@@ -74,6 +74,7 @@ internal sealed class Manager(
     {
         Click(window, x, y);
         Thread.Sleep(Beat);
+        Xdotool("key", "ctrl+a", "BackSpace");
         Run("xdotool", text, "type", "--file", "-");
     }
 
