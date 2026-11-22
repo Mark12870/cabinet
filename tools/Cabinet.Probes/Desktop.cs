@@ -118,6 +118,52 @@ internal sealed partial class Desktop(TimeSpan? limit = null, Action<string>? no
         return path;
     }
 
+    public (string? Shot, bool Painted) AwaitPainted(string window, string directory, string name, Action idle)
+    {
+        var begun = Stopwatch.GetTimestamp();
+        var shot = Capture(window, directory, name);
+
+        while (shot is not null && Colours(shot) <= 1 && Stopwatch.GetElapsedTime(begun) < PaintLimit)
+        {
+            idle();
+            shot = Capture(window, directory, name);
+        }
+
+        return (shot, shot is not null && Colours(shot) > 1);
+    }
+
+    public (string? Shot, bool Steady) AwaitSteady(string window, string directory, string name, Action idle)
+    {
+        var (shot, painted) = AwaitPainted(window, directory, name, idle);
+        var begun = Stopwatch.GetTimestamp();
+
+        while (shot is not null && painted && Stopwatch.GetElapsedTime(begun) < SteadyLimit)
+        {
+            idle();
+
+            if (Capture(window, directory, name + "-next") is not { } next)
+            {
+                return (shot, false);
+            }
+
+            var steady = Difference(shot, next) < Steady;
+            File.Move(next, shot, overwrite: true);
+
+            if (steady)
+            {
+                return (shot, true);
+            }
+        }
+
+        return (shot, false);
+    }
+
+    public const double Steady = 0.002;
+
+    private static readonly TimeSpan PaintLimit = TimeSpan.FromSeconds(60);
+
+    private static readonly TimeSpan SteadyLimit = TimeSpan.FromSeconds(10);
+
     public int Colours(string path) =>
         int.TryParse(Run("identify", "-format", "%k", path).Output.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var count)
             ? count

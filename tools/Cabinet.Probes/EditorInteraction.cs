@@ -110,9 +110,10 @@ internal sealed unsafe partial class EditorInteraction
             found = desktop.Geometry(window) ?? throw new InvalidOperationException($"{window} has no geometry");
             Note($"geometry ({found.Left}, {found.Top}, {found.Width}, {found.Height})");
             desktop.Run("xdotool", "mousemove", "0", "0");
-            Turn(10);
+            var (captured, painted) = desktop.AwaitPainted(window, shots, "baseline", () => Turn(10));
+            Note(painted ? "painted" : "nothing painted");
 
-            if (Capture(window, "baseline") is not { } captured)
+            if (captured is null)
             {
                 Console.WriteLine($"EDITOR={window} CAPTURE=failed");
                 return 1;
@@ -158,7 +159,8 @@ internal sealed unsafe partial class EditorInteraction
 
             foreach (var (x, y) in Pairs(click))
             {
-                var unpressed = Capture(window, "unpressed");
+                var (unpressed, steady) = desktop.AwaitSteady(window, shots, "unpressed", () => Turn(10));
+                Note(steady ? $"steady before {x} {y}" : $"still changing before {x} {y}");
                 desktop.Run("xdotool", "mousemove", "--window", window, x, y);
                 Turn(4);
                 desktop.Run("xdotool", "click", "1");

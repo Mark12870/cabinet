@@ -16,6 +16,7 @@ internal static unsafe class AudioRender
     private const uint TotalFrames = SilenceBefore + SignalFrames + SilenceAfter;
     private const uint RenderedFrames = (TotalFrames + BlockSize - 1) / BlockSize * BlockSize;
     private const double Tempo = 120;
+    private const int EditorLooks = 60;
     private const int BeatsPerBar = 4;
     private const double TicksPerBeat = 1920;
     private const float BeatType = 4;
@@ -238,13 +239,19 @@ internal static unsafe class AudioRender
         {
             host.ShowCustomUi(0, true);
 
-            for (var turn = 0; turn < 300; turn++)
+            var desktop = new Desktop(TimeSpan.FromSeconds(10));
+            var idle = () => Idle(descriptor, rack, 50);
+
+            if (Editor(desktop, idle) is not { } editor)
             {
-                descriptor->UiIdle(rack);
-                Thread.Sleep(10);
+                host.ShowCustomUi(0, false);
+                return Error("click", "the editor never appeared");
             }
 
-            var clicked = Gesture(Path.Combine(artefacts, "click.log"), click, () => descriptor->UiIdle(rack));
+            var (_, steady) = desktop.AwaitSteady(editor, artefacts, "unclicked", idle);
+            Reached(steady ? "editor steady" : "editor still changing");
+
+            var clicked = Gesture(Path.Combine(artefacts, "click.log"), editor, click, () => descriptor->UiIdle(rack));
             host.ShowCustomUi(0, false);
 
             if (!clicked)
@@ -370,11 +377,37 @@ internal static unsafe class AudioRender
         }
     }
 
-    private static bool Gesture(string log, string click, Action idle)
+    private static string? Editor(Desktop desktop, Action idle)
+    {
+        for (var look = 0; look < EditorLooks; look++)
+        {
+            idle();
+            var found = desktop.Run("xdotool", "search", "--onlyvisible", "--name", "audio-render").Output
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (found.Length > 0)
+            {
+                return found[0];
+            }
+        }
+
+        return null;
+    }
+
+    private static void Idle(PluginDescriptor* descriptor, IntPtr rack, int turns)
+    {
+        for (var turn = 0; turn < turns; turn++)
+        {
+            descriptor->UiIdle(rack);
+            Thread.Sleep(10);
+        }
+    }
+
+    private static bool Gesture(string log, string window, string click, Action idle)
     {
         var redirect = $" >> '{log}' 2>&1";
         var commands = new StringBuilder(
-            $"window=$(xdotool search --sync --onlyvisible --name audio-render | head -1){redirect}"
+            $"window={window}"
             + $" && xdotool windowactivate $window{redirect} && xdotool windowraise $window{redirect}"
             + $" && xdotool mousemove 0 0{redirect} && sleep 1");
         var positions = click.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
