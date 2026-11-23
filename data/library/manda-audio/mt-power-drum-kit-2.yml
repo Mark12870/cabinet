@@ -3,14 +3,14 @@ Kind: native
 Category: Drums
 Summary: Free acoustic drum kit with grooves
 Developer: Manda Audio
-Version: 2.1.5.2
+Version: 2.1.5.3
 Licence: Freeware
 Licensing: Free for personal and commercial music projects
 Formats: VST3
 Homepage: https://www.powerdrumkit.com/
 Source: download
-Url: https://cdn2.resources.manda-audio.com/DOWNLOADS/products/mtpdk2_free/2.1.5/MTPDK-2.1.5.2-VST3-64bit-Linux-FULL.zip
-Sha256: 0c12265bf6bdfe5c507a1f3e577257d4939cea9cfa6bd4eb1cade7f88697a058
+Url: https://cdn2.resources.manda-audio.com/DOWNLOADS/products/mtpdk2_free/2.1.5/MTPDK-2.1.5.3-VST3-64bit-Linux-FULL.zip
+Sha256: d03f02d9897f6dc872139571d17599f59c4fe54d47fad2178f9f37ef10b26456
 Description:
   An acoustic kit whose samples were cut from grooves a studio drummer
   played, with a compressor on each mixer channel, a library of thousands of
