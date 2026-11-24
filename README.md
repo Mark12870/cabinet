@@ -44,13 +44,7 @@ flatpak run io.github.mark12870.cabinet enrol fm.reaper.Reaper
 ```
 
 or, in the window, *Doctor → Enrol a DAW*. It changes nothing: it **prints** a `flatpak override` for you to run (see
-[Permissions](#permissions)) and a self-test for the DAW's runtime. Restart the DAW afterwards; if an update needs more
-permissions, `sync`, the window and `doctor` say so, and `enrol` prints the new command.
-
-Everything is in the window. For the command line, `flatpak run io.github.mark12870.cabinet --help` lists every command.
-
-The Library installs without showing vendors' licences, so installing accepts their terms on your behalf; the window and
-`library install` say whose before anything runs.
+[Permissions](#permissions)) and a self-test for the DAW's runtime. Restart the DAW afterwards.
 
 ## Yabridge patches
 
