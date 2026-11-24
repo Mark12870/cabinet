@@ -462,6 +462,28 @@ public class WorkflowTests
         .TakeWhile(line => line.StartsWith("      ", StringComparison.Ordinal))
         .Select(line => line.Trim());
 
+    [Theory]
+    [InlineData(".github/workflows/runtime.yml", "runtime", "actions/download-artifact@v8", "download")]
+    [InlineData(".github/workflows/publish.yml", "publish", "actions/deploy-pages@v5", "deploy")]
+    public void AnArtifactJustUploadedIsAskedForAgainOnceTheListingCatchesUp(string workflow, string job, string action, string id)
+    {
+        var steps = Job(Repo.Lines(workflow), job).Select(line => line.Trim()).ToList();
+        var first = steps.IndexOf($"id: {id}");
+
+        Assert.Equal(2, steps.Count(line => line == $"- uses: {action}"));
+        Assert.Equal("continue-on-error: true", steps[first + 1]);
+        Assert.Equal(2, steps.Count(line => line == $"if: steps.{id}.outcome == 'failure'"));
+        Assert.Contains("run: sleep 30", steps);
+    }
+
+    [Fact]
+    public void TheRedeployAsksForTheSameArtifactAsTheDeploy()
+    {
+        var steps = Job(Repo.Lines(".github/workflows/publish.yml"), "publish").Select(line => line.Trim());
+
+        Assert.Equal(2, steps.Count(line => line == "artifact_name: github-pages-${{ github.run_attempt }}"));
+    }
+
     [Fact]
     public void NothingIsDeletedToMakeRoomOnARunnerWithSpaceToSpare()
     {
