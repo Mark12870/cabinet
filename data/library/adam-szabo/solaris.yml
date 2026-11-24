@@ -1,0 +1,17 @@
+Name: Solaris
+Kind: windows
+Category: Effect
+Summary: Algorithmic reverb
+Developer: Adam Szabo
+Version: 1.0
+Licence: Freeware
+Formats: VST3, VST2
+Homepage: https://www.adamszabo.com/vstplugins/solaris/
+Source: byo
+InstallInstructions: Download the Solaris ZIP from https://www.kvraudio.com/product/solaris-by-adam-szabo/downloads and choose it here; KVR serves it only to a browser.
+Script: adam-szabo.sh
+Description:
+  A large algorithmic reverb with a tempo-synced pre-delay, a vowel-shaped
+  chorus, two pitch-shifted shimmer voices, low- and high-pass filters and
+  modulation of the tail. It ships with presets such as Solar Hall and Big
+  Shimmer.

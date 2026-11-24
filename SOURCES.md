@@ -79,6 +79,7 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | dseq3 | TBProAudio's product page, `tbproaudio.de/assets/content/screenshots/dseq3_bign.png`, the plugin's interface; its icon is the mark from `tbproaudio.de/assets/content/logos/dseq_logo.png` |
 | tbpavolume, tbpameter, gsatplus, dpmeter5, stilt2, isol8, mvmeter2 | TBProAudio's product pages, `tbproaudio.de/assets/content/screenshots/` — `TBPAVolume_bign.png`, `TBPAMeter_bign.png`, `gsatplus_bign.png`, `dpmeter5_bign.png`, `stiltv2_bign.png`, `isol8_bign.png`, `mvmeter2_bign.png`, each the plugin's interface; each icon is a crop of its screenshot |
 | grainspace | Audiority's product page, `audiority.com/wp-content/uploads/2025/04/Audiority_GrainSpace_v2.6_GUI.webp`, the plugin's interface; its icon is a crop of its GRAIN section |
+| solaris | Adam Szabo's product page, `adamszabo.com/wordpress/wp-content/uploads/2023/07/solaris_gui.png`, cropped above its reflection; its icon is a crop of its Reverb Size dial |
 | morph-3, intensity-2 | Zynaptiq's product pages, `zynaptiq.com/typo3temp/pics/` — `ea8c194665.png` and `e7154fb139.png`, each the plugin's interface; each icon is a crop of its screenshot |
 | soundtoys-5 | Soundtoys' product page, `soundtoys.com/wp-content/uploads/5.5-Effectrack-Screencap-Oceanside-Groover.png`, the Effect Rack; the icon is a crop of it |
 | kick-3 | Sonic Academy's product page, `sonicacademy.com/products/kick-3`, `images.sonicacademy.com/assets/plugins/kick3/gui.png`, the plugin's interface; its icon is the square interface image `images.sonicacademy.com/images/medium/2549_KICK_3_Square_GUI.jpg` from the same page |
@@ -131,5 +132,6 @@ notices are in `data/library/klevgrand/klevgrand-helper-runtime.txt`; the archiv
 | cymatics | Cymatics' official white wordmark, `cymatics.fm/cdn/shop/files/Cymatics_Logotype_transparent_white.png` |
 | air-music-tech | AIR's official white vector logo, `airmusictech.com/svg/air-logo-white.svg` |
 | minimal-audio | the official vector signet at `minimal.audio/assets/shared/favicons/favicon-af14aa2427911958c2156eff3170eb519d0528f6972b4585b0edcea6e70c4b18.svg`, recoloured ivory on a black tile for contrast in both themes |
+| adam-szabo | the AS mark from the site header `adamszabo.com/wordpress/wp-content/uploads/2020/08/adam_logo.png`, cut out along its own transparency, upscaled and smoothed |
 | mastering-the-mix | the headphone mark from the official logo, `masteringthemix.com/cdn/shop/files/Mastering_The_Mix_2026_LOGO_PNG_Black.png`, cropped from its wordmark, keyed off white and recoloured white |
 | sonible | the bubbles of the brand's `sonible_Logo_white.svg`, as `sonible.com/app/themes/love-it/dist/assets/img/favicon.svg` serves them; its grey dots recoloured white, the brand green kept |
