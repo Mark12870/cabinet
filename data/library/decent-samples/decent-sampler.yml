@@ -3,13 +3,13 @@ Kind: native
 Category: Sampler
 Summary: Player for DecentSampler instruments
 Developer: Decent Samples
-Version: 1.43.2
+Version: 1.43.3
 Licence: Freeware
 Formats: VST3, VST2
 Homepage: https://www.decentsamples.com/product/decent-sampler-plugin/
 Source: download
-Url: https://cdn.decentsamples.com/production/builds/ds/1.43.2/Decent_Sampler-1.43.2-Linux-Static-x86_64.tar.gz
-Sha256: d7975d299c8a864acb87f8f471010115bcc7c6d831cbfa69124fc97c7146747b
+Url: https://cdn.decentsamples.com/production/builds/ds/1.43.3/Decent_Sampler-1.43.3-Linux-Static-x86_64.tar.gz
+Sha256: 7404ec186ebaaec1101e1f4ace7a283a18f60b53b38b250bdeb3afb7688b1bf9
 Description:
   Plays sample instruments in the DecentSampler format (.dspreset and
   .dslibrary), which Pianobook and many other free libraries use. It also
