@@ -12,9 +12,11 @@ internal sealed class PrefixesPage
     private readonly Action<string> toast;
     private readonly Operation operations;
     private readonly Gtk.Box list = Gtk.Box.New(Gtk.Orientation.Vertical, 12);
+    private readonly Gtk.SearchEntry search = Gtk.SearchEntry.New();
     private readonly HashSet<string> changing = new(StringComparer.Ordinal);
 
     private PrefixPage? open;
+    private Snapshot shown = new([], []);
     private readonly RefreshGeneration generation = new();
 
     public PrefixesPage(
@@ -42,7 +44,12 @@ internal sealed class PrefixesPage
             }
         });
 
+        search.SetPlaceholderText("Search by name");
+        search.SetVisible(false);
+        search.OnSearchChanged += (_, _) => Ui.Guard(Rebuild);
+
         var page = Ui.Page();
+        page.Append(search);
         page.Append(Ui.Scrolled(list));
         list.Append(Ui.Loading("Reading prefixes…"));
         Widget = page;
@@ -91,19 +98,31 @@ internal sealed class PrefixesPage
                     return;
                 }
 
-                Show(task.Result);
+                shown = task.Result;
+                Rebuild();
             }));
     }
 
-    private void Show(Snapshot snapshot)
+    private void Rebuild()
     {
         Ui.Clear(list);
-        var prefixes = snapshot.Prefixes;
+        var prefixes = shown.Prefixes;
+        search.SetVisible(prefixes.Count > 0);
 
         if (prefixes.Count == 0)
         {
             list.Append(Empty());
-            Reopen(prefixes, snapshot.RunnerNames);
+            Reopen(prefixes, shown.RunnerNames);
+            return;
+        }
+
+        var query = search.GetText();
+        var matching = prefixes.Where(prefix => prefix.Matches(query)).ToList();
+
+        if (matching.Count == 0)
+        {
+            list.Append(Nothing());
+            Reopen(prefixes, shown.RunnerNames);
             return;
         }
 
@@ -114,13 +133,13 @@ internal sealed class PrefixesPage
         create.OnClicked += (_, _) => Ui.Guard(NewPrefix);
         group.SetHeaderSuffix(create);
 
-        foreach (var prefix in prefixes)
+        foreach (var prefix in matching)
         {
-            group.Add(Row(prefix, snapshot.RunnerNames));
+            group.Add(Row(prefix, shown.RunnerNames));
         }
 
         list.Append(group);
-        Reopen(prefixes, snapshot.RunnerNames);
+        Reopen(prefixes, shown.RunnerNames);
     }
 
     private void ShowFailure(string message)
@@ -169,6 +188,26 @@ internal sealed class PrefixesPage
         return empty;
     }
 
+    private Adw.StatusPage Nothing()
+    {
+        var empty = Adw.StatusPage.New();
+        empty.SetIconName(Icons.Prefixes);
+        empty.SetTitle("Nothing matches");
+        empty.SetDescription("No prefix answers to that search.");
+
+        var clear = Gtk.Button.NewWithLabel("Clear search");
+        clear.SetHalign(Gtk.Align.Center);
+        clear.AddCssClass("pill");
+        clear.OnClicked += (_, _) => Ui.Guard(() =>
+        {
+            search.SetText("");
+            Rebuild();
+        });
+        empty.SetChild(clear);
+
+        return empty;
+    }
+
     private List<string> RunnerNames() =>
         [.. new Runners(layout, runner).List().Select(found => found.Name)];
 
@@ -209,22 +248,7 @@ internal sealed class PrefixesPage
 
     private void EndChange(string name) => changing.Remove(name);
 
-    private static string Subtitle(Prefix prefix)
-    {
-        var state = prefix.Initialised ? prefix.Runner : "not initialised";
-
-        if (prefix.Sync != SyncMode.System)
-        {
-            state += $"  ·  {PrefixSettings.Word(prefix.Sync)}";
-        }
-
-        if (prefix.Dxvk is not null)
-        {
-            state += $"  ·  DXVK {prefix.Dxvk}";
-        }
-
-        return prefix.Ilok is null ? state : $"{state}  ·  iLok {prefix.Ilok}";
-    }
+    private static string Subtitle(Prefix prefix) => string.Join("  ·  ", prefix.Traits);
 
     private void NewPrefix()
     {

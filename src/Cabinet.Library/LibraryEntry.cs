@@ -146,18 +146,12 @@ public sealed record LibraryFilter(
             || string.Equals(Developer, entry.Developer, StringComparison.OrdinalIgnoreCase))
         && (Kind is null || Kind == entry.Kind)
         && (Installed is null || Installed == installed)
-        && Terms().All(term =>
-            Haystack(entry).Contains(term, StringComparison.OrdinalIgnoreCase));
-
-    private IEnumerable<string> Terms() =>
-        (Search ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-
-    private static string Haystack(LibraryEntry entry) => string.Join(
-        ' ',
-        entry.Name,
-        entry.Id,
-        entry.Developer,
-        entry.Category,
-        entry.Summary,
-        entry.Vendor);
+        && TextSearch.Matches(
+            Search,
+            entry.Name,
+            entry.Id,
+            entry.Developer,
+            entry.Category,
+            entry.Summary,
+            entry.Vendor);
 }

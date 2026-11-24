@@ -2,7 +2,35 @@ namespace Cabinet.Core;
 
 public sealed record Prefix(
     string Name, string Path, bool Initialised, string Runner, string? Dxvk, string? Ilok,
-    SyncMode Sync, bool Desktop, string? WebView2 = null);
+    SyncMode Sync, bool Desktop, string? WebView2 = null)
+{
+    public IReadOnlyList<string> Traits
+    {
+        get
+        {
+            List<string> traits = [Initialised ? Runner : "not initialised"];
+
+            if (Sync != SyncMode.System)
+            {
+                traits.Add(PrefixSettings.Word(Sync));
+            }
+
+            if (Dxvk is not null)
+            {
+                traits.Add($"DXVK {Dxvk}");
+            }
+
+            if (Ilok is not null)
+            {
+                traits.Add($"iLok {Ilok}");
+            }
+
+            return traits;
+        }
+    }
+
+    public bool Matches(string? search) => TextSearch.Matches(search, [Name]);
+}
 
 public sealed partial class Prefixes(Layout layout, IProcessRunner runner)
 {

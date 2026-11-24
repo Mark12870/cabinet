@@ -273,9 +273,16 @@ internal static partial class Program
         return Exit.Ok;
     }
 
-    private static int List(Layout layout, IProcessRunner runner, bool json)
+    private static Func<int> ListPrefixes(CommandLine line, Layout layout, IProcessRunner runner)
     {
-        var prefixes = new Prefixes(layout, runner).List();
+        var search = line.Option("--search");
+        return line.Then(json => ListPrefixes(layout, runner, search, json));
+    }
+
+    private static int ListPrefixes(Layout layout, IProcessRunner runner, string? search, bool json)
+    {
+        var all = new Prefixes(layout, runner).List();
+        var prefixes = all.Where(prefix => prefix.Matches(search)).ToList();
 
         if (json)
         {
@@ -283,9 +290,15 @@ internal static partial class Program
             return Exit.Ok;
         }
 
-        if (prefixes.Count == 0)
+        if (all.Count == 0)
         {
             Console.WriteLine("No prefixes yet. Create one with `cabinet new <name>`.");
+            return Exit.Ok;
+        }
+
+        if (prefixes.Count == 0)
+        {
+            Console.WriteLine("No prefix matches that.");
             return Exit.Ok;
         }
 

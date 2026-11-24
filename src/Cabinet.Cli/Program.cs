@@ -17,7 +17,7 @@ internal static partial class Program
                                                place an .msi's files and registry values in that
                                                prefix without Windows Installer
           cabinet delete <name>                delete a prefix and everything in it
-          cabinet list                         list prefixes
+          cabinet list [--search <text>]       list prefixes whose name holds every word
           cabinet use <name> <runner>          move a prefix to a runner and update it
           cabinet dxvk <name>                  install DXVK, the Direct3D some editors want
           cabinet ilok <name>                  install iLok License Manager for PACE-licensed plugins
@@ -136,7 +136,7 @@ internal static partial class Program
             "install" => Install(line, layout, runner),
             "msi" => Msi(line, layout, runner),
             "delete" => One(line, "a prefix name", name => Delete(layout, runner, name)),
-            "list" => line.Then(json => List(layout, runner, json)),
+            "list" => ListPrefixes(line, layout, runner),
             "sync" => line.Then(() => Sync(layout, runner)),
             "run" => Run(line, layout, runner),
             "start" => Start(line, layout, runner),
