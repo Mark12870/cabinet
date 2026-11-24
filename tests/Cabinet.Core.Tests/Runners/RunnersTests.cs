@@ -62,6 +62,27 @@ public sealed class RunnersTests : IDisposable
     }
 
     [Fact]
+    public void InstalledRunnersFollowTheBundledOneByFamilyNewestFirst()
+    {
+        GiveRunner("example-wine-1.0-99");
+        GiveRunner("other-9.2-tkg");
+        GiveRunner("example-wine-1.0-100-p2");
+        GiveRunner("other-11.1-tkg");
+        GiveRunner("example-wine-1.0-100");
+
+        Assert.Equal(
+            [
+                Layout.BundledRunner,
+                "example-wine-1.0-100-p2",
+                "example-wine-1.0-100",
+                "example-wine-1.0-99",
+                "other-11.1-tkg",
+                "other-9.2-tkg",
+            ],
+            Subject.List().Select(r => r.Name));
+    }
+
+    [Fact]
     public void ARunnerWithNo32BitTreeIsNotMultilib()
     {
         GiveRunnerWithoutMultilib("wow64-build");

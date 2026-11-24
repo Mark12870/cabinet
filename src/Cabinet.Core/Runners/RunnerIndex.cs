@@ -142,6 +142,8 @@ public sealed class RunnerIndex(IProcessRunner runner)
 
         return listed
             .Concat(Fixed.Select(known => known.Release).Where(release => !listed.Contains(release)))
+            .GroupBy(release => release.Family)
+            .SelectMany(family => family.OrderByDescending(release => release.Version, VersionOrder.Instance))
             .ToList();
     }
 

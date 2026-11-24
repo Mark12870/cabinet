@@ -24,9 +24,10 @@ public sealed class Runners(Layout layout, IProcessRunner runner)
         }
 
         runners.AddRange(Directory.EnumerateDirectories(layout.RunnersDir)
-            .OrderBy(path => path, StringComparer.Ordinal)
             .Select(path => Path.GetFileName(path))
             .Where(name => name != Layout.BundledRunner && Layout.IsName(name))
+            .OrderBy(VersionOrder.FamilyOf, StringComparer.Ordinal)
+            .ThenByDescending(name => name, VersionOrder.Instance)
             .Select(name => new Runner(name, layout.RunnerWine(name), Bundled: false)));
 
         return runners;

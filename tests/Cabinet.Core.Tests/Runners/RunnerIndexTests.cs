@@ -144,6 +144,27 @@ public sealed class RunnerIndexTests : IDisposable
     }
 
     [Fact]
+    public void EveryFamilyIsOfferedNewestFirst()
+    {
+        var available = Answering("200", Index).Available(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            ["11.0-5", "9.0-1", "11.17", "11.15", "9.21", "d2d1-dcomp-11.0-887-p4", "d2d1-dcomp-11.0-887-p3",
+                "d2d1-dcomp-11.0-887-p2", "d2d1-dcomp-11.0-777"],
+            available.Select(release => release.Version));
+    }
+
+    [Fact]
+    public void VersionsCompareTheirNumbersAsNumbers()
+    {
+        string[] versions = ["1.0-99", "1.0-100-p10", "1.0", "1.0-100", "1.0-100-p9", "10.2", "9.30"];
+
+        Assert.Equal(
+            ["10.2", "9.30", "1.0-100-p10", "1.0-100-p9", "1.0-100", "1.0-99", "1.0"],
+            versions.OrderDescending(VersionOrder.Instance));
+    }
+
+    [Fact]
     public void TheD2D1DcompBuildIsOfferedWithoutTouchingBottlesAtAll()
     {
         var release = Answering("200", Index).Find("d2d1-dcomp-11.0-777");

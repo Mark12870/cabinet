@@ -19,20 +19,20 @@ public sealed record PrefixConfig(
 
     public static PrefixConfig For(IReadOnlyList<PrefixConfig> configs, string? version)
     {
-        var ordered = configs.OrderBy(config => config.Version, VersionOrder.Instance).ToList();
+        var ordered = configs.OrderBy(config => config.Version, SettingsVersionOrder.Instance).ToList();
 
         return version is null
             ? ordered[^1]
-            : ordered.LastOrDefault(config => VersionOrder.Instance.Compare(config.Version, version) <= 0)
+            : ordered.LastOrDefault(config => SettingsVersionOrder.Instance.Compare(config.Version, version) <= 0)
               ?? ordered[0];
     }
 
     public static PrefixConfig First(IReadOnlyList<PrefixConfig> configs) =>
-        configs.OrderBy(config => config.Version, VersionOrder.Instance).First();
+        configs.OrderBy(config => config.Version, SettingsVersionOrder.Instance).First();
 
-    private sealed class VersionOrder : IComparer<string?>
+    private sealed class SettingsVersionOrder : IComparer<string?>
     {
-        public static readonly VersionOrder Instance = new();
+        public static readonly SettingsVersionOrder Instance = new();
 
         public int Compare(string? first, string? second)
         {
