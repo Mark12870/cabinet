@@ -46,6 +46,19 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.50.0" date="2026-11-25">
+      <description>
+        <p>Add Plugin Boutique App and manage what managers install</p>
+        <ul>
+          <li>Install Plugin Boutique App from the catalogue; what it downloads is installed and bridged while it stays open</li>
+          <li>A window above the manager shows each download's progress and which plugins are ready in your DAW</li>
+          <li>See and remove the plugins a manager installed, from the Library list, its page or the command line</li>
+          <li>Opening a manager that is already running brings its window back</li>
+          <li>A plugin's page puts Open at the top and keeps Reinstall and Remove in a menu</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.49.5" date="2026-11-25">
       <description>
         <p>Update Valhalla Supermassive</p>
