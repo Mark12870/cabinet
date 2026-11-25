@@ -1,0 +1,25 @@
+Name: Plugin Boutique App
+Kind: windows
+Category: Manager
+Summary: Plugin Boutique's library and licences
+Developer: Plugin Boutique
+Version: 1.0.0
+Licence: Freeware
+Licensing:
+  The app is free and needs a Plugin Boutique account. Rent-to-Own and
+  subscription plugins are licensed through it and check in every three days.
+Formats: VST3
+Homepage: https://www.pluginboutique.com/product/3-Studio-Tools/72-Utility/18000-Plugin-Boutique-App
+Source: byo
+Account: https://www.pluginboutique.com/library
+InstallInstructions: Download the app from Membership in your Plugin Boutique library and choose it here.
+Launch: C:\Program Files\Plugin Boutique\Plugin Boutique\Plugin Boutique.exe
+Script: plugin-boutique.sh
+Keep: drive_c/users/Public/Downloads/Plugin Boutique
+Unpack: downloads.sh
+Description:
+  Plugin Boutique sells instruments, effects and sounds from many developers,
+  from Arturia, iZotope and Native Instruments to small studios, and its
+  Membership adds a free plugin each month. The app lists everything the
+  account owns and holds the licences of Rent-to-Own plans, subscriptions
+  and the Discovery Bundle.

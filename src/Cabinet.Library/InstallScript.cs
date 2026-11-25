@@ -32,7 +32,7 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
         Execute(entry, entry.Script!, environment, where, onOutput, cancellationToken: cancellationToken);
     }
 
-    public void Recover(
+    public void Finish(
         LibraryEntry entry,
         string where,
         string kept,
@@ -51,7 +51,20 @@ public sealed class InstallScript(Layout layout, IProcessRunner runner)
             environment[key] = value;
         }
 
-        Execute(entry, entry.Recover!, environment, where, onOutput, announce: false);
+        var last = "";
+
+        try
+        {
+            Execute(entry, entry.Finish!, environment, where, line =>
+            {
+                last = line;
+                onOutput?.Invoke(line);
+            }, announce: false);
+        }
+        catch (InvalidOperationException failure) when (!string.IsNullOrWhiteSpace(last))
+        {
+            throw new InvalidOperationException(last.Trim(), failure);
+        }
     }
 
     private void Execute(

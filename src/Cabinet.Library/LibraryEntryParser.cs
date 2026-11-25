@@ -92,7 +92,7 @@ internal static class LibraryEntryParser
             {
                 "Prefix", "Runner", "Dxvk", "Ilok", "WebView2", "Sync", "Winetricks", "Env", "Registry", "Desktop",
                 "Launch", "LaunchService", "LaunchHelper", "LaunchArgs", "Scheme", "Keep",
-                "Recover", "VersionFile",
+                "Recover", "Unpack", "VersionFile",
             }
                 .FirstOrDefault(fields.ContainsKey)
                 is { } windowsOnly)
@@ -140,11 +140,27 @@ internal static class LibraryEntryParser
                 + "whose downloads Cabinet holds on to");
         }
 
-        if (Value(fields, "Keep") is not null && Value(fields, "Recover") is null)
+        if (Value(fields, "Unpack") is not null && Value(fields, "Keep") is null)
         {
             throw new InvalidOperationException(
-                $"{id}.yml has Keep but no Recover — keeping downloads is only of use to a "
-                + "script that recovers from them");
+                $"{id}.yml has Unpack but no Keep — an unpacking script needs the directory "
+                + "whose downloads Cabinet holds on to");
+        }
+
+        if (Value(fields, "Recover") is not null && Value(fields, "Unpack") is not null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has both Recover and Unpack — Unpack already finishes what is left "
+                + "once the app closes");
+        }
+
+        if (Value(fields, "Keep") is not null
+            && Value(fields, "Recover") is null
+            && Value(fields, "Unpack") is null)
+        {
+            throw new InvalidOperationException(
+                $"{id}.yml has Keep but no Recover or Unpack — keeping downloads is only of use "
+                + "to a script that installs from them");
         }
 
         if (Value(fields, "Keep") is not null && Value(fields, "Launch") is null)
@@ -197,7 +213,8 @@ internal static class LibraryEntryParser
             family && shared is not null,
             shared,
             Value(fields, "VersionFile") is { } versionFile ? ParseVersionFile(id, versionFile) : null,
-            Value(fields, "WebView2") is { } webView2 && bool.Parse(webView2));
+            Value(fields, "WebView2") is { } webView2 && bool.Parse(webView2),
+            Value(fields, "Unpack") is { } unpack ? ParseScript(id, unpack) : null);
     }
 
     private static IReadOnlyList<PrefixConfig> Share(

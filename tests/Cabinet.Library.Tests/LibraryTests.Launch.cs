@@ -802,4 +802,273 @@ public partial class LibraryTests
         Assert.Contains($"Plugin host log{Environment.NewLine}terminate called", log);
         Assert.Contains($"Plugin host log, previous session{Environment.NewLine}the run that froze", log);
     }
+
+    [Fact]
+    public void ADownloadIsUnpackedWhileTheAppIsStillOpen()
+    {
+        var layout = Layout();
+        var script = Write(Vendor, "unpack.sh", "");
+        var entry = Unpacking();
+        var downloaded = Path.Combine(layout.PrefixPath(entry.Prefix), "drive_c", "downloads", "product.zip");
+        using var unpacked = new ManualResetEventSlim();
+        var whileOpen = false;
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual(["-e", script]))
+            {
+                unpacked.Set();
+            }
+
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+            {
+                File.WriteAllText(downloaded, "zip");
+                whileOpen = unpacked.Wait(TimeSpan.FromSeconds(10));
+            }
+        });
+        Recorded(layout, entry);
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.True(whileOpen);
+    }
+
+    [Fact]
+    public void AnAppCabinetStoppedHasNotFailed()
+    {
+        var entry = Manager();
+        var layout = Layout();
+        var recorder = new RecordingRunner(
+            args =>
+            {
+                if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+                {
+                    new Library(layout, new RecordingRunner(outputs: _ => Gone)).Stop(entry);
+                }
+            },
+            args => args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]) ? 1 : 0);
+        Recorded(layout, entry);
+
+        var thrown = Record.Exception(() => new Library(layout, recorder).Launch(entry));
+
+        Assert.Null(thrown);
+    }
+
+    [Fact]
+    public void ADownloadFetchedAgainIsUnpackedAgain()
+    {
+        var layout = Layout();
+        var script = Write(Vendor, "unpack.sh", "");
+        var entry = Unpacking();
+        var downloads = Path.Combine(layout.PrefixPath(entry.Prefix), "drive_c", "downloads");
+        using var unpacked = new SemaphoreSlim(0);
+        var again = false;
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual(["-e", script]))
+            {
+                foreach (var download in Directory.GetFiles(downloads))
+                {
+                    File.Delete(download);
+                }
+
+                unpacked.Release();
+            }
+
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+            {
+                File.WriteAllText(Path.Combine(downloads, "product.zip"), "zip");
+                unpacked.Wait(TimeSpan.FromSeconds(10));
+                File.WriteAllText(Path.Combine(downloads, "other.zip"), "zip");
+                unpacked.Wait(TimeSpan.FromSeconds(10));
+                File.WriteAllText(Path.Combine(downloads, "product.zip"), "zip again");
+                again = unpacked.Wait(TimeSpan.FromSeconds(10));
+            }
+        });
+        Directory.CreateDirectory(downloads);
+        Recorded(layout, entry);
+
+        new Library(layout, recorder).Launch(entry);
+
+        Assert.True(again);
+    }
+
+    [Fact]
+    public void AFailedUnpackStillBridgesWhatItInstalled()
+    {
+        var layout = Layout();
+        var script = Write(Vendor, "unpack.sh", "");
+        var entry = Unpacking();
+        var downloaded = Path.Combine(layout.PrefixPath(entry.Prefix), "drive_c", "downloads", "product.zip");
+        using var bridged = new ManualResetEventSlim();
+        var whileOpen = false;
+        var recorder = new RecordingRunner(
+            args =>
+            {
+                if (args.SequenceEqual(["-e", script]))
+                {
+                    File.WriteAllText(Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Half.vst3"), "");
+                }
+
+                if (args.SequenceEqual(["sync", "--prune", "--no-verify"]))
+                {
+                    bridged.Set();
+                }
+
+                if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+                {
+                    File.WriteAllText(downloaded, "zip");
+                    whileOpen = bridged.Wait(TimeSpan.FromSeconds(10));
+                }
+            },
+            args => args.SequenceEqual(["-e", script]) ? 1 : 0);
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        Recorded(layout, entry);
+
+        Record.Exception(() => new Library(layout, recorder).Launch(entry));
+
+        Assert.True(whileOpen);
+    }
+
+    private static LibraryEntry Unpacking() =>
+        LibraryEntry.Parse(
+            "thing",
+            "Name: Thing\nKind: windows\nSource: byo\n" + @"Launch: C:\Thing.exe" + "\n"
+            + "Keep: drive_c/downloads\nUnpack: unpack.sh\n",
+            Vendor);
+
+    [Fact]
+    public void AnInstallSaysWhatIsReady()
+    {
+        var layout = Layout();
+        var script = Write(Vendor, "unpack.sh", "");
+        var entry = Unpacking();
+        var downloads = Path.Combine(layout.PrefixPath(entry.Prefix), "drive_c", "downloads");
+        using var installed = new ManualResetEventSlim();
+        var steps = new List<DownloadStep>();
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual(["-e", script]))
+            {
+                File.Delete(Path.Combine(downloads, "product.zip"));
+                File.WriteAllText(Path.Combine(layout.PrefixVst3Dir(entry.Prefix), "Product.vst3"), "");
+            }
+
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+            {
+                File.WriteAllText(Path.Combine(downloads, "product.zip"), "zip");
+                installed.Wait(TimeSpan.FromSeconds(10));
+            }
+        });
+        Directory.CreateDirectory(downloads);
+        Directory.CreateDirectory(layout.PrefixVst3Dir(entry.Prefix));
+        Recorded(layout, entry);
+
+        new Library(layout, recorder).Launch(entry, onDownload: step =>
+        {
+            steps.Add(step);
+
+            if (step is DownloadInstalled)
+            {
+                installed.Set();
+            }
+        });
+
+        var done = steps.OfType<DownloadInstalled>().First();
+        Assert.Equal(["Product (VST3)"], done.Ready);
+        Assert.Null(done.Failure);
+    }
+
+    [Fact]
+    public void ADownloadThatStopsHalfwaySaysSo()
+    {
+        var layout = Layout();
+        Write(Vendor, "unpack.sh", "");
+        var entry = Unpacking();
+        var downloads = Path.Combine(layout.PrefixPath(entry.Prefix), "drive_c", "downloads");
+        using var arriving = new ManualResetEventSlim();
+        using var ended = new ManualResetEventSlim();
+        DownloadInstalled? told = null;
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+            {
+                File.WriteAllText(Path.Combine(downloads, "6975"), "partial");
+                arriving.Wait(TimeSpan.FromSeconds(10));
+                File.Delete(Path.Combine(downloads, "6975"));
+                ended.Wait(TimeSpan.FromSeconds(10));
+            }
+        });
+        Directory.CreateDirectory(downloads);
+        Recorded(layout, entry);
+
+        new Library(layout, recorder).Launch(entry, onDownload: step =>
+        {
+            if (step is DownloadReceiving)
+            {
+                arriving.Set();
+            }
+
+            if (step is DownloadInstalled done)
+            {
+                told = done;
+                ended.Set();
+            }
+        });
+
+        Assert.Equal("The download stopped before it finished.", told?.Failure);
+    }
+
+    [Fact]
+    public void AnAppClosedDuringADownloadSaysSo()
+    {
+        var layout = Layout();
+        Write(Vendor, "unpack.sh", "");
+        var entry = Unpacking();
+        var downloads = Path.Combine(layout.PrefixPath(entry.Prefix), "drive_c", "downloads");
+        using var arriving = new ManualResetEventSlim();
+        DownloadInstalled? told = null;
+        var recorder = new RecordingRunner(args =>
+        {
+            if (args.SequenceEqual([Prefixes.JoinMode, entry.Launch!]))
+            {
+                File.WriteAllText(Path.Combine(downloads, "6975"), "partial");
+                arriving.Wait(TimeSpan.FromSeconds(10));
+            }
+        });
+        Directory.CreateDirectory(downloads);
+        Recorded(layout, entry);
+
+        new Library(layout, recorder).Launch(entry, onDownload: step =>
+        {
+            if (step is DownloadReceiving)
+            {
+                arriving.Set();
+            }
+
+            if (step is DownloadInstalled done)
+            {
+                told = done;
+            }
+        });
+
+        Assert.Equal("Thing closed before the download finished.", told?.Failure);
+    }
+
+    [Fact]
+    public void AnUnnamedFileLeftFromAnEarlierSessionIsNotADownload()
+    {
+        var layout = Layout();
+        Write(Vendor, "unpack.sh", "");
+        var entry = Unpacking();
+        var downloads = Path.Combine(layout.PrefixPath(entry.Prefix), "drive_c", "downloads");
+        var steps = new List<DownloadStep>();
+        Directory.CreateDirectory(downloads);
+        File.WriteAllText(Path.Combine(downloads, "6975"), "partial");
+        File.SetLastWriteTimeUtc(Path.Combine(downloads, "6975"), DateTime.UtcNow.AddHours(-1));
+        Recorded(layout, entry);
+
+        new Library(layout, new RecordingRunner()).Launch(entry, onDownload: steps.Add);
+
+        Assert.Empty(steps);
+    }
 }

@@ -56,6 +56,8 @@ public sealed class Layout
 
     public const string OpenMarker = ".cabinet-open-";
 
+    private const string StoppedMarker = ".cabinet-stopped-";
+
     public const string NativeInstallingMarker = InstallingMarker + "-";
 
     public const string StagingMarker = ".cabinet-staging-";
@@ -282,6 +284,9 @@ public sealed class Layout
 
     public string PrefixOpen(string name, string id) =>
         Path.Combine(PrefixPath(name), OpenMarker + Named(id, "plugin"));
+
+    public string PrefixStopped(string name, string id) =>
+        Path.Combine(PrefixPath(name), StoppedMarker + Named(id, "plugin"));
 
     public string PrefixSystemReg(string name) =>
         Path.Combine(PrefixPath(name), "system.reg");

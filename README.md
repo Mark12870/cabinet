@@ -17,7 +17,7 @@ with immutable Linux systems like Fedora Silverblue in mind.
 <table>
 <tr><th>Managers &amp; players</th><th>Synths</th><th>Effects</th><th>Guitar &amp; bass</th><th>Samplers, drums &amp; keys</th></tr>
 <tr valign="top">
-<td>Arturia Software Center<br>Cymatics Hub<br>IK Product Manager<br>inMusic Software Center<br>iZotope Product Portal<br>Klevgrand Helper<br>Mastering the Mix Installer Manager<br>Minimal Audio Hub<br>Native Access<br>Plugin Alliance Installation Manager<br>Roland Cloud Manager<br>SINEplayer<br>Spitfire Audio App<br>Splice INSTRUMENT<br>UVI Portal<br>Waves Central</td>
+<td>Arturia Software Center<br>Cymatics Hub<br>IK Product Manager<br>inMusic Software Center<br>iZotope Product Portal<br>Klevgrand Helper<br>Mastering the Mix Installer Manager<br>Minimal Audio Hub<br>Native Access<br>Plugin Alliance Installation Manager<br>Plugin Boutique App<br>Roland Cloud Manager<br>SINEplayer<br>Spitfire Audio App<br>Splice INSTRUMENT<br>UVI Portal<br>Waves Central</td>
 <td>Digital Suburban (Dexed)<br>Madrona Labs<br>Surge Synth Team (Surge XT)<br>u-he<br>Vital Audio<br>Xfer Records (Serum)</td>
 <td>Adam Szabo (Solaris)<br>Auburn Sounds<br>Audiority (GrainSpace)<br>Baby Audio (Humanoid)<br>Celemony (Melodyne)<br>FabFilter<br>LANDR (Mastering Pro)<br>sonible<br>Sound Radix<br>Soundtoys<br>TAL Software<br>TBProAudio<br>Valhalla DSP<br>Zynaptiq</td>
 <td>Line 6 (Helix Native, Helix Stadium Native)<br>Neural Amp Modeler<br>Neural DSP</td>

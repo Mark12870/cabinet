@@ -180,6 +180,20 @@ public partial class LibraryTests
     }
 
     [Theory]
+    [InlineData("Unpack: unpack.sh\n", "Unpack but no Keep")]
+    [InlineData("Keep: drive_c/downloads\nUnpack: unpack.sh\nRecover: recover.sh\n", "both Recover and Unpack")]
+    [InlineData("Keep: drive_c/downloads\n", "no Recover or Unpack")]
+    public void KeptDownloadsNeedExactlyOneScriptToInstallThem(string fields, string named)
+    {
+        var thrown = Assert.Throws<InvalidOperationException>(
+            () => LibraryEntry.Parse(
+                "thing",
+                "Name: Thing\nKind: windows\nSource: byo\n" + @"Launch: C:\Thing.exe" + "\n" + fields));
+
+        Assert.Contains(named, thrown.Message);
+    }
+
+    [Theory]
     [InlineData("../../evil.sh")]
     [InlineData("scripts/u-he.sh")]
     [InlineData("u-he")]

@@ -19,7 +19,11 @@ public sealed partial class Library
 
     private static readonly TimeSpan Beat = TimeSpan.FromSeconds(1);
 
-    public void Launch(LibraryEntry entry, Action<string>? onOutput = null, string? link = null)
+    public void Launch(
+        LibraryEntry entry,
+        Action<string>? onOutput = null,
+        string? link = null,
+        Action<DownloadStep>? onDownload = null)
     {
         if (entry.Launch is null)
         {
@@ -38,6 +42,13 @@ public sealed partial class Library
             onOutput?.Invoke(line);
         }
 
+        if (IsOpen(prefixes, where, entry))
+        {
+            Say($"{entry.Name} is already open, so Cabinet brings its window back.");
+            Show(entry);
+            return;
+        }
+
         using var open = prefixes.OpenApp(where, $"open {entry.Name}");
         var pluginDirectories = layout.PrefixPluginDirs(where).ToList();
 
@@ -47,7 +58,7 @@ public sealed partial class Library
         }
 
         var guarded = KeepDir(where, entry);
-        var kept = new HashSet<string>(StringComparer.Ordinal);
+        var downloads = new Downloads(guarded, layout.PrefixKeptDir(where), runner, atOnce: entry.Unpack is null);
 
         if (guarded is not null)
         {
@@ -80,30 +91,88 @@ public sealed partial class Library
             }
         }
 
+        var receiving = false;
+        var installing = false;
+        var ready = new List<string>();
+        string? failed = null;
+
+        void Done(string? stopped)
+        {
+            onDownload?.Invoke(new DownloadInstalled(ready.Distinct().ToList(), failed ?? stopped));
+            receiving = false;
+            installing = false;
+            ready.Clear();
+            failed = null;
+        }
+
         var watching = Task.Run(() =>
         {
+            var lastSaid = "";
+
+            void Installing(string line)
+            {
+                lastSaid = line.Trim();
+                Say(line);
+                onDownload?.Invoke(new DownloadInstalling(line));
+            }
+
             while (monitor.Wait(
                 closed.Token,
-                watch.Pending ? Stability : Timeout.InfiniteTimeSpan))
+                watch.Pending || downloads.Arriving ? Stability : Timeout.InfiniteTimeSpan))
             {
+                if (entry.Unpack is not null && downloads.Arriving)
+                {
+                    receiving = true;
+                    onDownload?.Invoke(new DownloadReceiving(downloads.Bytes));
+                }
+
                 try
                 {
-                    Hold(guarded, layout.PrefixKeptDir(where), kept, Say);
+                    if (downloads.Hold(Say) && entry.Unpack is not null)
+                    {
+                        installing = true;
+                        Unpack(entry, prefixes, where, Installing);
+                    }
+                }
+                catch (Exception failure)
+                {
+                    failed = failure.Message;
 
+                    if (failure.Message != lastSaid)
+                    {
+                        Say(failure.Message);
+                    }
+                }
+
+                try
+                {
                     if (watch.Changed(Bundled(where)) is { } change)
                     {
                         Narrate(change, Say);
                         Bridge(prefixes, Say);
                         watch.Accept();
+                        ready.AddRange(change.Appeared.Select(Downloads.Ready));
                     }
                 }
                 catch (Exception failure)
                 {
+                    failed = receiving || installing ? failure.Message : failed;
                     Say(failure.Message);
+                }
+
+                if (installing && !watch.Pending && !downloads.Arriving)
+                {
+                    Done(null);
+                }
+                else if (receiving && !installing && !downloads.Arriving)
+                {
+                    Done("The download stopped before it finished.");
                 }
             }
         });
 
+        var stopped = layout.PrefixStopped(where, entry.Id);
+        File.Delete(stopped);
         using var opened = Underway.Begin(layout.PrefixOpen(where, entry.Id));
         opened?.Note(entry.Id);
         ProcessResult ran;
@@ -127,22 +196,18 @@ public sealed partial class Library
         }
         finally
         {
-            open.Dispose();
             closed.Cancel();
             watching.Wait();
+            open.Dispose();
         }
 
-        Hold(guarded, layout.PrefixKeptDir(where), kept, Say);
-
-        if (watch.Closed(Bundled(where)) is { } change)
-        {
-            Narrate(change, Say);
-        }
+        var unfinished = receiving && !installing && downloads.Arriving;
+        downloads.Hold(Say, settled: true);
 
         Exception? recoverFailure = null;
         var recovered = true;
 
-        if (entry.Recover is not null)
+        if (entry.Finish is not null)
         {
             try
             {
@@ -158,6 +223,12 @@ public sealed partial class Library
             {
                 recoverFailure = failure;
             }
+        }
+
+        if (watch.Closed(Bundled(where)) is { } change)
+        {
+            Narrate(change, Say);
+            ready.AddRange(change.Appeared.Select(Downloads.Ready));
         }
 
         Exception? bridgeFailure = null;
@@ -176,9 +247,19 @@ public sealed partial class Library
             opened?.Finish();
         }
 
+        if (receiving || installing)
+        {
+            Done(recoverFailure?.Message
+                 ?? bridgeFailure?.Message
+                 ?? (unfinished ? $"{entry.Name} closed before the download finished." : null));
+        }
+
         var failures = new List<Exception>();
 
-        if (!ran.Ok)
+        var stoppedByCabinet = File.Exists(stopped);
+        File.Delete(stopped);
+
+        if (!ran.Ok && !stoppedByCabinet)
         {
             foreach (var line in Tail(log))
             {
@@ -213,7 +294,7 @@ public sealed partial class Library
 
     public void Prepare(LibraryEntry entry, Action<string>? onOutput = null)
     {
-        if (entry.Recover is null)
+        if (entry.Finish is null)
         {
             return;
         }
@@ -234,7 +315,7 @@ public sealed partial class Library
     {
         using var claim = prefixes.Claim(where, $"finish {entry.Name}'s install");
 
-        new InstallScript(layout, runner).Recover(
+        new InstallScript(layout, runner).Finish(
             entry,
             layout.PrefixPath(where),
             layout.PrefixKeptDir(where),
@@ -243,6 +324,14 @@ public sealed partial class Library
 
         Settle(prefixes, where, log);
     }
+
+    private void Unpack(LibraryEntry entry, Prefixes prefixes, string where, Action<string> say) =>
+        new InstallScript(layout, runner).Finish(
+            entry,
+            layout.PrefixPath(where),
+            layout.PrefixKeptDir(where),
+            prefixes.Variables(where),
+            say);
 
     public StopOutcome Stop(
         LibraryEntry entry, TimeSpan? grace = null, Action<string>? onOutput = null)
@@ -265,6 +354,7 @@ public sealed partial class Library
         }
 
         Say($"Closing {entry.Name}.");
+        File.WriteAllText(layout.PrefixStopped(where, entry.Id), "");
         prefixes.RunJoined(where, ["taskkill", "/f", "/im", entry.LaunchExe!], logTo: log);
 
         if (entry.LaunchService is { } service)
@@ -310,10 +400,7 @@ public sealed partial class Library
 
             if (Running(prefixes, where, entry.LaunchExe!))
             {
-                var left = $"{late} It survived being ended, so it is still running.";
-                say(left);
-
-                return new StopOutcome(StopResult.LeftRunning, left);
+                return LeftRunning(entry, where, $"{late} It survived being ended, so it is still running.", say);
             }
 
             Helper(entry, prefixes, where, log, say);
@@ -324,11 +411,16 @@ public sealed partial class Library
         }
         catch (PrefixInUseException busy)
         {
-            var left = $"{late} {busy.Message}";
-            say(left);
-
-            return new StopOutcome(StopResult.LeftRunning, left);
+            return LeftRunning(entry, where, $"{late} {busy.Message}", say);
         }
+    }
+
+    private StopOutcome LeftRunning(LibraryEntry entry, string where, string left, Action<string> say)
+    {
+        File.Delete(layout.PrefixStopped(where, entry.Id));
+        say(left);
+
+        return new StopOutcome(StopResult.LeftRunning, left);
     }
 
     private static void Helper(
@@ -388,7 +480,7 @@ public sealed partial class Library
         return entry;
     }
 
-    public void Open(string link, Action<string>? onOutput = null)
+    public void Open(string link, Action<string>? onOutput = null, Action<DownloadStep>? onDownload = null)
     {
         var entry = ForLink(link);
         var where = Where(entry);
@@ -418,7 +510,14 @@ public sealed partial class Library
             return;
         }
 
-        Launch(entry, onOutput, link);
+        Launch(entry, onOutput, link, onDownload);
+    }
+
+    public void Show(LibraryEntry entry)
+    {
+        var where = Where(entry);
+        new Prefixes(layout, runner).RunJoined(
+            where, [entry.Launch!, .. entry.LaunchArgs], logTo: layout.PrefixLaunchLog(where));
     }
 
     private static bool IsOpen(Prefixes prefixes, string where, LibraryEntry entry) =>
@@ -477,33 +576,6 @@ public sealed partial class Library
             ? Path.Combine(
                 layout.PrefixPath(where), keep.Replace('/', Path.DirectorySeparatorChar))
             : null;
-
-    private void Hold(
-        string? source, string destination, ISet<string> kept, Action<string> onOutput)
-    {
-        if (source is null || !Directory.Exists(source))
-        {
-            return;
-        }
-
-        foreach (var file in Directory.EnumerateFiles(source))
-        {
-            var name = Path.GetFileName(file);
-
-            if (!kept.Add(name))
-            {
-                continue;
-            }
-
-            Directory.CreateDirectory(destination);
-
-            var linked = runner.Run("ln", ["-f", file, Path.Combine(destination, name)]);
-
-            onOutput(linked.Ok
-                ? $"  keeping {name}"
-                : $"  could not keep {name} (exit code {linked.ExitCode})");
-        }
-    }
 
     private static void Narrate(PluginChange change, Action<string>? onOutput)
     {

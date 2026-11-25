@@ -15,6 +15,7 @@ internal static partial class Program
             "remove" => One(line, "a plugin id", id => RemoveFromLibrary(layout, runner, id)),
             "launch" => One(line, "a plugin id", id => LaunchFromLibrary(layout, runner, id)),
             "stop" => One(line, "a plugin id", id => StopFromLibrary(layout, runner, id)),
+            "plugins" => PluginsFromLibrary(line, layout, runner),
             "open" => One(line, "a link", link => OpenFromLibrary(layout, runner, link)),
             "log" => One(line, "a plugin id", id => LogFromLibrary(layout, runner, id)),
             var unknown => throw line.Unknown($"library {unknown}"),
@@ -499,6 +500,44 @@ internal static partial class Program
         var outcome = library.Stop(Manager(library, id), onOutput: Console.WriteLine);
 
         return outcome.Result == StopResult.LeftRunning ? Exit.Failed : Exit.Ok;
+    }
+
+    private static Func<int> PluginsFromLibrary(CommandLine line, Layout layout, IProcessRunner runner)
+    {
+        var id = line.Word("a manager id");
+
+        return line.OptionalWord() switch
+        {
+            null => line.Then(() => ListPlugins(layout, runner, id)),
+            "remove" => One(line, "a plugin name", name => RemovePlugin(layout, runner, id, name)),
+            var unknown => throw line.Unknown($"library plugins {id} {unknown}"),
+        };
+    }
+
+    private static int ListPlugins(Layout layout, IProcessRunner runner, string id)
+    {
+        var library = new Library(layout, runner);
+        var manager = Manager(library, id);
+        var plugins = library.PluginsOf(manager);
+
+        if (plugins.Count == 0)
+        {
+            Console.WriteLine($"{manager.Name} has installed no plugins yet.");
+        }
+
+        foreach (var plugin in plugins)
+        {
+            Console.WriteLine($"{plugin.Name}  {string.Join(", ", plugin.Formats)}");
+        }
+
+        return Exit.Ok;
+    }
+
+    private static int RemovePlugin(Layout layout, IProcessRunner runner, string id, string name)
+    {
+        var library = new Library(layout, runner);
+        library.RemovePlugin(Manager(library, id), name, Console.WriteLine);
+        return Exit.Ok;
     }
 
     private static LibraryEntry Manager(Library library, string id)

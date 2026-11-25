@@ -38,8 +38,12 @@ internal static partial class Program
                                                review and apply a changed prefix config
           cabinet library restore <id>         put a prefix's edited settings back to its config
           cabinet library remove <id>          uninstall one; asks before taking its prefix
-          cabinet library launch <id>          open a manager, bridging what it installs
+          cabinet library launch <id>          open a manager, bridging what it installs, or
+                                               bring back its window while it runs
           cabinet library stop <id>            close a manager Cabinet opened
+          cabinet library plugins <id>         the plugins a manager's prefix holds
+          cabinet library plugins <id> remove <plugin>
+                                               uninstall one of them
           cabinet library open <link>          hand a sign-in link to the manager that registered it
           cabinet library log <id>             Cabinet, plugin host and yabridge logs for an installed plugin
           cabinet runners                      list installed Wine runners

@@ -330,7 +330,8 @@ internal sealed partial class LibraryPage
             ConfirmUpdate,
             ConfirmRestore,
             openPrefix,
-            one => LaunchLog(one)());
+            one => LaunchLog(one)(),
+            ShowPlugins);
         page.Show(entry, here, Running(entry.Id), reviews.GetValueOrDefault(entry.Id),
             UpdateBlocked(reviews.GetValueOrDefault(entry.Id)));
 
@@ -426,6 +427,9 @@ internal sealed partial class LibraryPage
 
         if (entry.Manager && here)
         {
+            var plugins = Ui.RowButton(Icons.Vst, $"Plugins installed through {entry.Name}");
+            plugins.OnClicked += (_, _) => Ui.Guard(() => ShowPlugins(entry));
+            row.AddSuffix(plugins);
             row.AddSuffix(Control(entry));
         }
 
@@ -436,6 +440,9 @@ internal sealed partial class LibraryPage
 
         return row;
     }
+
+    private void ShowPlugins(LibraryEntry entry) =>
+        new PluginsDialog(window, layout, runner, entry, operations, changed).Present();
 
     private Gtk.Button Control(LibraryEntry entry)
     {

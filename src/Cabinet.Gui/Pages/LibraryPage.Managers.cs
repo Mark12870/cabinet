@@ -33,7 +33,7 @@ internal sealed partial class LibraryPage
     {
         if (!Running(entry.Id))
         {
-            Launch(entry, library => library.Open(link));
+            Launch(entry, (library, downloads) => library.Open(link, onDownload: downloads));
             return;
         }
 
@@ -59,11 +59,24 @@ internal sealed partial class LibraryPage
     }
 
     private void Launch(LibraryEntry entry) =>
-        Launch(entry, library => library.Launch(entry));
+        Launch(entry, (library, downloads) => library.Launch(entry, onDownload: downloads));
 
-    private void Launch(LibraryEntry entry, Action<Library> start)
+    private void Launch(LibraryEntry entry, Action<Library, Action<DownloadStep>> start)
     {
-        if (entry.Recover is null)
+        if (Running(entry.Id))
+        {
+            Task.Run(() => new Library(layout, runner).Show(entry)).ContinueWith(shown =>
+                Ui.OnMainLoop(() =>
+                {
+                    if (shown.Exception?.GetBaseException() is { } exception)
+                    {
+                        toast($"{entry.Name} could not be shown: {exception.Message}");
+                    }
+                }));
+            return;
+        }
+
+        if (entry.Finish is null)
         {
             OpenApp(entry, start);
             return;
@@ -75,7 +88,7 @@ internal sealed partial class LibraryPage
             () => OpenApp(entry, start));
     }
 
-    private void OpenApp(LibraryEntry entry, Action<Library> start)
+    private void OpenApp(LibraryEntry entry, Action<Library, Action<DownloadStep>> start)
     {
         running.Add(entry.Id);
         toast($"Opening {entry.Name}.");
@@ -86,7 +99,7 @@ internal sealed partial class LibraryPage
         {
             try
             {
-                start(new Library(layout, runner));
+                start(new Library(layout, runner), DownloadWindow.Follow(window, entry.Name));
             }
             catch (Exception exception)
             {

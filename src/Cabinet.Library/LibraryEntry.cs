@@ -56,7 +56,8 @@ public sealed record LibraryEntry(
     bool Family = false,
     IReadOnlyList<PrefixConfig>? PrefixConfigs = null,
     string? VersionFile = null,
-    bool WebView2 = false)
+    bool WebView2 = false,
+    string? Unpack = null)
 {
     public bool Manager => Launch is not null;
 
@@ -68,6 +69,8 @@ public sealed record LibraryEntry(
     public PrefixConfig Config => PrefixConfig.For(Configs, SetupVersion);
 
     public string? LaunchExe => Launch?.Split('\\')[^1];
+
+    public string? Finish => Recover ?? Unpack;
 
     public string Consent =>
         $"Cabinet installs {Name} without showing you its licence, so installing it accepts "

@@ -13,8 +13,9 @@ internal sealed class PluginPage
     private readonly Action<PrefixUpdate> restore;
     private readonly Action<string> openPrefix;
     private readonly Func<LibraryEntry, string?> log;
+    private readonly Action<LibraryEntry> showPlugins;
     private readonly Gtk.Window window;
-    private readonly Gtk.Box body = Gtk.Box.New(Gtk.Orientation.Vertical, 18);
+    private readonly Gtk.Box body = Ui.Page();
 
     public PluginPage(
         Layout layout,
@@ -27,7 +28,8 @@ internal sealed class PluginPage
         Action<PrefixUpdate> update,
         Action<PrefixUpdate> restore,
         Action<string> openPrefix,
-        Func<LibraryEntry, string?> log)
+        Func<LibraryEntry, string?> log,
+        Action<LibraryEntry> showPlugins)
     {
         this.layout = layout;
         this.window = window;
@@ -39,12 +41,10 @@ internal sealed class PluginPage
         this.restore = restore;
         this.openPrefix = openPrefix;
         this.log = log;
+        this.showPlugins = showPlugins;
         Id = entry.Id;
 
-        var content = Ui.Page();
-        content.Append(Ui.Scrolled(body));
-
-        var view = Ui.Bars(content);
+        var view = Ui.Bars(Ui.Scrolled(body));
 
         Page = Adw.NavigationPage.New(view, entry.Name);
     }
@@ -62,7 +62,12 @@ internal sealed class PluginPage
     {
         Ui.Clear(body);
 
-        body.Append(Heading(entry, installed));
+        body.Append(Heading(entry, installed, running));
+
+        if (installed)
+        {
+            body.Append(Manage(entry));
+        }
 
         if (layout.LibraryScreenshot(entry.Vendor, entry.Id) is { } screenshot)
         {
@@ -82,8 +87,6 @@ internal sealed class PluginPage
         {
             body.Append(PrefixSetup(prefixUpdate, updateBlocked));
         }
-
-        body.Append(Act(entry, installed, running));
     }
 
     private Gtk.Widget PrefixSetup(PrefixUpdate plan, bool blocked)
@@ -146,7 +149,7 @@ internal sealed class PluginPage
         return button;
     }
 
-    private Gtk.Widget Heading(LibraryEntry entry, bool installed)
+    private Gtk.Widget Heading(LibraryEntry entry, bool installed, bool running)
     {
         var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 18);
         row.Append(Icon(entry));
@@ -165,14 +168,9 @@ internal sealed class PluginPage
         under.SetWrap(true);
         titles.Append(under);
 
-        if (installed)
-        {
-            var tag = Ui.Tag("Installed", "success");
-            tag.SetHalign(Gtk.Align.Start);
-            titles.Append(tag);
-        }
-
+        titles.SetHexpand(true);
         row.Append(titles);
+        row.Append(Primary(entry, installed, running));
         return row;
     }
 
@@ -248,54 +246,109 @@ internal sealed class PluginPage
         return group;
     }
 
-    private Gtk.Widget Act(LibraryEntry entry, bool installed, bool running)
+    private Gtk.Widget Primary(LibraryEntry entry, bool installed, bool running)
     {
-        var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
-        row.SetHalign(Gtk.Align.Center);
+        var buttons = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
+        buttons.SetValign(Gtk.Align.Center);
 
         if (!installed)
         {
-            row.Append(Pill($"Install {entry.Name}", "suggested-action", () => install(entry)));
-            return row;
+            buttons.Append(Pill("Install", "suggested-action", () => install(entry)));
+            return buttons;
         }
+
+        if (entry.Launch is null)
+        {
+            return buttons;
+        }
+
+        if (running)
+        {
+            buttons.Append(Pill("Stop", "destructive-action", () => stop(entry)));
+        }
+
+        buttons.Append(Pill(running ? "Show" : "Open", "suggested-action", () => launch(entry)));
+        return buttons;
+    }
+
+    private Gtk.Widget Manage(LibraryEntry entry)
+    {
+        var manage = new List<Gtk.Widget>();
 
         if (entry.Launch is not null)
         {
-            var open = Pill(
-                running ? "Running" : $"Open {entry.Name}",
-                "suggested-action",
-                () => launch(entry));
-
-            open.SetSensitive(!running);
-            row.Append(open);
-
-            if (running)
-            {
-                row.Append(Pill(
-                    $"Stop {entry.Name}", "destructive-action", () => stop(entry)));
-            }
-        }
-
-        if (entry.Kind == PluginKind.Windows)
-        {
-            row.Append(Pill("Reinstall", null, () => install(entry)));
+            manage.Add(Plain("Installed Plugins", null, () => showPlugins(entry)));
         }
 
         if (log(entry) is { } written)
         {
-            row.Append(Pill(
+            manage.Add(Plain(
                 "Logs", null, () => Ui.Log(window, "Cabinet, plugin host and yabridge logs", log(entry) ?? written)));
         }
 
-        row.Append(Pill($"Remove {entry.Name}", "destructive-action", () => remove(entry)));
+        manage.Add(More(entry));
+
+        var row = Row([.. manage]);
+        row.SetMarginBottom(12);
+        return row;
+    }
+
+    private Gtk.MenuButton More(LibraryEntry entry)
+    {
+        var items = Gtk.Box.New(Gtk.Orientation.Vertical, 0);
+        var popover = Gtk.Popover.New();
+        popover.AddCssClass("menu");
+        popover.SetChild(items);
+
+        if (entry.Kind == PluginKind.Windows)
+        {
+            items.Append(Item(popover, "Reinstall", null, () => install(entry)));
+        }
+
+        items.Append(Item(popover, $"Remove {entry.Name}", "error", () => remove(entry)));
+
+        var more = Gtk.MenuButton.New();
+        more.SetIconName(Icons.More);
+        more.SetTooltipText("More");
+        more.SetPopover(popover);
+        return more;
+    }
+
+    private static Gtk.Button Item(Gtk.Popover popover, string label, string? appearance, Action clicked)
+    {
+        var item = Plain(label, appearance, () =>
+        {
+            popover.Popdown();
+            clicked();
+        });
+        item.AddCssClass("flat");
+        ((Gtk.Label)item.GetChild()!).SetXalign(0);
+        return item;
+    }
+
+    private static Gtk.Box Row(params Gtk.Widget[] buttons)
+    {
+        var row = Gtk.Box.New(Gtk.Orientation.Horizontal, 12);
+        row.SetHalign(Gtk.Align.Start);
+
+        foreach (var button in buttons)
+        {
+            row.Append(button);
+        }
 
         return row;
     }
 
     private static Gtk.Button Pill(string label, string? appearance, Action clicked)
     {
-        var button = Gtk.Button.NewWithLabel(label);
+        var button = Plain(label, appearance, clicked);
         button.AddCssClass("pill");
+        return button;
+    }
+
+    private static Gtk.Button Plain(string label, string? appearance, Action clicked)
+    {
+        var button = Gtk.Button.NewWithLabel(label);
         button.OnClicked += (_, _) => Ui.Guard(clicked);
 
         if (appearance is not null)

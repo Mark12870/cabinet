@@ -60,14 +60,14 @@ public class CatalogueTests
     }
 
     [Fact]
-    public void EveryRecoverScriptAnEntryNamesIsShippedBesideIt()
+    public void EveryRecoverOrUnpackScriptAnEntryNamesIsShippedBesideIt()
     {
         var layout = Catalogue.Layout();
 
         var missing = Shipped
-            .Where(entry => entry.Recover is not null)
-            .Where(entry => !File.Exists(layout.LibraryScript(entry.Vendor, entry.Recover!)))
-            .Select(entry => $"{entry.Id} -> {entry.Vendor}/{entry.Recover}");
+            .Where(entry => entry.Finish is not null)
+            .Where(entry => !File.Exists(layout.LibraryScript(entry.Vendor, entry.Finish!)))
+            .Select(entry => $"{entry.Id} -> {entry.Vendor}/{entry.Finish}");
 
         Assert.Empty(missing);
     }
@@ -256,7 +256,7 @@ public class CatalogueTests
             .Select(script => Path.GetFileName(script))
             .Order(StringComparer.Ordinal);
 
-        Assert.Equal(["kontakt-8.sh"], writing);
+        Assert.Equal(["downloads.sh", "kontakt-8.sh"], writing);
     }
 
     [Fact]
