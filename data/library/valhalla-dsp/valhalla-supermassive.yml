@@ -3,13 +3,13 @@ Kind: windows
 Category: Effect
 Summary: Huge reverbs and delays
 Developer: Valhalla DSP
-Version: 5.0.0
+Version: 6.0.0
 Licence: Freeware
 Formats: VST3, VST2
 Homepage: https://valhalladsp.com/shop/reverb/valhalla-supermassive/
 Source: download
-Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/supermassive/ValhallaSupermassiveWin_V5_0_0.zip
-Sha256: 67e0cedbed9e680b11dfb582618dd257e2dba8b8d10189d59811e4c10414911d
+Url: https://valhallaproduction.s3.us-west-2.amazonaws.com/supermassive/ValhallaSupermassiveWin_V6_0_0.zip
+Sha256: 899c7dbd00871b74b42c9370e146f59a79b751872954cf7e59e21a02fce6a9c6
 Script: valhalla.sh
 Description:
   Reverbs and delays with very long feedback, in 22 modes named after things
