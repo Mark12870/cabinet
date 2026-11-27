@@ -46,6 +46,15 @@
   <content_rating type="oars-1.1" />
   
   <releases>
+    <release version="0.50.2" date="2026-11-27">
+      <description>
+        <p>Update Dexed</p>
+        <ul>
+          <li>Install Dexed 1.1.1 from the updated catalogue</li>
+        </ul>
+      </description>
+    </release>
+
     <release version="0.50.1" date="2026-11-26">
       <description>
         <p>Update Valhalla Supermassive</p>
